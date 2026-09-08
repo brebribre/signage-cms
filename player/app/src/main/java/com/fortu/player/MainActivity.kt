@@ -29,6 +29,7 @@ import com.fortu.player.ui.IdleScreen
 import com.fortu.player.ui.PairingScreen
 import com.fortu.player.ui.PreparingScreen
 import com.fortu.player.ui.StartingScreen
+import com.fortu.player.ui.TroubleScreen
 
 class MainActivity : ComponentActivity() {
     private val vm: PlayerViewModel by viewModels()
@@ -96,6 +97,8 @@ class MainActivity : ComponentActivity() {
                     is PlayerState.Preparing ->
                         PreparingScreen(s.deviceName, s.done, s.total, s.currentFile)
                     is PlayerState.Idle -> IdleScreen(s.deviceName)
+                    is PlayerState.Trouble ->
+                        TroubleScreen(s.deviceName, s.message, s.apiHost, s.attempts)
                     is PlayerState.Playing -> PlaybackSurface(
                         items = s.items,
                         fileFor = vm::localFileFor,

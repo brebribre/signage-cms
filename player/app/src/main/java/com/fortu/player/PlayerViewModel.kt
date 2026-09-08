@@ -56,6 +56,17 @@ sealed interface PlayerState {
 
     /** Paired but nothing assigned. A valid state, not an error. */
     data class Idle(val deviceName: String, val orientation: String? = null) : PlayerState
+
+    /** Paired, but the sync loop is failing — bad network, a server error, a manifest this
+     *  build cannot read. Shown rather than left on the splash: a screen stuck on a logo is
+     *  indistinguishable from a screen that has crashed, which is the whole failure this
+     *  app's states exist to avoid. */
+    data class Trouble(
+        val deviceName: String?,
+        val message: String,
+        val apiHost: String,
+        val attempts: Int,
+    ) : PlayerState
     data class Playing(
         val items: List<ManifestItem>,
         val shuffle: Boolean,
@@ -120,19 +131,39 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private suspend fun runForever() {
+        val host = BuildConfig.API_BASE_URL.substringAfter("://").substringBefore("/")
+        var consecutiveFailures = 0
+
         while (true) {
             try {
                 val token = store.token() ?: pairUntilClaimed() ?: continue
                 syncAndPlay(token)
+                consecutiveFailures = 0
             } catch (e: UnauthorizedException) {
                 // The screen was unpaired or deleted in the CMS. Drop everything and show a
                 // fresh code rather than sitting on a dead token.
                 Log.w(TAG, "token rejected, re-pairing")
                 store.clear()
+                consecutiveFailures = 0
                 _state.value = PlayerState.Starting
             } catch (e: Exception) {
                 Log.e(TAG, "loop error", e)
+                consecutiveFailures++
                 _debug.update { it.copy(lastError = e.message) }
+
+                // Only take over the screen once something is playing is not an option. A
+                // single failed poll while content is on screen must not replace it with an
+                // error card — the cached loop is still the best thing to be showing.
+                val current = _state.value
+                val isShowingContent = current is PlayerState.Playing
+                if (!isShowingContent) {
+                    _state.value = PlayerState.Trouble(
+                        deviceName = store.name(),
+                        message = e.message ?: e::class.simpleName ?: "Unknown error",
+                        apiHost = host,
+                        attempts = consecutiveFailures,
+                    )
+                }
                 delay(POLL_SECONDS * 1000L)
             }
         }

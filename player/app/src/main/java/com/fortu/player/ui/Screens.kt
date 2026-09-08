@@ -202,6 +202,53 @@ fun IdleScreen(deviceName: String) {
     }
 }
 
+/**
+ * Paired, but the sync loop is failing. Deliberately verbose: this is read by whoever is
+ * standing in front of a screen that is not showing what it should, and every line here is
+ * something they would otherwise have to ask for.
+ */
+@Composable
+fun TroubleScreen(deviceName: String?, message: String, apiHost: String, attempts: Int) {
+    Box(Modifier.fillMaxSize().background(Ink), contentAlignment = Alignment.Center) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(horizontal = 48.dp),
+        ) {
+            Text(
+                deviceName ?: "This screen",
+                color = InkInverse,
+                fontSize = 34.sp,
+                fontWeight = FontWeight.Medium,
+            )
+            Text(
+                "Cannot reach the server",
+                color = InkMuted,
+                fontSize = 22.sp,
+                modifier = Modifier.padding(top = 10.dp),
+            )
+            Text(
+                apiHost,
+                color = InkSubtle,
+                fontSize = 16.sp,
+                modifier = Modifier.padding(top = 22.dp),
+            )
+            Text(
+                message,
+                color = InkSubtle,
+                fontSize = 14.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+            Text(
+                "Retrying — attempt $attempts",
+                color = InkMuted,
+                fontSize = 15.sp,
+                modifier = Modifier.padding(top = 22.dp),
+            )
+        }
+    }
+}
+
 @Composable
 fun StartingScreen() {
     Box(Modifier.fillMaxSize().background(Ink), contentAlignment = Alignment.Center) {

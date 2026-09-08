@@ -1385,6 +1385,27 @@ date, not before.
 
 ---
 
+## A paired screen could hang on the splash (found while testing on hardware)
+
+`runForever()` caught every non-auth exception, logged it, waited 30 seconds and retried —
+**without ever changing the visible state**. So a screen that already had a token and then failed
+to sync (bad network, a server error, a manifest the build could not parse) sat on the `FORTU`
+splash indefinitely, showing nothing and explaining nothing.
+
+That directly contradicted the principle the rest of these states were built around: *a screen
+showing a code can be diagnosed from across the room; a black one cannot*. A screen showing a logo
+is no better than a black one — it is indistinguishable from a crash.
+
+Added `PlayerState.Trouble`, showing the device name, the API host, the actual error and a retry
+count. Deliberately verbose, because it is read by whoever is standing in front of a screen that
+is not showing what it should.
+
+**It does not take over a screen that is currently playing.** A single failed poll while content
+is on air must not replace it with an error card — the cached loop is still the best thing to be
+showing, which is the entire point of caching by checksum.
+
+---
+
 ## Boot relaunch never worked (found while testing on hardware)
 
 `BootReceiver` called `startActivity()` from a broadcast receiver, and **since Android 10 that is
