@@ -45,8 +45,12 @@ const router = createRouter({
         {
           path: 'devices',
           name: 'devices',
-          component: () => import('@/containers/PlaceholderContainer.vue'),
-          props: { title: 'Devices', phase: 'Phase 9' },
+          component: () => import('@/containers/DeviceListContainer.vue'),
+        },
+        {
+          path: 'devices/:id',
+          name: 'device-detail',
+          component: () => import('@/containers/DeviceDetailContainer.vue'),
         },
         {
           path: 'settings/users',

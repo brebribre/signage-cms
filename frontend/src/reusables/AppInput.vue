@@ -2,7 +2,15 @@
 /**
  * A control needs a visible target before it is focused, so inputs keep a border even
  * though cards do not. Focus is a darker line rather than a colour, since there is none.
+ *
+ * `inheritAttrs: false` + `v-bind="$attrs"` on the inner `<input>`: without this, Vue's
+ * automatic fallthrough puts any listener the caller attaches — `@blur`, `@keyup.enter`, a
+ * plain `id` override — on this component's root `<div>` instead of the input inside it.
+ * A `@blur` on a div that never receives focus simply never fires, silently, with no error
+ * anywhere — that is exactly how a save-on-blur handler stopped saving.
  */
+defineOptions({ inheritAttrs: false })
+
 defineProps<{
   label?: string
   id?: string
@@ -24,6 +32,7 @@ const model = defineModel<string>({ default: '' })
       <span v-if="required" class="text-ink-subtle">*</span>
     </label>
     <input
+      v-bind="$attrs"
       :id="id"
       v-model="model"
       :type="type ?? 'text'"

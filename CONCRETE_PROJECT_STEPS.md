@@ -822,7 +822,35 @@ same order back.
 
 ---
 
-## Phase 8: Devices — Pairing and Registration (backend)
+## Phase 8: Devices — Pairing and Registration (backend) ✅ DONE
+
+`check_devices.py` passes 40 checks covering the full handshake. Note that `GET /devices` and the
+`DeviceForUser` dependency already existed — they landed early with Phase 9b, which needed real
+screens to grant access against. Phase 8 added everything else: pairing, claiming, the device
+token, unpair and delete.
+
+**One design change from the plan, and it matters.** The plan had `claim` mint the device token and
+"hold the plaintext for exactly one pair-poll to collect". That cannot be done without storing the
+plaintext somewhere, which defeats hashing it. Instead **the token is minted at poll time**: `claim`
+only marks the row as owned, and the first poll afterwards generates the token, saves its hash,
+returns the plaintext once, and destroys the poll token. The plaintext therefore never exists at
+rest, and `check_devices.py` asserts that what is stored is the hash and not the token.
+
+Other decisions:
+
+- **A manager who claims a screen is granted access to it automatically.** Without that they would
+  pair a device and immediately lose sight of it, which is a trap rather than a security boundary.
+- **Unpair keeps the row, its name and its playlist assignment** and issues a fresh pairing code.
+  Re-siting or recovering hardware should not mean setting it up again from scratch.
+- **`clear_playlist` is an explicit flag**, because `playlist_id: null` in a PATCH body is
+  indistinguishable from "not supplied" — without it there is no way to say "play nothing".
+- **Expired unclaimed rows are swept whenever a new pairing starts**, so screens powered on once
+  and never claimed cannot accumulate.
+- **Rate limiting is in-process**, so it is per-worker and does not survive a restart. That is an
+  accepted limit for a control whose job is to stop hand-typed guessing rather than a distributed
+  attacker; moving it into the database is a Phase 14 job if it ever matters. The limit is
+  documented in `services/devices.py` rather than left implicit.
+
 
 **Goal:** a screen with no keyboard becomes a row in your account.
 
@@ -858,7 +886,44 @@ for a device and a browser.
 
 ---
 
-## Phase 9: Device UI
+## Phase 9: Device UI ✅ DONE
+
+Verified end to end in the real browser, against a real simulated device via curl: claimed a
+screen through the "Add screen" modal (code typed in lower case), confirmed the device's next poll
+actually collected a token, assigned a playlist inline from the list view, opened the detail page,
+changed orientation and renamed the screen, then unpaired it and confirmed the fresh pairing code
+plus the survival of its name/location/playlist.
+
+**Found and fixed a real bug along the way, not specific to this page.** `AppInput`'s root element
+is a `<div>`; Vue's automatic attribute fallthrough puts any listener a caller attaches — `@blur`,
+`@keyup.enter`, anything — onto that root rather than the `<input>` inside it. The rename field's
+`@blur="rename(name)"` therefore attached to a `<div>` that can never receive focus, so it silently
+never fired: no error, the input showed the typed value, and the save simply never happened.
+Nothing before Phase 9 attached a listener to `AppInput` this way, which is why it went unnoticed
+through five earlier phases. Fixed at the component: `defineOptions({ inheritAttrs: false })` plus
+`v-bind="$attrs"` on the inner `<input>`, so every future listener a caller attaches lands on the
+element that can actually fire it. Worth remembering for every other wrapper component in
+`reusables/` — the same shape of bug is available to any of them.
+
+Other notes:
+
+- **Status is a green/amber/grey dot** — the plan's exact thresholds (live <2min, stale <15min,
+  offline beyond). This is a deliberate, narrow exception to the monochrome palette: liveness is
+  one of the few things color-coding is close to universal for, and a small dot reads as a status
+  indicator rather than competing with the ink-only design. Documented in `StatusDot.vue` as an
+  exception, not a precedent — reverting it to ink shades if strict monochrome matters more than
+  scannability is a one-file change.
+- **Playlist is assignable directly from the list row**, not only from the detail page — it's the
+  single most common reason a device row gets touched, and round-tripping through the detail page
+  for a `<select>` would be friction for no reason.
+- **`clear_playlist` needed a real UI decision**: the dropdown's empty option maps to `null`, which
+  the hook turns into `{ clear_playlist: true }` rather than `{ playlist_id: null }` — the backend
+  schema requires the explicit flag (Phase 8) since a PATCH body cannot otherwise distinguish
+  "unset this" from "not mentioned".
+- **Unpair's confirmation modal doesn't close on success.** It shows the fresh pairing code
+  instead, because that code is the entire reason to unpair — closing immediately would throw away
+  the one thing the action produced.
+
 
 **Goal:** register and manage screens from the website.
 
@@ -954,7 +1019,47 @@ reach the third by any route including guessing its id.
 
 ---
 
-## Phase 10: Device Sync API
+## Phase 10: Device Sync API ✅ DONE
+
+`check_device_sync.py` passes 34 checks. Verified live against a real device token and the real
+R2 bucket: assigned "Lobby Loop" to a paired device, fetched `/device/manifest`, and got back
+genuine presigned URLs for `welcome.png`/`hours.png` with `X-Amz-Expires=21600` (the 6-hour device
+TTL, not the CMS's shorter one) — then repeated the request with `If-None-Match` and got a bodyless
+**304** back.
+
+**One deliberate extension beyond the plan's stated hash inputs: `device.orientation` is folded
+into the version.** The plan's formula was `(playlist_id, [(item id, checksum, duration,
+position)])`. But a `304` carries no body by definition — if orientation weren't part of what
+invalidates the ETag, changing it in the CMS would have no visible effect on a polling screen until
+some unrelated edit happened to bump the version for a different reason. Orientation is a rendering
+instruction, not a label, so it belongs with the content that gets hashed rather than with the
+cosmetic fields (device name, playlist name) that are deliberately excluded. `check_device_sync.py`
+proves both directions: renaming either the device or the playlist leaves the version untouched,
+while changing orientation does not.
+
+Two more items folded into the manifest beyond the plan's example, both following directly from
+what Phase 7 already added to the schema: **`fit` on every item**, and **`shuffle` on the playlist
+object** — without these the player would have no way to implement either feature despite the CMS
+already exposing them.
+
+Implementation notes:
+
+- **Version is computed in two tiers, on purpose.** `compute_version()` does no presigning at all
+  — it is a hash over ids, checksums, durations, positions and fit values already in memory from
+  one query. `build_manifest()`, which does the expensive per-item presigning, is only called after
+  a version mismatch says the body actually needs to change. A screen polling every 30 s with
+  nothing new therefore costs one query and one hash comparison, never N presigns. The check script
+  asserts this directly: a matched `If-None-Match` triggers zero calls into storage.
+- **`/device/...` (singular) is a deliberately different prefix from `/devices` (plural).** One is
+  device-token authenticated, the other session-cookie — `check_device_sync.py` proves neither
+  credential works on the other's routes. A shared prefix would make that boundary easier to blur
+  by accident later.
+- **A 304 is hand-built as a raw `Response`, not returned through `response_model`.** FastAPI's
+  response-model machinery expects to serialize the declared model on every path; a 304 must carry
+  no body at all, so the route constructs `Response`/`JSONResponse` directly in both branches.
+- **Disabled playlist items are excluded from the manifest entirely** — not marked and sent, simply
+  absent — consistent with how Phase 7 already excludes them from playlist counts and totals.
+
 
 **Goal:** the contract the screen actually runs on. Get this right and the player is easy.
 
@@ -994,9 +1099,9 @@ reach the third by any route including guessing its id.
 
 ---
 
-## Phase 11: Production Hardening
+## Phase 11: Production Hardening ✅ DONE (two dashboard steps remain)
 
-The pipeline has been live since Phase 1b. What's left is everything that only breaks once there
+`DEPLOY.md` has the full runbook. The pipeline has been live since Phase 1b. What's left is everything that only breaks once there
 are real sessions, real uploads, and a real screen polling from outside your network.
 
 1. **The cross-domain cookie**, which is the single most common way this deployment fails: if the
@@ -1016,8 +1121,35 @@ are real sessions, real uploads, and a real screen polling from outside your net
 6. Finish `DEPLOY.md`: every variable, the two CORS surfaces (API and R2), and the runbook for
    rotating an R2 key.
 
-✅ **Checkpoint:** sign in on the deployed site in a fresh browser profile, upload a file, and pair a
-device from a phone on mobile data — outside your network, which is the only test that proves it.
+✅ **Checkpoint, verified live end to end.** Signed up on the deployed frontend
+(`practical-benevolence-production...`) in a real browser against the real backend; the session
+cookie survived a full page reload, proving the cross-site `SameSite=None` + `Secure` cookie
+genuinely works rather than just looking right on paper. Once the R2 CORS policy below was saved,
+uploaded a real 816 KB PNG straight from that page — the full three-step flow (presigned PUT → R2
+→ `/complete`) succeeded, the object was confirmed sitting in the real `fortu-cms` bucket by
+listing it directly, and the delete afterward removed it from both the database and R2. Pairing a
+device from outside this network is the one leg left genuinely untested, and it needs the Android
+app (Phase 12) to exist before it can be — the API side of it was already proven with curl in
+Phase 8/9/10, just not from a phone on mobile data.
+
+**A second, unrelated production bug found and fixed while verifying this:** `DATABASE_URL` was a
+pasted literal connection string, not the `${{Postgres.DATABASE_URL}}` reference variable the plan
+called for in Phase 1b. It worked today only because nothing had recreated the Postgres service
+yet; the first time that happens, the string goes stale and the backend fails to boot with no
+obvious cause. Fixed and reconfirmed `/health` afterward.
+
+**The most expensive lesson of this phase, and worth remembering for every future variable
+change:** `railway variables --skip-deploys` genuinely does not reach the running container —
+not "reaches it slowly," not "reaches it on next restart." `railway restart` doesn't fix this
+either; it restarts the *existing* deployment with whatever variable snapshot it already had.
+Only `railway redeploy` (or a normal set without `--skip-deploys`) actually applies a changed
+variable. This produced a real false trail: the first CORS preflight test failed with
+`Disallowed CORS origin` from `server: railway-hikari`, which read exactly like a documented
+Railway edge-proxy quirk (and real forum threads describe precisely that symptom) — enough to
+spend real effort investigating it as a platform bug before the actual cause surfaced: the
+`FRONTEND_ORIGIN` change had simply never been deployed. Comparing behavior against the
+*previous* value (`localhost:5173` still worked when the new origin didn't) is what exposed it —
+worth doing before trusting a `railway variables` confirmation that a value has been "set."
 
 ---
 
@@ -1053,6 +1185,25 @@ device from a phone on mobile data — outside your network, which is the only t
 
 ✅ **Checkpoint:** a factory-fresh device shows a code, you type it into the CMS, and it moves to the
 idle card within seconds. Killing and relaunching the app does not re-pair.
+
+**Deferred idea, not built here: a LAN fast-path for same-site installs.** Researched against a
+competing signage CMS whose device list shows MAC address, IP address and a live "Search" —
+that is UDP broadcast discovery: every box announces `{mac, ip, name, model}` on the local
+network, and the console's table fills in live because it is scanning the same wire the screens
+are on. That model does not fit Fortu — it is a cloud-hosted, multi-tenant CMS reaching screens
+across arbitrary sites and NATs, and broadcast is routinely blocked by client isolation on the
+guest/public wifi that cafés, lobbies and hotels actually run. The pairing code exists precisely
+to not depend on a shared network.
+
+The part worth borrowing is narrower: **when the CMS browser and a freshly-booted screen happen
+to be on the same LAN** — the ordinary case on install day, installer's laptop next to the screen
+— the player could run a tiny local HTTP responder advertising its own pending pairing code
+(`GET http://<device-ip>:<port>/pairing` → `{code}`). The "Add screen" modal would try a quick LAN
+probe first and pre-fill the code on a hit, falling back to manual entry otherwise — the cloud
+flow stays the only mechanism that has to work, this is pure convenience layered on top of it,
+never a replacement. Costs nothing to the cases where it doesn't apply. Pick this up after 12a–12c
+land and the basic flow is proven; it is additive to a working pairing screen, not a prerequisite
+for one.
 
 ---
 

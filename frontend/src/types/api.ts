@@ -123,7 +123,7 @@ export interface ItemWrite {
   is_enabled?: boolean
 }
 
-// --- Devices (listing only; pairing arrives in Phase 8) ---
+// --- Devices ---
 
 export type DeviceOrientation = 'landscape' | 'portrait'
 
@@ -138,6 +138,30 @@ export interface DeviceRead {
   app_version: string | null
   last_seen_at: string | null
   paired_at: string | null
+}
+
+export interface ClaimBody {
+  pairing_code: string
+  name: string
+  location?: string
+}
+
+export interface DeviceUpdateBody {
+  name?: string
+  location?: string
+  orientation?: DeviceOrientation
+  playlist_id?: string | null
+  /** Explicit, because `playlist_id: null` is indistinguishable from "not sent". */
+  clear_playlist?: boolean
+}
+
+/** Returned by unpair — the screen's new pairing code, same shape as a fresh boot. */
+export interface PairStartResponse {
+  device_id: string
+  pairing_code: string
+  poll_token: string
+  expires_at: string
+  poll_seconds: number
 }
 
 // --- Users (owner only) ---

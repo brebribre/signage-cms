@@ -17,7 +17,8 @@ TAGS_METADATA = [
     {"name": "auth", "description": "Signup, login and the current session."},
     {"name": "media", "description": "The media library and its upload pipeline."},
     {"name": "playlists", "description": "Ordered lists of media with a duration per slot."},
-    {"name": "devices", "description": "Screens registered to an account."},
+    {"name": "devices", "description": "Pairing, claiming and managing signage screens."},
+    {"name": "device-sync", "description": "What a paired screen polls: manifest and heartbeat."},
     {"name": "users", "description": "Subusers and their device grants. Owner only."},
 ]
 

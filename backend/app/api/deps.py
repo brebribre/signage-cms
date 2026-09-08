@@ -14,6 +14,7 @@ from sqlmodel import Session
 from app.config import get_settings
 from app.infra.db import session_scope
 from app.models import Device, DeviceAccess, User, UserRole
+from app.services import devices as device_service
 from app.services.session import read_session_token
 
 
@@ -92,3 +93,30 @@ def device_for_user(device_id: uuid.UUID, user: CurrentUser, session: DbSession)
 
 
 DeviceForUser = Annotated[Device, Depends(device_for_user)]
+
+
+def get_current_device(request: Request, session: DbSession) -> Device:
+    """Resolve a screen from its `Authorization: Bearer <token>` header, or 401.
+
+    **Device auth and user auth never overlap.** A device token cannot call `/media`, and a
+    session cookie cannot call `/device/manifest` — they are separate dependencies reading
+    separate credentials, so there is no path by which one is mistaken for the other.
+    """
+    unauthorized = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid device token",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+    header = request.headers.get("Authorization", "")
+    scheme, _, token = header.partition(" ")
+    if scheme.lower() != "bearer" or not token:
+        raise unauthorized
+
+    try:
+        return device_service.authenticate(session, bearer=token)
+    except device_service.DeviceNotFound:
+        raise unauthorized from None
+
+
+CurrentDevice = Annotated[Device, Depends(get_current_device)]
