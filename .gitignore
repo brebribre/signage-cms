@@ -1,0 +1,37 @@
+# --- Environment (never commit a filled-in .env) ---
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# --- Node / frontend ---
+node_modules/
+dist/
+dist-ssr/
+*.tsbuildinfo
+
+# --- Android player ---
+.gradle/
+build/
+local.properties
+captures/
+*.apk
+*.aab
+*.keystore
+*.jks
+
+# --- Editors / OS ---
+.DS_Store
+.idea/
+*.iml
+.vscode/*
+!.vscode/extensions.json

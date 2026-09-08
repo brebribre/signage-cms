@@ -1,0 +1,23 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: signage-cms-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: signage
+      POSTGRES_PASSWORD: signage
+      POSTGRES_DB: signage
+    ports:
+      # 5434, not 5432 or 5433: 5433 is strava-comp's, and both projects should
+      # be able to run at the same time.
+      - "5434:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U signage -d signage"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:
