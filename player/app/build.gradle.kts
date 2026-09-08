@@ -52,6 +52,15 @@ android {
         compose = true
         buildConfig = true
     }
+
+    testOptions {
+        unitTests {
+            // PlayerEngine has no Android dependencies, but it does call android.util.Log.
+            // Returning defaults keeps those calls harmless instead of throwing
+            // "not mocked" and failing every test for an irrelevant reason.
+            isReturnDefaultValues = true
+        }
+    }
 }
 
 dependencies {
@@ -71,4 +80,7 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.coil.compose)
+
+    testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
 }

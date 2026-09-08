@@ -16,14 +16,14 @@ import java.io.IOException
  * times a day. The checksum is the content's identity and never changes, so a re-issued URL
  * for unchanged content is recognised as already-downloaded.
  */
-class MediaCache(context: Context) {
+class MediaCache(context: Context, private val client: OkHttpClient) : com.fortu.player.MediaStore {
     private val dir = File(context.filesDir, "media").apply { mkdirs() }
 
     private fun safeName(checksum: String) = checksum.replace(Regex("[^A-Za-z0-9]"), "_")
 
     fun fileFor(checksum: String): File = File(dir, safeName(checksum))
 
-    fun isCached(item: ManifestItem): Boolean {
+    override fun isCached(item: ManifestItem): Boolean {
         val f = fileFor(item.checksum)
         // Size check as well as existence: a download interrupted by a power cut leaves a
         // short file behind, and playing that is worse than re-fetching it.
@@ -31,7 +31,7 @@ class MediaCache(context: Context) {
     }
 
     @Throws(IOException::class)
-    fun download(client: OkHttpClient, item: ManifestItem) {
+    override fun download(item: ManifestItem) {
         val target = fileFor(item.checksum)
         // Write to a temp file and rename only on success, so an interrupted download can
         // never be mistaken for a complete one.
@@ -53,7 +53,7 @@ class MediaCache(context: Context) {
      * Called only **after** every new item has downloaded successfully — evicting first would
      * risk leaving a screen with a half-empty cache if the network died mid-swap.
      */
-    fun evictExcept(keep: Collection<String>) {
+    override fun evictExcept(keep: Collection<String>) {
         val keepNames = keep.map(::safeName).toSet()
         dir.listFiles()?.forEach { f ->
             if (f.name !in keepNames) {
@@ -62,5 +62,5 @@ class MediaCache(context: Context) {
         }
     }
 
-    fun cachedBytes(): Long = dir.listFiles()?.sumOf { it.length() } ?: 0L
+    override fun cachedBytes(): Long = dir.listFiles()?.sumOf { it.length() } ?: 0L
 }

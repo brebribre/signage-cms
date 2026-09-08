@@ -17,28 +17,28 @@ private val Context.dataStore by preferencesDataStore(name = "fortu_player")
  * mode plus `POST /devices/{id}/unpair` on the server, which revokes it centrally. Encrypting
  * it locally would be theatre.
  */
-class DeviceStore(private val context: Context) {
+class DeviceStore(private val context: Context) : com.fortu.player.TokenStore {
     private val tokenKey = stringPreferencesKey("device_token")
     private val etagKey = stringPreferencesKey("manifest_etag")
     private val nameKey = stringPreferencesKey("device_name")
 
-    suspend fun token(): String? = context.dataStore.data.first()[tokenKey]
-    suspend fun etag(): String? = context.dataStore.data.first()[etagKey]
-    suspend fun name(): String? = context.dataStore.data.first()[nameKey]
+    override suspend fun token(): String? = context.dataStore.data.first()[tokenKey]
+    override suspend fun etag(): String? = context.dataStore.data.first()[etagKey]
+    override suspend fun name(): String? = context.dataStore.data.first()[nameKey]
 
-    suspend fun saveToken(token: String, name: String?) {
+    override suspend fun saveToken(token: String, name: String?) {
         context.dataStore.edit {
             it[tokenKey] = token
             if (name != null) it[nameKey] = name
         }
     }
 
-    suspend fun saveEtag(etag: String) {
+    override suspend fun saveEtag(etag: String) {
         context.dataStore.edit { it[etagKey] = etag }
     }
 
     /** Called when the server rejects our token — drops everything so the app re-pairs. */
-    suspend fun clear() {
+    override suspend fun clear() {
         context.dataStore.edit { it.clear() }
     }
 }

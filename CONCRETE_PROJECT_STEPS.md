@@ -1385,6 +1385,32 @@ date, not before.
 
 ---
 
+## Player tests (added after five bugs reached hardware)
+
+The Android app shipped with **no automated tests at all**, and it showed: five real bugs reached a
+device, every one of them passing a fully green nine-suite backend run. Four were state-machine
+behaviour. A server-side test cannot see a client discarding a value, and nothing else was looking.
+
+**The blocker was structural, not effort.** `PlayerViewModel` constructed its own `ApiClient`,
+`DeviceStore` and `MediaCache`, so nothing could be faked and the loop could only be exercised by
+installing the app and watching it. Fixed by extracting the state machine into `PlayerEngine` — a
+plain class with no Android dependencies, taking its collaborators as interfaces and its
+dispatcher as a parameter. The ViewModel is now a thin shell that wires the real implementations
+together and resolves cached files.
+
+Twenty JVM tests, under a second, covering each bug that got through plus the paths around them.
+`runTest` supplies virtual time, so 30-second polls and 90-second unpair thresholds cost nothing.
+
+One thing the first run taught: `applyManifest` used a hard-coded `Dispatchers.IO`, which escapes
+the test scheduler entirely — nine tests failed because assertions were racing real threads rather
+than because the code was wrong. Injecting the dispatcher fixed all nine and is the reason the
+suite is deterministic.
+
+**Checked by mutation rather than assumed:** reintroducing the single-401 token wipe fails three
+tests, and dropping orientation from the state fails three. The suite is not passing vacuously.
+
+---
+
 ## A paired screen could hang on the splash (found while testing on hardware)
 
 `runForever()` caught every non-auth exception, logged it, waited 30 seconds and retried —

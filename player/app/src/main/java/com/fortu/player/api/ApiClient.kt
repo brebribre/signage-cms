@@ -21,7 +21,7 @@ class UnauthorizedException : IOException("device token rejected")
 class ApiClient(
     private val baseUrl: String = BuildConfig.API_BASE_URL,
     val http: OkHttpClient = defaultClient(),
-) {
+) : com.fortu.player.PlayerApi {
     private val json = Json { ignoreUnknownKeys = true }
 
     companion object {
@@ -36,7 +36,7 @@ class ApiClient(
             .build()
     }
 
-    fun startPairing(): PairStartResponse {
+    override fun startPairing(): PairStartResponse {
         val req = Request.Builder()
             .url("$baseUrl/devices/pair")
             .post(ByteArray(0).toRequestBody())
@@ -48,7 +48,7 @@ class ApiClient(
     }
 
     /** Returns null when the pairing has expired or was already collected (HTTP 404). */
-    fun pollPairing(pollToken: String): PairPollResponse? {
+    override fun pollPairing(pollToken: String): PairPollResponse? {
         val req = Request.Builder().url("$baseUrl/devices/pair/$pollToken").get().build()
         http.newCall(req).execute().use { res ->
             if (res.code == 404) return null
@@ -61,7 +61,7 @@ class ApiClient(
      * `null` means "nothing changed" — the server answered 304 against the ETag we sent.
      * That is the normal case on almost every poll, and it costs a few hundred bytes.
      */
-    fun fetchManifest(token: String, etag: String?): Manifest? {
+    override fun fetchManifest(token: String, etag: String?): Manifest? {
         val builder = Request.Builder()
             .url("$baseUrl/device/manifest")
             .header("Authorization", "Bearer $token")
@@ -76,7 +76,7 @@ class ApiClient(
         }
     }
 
-    fun heartbeat(token: String, body: HeartbeatRequest): HeartbeatResponse {
+    override fun heartbeat(token: String, body: HeartbeatRequest): HeartbeatResponse {
         val req = Request.Builder()
             .url("$baseUrl/device/heartbeat")
             .header("Authorization", "Bearer $token")

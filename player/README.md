@@ -278,6 +278,43 @@ Two configurations make it legal, and a real signage deployment wants one of the
 
 While testing on an emulator or your own phone, just tap the app icon after a boot.
 
+## Tests
+
+```bash
+./gradlew testDebugUnitTest
+```
+
+Twenty tests over `PlayerEngine`, the state machine, on a plain JVM — no device, no emulator,
+under a second to run.
+
+They exist because **five real bugs reached hardware before this app had a single test**: a blur
+handler that never fired, orientation the player ignored entirely, a boot receiver that could not
+work on Android 10+, a screen that hung on the splash forever, and a single 401 permanently
+unpairing a working screen. Four of the five were state-machine behaviour, and every one passed a
+fully green backend suite — because a server-side test cannot see the client discarding a value.
+
+The engine takes its collaborators as interfaces (`PlayerApi`, `TokenStore`, `MediaStore`) and its
+dispatcher as a parameter, purely so this is possible. Before that refactor the ViewModel built
+its own `ApiClient`, `DeviceStore` and `MediaCache`, and the loop could only be tested by
+installing the app and watching it.
+
+What they pin down, each mapping to something that actually broke or could:
+
+- an unpaired screen shows a code, names its server, and visibly keeps polling
+- an expired code is replaced rather than displayed forever
+- **a paired screen that cannot sync shows `Trouble`, never hangs on the splash**
+- **trouble never replaces content that is already playing** — a failed poll must not blank a wall
+- **one 401 does not unpair a screen; repeated 401s still do**, so a real revocation works
+- content downloads before it is shown, and eviction happens only afterwards
+- one bad file does not stop the rest of the loop
+- **orientation from the manifest reaches the state the UI reads**
+- a 304 changes nothing and re-downloads nothing
+- plays batch onto the next heartbeat and are drained, not resent forever
+- an update is never attempted where it cannot install silently, and a failed one is not retried
+
+Verified by mutation: reintroducing the single-401 wipe or dropping orientation from the state
+each fails three tests.
+
 ## Diagnosing a screen in front of you
 
 **Long-press anywhere** to toggle a debug overlay: device name, API URL, manifest version,
