@@ -19,7 +19,7 @@ from app.schemas.device_sync import (
     ManifestResponse,
     UpdateInfo,
 )
-from app.services import device_sync
+from app.services import device_sync, operations
 
 router = APIRouter(prefix="/device", tags=["device-sync"])
 
@@ -83,6 +83,13 @@ def heartbeat(body: HeartbeatRequest, device: CurrentDevice, session: DbSession)
         current_item_id=body.current_item_id,
         errors=body.errors,
     )
+
+    if body.plays:
+        operations.record_plays(
+            session,
+            device=device,
+            plays=[(p.media_id, p.filename, p.started_at, p.seconds) for p in body.plays],
+        )
     update = device_sync.available_update(device)
     return HeartbeatResponse(
         version=device_sync.compute_version(session, device),

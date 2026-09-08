@@ -242,3 +242,38 @@ export interface ResolutionRead {
   timezone: string
   device_local_time: string
 }
+
+// --- Operations ---
+
+export interface StorageRead {
+  used_bytes: number
+  /** null means unlimited. */
+  quota_bytes: number | null
+  file_count: number
+}
+
+export interface DeviceHealthRead {
+  device_id: string
+  name: string
+  last_seen_at: string | null
+  minutes_since_seen: number | null
+  is_online: boolean
+  error_count_24h: number
+  plays_24h: number
+  app_version: string | null
+}
+
+export interface DeviceEventRead {
+  id: string
+  level: 'info' | 'error'
+  message: string
+  created_at: string
+}
+
+export interface PlayEventRead {
+  id: string
+  media_id: string | null
+  filename: string
+  started_at: string
+  seconds: number
+}

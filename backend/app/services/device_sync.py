@@ -90,6 +90,7 @@ def compute_version(session: Session, device: Device, now: datetime | None = Non
 @dataclass
 class ManifestItem:
     id: uuid.UUID
+    media_id: uuid.UUID
     kind: MediaKind
     url: str
     checksum: str
@@ -145,6 +146,7 @@ def build_manifest(session: Session, device: Device, *, version: str) -> Manifes
     items = [
         ManifestItem(
             id=item.id,
+            media_id=media.id,
             kind=media.kind,
             # 6 hours, not the CMS's shorter preview TTL: a screen may be pulling a large
             # file over bad venue wifi. The checksum — not this URL — is the device's cache
@@ -229,7 +231,18 @@ def record_heartbeat(
     session.add(device)
     session.commit()
 
+    # Persisted now, not just logged. Logging alone is fine while someone is watching a
+    # terminal during setup and useless a week later, which is exactly when a health page has
+    # to answer "what went wrong on that screen".
     if errors:
+        from app.models import EventLevel
+        from app.services import operations
+
+        for message in errors[: operations.MAX_EVENTS_PER_HEARTBEAT]:
+            operations.record_event(
+                session, device=device, level=EventLevel.ERROR, message=message, commit=False
+            )
+        session.commit()
         logger.warning(
             "device %s (%s) reported %d error(s): %s",
             device.id, device.name, len(errors), "; ".join(errors[:5]),

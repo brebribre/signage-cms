@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import DeviceActivityContainer from '@/containers/DeviceActivityContainer.vue'
 import DeviceScheduleContainer from '@/containers/DeviceScheduleContainer.vue'
 import { useDeviceDetail } from '@/hooks/useDeviceDetail'
 import { useFormat } from '@/hooks/useFormat'
@@ -193,6 +194,11 @@ async function onDelete() {
            that default, and reading them in that order matches how they behave. -->
       <div class="mt-2 border-t border-line pt-6">
         <DeviceScheduleContainer :device-id="device.id" :timezone="device.timezone" />
+      </div>
+
+      <div class="border-t border-line pt-6">
+        <h2 class="mb-3 text-lg">Activity</h2>
+        <DeviceActivityContainer :device-id="device.id" />
       </div>
     </template>
 

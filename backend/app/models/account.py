@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime
 
+from sqlalchemy import BigInteger, Column
 from sqlmodel import Field, SQLModel
 
 from app.models.base import tz_column, utcnow
@@ -17,4 +18,7 @@ class Account(SQLModel, table=True):
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     name: str
+    # Bytes. None means unlimited, which is the default — a quota that appears without anyone
+    # setting it would block uploads for reasons nobody chose.
+    storage_quota_bytes: int | None = Field(default=None, sa_column=Column(BigInteger, nullable=True))
     created_at: datetime = Field(default_factory=utcnow, sa_column=tz_column(nullable=False))

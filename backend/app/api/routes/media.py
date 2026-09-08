@@ -12,6 +12,7 @@ from app.schemas.media import (
     UploadResponse,
 )
 from app.services import media as media_service
+from app.services.operations import QuotaExceeded
 from app.services.media import (
     ALLOWED_MIME,
     FileTooLarge,
@@ -55,6 +56,14 @@ def start_upload(body: UploadRequest, user: CurrentUser, session: DbSession) -> 
     except FileTooLarge:
         raise HTTPException(
             status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "That file is too large"
+        ) from None
+    except QuotaExceeded as exc:
+        # 507 rather than 413: the file itself is fine, the account is full. The distinction
+        # matters because the fix is different — delete something, or raise the quota.
+        raise HTTPException(
+            status.HTTP_507_INSUFFICIENT_STORAGE,
+            f"Storage full — {exc.used / 1_048_576:.0f} MB of "
+            f"{exc.quota / 1_048_576:.0f} MB used. Delete something first.",
         ) from None
 
     return UploadResponse(

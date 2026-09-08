@@ -12,7 +12,7 @@ from sqlmodel import Session, delete, select
 
 from app.infra import storage
 from app.config import get_settings
-from app.models import Media, MediaKind, MediaStatus, Playlist, PlaylistItem, User, UserRole
+from app.models import Account, Media, MediaKind, MediaStatus, Playlist, PlaylistItem, User, UserRole
 from app.services.errors import DomainError
 
 # Deliberately narrow. h.264/AAC in MP4 is the only combination a cheap Android stick is
@@ -81,6 +81,15 @@ def start_upload(
         raise UnsupportedMediaType(content_type)
     if size_bytes <= 0 or size_bytes > settings.media_max_bytes:
         raise FileTooLarge(str(size_bytes))
+
+    # Refused here, before a presigned URL exists — the only point where saying no is still
+    # clean. Once the browser is PUTting to R2 the bytes are already being paid for, and
+    # rejecting at `complete` would leave the object orphaned.
+    from app.services import operations
+
+    account = session.get(Account, user.account_id)
+    if account is not None:
+        operations.check_quota(session, account=account, incoming_bytes=size_bytes)
 
     media_id = uuid.uuid4()
     key = _object_key(user.account_id, media_id, filename)

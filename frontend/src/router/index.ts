@@ -43,6 +43,11 @@ const router = createRouter({
           component: () => import('@/containers/PlaylistEditorContainer.vue'),
         },
         {
+          path: 'health',
+          name: 'health',
+          component: () => import('@/containers/FleetHealthContainer.vue'),
+        },
+        {
           path: 'devices',
           name: 'devices',
           component: () => import('@/containers/DeviceListContainer.vue'),

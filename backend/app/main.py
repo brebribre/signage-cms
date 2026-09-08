@@ -19,6 +19,7 @@ TAGS_METADATA = [
     {"name": "playlists", "description": "Ordered lists of media with a duration per slot."},
     {"name": "devices", "description": "Pairing, claiming and managing signage screens."},
     {"name": "schedules", "description": "Dayparting: when each playlist runs on a screen."},
+    {"name": "operations", "description": "Fleet health, storage and proof of play."},
     {"name": "device-sync", "description": "What a paired screen polls: manifest and heartbeat."},
     {"name": "users", "description": "Subusers and their device grants. Owner only."},
 ]

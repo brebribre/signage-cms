@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 
 from pydantic import BaseModel, Field
 
@@ -18,6 +19,10 @@ class ManifestPlaylist(BaseModel):
 
 class ManifestItem(BaseModel):
     id: uuid.UUID
+    #: The underlying media, distinct from `id` (which identifies the playlist *slot*). The
+    #: device reports this back for proof-of-play, and the server resolves the filename from
+    #: it — so the log stays authoritative rather than trusting a name the device made up.
+    media_id: uuid.UUID
     kind: MediaKind
     url: str
     checksum: str
@@ -44,11 +49,25 @@ class HeartbeatScreen(BaseModel):
     height: int = Field(gt=0)
 
 
+class PlayReport(BaseModel):
+    """One item the screen actually showed. Batched by the device and sent on the next
+    heartbeat, because an item can be shorter than the heartbeat interval — reporting only
+    what is on screen *right now* would miss most of the loop."""
+
+    media_id: uuid.UUID | None = None
+    filename: str = Field(default="", max_length=255)
+    started_at: datetime
+    seconds: int = Field(default=0, ge=0, le=86_400)
+
+
 class HeartbeatRequest(BaseModel):
     app_version: str | None = Field(default=None, max_length=32)
     screen: HeartbeatScreen | None = None
     current_item_id: uuid.UUID | None = None
     errors: list[str] = Field(default_factory=list, max_length=20)
+    # Proof of play. Capped so a device with a runaway loop or a broken clock cannot flood
+    # the table in one request.
+    plays: list[PlayReport] = Field(default_factory=list, max_length=50)
 
 
 class UpdateInfo(BaseModel):

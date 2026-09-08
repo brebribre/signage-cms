@@ -9,6 +9,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -61,11 +62,19 @@ fun PlaybackSurface(
     items: List<ManifestItem>,
     fileFor: (ManifestItem) -> File,
     modifier: Modifier = Modifier,
+    /** Called as each item finishes, for proof-of-play. Reported in batches on the next
+     *  heartbeat rather than immediately — an item can be shorter than the heartbeat
+     *  interval, and a request per item would be absurd traffic for a 10-second image. */
+    onPlayed: (ManifestItem, Long, Int) -> Unit = { _, _, _ -> },
 ) {
     var index by remember(items) { mutableIntStateOf(0) }
     val item = items[index.coerceIn(items.indices)]
+    var startedAt by remember(items) { mutableLongStateOf(System.currentTimeMillis()) }
 
     fun advance() {
+        val now = System.currentTimeMillis()
+        onPlayed(item, startedAt, ((now - startedAt) / 1000).toInt())
+        startedAt = now
         index = if (items.isEmpty()) 0 else (index + 1) % items.size
     }
 

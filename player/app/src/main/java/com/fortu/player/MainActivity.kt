@@ -73,6 +73,7 @@ class MainActivity : ComponentActivity() {
                     is PlayerState.Playing -> PlaybackSurface(
                         items = s.items,
                         fileFor = vm::localFileFor,
+                        onPlayed = vm::reportPlay,
                     )
                 }
                 if (showDebug) DebugOverlay(debug)

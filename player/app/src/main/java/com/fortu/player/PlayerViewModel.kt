@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.fortu.player.api.ApiClient
 import com.fortu.player.api.HeartbeatRequest
 import com.fortu.player.api.HeartbeatScreen
+import com.fortu.player.api.PlayReport
 import com.fortu.player.api.Manifest
 import com.fortu.player.api.ManifestItem
 import com.fortu.player.api.UnauthorizedException
@@ -71,6 +72,14 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     /** When the current schedule window ends, as epoch millis. The poll interval is
      *  shortened to land on it. */
     private var validUntilMillis: Long? = null
+
+    /** Plays observed since the last heartbeat, drained when one is sent.
+     *  Bounded so a screen that cannot reach the server for hours accumulates a report
+     *  instead of unbounded memory — the oldest entries are the ones worth dropping. */
+    private val pendingPlays = java.util.Collections.synchronizedList(mutableListOf<PlayReport>())
+
+    /** Errors observed since the last heartbeat, reported the same way. */
+    private val pendingErrors = java.util.Collections.synchronizedList(mutableListOf<String>())
 
     fun setScreenSize(w: Int, h: Int) { screenWidth = w; screenHeight = h }
 
@@ -153,13 +162,24 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             // current version, so a screen beating more often than it polls learns early
             // that it should re-fetch.
             try {
+                // Drained before the call, not after: if the request fails these are lost
+                // rather than resent forever. Proof-of-play is a best-effort record, and a
+                // screen retrying a growing backlog on every beat would be worse than a gap.
+                val plays = synchronized(pendingPlays) {
+                    pendingPlays.toList().also { pendingPlays.clear() }
+                }
+                val errors = synchronized(pendingErrors) {
+                    pendingErrors.toList().also { pendingErrors.clear() }
+                }
+
                 val res = api.heartbeat(
                     token,
                     HeartbeatRequest(
                         appVersion = BuildConfig.VERSION_NAME,
                         screen = if (screenWidth > 0) HeartbeatScreen(screenWidth, screenHeight) else null,
                         currentItemId = null,
-                        errors = emptyList(),
+                        errors = errors,
+                        plays = plays,
                     ),
                 )
                 res.update?.let { maybeSelfUpdate(it.version, it.url) }
@@ -275,6 +295,31 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Called by the playback surface each time an item finishes. */
+    fun reportPlay(item: ManifestItem, startedAtMillis: Long, seconds: Int) {
+        synchronized(pendingPlays) {
+            if (pendingPlays.size >= MAX_PENDING_PLAYS) pendingPlays.removeAt(0)
+            pendingPlays.add(
+                PlayReport(
+                    mediaId = item.mediaId,
+                    // Left blank on purpose: the server resolves the real name from mediaId,
+                    // so the log cannot drift when a file is renamed.
+                    filename = "",
+                    startedAt = java.time.Instant.ofEpochMilli(startedAtMillis).toString(),
+                    seconds = seconds,
+                )
+            )
+        }
+    }
+
+    fun reportError(message: String) {
+        synchronized(pendingErrors) {
+            if (pendingErrors.size >= MAX_PENDING_ERRORS) pendingErrors.removeAt(0)
+            pendingErrors.add(message.take(500))
+        }
+        _debug.update { it.copy(lastError = message) }
+    }
+
     fun localFileFor(item: ManifestItem) = cache.fileFor(item.checksum)
 
     companion object {
@@ -282,5 +327,9 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
         /** Never poll faster than this, whatever a boundary says. */
         const val MIN_POLL_MILLIS = 2_000L
+
+        // Matches the server's per-heartbeat cap, so a full buffer sends in one go.
+        const val MAX_PENDING_PLAYS = 50
+        const val MAX_PENDING_ERRORS = 20
     }
 }

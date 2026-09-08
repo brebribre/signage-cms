@@ -17,6 +17,7 @@ const LINKS = [
   { name: 'media', label: 'Media' },
   { name: 'playlists', label: 'Playlists' },
   { name: 'devices', label: 'Devices' },
+  { name: 'health', label: 'Health' },
 ] as const
 </script>
 

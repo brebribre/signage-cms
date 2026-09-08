@@ -1385,9 +1385,49 @@ date, not before.
 
 ---
 
-## Phase 14: Operations
+## Phase 14: Operations ✅ DONE
 
 Worth building only once screens are in the wild.
+
+`check_operations.py` passes 32 checks. Verified in the browser with real data: the health page
+showed 4 screens / 3 offline / 1 reporting errors / 2.7 MB, and the per-device Activity section
+listed actual plays and the reported decoder error.
+
+**Proof-of-play needed a protocol change, not just a table.** The heartbeat reported
+`current_item_id` — what is on screen *right now* — but items are routinely shorter than the
+60-second heartbeat, so sampling that would have missed most of the loop and quietly produced a
+log that looked plausible and was wrong. The device now batches every finished item and sends
+them on the next heartbeat.
+
+Design decisions worth recording:
+
+- **A play record outlives the media it refers to.** `media_id` is SET NULL and the filename is
+  denormalised onto the row, because a proof-of-play log that goes blank when someone tidies the
+  library is not evidence of anything. Asserted directly in the checks.
+- **The server resolves the filename from `media_id`, it does not trust what the device sent.**
+  That required adding `media_id` to the manifest (distinct from the playlist-slot `id`), and it
+  keeps the log authoritative rather than drifting when a file is renamed.
+- **Quota is enforced at `POST /media/uploads`, before a presigned URL exists** — the only point
+  where refusing is still clean. Once the browser is PUTting to R2 the bytes are already being
+  paid for, and rejecting at `complete` would leave an orphan. Refused with **507**, not 413: the
+  file is fine, the account is full, and the fix is different.
+- **Only `ready` media counts toward the quota.** A pending row may never have been uploaded;
+  billing for it would charge people for uploads that never happened.
+- **Retention is a policy, not a suggestion.** A screen showing a 10-second image generates ~8,600
+  play rows a day, so `scripts/prune_events.py` enforces 90 days for plays and 30 for events.
+- **The orphan sweep is dry-run by default** and ignores objects younger than 6 hours — an upload
+  in flight has a presigned URL and no `ready` row yet, and deleting it mid-PUT looks to the user
+  like a random failure. Run against the real bucket it found **12 objects, 12 tracked, 0
+  orphans**, independently confirming the Phase 5/6 delete path has never leaked.
+
+One check I had to correct: the first version asserted "no quota means unlimited" with a 900 MB
+upload, which is over the separate 500 MB per-file limit — so it was refused for the right reason
+by the wrong rule. The two limits are independent, and a test that trips both cannot tell which
+one fired. Now split into two checks.
+
+**Backups remain the one manual item**, flagged in `DEPLOY.md`: Railway's Postgres snapshot
+schedule and R2 object versioning are both dashboard-only, and the R2 one is `AccessDenied` with
+the deliberately object-scoped token.
 
 - **Device health page** — last seen, uptime, the reported errors from `POST /device/heartbeat`,
   given a `device_events` table.

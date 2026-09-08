@@ -32,6 +32,9 @@ data class ManifestPlaylist(val id: String, val name: String, val shuffle: Boole
 @Serializable
 data class ManifestItem(
     val id: String,
+    /** The underlying media, distinct from `id` (the playlist slot). Reported back for
+     *  proof-of-play; the server resolves the filename from it. */
+    @SerialName("media_id") val mediaId: String,
     val kind: String,
     val url: String,
     val checksum: String,
@@ -60,11 +63,23 @@ data class Manifest(
 data class HeartbeatScreen(val width: Int, val height: Int)
 
 @Serializable
+data class PlayReport(
+    @SerialName("media_id") val mediaId: String? = null,
+    val filename: String = "",
+    /** ISO-8601 UTC. */
+    @SerialName("started_at") val startedAt: String,
+    val seconds: Int = 0,
+)
+
+@Serializable
 data class HeartbeatRequest(
     @SerialName("app_version") val appVersion: String? = null,
     val screen: HeartbeatScreen? = null,
     @SerialName("current_item_id") val currentItemId: String? = null,
     val errors: List<String> = emptyList(),
+    /** Batched since the last heartbeat. An item can be shorter than the heartbeat interval,
+     *  so reporting only what is on screen right now would miss most of the loop. */
+    val plays: List<PlayReport> = emptyList(),
 )
 
 @Serializable
