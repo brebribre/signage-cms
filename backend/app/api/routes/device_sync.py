@@ -31,7 +31,18 @@ def _etag_matches(if_none_match: str | None, etag: str) -> bool:
     return "*" in candidates or etag in candidates
 
 
-@router.get("/manifest")
+@router.get(
+    "/manifest",
+    # Declared here rather than as `response_model=`, because this route returns raw
+    # Response objects (a 304 must carry no body, which response_model cannot express).
+    # Without this the manifest — the single most important contract the player depends on —
+    # would be entirely absent from /openapi.json and /docs.
+    responses={
+        200: {"model": ManifestResponse, "description": "The current playlist for this screen."},
+        304: {"description": "Content unchanged since the ETag supplied in If-None-Match."},
+        401: {"description": "Missing or invalid device token."},
+    },
+)
 def get_manifest(device: CurrentDevice, session: DbSession, request: Request) -> Response:
     """Everything a screen needs to play, and nothing else.
 
