@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Deliberately minimal. Device Owner already grants everything the kiosk needs; asking for
+  extra policies here (wipe-data, password rules) would widen what this app can do to a
+  device without buying anything a signage screen actually uses.
+-->
+<device-admin xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-policies>
+        <force-lock />
+    </uses-policies>
+</device-admin>

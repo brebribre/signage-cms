@@ -41,6 +41,9 @@ data class DebugInfo(
     val lastPoll: String = "never",
     val lastError: String? = null,
     val apiBaseUrl: String = BuildConfig.API_BASE_URL,
+    /** Whether Device Owner provisioning actually took — the one thing you cannot tell by
+     *  looking at a screen, and the difference between a kiosk and a phone showing an app. */
+    val kiosk: String = "unknown",
 )
 
 class PlayerViewModel(app: Application) : AndroidViewModel(app) {
@@ -58,6 +61,10 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     private var screenHeight = 0
 
     fun setScreenSize(w: Int, h: Int) { screenWidth = w; screenHeight = h }
+
+    fun setKioskState(description: String) {
+        _debug.update { it.copy(kiosk = description) }
+    }
 
     fun start() {
         viewModelScope.launch(Dispatchers.IO) { runForever() }

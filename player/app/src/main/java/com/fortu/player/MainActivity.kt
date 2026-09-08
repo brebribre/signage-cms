@@ -19,6 +19,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import com.fortu.player.kiosk.KioskPolicy
 import com.fortu.player.playback.PlaybackSurface
 import com.fortu.player.ui.DebugOverlay
 import com.fortu.player.ui.IdleScreen
@@ -39,6 +40,12 @@ class MainActivity : ComponentActivity() {
             systemBarsBehavior =
                 WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
+
+        // Idempotent, and a no-op unless this app is Device Owner — so the same APK is safe
+        // on a developer's phone, an emulator, and a provisioned panel.
+        KioskPolicy.apply(this)
+
+        vm.setKioskState(KioskPolicy.describe(this))
 
         val metrics = resources.displayMetrics
         vm.setScreenSize(metrics.widthPixels, metrics.heightPixels)

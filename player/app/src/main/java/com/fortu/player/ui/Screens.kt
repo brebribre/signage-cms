@@ -108,6 +108,7 @@ fun DebugOverlay(info: DebugInfo) {
             DebugRow("items", info.itemCount.toString())
             DebugRow("cached", "%.1f MB".format(info.cachedBytes / 1_048_576.0))
             DebugRow("last poll", info.lastPoll)
+            DebugRow("kiosk", info.kiosk)
             DebugRow("last error", info.lastError ?: "none")
             Text(
                 "Long-press again to dismiss",

@@ -128,15 +128,76 @@ pick Fortu Player when Android asks which launcher to use.
 > hardware dedicated to signage.
 
 **3. Device Owner mode** — the real answer for screens you control. Genuinely cannot be exited,
-and unlocks silent APK updates later. Requires a **factory-reset device with no Google account
-added**:
+disables the lock screen and system-update prompts, and unlocks silent APK updates. See the
+provisioning runbook below.
 
-```bash
-adb shell dpm set-device-owner com.fortu.player/.DeviceAdminReceiver
-```
+---
 
-This app does not ship a `DeviceAdminReceiver` yet — Device Owner is Phase 12c. Options 1 and 2
-are available today.
+## Provisioning runbook (Device Owner)
+
+Ten minutes per screen, once. **The device must be factory-reset with no Google account added**
+— Android refuses to grant Device Owner otherwise, and there is no way around it short of
+resetting again. This is why it's a provisioning step rather than a setting you can flip later.
+
+1. **Factory reset** the device. Settings → System → Reset → Erase all data.
+2. Walk through setup and **skip the Google account step**. Skip wifi too if it offers, then add
+   wifi from Settings afterwards — some setup wizards silently add an account when online.
+3. Enable **Developer options** (Settings → About → tap Build number ×7) and **USB debugging**.
+4. Install and grant ownership:
+   ```bash
+   adb install -r app/build/outputs/apk/release/app-release.apk
+   adb shell dpm set-device-owner com.fortu.player/com.fortu.player.kiosk.DeviceAdminReceiver
+   ```
+   Expect `Success: Device owner set to package com.fortu.player`. If it fails with
+   *"Not allowed to set the device owner because there are already some accounts on the
+   device"*, an account slipped in during setup — factory reset and redo step 2.
+5. **Launch the app.** It applies the full policy on first run: lock task mode, no lock screen,
+   stay-on-while-plugged, deferred system updates, and itself as the persistent launcher.
+6. **Pair it** — read the code off the screen, enter it in the CMS.
+7. **Verify:** long-press for the debug overlay. The `kiosk` row should read
+   **`device owner (full kiosk)`**. If it says `not owner (screen pinning only)`, step 4 didn't
+   take.
+8. Reboot the device once and confirm it comes back into the loop on its own.
+
+### Undoing it
+
+Device Owner cannot be removed with `adb` once set. Either factory reset the device, or add a
+temporary removal path in the app calling `dpm.clearDeviceOwnerApp()`. Worth knowing **before**
+you provision a device you might need back for something else.
+
+### What the policy actually changes
+
+| Setting | Effect |
+|---|---|
+| `setLockTaskPackages` + `startLockTask` | Only this app can hold the foreground. Home and Recents do nothing. |
+| `setKeyguardDisabled` | No lock screen to get stuck behind after a reboot. |
+| `STAY_ON_WHILE_PLUGGED_IN` | Screen never sleeps while powered — signage is always plugged in. |
+| `setSystemUpdatePolicy` (windowed) | System updates install between 03:00–05:00 instead of covering the screen mid-day. |
+| `addPersistentPreferredActivity` | The player *is* the launcher, so boot lands in the loop. |
+
+**All of it degrades safely.** On a device that isn't Device Owner — your phone, an emulator, a
+sideloaded install — every one of those calls is skipped and the app falls back to screen
+pinning. The same APK is safe everywhere, which is why the `HOME` intent-filter in the manifest
+stays commented out: the policy grants launcher status only where ownership was actually
+granted.
+
+---
+
+## Silent updates
+
+Once a screen is Device Owner, `SelfUpdater` can download an APK and install it over itself with
+no prompt and no visit. That is the feature that decides whether a fleet of screens is
+maintainable or a recurring field trip.
+
+**The mechanism is built and the permission is declared; the trigger is not wired yet.** It
+needs `apk_url` / `latest_version` added to the heartbeat response, which in turn needs a
+decision about where APKs are hosted (R2 is the obvious candidate — it's already there). Until
+then, updates are `adb install -r`, which still works over wireless debugging without a cable.
+
+`SelfUpdater.downloadAndInstall()` deliberately **refuses to run** when not Device Owner rather
+than falling back to the normal installer: that path shows a confirmation dialog nobody is
+standing in front of, which would leave a screen parked on a permission prompt instead of
+playing — strictly worse than not updating.
 
 ---
 

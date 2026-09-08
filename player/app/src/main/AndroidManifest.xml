@@ -5,6 +5,9 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Silent self-update as Device Owner (Phase 12c). Harmless on a non-owner install,
+         where SelfUpdater declines to run at all. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application
         android:allowBackup="false"
@@ -42,6 +45,26 @@
             </intent-filter>
             -->
         </activity>
+
+        <!--
+          The component `dpm set-device-owner` targets. Its presence is what makes Device
+          Owner provisioning possible; without it the command has nothing to point at.
+        -->
+        <receiver
+            android:name=".kiosk.DeviceAdminReceiver"
+            android:permission="android.permission.BIND_DEVICE_ADMIN"
+            android:exported="true">
+            <meta-data
+                android:name="android.app.device_admin"
+                android:resource="@xml/device_admin" />
+            <intent-filter>
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".kiosk.UpdateResultReceiver"
+            android:exported="false" />
 
         <receiver
             android:name=".BootReceiver"

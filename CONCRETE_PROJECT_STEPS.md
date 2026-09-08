@@ -1153,7 +1153,7 @@ worth doing before trusting a `railway variables` confirmation that a value has 
 
 ---
 
-## Phase 12a: Android App — Pairing
+## Phase 12a: Android App — Pairing ✅ DONE
 
 **Goal:** a screen with no keyboard puts itself into your account.
 
@@ -1207,7 +1207,7 @@ for one.
 
 ---
 
-## Phase 12b: Android App — Sync and Playback
+## Phase 12b: Android App — Sync and Playback ✅ DONE
 
 **Goal:** the loop plays, offline, and picks up changes.
 
@@ -1247,9 +1247,35 @@ picks up a playlist change within 30 s of Save, and survives a power cut.
 
 ---
 
-## Phase 12c: Kiosk, Provisioning and Updates
+## Phase 12c: Kiosk, Provisioning and Updates ✅ MOSTLY DONE
 
 **Goal:** hardware you can ship and not visit again.
+
+Built and compiling: `DeviceAdminReceiver`, `KioskPolicy` (lock task, keyguard disabled,
+stay-on-while-plugged, windowed system updates, persistent launcher), `SelfUpdater` +
+`UpdateResultReceiver` for silent `PackageInstaller` installs, and the full provisioning runbook
+in `player/README.md`.
+
+**The one deliberate gap: the self-update trigger is not wired.** The mechanism is complete and
+the permission is declared, but the heartbeat response carries no `apk_url` / `latest_version`
+yet — and adding it needs a decision about where APKs are hosted (R2 is the obvious candidate,
+since it is already there and already serves the device large files). Until then updates are
+`adb install -r`, which works over wireless debugging without a cable. Building the mechanism now
+means adding the trigger later is a small change rather than a new subsystem.
+
+**Every kiosk call degrades safely on a non-owner device.** The same APK has to run on a
+developer's phone, an emulator, and a factory-reset panel — so `KioskPolicy.apply()` checks
+ownership first and falls back to screen pinning, and the `HOME` intent-filter stays commented
+out in the manifest with launcher status granted through the policy instead. Without that, a
+debug install would try to take over someone's phone.
+
+`SelfUpdater` **refuses to run** when not Device Owner rather than falling back to the normal
+installer: that path shows a confirmation dialog nobody is standing in front of, leaving a screen
+parked on a permission prompt instead of playing — strictly worse than not updating at all.
+
+The debug overlay reports the kiosk state (`device owner (full kiosk)` vs
+`not owner (screen pinning only)`), because whether provisioning actually took is the one thing
+you cannot tell by looking at a screen.
 
 1. **Kiosk**, in ascending strength — pick per deployment:
    - `startLockTask()` (screen pinning) — works on any device, dismissible with a button combo
