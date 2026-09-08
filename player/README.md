@@ -189,15 +189,50 @@ Once a screen is Device Owner, `SelfUpdater` can download an APK and install it 
 no prompt and no visit. That is the feature that decides whether a fleet of screens is
 maintainable or a recurring field trip.
 
-**The mechanism is built and the permission is declared; the trigger is not wired yet.** It
-needs `apk_url` / `latest_version` added to the heartbeat response, which in turn needs a
-decision about where APKs are hosted (R2 is the obvious candidate — it's already there). Until
-then, updates are `adb install -r`, which still works over wireless debugging without a cable.
+### Releasing a new version
 
-`SelfUpdater.downloadAndInstall()` deliberately **refuses to run** when not Device Owner rather
-than falling back to the normal installer: that path shows a confirmation dialog nobody is
-standing in front of, which would leave a screen parked on a permission prompt instead of
-playing — strictly worse than not updating.
+1. Bump `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts).
+2. Build it:
+   ```bash
+   ./gradlew assembleRelease
+   ```
+3. Upload to R2 — the script reads the version straight out of the APK, so the published
+   version can never disagree with what the binary reports:
+   ```bash
+   cd ../backend
+   .venv/bin/python -m scripts.publish_player_apk \
+     ../player/app/build/outputs/apk/release/app-release.apk
+   ```
+4. It uploads, verifies, and prints the two variables to set. **Uploading does not publish** —
+   setting these does, and it pushes an install to every screen at once, so it stays a
+   deliberate act:
+   ```bash
+   railway variables --service signage-cms \
+     --set 'PLAYER_LATEST_VERSION=1.1.0' \
+     --set 'PLAYER_APK_KEY=apks/fortu-player-1.1.0.apk'
+   ```
+
+Screens pick it up on their next heartbeat (~30 s) and install silently. **Rolling back is the
+same command** pointing at an earlier version already in R2 — updates are offered whenever a
+screen's version *differs* from the published one, not only when it's older. That's deliberate:
+if a release breaks playback across a wall of screens, the fix has to be a config change rather
+than a visit to each one.
+
+### What protects you from a bad push
+
+- **Blank config publishes nothing.** `PLAYER_LATEST_VERSION` is empty by default, so a
+  misconfiguration cannot accidentally roll out an APK.
+- **Version is read from the APK**, not typed. A mismatch between the published string and the
+  binary's real `versionName` would make every screen reinstall on every heartbeat forever;
+  `publish_player_apk.py` refuses to guess and errors out instead.
+- **One install attempt per app run.** A failing install is not retried until the app restarts,
+  so a bad APK cannot become a 30-second re-download loop.
+- **A screen that has never reported its version is offered nothing** — pushing blind risks
+  exactly that loop.
+- **Non-owner devices decline.** `SelfUpdater.downloadAndInstall()` refuses to run rather than
+  falling back to the normal installer: that path shows a confirmation dialog nobody is standing
+  in front of, parking a screen on a permission prompt instead of playing — strictly worse than
+  not updating. Sideloaded and development installs update with `adb install -r` as usual.
 
 ---
 

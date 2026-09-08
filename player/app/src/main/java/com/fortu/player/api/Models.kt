@@ -61,4 +61,11 @@ data class HeartbeatRequest(
 )
 
 @Serializable
-data class HeartbeatResponse(val version: String)
+data class UpdateInfo(val version: String, val url: String)
+
+@Serializable
+data class HeartbeatResponse(
+    val version: String,
+    /** Non-null when the server has published a build this screen isn't running. */
+    val update: UpdateInfo? = null,
+)

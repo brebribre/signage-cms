@@ -46,8 +46,20 @@ class HeartbeatRequest(BaseModel):
     errors: list[str] = Field(default_factory=list, max_length=20)
 
 
+class UpdateInfo(BaseModel):
+    """An APK the screen should install. Only ever sent to a Device Owner-provisioned screen
+    in practice — anything else declines to install it, since a non-owner install shows a
+    confirmation dialog nobody is standing in front of."""
+
+    version: str
+    url: str
+
+
 class HeartbeatResponse(BaseModel):
     """The current version, so a device heartbeating more often than it polls the manifest
     learns early that it should re-fetch."""
 
     version: str
+    # null in the overwhelmingly common case: updates unconfigured, or the screen already
+    # runs the published build.
+    update: UpdateInfo | None = None

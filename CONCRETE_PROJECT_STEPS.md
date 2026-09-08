@@ -1247,7 +1247,7 @@ picks up a playlist change within 30 s of Save, and survives a power cut.
 
 ---
 
-## Phase 12c: Kiosk, Provisioning and Updates ✅ MOSTLY DONE
+## Phase 12c: Kiosk, Provisioning and Updates ✅ DONE
 
 **Goal:** hardware you can ship and not visit again.
 
@@ -1256,12 +1256,30 @@ stay-on-while-plugged, windowed system updates, persistent launcher), `SelfUpdat
 `UpdateResultReceiver` for silent `PackageInstaller` installs, and the full provisioning runbook
 in `player/README.md`.
 
-**The one deliberate gap: the self-update trigger is not wired.** The mechanism is complete and
-the permission is declared, but the heartbeat response carries no `apk_url` / `latest_version`
-yet — and adding it needs a decision about where APKs are hosted (R2 is the obvious candidate,
-since it is already there and already serves the device large files). Until then updates are
-`adb install -r`, which works over wireless debugging without a cable. Building the mechanism now
-means adding the trigger later is a small change rather than a new subsystem.
+**Self-update is now wired end to end.** APKs live in R2 alongside media; the heartbeat response
+carries an `update: {version, url}` when a screen's reported version differs from
+`PLAYER_LATEST_VERSION`, and the device installs it silently via `PackageInstaller`.
+`scripts/publish_player_apk.py` uploads and verifies a build, then prints the two variables to
+set — deliberately **not** setting them itself, because that is the act that pushes an install to
+every screen at once.
+
+Four guards, each closing a way this could go badly wrong on a wall of screens:
+
+- **Blank config publishes nothing.** `PLAYER_LATEST_VERSION` defaults to empty, so a
+  misconfiguration cannot roll anything out.
+- **The version is read out of the APK, never typed.** If the published string disagreed with the
+  binary's real `versionName`, every screen would reinstall on every heartbeat forever; the
+  publish script errors rather than guessing.
+- **One install attempt per app run.** A failing install is not retried until restart, so a bad
+  APK cannot become a 30-second re-download loop.
+- **A device that has never reported its version is offered nothing** — pushing blind risks that
+  same loop.
+
+**Updates are offered whenever a screen's version *differs*, not only when it is older**, which
+makes rollback a config change rather than a visit to every screen. For signage that trade is
+clearly right: a release that breaks playback has to be reversible centrally.
+
+`check_device_sync.py` covers all seven cases, rollback included.
 
 **Every kiosk call degrades safely on a non-owner device.** The same APK has to run on a
 developer's phone, an emulator, and a factory-reset panel — so `KioskPolicy.apply()` checks

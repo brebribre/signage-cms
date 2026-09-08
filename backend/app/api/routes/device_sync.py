@@ -17,6 +17,7 @@ from app.schemas.device_sync import (
     ManifestItem,
     ManifestPlaylist,
     ManifestResponse,
+    UpdateInfo,
 )
 from app.services import device_sync
 
@@ -80,4 +81,8 @@ def heartbeat(body: HeartbeatRequest, device: CurrentDevice, session: DbSession)
         current_item_id=body.current_item_id,
         errors=body.errors,
     )
-    return HeartbeatResponse(version=device_sync.compute_version(session, device))
+    update = device_sync.available_update(device)
+    return HeartbeatResponse(
+        version=device_sync.compute_version(session, device),
+        update=UpdateInfo(version=update.version, url=update.url) if update else None,
+    )

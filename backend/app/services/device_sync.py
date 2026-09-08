@@ -16,6 +16,7 @@ from sqlmodel import Session, select
 from app.config import get_settings
 from app.models import Device, ItemFit, Media, MediaKind, Playlist, PlaylistItem
 from app.models.base import utcnow
+from app.infra import storage
 from app.services import media as media_service
 
 logger = logging.getLogger(__name__)
@@ -133,6 +134,42 @@ def build_manifest(session: Session, device: Device, *, version: str) -> Manifes
         if playlist
         else None,
         items=items,
+    )
+
+
+@dataclass
+class AvailableUpdate:
+    version: str
+    url: str
+
+
+def available_update(device: Device) -> AvailableUpdate | None:
+    """An APK this screen should install, or None.
+
+    Offered whenever the device's reported version differs from the configured one — **not
+    only when it is older**. That makes a deliberate rollback possible by simply pointing
+    `PLAYER_LATEST_VERSION` at an earlier build, which matters more for signage than
+    preventing downgrades: if a release breaks playback on a wall of screens, the fix has to
+    be a config change, not a field visit to every one of them.
+
+    Returns None when updates are unconfigured, which is the default. A blank
+    `player_latest_version` cannot accidentally push anything.
+    """
+    settings = get_settings()
+    if not settings.player_latest_version or not settings.player_apk_key:
+        return None
+    # A device that has never reported its version gets nothing: without knowing what it is
+    # running we cannot tell whether an update is needed, and pushing blind risks an install
+    # loop on every heartbeat.
+    if not device.app_version:
+        return None
+    if device.app_version == settings.player_latest_version:
+        return None
+
+    return AvailableUpdate(
+        version=settings.player_latest_version,
+        # The same long TTL as media: an APK is a large file over the same bad venue wifi.
+        url=storage.presign_get(settings.player_apk_key, settings.device_presign_ttl_seconds),
     )
 
 

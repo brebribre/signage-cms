@@ -38,6 +38,15 @@ class Settings(BaseSettings):
     # Longer than the CMS's: a screen may be pulling a large file over bad wifi.
     device_presign_ttl_seconds: int = 6 * 3600
 
+    # --- Player self-update (Phase 12c) ---
+    # The version currently published for screens, e.g. "1.1.0". Empty disables updates
+    # entirely, which is the safe default: a misconfigured value pushes an APK to every
+    # screen you own at once.
+    player_latest_version: str = ""
+    # R2 object key for that APK, e.g. "apks/fortu-player-1.1.0.apk". Upload it with
+    # scripts/publish_player_apk.py, which sets both of these for you.
+    player_apk_key: str = ""
+
     # --- Devices (Phase 8) ---
     pairing_code_ttl_seconds: int = 900
     device_poll_seconds: int = 30

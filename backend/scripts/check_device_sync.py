@@ -239,6 +239,48 @@ def main() -> None:
     r = lobby.post("/device/heartbeat", json={"errors": ["decoder init failed"]})
     check("an error report does not fail the request", r.status_code == 200)
 
+    print("\nself-update offers (Phase 12c)")
+    from app.config import get_settings as _gs
+    settings_obj = _gs()
+    original = (settings_obj.player_latest_version, settings_obj.player_apk_key)
+    try:
+        # Unconfigured is the default, and must never offer anything: a blank version
+        # cannot accidentally push an APK to every screen.
+        settings_obj.player_latest_version = ""
+        settings_obj.player_apk_key = ""
+        r = lobby.post("/device/heartbeat", json={"app_version": "1.0.0", "errors": []})
+        check("no update offered when unconfigured", r.json()["update"] is None)
+
+        settings_obj.player_latest_version = "1.1.0"
+        settings_obj.player_apk_key = "apks/fortu-player-1.1.0.apk"
+
+        r = lobby.post("/device/heartbeat", json={"app_version": "1.0.0", "errors": []})
+        upd = r.json()["update"]
+        check("an out-of-date screen is offered the update", upd is not None)
+        check("...with the published version", upd and upd["version"] == "1.1.0", str(upd))
+        check("...and a presigned URL at the device TTL",
+              upd and "ttl=21600" in upd["url"], str(upd and upd["url"])[:60])
+
+        r = lobby.post("/device/heartbeat", json={"app_version": "1.1.0", "errors": []})
+        check("a screen already on the published build is offered nothing",
+              r.json()["update"] is None)
+
+        # A rollback is a config change, not a field visit — so a *newer* device version
+        # must still be offered the older published one.
+        r = lobby.post("/device/heartbeat", json={"app_version": "2.0.0", "errors": []})
+        check("a newer screen is offered the published build (rollback works)",
+              r.json()["update"] is not None)
+
+        # Pushing blind to a device that has never said what it runs would risk an install
+        # loop on every heartbeat.
+        with Session(engine) as s:
+            d = s.get(Device, device_id); d.app_version = None; s.add(d); s.commit()
+        r = lobby.post("/device/heartbeat", json={"errors": []})
+        check("a screen that never reported a version is offered nothing",
+              r.json()["update"] is None)
+    finally:
+        settings_obj.player_latest_version, settings_obj.player_apk_key = original
+
     print("\nno mixing credentials")
     with Session(engine) as s:
         u = s.get(User, owner.id)

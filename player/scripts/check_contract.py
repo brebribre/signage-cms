@@ -28,6 +28,7 @@ PAIRS = [
     ("HeartbeatRequest", "HeartbeatRequest"),
     ("HeartbeatResponse", "HeartbeatResponse"),
     ("HeartbeatScreen", "HeartbeatScreen"),
+    ("UpdateInfo", "UpdateInfo"),
 ]
 
 

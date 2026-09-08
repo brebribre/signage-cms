@@ -12,6 +12,7 @@ import com.fortu.player.api.ManifestItem
 import com.fortu.player.api.UnauthorizedException
 import com.fortu.player.data.DeviceStore
 import com.fortu.player.data.MediaCache
+import com.fortu.player.kiosk.SelfUpdater
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -59,6 +60,11 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     private var screenWidth = 0
     private var screenHeight = 0
+
+    /** One install attempt per process. Without this a failing install would be retried on
+     *  every heartbeat — a screen re-downloading an APK every 30 seconds forever, which is
+     *  worse than simply not updating. A restart is a deliberate second chance. */
+    private var updateAttempted = false
 
     fun setScreenSize(w: Int, h: Int) { screenWidth = w; screenHeight = h }
 
@@ -150,6 +156,8 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                         errors = emptyList(),
                     ),
                 )
+                res.update?.let { maybeSelfUpdate(it.version, it.url) }
+
                 if (etag != null && "\"${res.version}\"" != etag) {
                     // Version moved under us — loop immediately rather than waiting.
                     continue
@@ -207,6 +215,30 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         // Evict only after the new set is safely on disk.
         cache.evictExcept(manifest.items.map { it.checksum })
         _debug.update { it.copy(cachedBytes = cache.cachedBytes()) }
+    }
+
+    /**
+     * Install a published build over ourselves, if this screen is provisioned to do so.
+     *
+     * Silently declines on anything that isn't Device Owner. That is not a failure worth
+     * surfacing on screen: a sideloaded or development install simply updates by hand, and
+     * the alternative — the system's confirmation dialog — would park the screen on a prompt
+     * nobody is standing in front of.
+     */
+    private fun maybeSelfUpdate(version: String, url: String) {
+        if (updateAttempted) return
+        if (!SelfUpdater.isSupported(getApplication())) {
+            Log.i(TAG, "update $version available but this device cannot install silently")
+            updateAttempted = true
+            return
+        }
+        updateAttempted = true
+        Log.i(TAG, "installing update $version")
+        _debug.update { it.copy(lastError = "installing update $version…") }
+        val ok = SelfUpdater.downloadAndInstall(getApplication(), api.http, url)
+        if (!ok) {
+            _debug.update { it.copy(lastError = "update $version failed — see logcat") }
+        }
     }
 
     fun localFileFor(item: ManifestItem) = cache.fileFor(item.checksum)
