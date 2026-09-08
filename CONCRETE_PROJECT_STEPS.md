@@ -110,6 +110,11 @@ a working no-op; Phase 2 only adds the baseline.
 
 Three deviations from what was written, all deliberate:
 
+- **The dev server runs on port 8001, not 8000.** strava-comp's backend is already bound to
+  8000 — this cost real debugging time here: `curl localhost:8000/health` returned a cheerful
+  200 from *that* app while this one's database was stopped, so the failure path looked like it
+  passed when it had never been exercised. Same reasoning as Postgres on 5434: both projects
+  should run at once.
 - **`/health` returns 503, not 500,** when Postgres is unreachable. Service Unavailable is what a
   dependency being down actually is, and Railway's health check treats any non-2xx as unhealthy
   either way.
@@ -217,9 +222,18 @@ diagnose against a skeleton. The device API in Phase 10 needs a public HTTPS URL
    Nixpacks builds the repository root, finds no `requirements.txt`, and fails or guesses wrong.
 3. **Watch Paths** per service (`backend/**`, `frontend/**`) so a frontend commit doesn't redeploy
    the API and vice versa.
-4. **Bind the port Railway gives you**:
-   `uvicorn app.main:app --host 0.0.0.0 --port $PORT`. Defaulting to 127.0.0.1 or to 8000 produces
-   a service that builds, starts, logs nothing wrong, and fails every health check.
+4. **Bind the port Railway gives you**, via `backend/railpack.json`:
+   ```json
+   { "$schema": "https://schema.railpack.com",
+     "deploy": { "startCommand": "uvicorn app.main:app --host 0.0.0.0 --port $PORT" } }
+   ```
+   Railpack detects Python and installs from `requirements.txt` on its own, but **it cannot guess
+   a start command** and fails the build with *"No start command detected"*. Keeping it in the repo
+   rather than in a dashboard field means the deploy is reproducible from a clone.
+   Defaulting to 127.0.0.1 or to a fixed 8000 produces a service that builds, starts, logs nothing
+   wrong, and fails every health check.
+4b. Point Railway's **health check path** at `/health`, so a deploy that cannot reach Postgres is
+   rolled back instead of going live and 503-ing.
 5. **`DATABASE_URL`** as a reference variable — `${{Postgres.DATABASE_URL}}` — not a pasted string,
    so it survives the database being recreated. `config.py` already rewrites its `postgresql://`
    scheme to psycopg3 (Phase 1, step 6).

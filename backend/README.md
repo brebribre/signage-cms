@@ -54,13 +54,14 @@ Configure — copy the example and fill in the two R2 keys:
 cp backend/.env.example backend/.env
 ```
 
-Run:
+Run — **port 8001**, for the same reason Postgres uses 5434: strava-comp's backend sits on
+8000, and both projects should be able to run at once.
 
 ```bash
-cd backend && .venv/bin/uvicorn app.main:app --reload
+cd backend && .venv/bin/uvicorn app.main:app --reload --port 8001
 ```
 
-Docs at http://localhost:8000/docs — `/` redirects there. `/health` returns 200 only if a
+Docs at http://localhost:8001/docs — `/` redirects there. `/health` returns 200 only if a
 `SELECT 1` against Postgres succeeds, and **503** when it doesn't.
 
 ## Database migrations
