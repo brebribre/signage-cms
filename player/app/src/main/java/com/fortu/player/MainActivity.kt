@@ -23,9 +23,11 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.fortu.player.kiosk.KioskPolicy
 import com.fortu.player.playback.PlaybackSurface
+import com.fortu.player.ui.ClaimedScreen
 import com.fortu.player.ui.DebugOverlay
 import com.fortu.player.ui.IdleScreen
 import com.fortu.player.ui.PairingScreen
+import com.fortu.player.ui.PreparingScreen
 import com.fortu.player.ui.StartingScreen
 
 class MainActivity : ComponentActivity() {
@@ -89,7 +91,10 @@ class MainActivity : ComponentActivity() {
 
                 when (val s = state) {
                     is PlayerState.Starting -> StartingScreen()
-                    is PlayerState.Pairing -> PairingScreen(s.code, s.error)
+                    is PlayerState.Pairing -> PairingScreen(s.code, s.apiHost, s.error, s.checks)
+                    is PlayerState.Claimed -> ClaimedScreen(s.deviceName)
+                    is PlayerState.Preparing ->
+                        PreparingScreen(s.deviceName, s.done, s.total, s.currentFile)
                     is PlayerState.Idle -> IdleScreen(s.deviceName)
                     is PlayerState.Playing -> PlaybackSurface(
                         items = s.items,

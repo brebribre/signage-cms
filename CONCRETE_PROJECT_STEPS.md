@@ -1385,6 +1385,30 @@ date, not before.
 
 ---
 
+## Pairing feedback (added after Phase 14)
+
+Pairing worked but gave almost no sign of progress at either end, which made a routine mistake
+(screen and CMS on different servers) look like a broken feature.
+
+**On the screen:** a pulsing indicator with a poll count, so a static code cannot be mistaken for
+a frozen app; **the API host**, because that is the single most useful line when pairing "does not
+work" and the only way to spot a server mismatch without a laptop; a brief **Connected** state so
+success is visible rather than an abrupt cut; and a **Preparing content** screen with real
+download progress, since a large video over venue wifi otherwise leaves a blank screen that reads
+as broken.
+
+**In the CMS:** the claim endpoint returns immediately, but at that moment the screen still knows
+nothing — it collects its token on its next poll. Reporting success there is technically true and
+practically misleading, because people walk away from a screen that has not started. The modal now
+polls until `paired_at` is set and shows *"Waiting for … to connect"* then *"… connected."*
+
+If the screen never comes back within 30 seconds it says so plainly — *"Added, but … has not
+connected yet"* — rather than either hanging or claiming success. The device **is** claimed at
+that point and the code is spent, so this is not a failure to roll back; it is a screen that needs
+looking at, and the message says what to check.
+
+---
+
 ## Orientation fix (found after Phase 14)
 
 **The CMS could set portrait and the player ignored it.** `AndroidManifest.xml` hard-locked

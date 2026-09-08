@@ -98,6 +98,17 @@ adb connect <device-ip>:5555
 adb install -r app/build/outputs/apk/release/app-release.apk
 ```
 
+### What the screen shows while pairing
+
+The pairing screen displays the code, a **pulsing indicator with a poll counter**, and — most
+usefully — **the server it is talking to**. Pairing "not working" is almost always the screen and
+the CMS being pointed at different backends, and that host line is the only way to see it without
+a laptop.
+
+After a human claims it, the screen shows **Connected** briefly, then **Preparing content** with
+real download progress before the first frame. A large video over venue wifi takes long enough
+that a blank screen reads as broken.
+
 ### 3. Pair it
 
 Launch the app. It shows a 6-character code. In the CMS: **Devices → Add screen**, type the

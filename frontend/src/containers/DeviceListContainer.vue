@@ -15,7 +15,8 @@ import PageTitle from '@/reusables/PageTitle.vue'
 import StatusDot from '@/reusables/StatusDot.vue'
 
 const router = useRouter()
-const { items, isLoading, isSaving, error, claimError, claim, assignPlaylist } = useDevices()
+const { items, isLoading, isSaving, error, claimError, connecting, claim, assignPlaylist } =
+  useDevices()
 const { items: playlists } = usePlaylists()
 const { relativeTime } = useFormat()
 
@@ -23,7 +24,12 @@ const pairing = ref(false)
 const form = ref({ pairing_code: '', name: '', location: '' })
 
 async function onClaim() {
-  if (await claim({ ...form.value })) {
+  const ok = await claim({ ...form.value })
+  if (!ok) return
+  // Held briefly so "connected" is actually seen — closing the instant the promise resolves
+  // throws away the one piece of feedback that says the screen really started.
+  if (!claimError.value) {
+    await new Promise((r) => setTimeout(r, 900))
     pairing.value = false
     form.value = { pairing_code: '', name: '', location: '' }
   }
@@ -112,11 +118,34 @@ function onAssign(deviceId: string, e: Event) {
           placeholder="Ground floor"
         />
         <AppAlert v-if="claimError" tone="danger">{{ claimError }}</AppAlert>
+
+        <!-- The handshake, shown as it happens. The claim returns instantly but the screen
+             only learns about it on its next poll, so "created" alone sends people away from
+             a screen that has not started yet. -->
+        <div
+          v-if="isSaving && connecting"
+          class="flex items-center gap-2 rounded-lg bg-surface px-3 py-2 text-[13px] text-ink-muted"
+        >
+          <span
+            class="size-2 shrink-0 animate-pulse rounded-full bg-ink"
+            aria-hidden="true"
+          />
+          Waiting for {{ connecting.name }} to connect…
+        </div>
+        <div
+          v-else-if="connecting?.connected"
+          class="rounded-lg bg-surface px-3 py-2 text-[13px] text-ink"
+        >
+          {{ connecting.name }} connected.
+        </div>
+
         <div class="mt-1 flex justify-end gap-2">
           <AppButton variant="secondary" size="sm" type="button" @click="pairing = false">
             Cancel
           </AppButton>
-          <AppButton size="sm" type="submit" :loading="isSaving">Add screen</AppButton>
+          <AppButton size="sm" type="submit" :loading="isSaving">
+            {{ isSaving && connecting ? 'Connecting…' : 'Add screen' }}
+          </AppButton>
         </div>
       </form>
     </AppModal>

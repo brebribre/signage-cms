@@ -27,9 +27,33 @@ private const val TAG = "FortuPlayer"
 /** Everything the UI can be showing. The pairing screen doubles as the error state. */
 sealed interface PlayerState {
     data object Starting : PlayerState
+
     /** Unpaired, revoked, or 401'd — always lands here rather than on a black screen,
-     *  because a screen showing a pairing code is diagnosable from across the room. */
-    data class Pairing(val code: String, val error: String? = null) : PlayerState
+     *  because a screen showing a pairing code is diagnosable from across the room.
+     *
+     * `apiHost` is displayed deliberately: pairing fails silently and confusingly when the
+     * screen and the CMS are talking to different servers, and the only way to notice is to
+     * see which one the screen is using. */
+    data class Pairing(
+        val code: String,
+        val apiHost: String,
+        val error: String? = null,
+        /** Counts polls, purely so the UI can show the wait is alive rather than frozen. */
+        val checks: Int = 0,
+    ) : PlayerState
+
+    /** Claimed, shown briefly so the moment of success is visible rather than an abrupt cut. */
+    data class Claimed(val deviceName: String) : PlayerState
+
+    /** Fetching content before the first frame. Without this the screen sits on an idle card
+     *  during a large download and looks broken rather than busy. */
+    data class Preparing(
+        val deviceName: String,
+        val done: Int,
+        val total: Int,
+        val currentFile: String?,
+    ) : PlayerState
+
     /** Paired but nothing assigned. A valid state, not an error. */
     data class Idle(val deviceName: String, val orientation: String? = null) : PlayerState
     data class Playing(
@@ -116,34 +140,53 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Shows a code and polls until a human claims it. Returns the new device token. */
     private suspend fun pairUntilClaimed(): String? {
+        val host = BuildConfig.API_BASE_URL.substringAfter("://").substringBefore("/")
+
         val pair = try {
             api.startPairing()
         } catch (e: Exception) {
             // No network yet: say so on screen instead of showing a code that cannot work.
-            _state.value = PlayerState.Pairing("······", "Cannot reach ${BuildConfig.API_BASE_URL}")
+            _state.value = PlayerState.Pairing(
+                code = "······",
+                apiHost = host,
+                error = "Cannot reach the server. Check this screen's network.",
+            )
             delay(5_000)
             return null
         }
 
-        _state.value = PlayerState.Pairing(pair.pairingCode)
+        var checks = 0
+        _state.value = PlayerState.Pairing(pair.pairingCode, host, checks = checks)
 
         while (true) {
             delay(pair.pollSeconds * 1000L)
+            checks++
             val poll = try {
                 api.pollPairing(pair.pollToken)
             } catch (e: Exception) {
                 _debug.update { it.copy(lastError = e.message) }
+                _state.value = PlayerState.Pairing(
+                    pair.pairingCode, host,
+                    error = "Lost connection — retrying",
+                    checks = checks,
+                )
                 continue
             }
             // 404 → the code expired. Start over with a fresh one rather than showing a
             // stale code nobody can claim.
             if (poll == null) return null
+
             val token = poll.deviceToken
             if (poll.claimed && token != null) {
                 store.saveToken(token, poll.name)
                 _debug.update { it.copy(deviceName = poll.name) }
+                // Held briefly so pairing visibly succeeds instead of cutting to black.
+                _state.value = PlayerState.Claimed(poll.name ?: "This screen")
+                delay(1_500)
                 return token
             }
+
+            _state.value = PlayerState.Pairing(pair.pairingCode, host, checks = checks)
         }
     }
 
@@ -249,9 +292,23 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
         // Download everything missing BEFORE switching the playlist, so a screen never shows
         // a gap while a file is still arriving.
+        val missing = manifest.items.filter { !cache.isCached(it) }
+        // Only announce preparing when there is genuinely something to fetch — a routine poll
+        // that changes nothing must not flash a progress screen over content that is playing.
+        if (missing.isNotEmpty()) {
+            _state.value = PlayerState.Preparing(
+                manifest.device.name, 0, missing.size, null,
+            )
+        }
+        var fetched = 0
+
         for (item in manifest.items) {
             if (!cache.isCached(item)) {
                 Log.i(TAG, "downloading ${item.checksum} (${item.bytes} bytes)")
+                _state.value = PlayerState.Preparing(
+                    manifest.device.name, fetched, missing.size,
+                    "${item.kind} · ${item.bytes / 1_048_576} MB",
+                )
                 try {
                     cache.download(api.http, item)
                 } catch (e: Exception) {
@@ -260,6 +317,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                     // Keep going: one bad item should not stop the rest of the loop from
                     // updating. The player skips anything still missing.
                 }
+                fetched++
             }
         }
 
