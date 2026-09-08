@@ -133,19 +133,44 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     private suspend fun runForever() {
         val host = BuildConfig.API_BASE_URL.substringAfter("://").substringBefore("/")
         var consecutiveFailures = 0
+        var unauthorizedStreak = 0
 
         while (true) {
             try {
                 val token = store.token() ?: pairUntilClaimed() ?: continue
                 syncAndPlay(token)
                 consecutiveFailures = 0
+                unauthorizedStreak = 0
             } catch (e: UnauthorizedException) {
-                // The screen was unpaired or deleted in the CMS. Drop everything and show a
-                // fresh code rather than sitting on a dead token.
-                Log.w(TAG, "token rejected, re-pairing")
-                store.clear()
-                consecutiveFailures = 0
-                _state.value = PlayerState.Starting
+                // Discarding the token is destructive and irreversible *from the device*:
+                // somebody has to physically walk to the screen and re-pair it. A single 401
+                // is not enough evidence to do that — a request landing mid-deploy, a proxy
+                // hiccup or a brief server fault would permanently unpair a working screen.
+                //
+                // So require several in a row. A genuine unpair or delete answers 401 every
+                // time and still takes effect within a couple of minutes; a transient one
+                // costs nothing and is forgotten on the next success.
+                unauthorizedStreak++
+                Log.w(TAG, "token rejected ($unauthorizedStreak/$UNAUTHORIZED_BEFORE_REPAIR)")
+                if (unauthorizedStreak >= UNAUTHORIZED_BEFORE_REPAIR) {
+                    Log.w(TAG, "token rejected repeatedly — clearing and re-pairing")
+                    store.clear()
+                    unauthorizedStreak = 0
+                    consecutiveFailures = 0
+                    _state.value = PlayerState.Starting
+                } else {
+                    val current = _state.value
+                    if (current !is PlayerState.Playing) {
+                        _state.value = PlayerState.Trouble(
+                            deviceName = store.name(),
+                            message = "Server rejected this screen's credential " +
+                                "($unauthorizedStreak of $UNAUTHORIZED_BEFORE_REPAIR)",
+                            apiHost = host,
+                            attempts = unauthorizedStreak,
+                        )
+                    }
+                    delay(POLL_SECONDS * 1000L)
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "loop error", e)
                 consecutiveFailures++
@@ -427,6 +452,11 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
         /** Never poll faster than this, whatever a boundary says. */
         const val MIN_POLL_MILLIS = 2_000L
+
+        /** Consecutive 401s before a screen gives up its pairing. Three, at 30s apart, means
+         *  a genuine unpair still takes effect within ~90 seconds while a transient rejection
+         *  cannot cost somebody a trip to the screen. */
+        const val UNAUTHORIZED_BEFORE_REPAIR = 3
 
         // Matches the server's per-heartbeat cap, so a full buffer sends in one go.
         const val MAX_PENDING_PLAYS = 50
