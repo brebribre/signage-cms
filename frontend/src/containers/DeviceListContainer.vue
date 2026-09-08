@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { useDevices } from '@/hooks/useDevices'
@@ -13,6 +13,7 @@ import AppModal from '@/reusables/AppModal.vue'
 import EmptyState from '@/reusables/EmptyState.vue'
 import PageTitle from '@/reusables/PageTitle.vue'
 import StatusDot from '@/reusables/StatusDot.vue'
+import type { DeviceRead } from '@/types/api'
 
 const router = useRouter()
 const { items, isLoading, isSaving, error, claimError, connecting, claim, assignPlaylist } =
@@ -35,9 +36,37 @@ async function onClaim() {
   }
 }
 
-function onAssign(deviceId: string, e: Event) {
-  const value = (e.target as HTMLSelectElement).value
-  assignPlaylist(deviceId, value || null)
+// The playlist picker changes what a physical screen shows within moments — too consequential
+// to fire the instant a `<select>` changes, with nothing on the row to say it happened. A
+// pick is held here as a draft until this row's own "Send" is clicked, which is when it
+// actually reaches the device; savingId/sentId are what draw the loading spinner and the
+// checkmark that follow.
+const draftPlaylist = reactive<Record<string, string>>({})
+const savingId = ref<string | null>(null)
+const sentId = ref<string | null>(null)
+
+function playlistValue(d: DeviceRead): string {
+  return draftPlaylist[d.id] ?? (d.playlist_id ?? '')
+}
+
+function isDirty(d: DeviceRead): boolean {
+  return playlistValue(d) !== (d.playlist_id ?? '')
+}
+
+function onPick(deviceId: string, e: Event) {
+  draftPlaylist[deviceId] = (e.target as HTMLSelectElement).value
+  sentId.value = null
+}
+
+async function onSend(d: DeviceRead) {
+  savingId.value = d.id
+  const ok = await assignPlaylist(d.id, draftPlaylist[d.id] || null)
+  savingId.value = null
+  if (ok) {
+    delete draftPlaylist[d.id]
+    sentId.value = d.id
+    setTimeout(() => { if (sentId.value === d.id) sentId.value = null }, 2500)
+  }
 }
 </script>
 
@@ -78,20 +107,40 @@ function onAssign(deviceId: string, e: Event) {
             </p>
           </div>
 
-          <div class="flex shrink-0 items-center gap-4" @click.stop>
+          <div class="flex shrink-0 items-center gap-2" @click.stop>
             <StatusDot :last-seen-at="d.last_seen_at" />
             <!-- Assignable right from the list: this is the single most common thing a
-                 screen row is opened for, and select→save round trips in one click here
-                 instead of a full detail page visit. -->
+                 screen row is opened for. But picking a playlist only drafts it — it does
+                 not reach the screen until "Send" is clicked, so nobody mistakes a dropdown
+                 for something that changes nothing. -->
             <select
               class="rounded-md border border-line-strong bg-canvas px-2 py-1 text-[13px]
                      text-ink focus:border-ink focus:outline-none"
-              :value="d.playlist_id ?? ''"
-              @change="onAssign(d.id, $event)"
+              :value="playlistValue(d)"
+              @change="onPick(d.id, $event)"
             >
               <option value="">No playlist</option>
               <option v-for="p in playlists" :key="p.id" :value="p.id">{{ p.name }}</option>
             </select>
+            <AppButton
+              v-if="isDirty(d)"
+              size="sm"
+              :loading="savingId === d.id"
+              @click="onSend(d)"
+            >
+              Send
+            </AppButton>
+            <svg
+              v-else-if="sentId === d.id"
+              viewBox="0 0 16 16" class="size-4 shrink-0 text-ink-muted" fill="none"
+              aria-hidden="true"
+            >
+              <circle cx="8" cy="8" r="7" class="stroke-current" stroke-width="1.5" />
+              <path
+                d="M5 8.2l2 2 4-4.4" class="stroke-current" stroke-width="1.5"
+                stroke-linecap="round" stroke-linejoin="round"
+              />
+            </svg>
           </div>
         </div>
       </AppCard>

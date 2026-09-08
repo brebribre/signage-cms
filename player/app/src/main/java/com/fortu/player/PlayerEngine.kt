@@ -316,7 +316,11 @@ class PlayerEngine(
                 res.update?.let { maybeSelfUpdate(it.version, it.url) }
 
                 if (etag != null && "\"${res.version}\"" != etag) {
-                    // Version moved under us — loop immediately rather than waiting.
+                    // Version moved under us — loop again soon rather than waiting a full
+                    // poll. Never with zero delay, though: a version that keeps disagreeing
+                    // on every single heartbeat (a stuck race, a server bug) must not turn
+                    // into a busy loop hammering the CMS with no backoff at all.
+                    delay(MIN_POLL_MILLIS)
                     continue
                 }
             } catch (e: UnauthorizedException) {

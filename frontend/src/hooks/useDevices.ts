@@ -79,13 +79,21 @@ export function useDevices() {
     }
   }
 
-  async function assignPlaylist(id: string, playlistId: string | null) {
+  /** Returns whether it took, so the row can show its own loading state and checkmark
+   *  rather than silently succeeding or silently swallowing a failure. */
+  async function assignPlaylist(id: string, playlistId: string | null): Promise<boolean> {
     const body: DeviceUpdateBody = playlistId
       ? { playlist_id: playlistId }
       : { clear_playlist: true }
-    const updated = await api.update(id, body)
-    const row = items.value.find((d) => d.id === id)
-    if (row) row.playlist_id = updated.playlist_id
+    try {
+      const updated = await api.update(id, body)
+      const row = items.value.find((d) => d.id === id)
+      if (row) row.playlist_id = updated.playlist_id
+      return true
+    } catch (e) {
+      error.value = e instanceof ApiError ? e.message : 'Could not update playlist'
+      return false
+    }
   }
 
   onMounted(refresh)
