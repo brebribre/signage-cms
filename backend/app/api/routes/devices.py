@@ -14,6 +14,7 @@ from app.schemas.devices import (
 from app.services import devices as device_service
 from app.services.devices import (
     InvalidPlaylist,
+    InvalidTimezone,
     PairingNotFound,
     TooManyClaimAttempts,
 )
@@ -111,11 +112,16 @@ def update_device(
             name=body.name,
             location=body.location,
             orientation=body.orientation,
+            timezone=body.timezone,
             playlist_id=body.playlist_id,
             clear_playlist=body.clear_playlist,
         )
     except InvalidPlaylist:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Playlist not found") from None
+    except InvalidTimezone as exc:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, f"Unknown timezone: {exc}"
+        ) from None
     return _read(updated)
 
 

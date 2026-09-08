@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import DeviceScheduleContainer from '@/containers/DeviceScheduleContainer.vue'
 import { useDeviceDetail } from '@/hooks/useDeviceDetail'
 import { useFormat } from '@/hooks/useFormat'
 import { usePlaylists } from '@/hooks/usePlaylists'
@@ -20,7 +21,7 @@ const id = String(route.params.id)
 
 const {
   device, isLoading, isSaving, error, saveError, freshPairing,
-  rename, setLocation, setOrientation, assignPlaylist, unpair, remove,
+  rename, setLocation, setOrientation, setTimezone, assignPlaylist, unpair, remove,
 } = useDeviceDetail(id)
 const { items: playlists } = usePlaylists()
 const { dimensions, relativeTime, date } = useFormat()
@@ -38,6 +39,30 @@ watch(device, (d) => {
     location.value = d.location
   }
 }, { immediate: true })
+
+const COMMON_ZONES = [
+  'UTC',
+  'Asia/Jakarta',
+  'Asia/Singapore',
+  'Asia/Kuala_Lumpur',
+  'Asia/Bangkok',
+  'Asia/Tokyo',
+  'Australia/Sydney',
+  'Europe/London',
+  'Europe/Amsterdam',
+  'America/New_York',
+  'America/Los_Angeles',
+]
+
+/** The device's own zone always appears, even if it isn't in the short list above. */
+const zoneOptions = computed(() => {
+  const current = device.value?.timezone
+  return current && !COMMON_ZONES.includes(current) ? [current, ...COMMON_ZONES] : COMMON_ZONES
+})
+
+function onTimezone(e: Event) {
+  setTimezone((e.target as HTMLSelectElement).value)
+}
 
 function onOrientation(e: Event) {
   setOrientation((e.target as HTMLSelectElement).value as DeviceOrientation)
@@ -136,6 +161,19 @@ async function onDelete() {
         </div>
 
         <div class="flex flex-col gap-1.5">
+          <label class="text-[13px] text-ink-muted">Timezone</label>
+          <select
+            class="rounded-lg border border-line-strong bg-canvas px-3 py-2 text-sm text-ink
+                   focus:border-ink focus:outline-none"
+            :value="device.timezone"
+            @change="onTimezone"
+          >
+            <option v-for="z in zoneOptions" :key="z" :value="z">{{ z }}</option>
+          </select>
+          <p class="text-[13px] text-ink-subtle">Schedule times are read in this zone.</p>
+        </div>
+
+        <div class="flex flex-col gap-1.5">
           <label class="text-[13px] text-ink-muted">Playlist</label>
           <select
             class="rounded-lg border border-line-strong bg-canvas px-3 py-2 text-sm text-ink
@@ -150,6 +188,11 @@ async function onDelete() {
             Updating — takes up to 30 seconds to reach the screen.
           </p>
         </div>
+      </div>
+      <!-- Dayparting. Below the default assignment on purpose: a schedule is an override of
+           that default, and reading them in that order matches how they behave. -->
+      <div class="mt-2 border-t border-line pt-6">
+        <DeviceScheduleContainer :device-id="device.id" :timezone="device.timezone" />
       </div>
     </template>
 

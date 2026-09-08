@@ -208,9 +208,15 @@ def remove(session: Session, *, user: User, playlist_id: uuid.UUID) -> None:
     if user.role == UserRole.MANAGER and playlist.created_by != user.id:
         raise NotYours(str(playlist_id))
 
-    names = devices_using(session, playlist_id)
+    # Both routes to a screen count. A playlist can reach a device by direct assignment *or*
+    # by a schedule, and deleting one that is only scheduled would silently blank that screen
+    # when the window next opens — a failure that surfaces days later, at 9am, on a wall.
+    from app.services import schedules as schedule_service
+
+    names = set(devices_using(session, playlist_id))
+    names |= set(schedule_service.devices_scheduling(session, playlist_id))
     if names:
-        raise PlaylistInUse([n or "Unnamed screen" for n in names])
+        raise PlaylistInUse(sorted(n or "Unnamed screen" for n in names))
 
     # Items cascade with the playlist; the media they referenced is untouched.
     session.exec(delete(PlaylistItem).where(PlaylistItem.playlist_id == playlist_id))

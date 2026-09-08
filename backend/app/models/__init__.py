@@ -9,6 +9,7 @@ from app.models.account import Account
 from app.models.device import Device, DeviceAccess, DeviceOrientation
 from app.models.media import Media, MediaKind, MediaStatus
 from app.models.playlist import ItemFit, Playlist, PlaylistItem
+from app.models.schedule import ALL_DAYS, WEEKDAYS, WEEKENDS, Schedule
 from app.models.user import User, UserRole
 
 __all__ = [
@@ -22,6 +23,10 @@ __all__ = [
     "MediaStatus",
     "Playlist",
     "PlaylistItem",
+    "Schedule",
+    "ALL_DAYS",
+    "WEEKDAYS",
+    "WEEKENDS",
     "User",
     "UserRole",
 ]

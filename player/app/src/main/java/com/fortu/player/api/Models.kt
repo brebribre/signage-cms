@@ -47,6 +47,13 @@ data class Manifest(
     /** null is a valid state — a newly paired screen with nothing assigned yet. */
     val playlist: ManifestPlaylist? = null,
     val items: List<ManifestItem> = emptyList(),
+    /** The schedule currently overriding the default, if any. Shown in the debug overlay so
+     *  "why is this playing?" is answerable at the screen. */
+    @SerialName("schedule_name") val scheduleName: String? = null,
+    /** ISO-8601 UTC instant at which this answer stops being true. The player polls sooner
+     *  than its usual interval when a boundary is closer, so a daypart change lands on time
+     *  rather than up to a full poll late. */
+    @SerialName("valid_until") val validUntil: String? = null,
 )
 
 @Serializable

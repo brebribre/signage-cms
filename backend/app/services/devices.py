@@ -52,6 +52,10 @@ class InvalidPlaylist(DomainError):
     pass
 
 
+class InvalidTimezone(DomainError):
+    pass
+
+
 def hash_token(token: str) -> str:
     """sha256 hex. The plaintext token is never stored — see `poll_pairing`."""
     return hashlib.sha256(token.encode()).hexdigest()
@@ -188,9 +192,20 @@ def update(
     name: str | None = None,
     location: str | None = None,
     orientation: DeviceOrientation | None = None,
+    timezone: str | None = None,
     playlist_id: uuid.UUID | None = None,
     clear_playlist: bool = False,
 ) -> Device:
+    if timezone is not None:
+        # Rejected here rather than silently falling back at resolve time: a typo'd zone
+        # would otherwise put every schedule on this screen an unknown number of hours out,
+        # with nothing anywhere saying so.
+        from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+        try:
+            ZoneInfo(timezone)
+        except (ZoneInfoNotFoundError, ValueError):
+            raise InvalidTimezone(timezone) from None
+        device.timezone = timezone
     if name is not None:
         device.name = name.strip() or device.name
     if location is not None:

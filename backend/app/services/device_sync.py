@@ -10,6 +10,7 @@ import json
 import logging
 import uuid
 from dataclasses import dataclass
+from datetime import datetime
 
 from sqlmodel import Session, select
 
@@ -18,6 +19,7 @@ from app.models import Device, ItemFit, Media, MediaKind, Playlist, PlaylistItem
 from app.models.base import utcnow
 from app.infra import storage
 from app.services import media as media_service
+from app.services import scheduling
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +36,7 @@ def _enabled_items(session: Session, playlist_id: uuid.UUID) -> list[tuple[Playl
     return [(item, media) for item, media in rows]
 
 
-def compute_version(session: Session, device: Device) -> str:
+def compute_version(session: Session, device: Device, now: datetime | None = None) -> str:
     """A hash of everything that changes what the screen should show — and nothing else.
 
     Deliberately excludes the device's own name and the playlist's name: renaming either is
@@ -49,13 +51,19 @@ def compute_version(session: Session, device: Device) -> str:
     reason. Orientation is a rendering instruction, not a label, so it belongs with content
     rather than with the cosmetic fields excluded above.
     """
-    if device.playlist_id is None:
+    # `now` is injectable purely so the schedule-dependent parts of this hash can be tested
+    # at a chosen moment. Time-dependent behaviour asserted against the real clock passes or
+    # fails depending on when the suite runs, which is worse than not testing it.
+    resolution = scheduling.resolve(session, device, now)
+    resolved_id = resolution.playlist_id
+
+    if resolved_id is None:
         payload: object = ("none", device.orientation.value)
     else:
-        playlist = session.get(Playlist, device.playlist_id)
-        rows = _enabled_items(session, device.playlist_id)
+        playlist = session.get(Playlist, resolved_id)
+        rows = _enabled_items(session, resolved_id)
         payload = (
-            str(device.playlist_id),
+            str(resolved_id),
             device.orientation.value,
             playlist.shuffle if playlist else False,
             [
@@ -63,7 +71,19 @@ def compute_version(session: Session, device: Device) -> str:
                 for item, media in rows
             ],
         )
-    canonical = json.dumps(payload, separators=(",", ":"))
+    canonical = json.dumps(
+        (
+            payload,
+            str(resolution.schedule_id) if resolution.schedule_id else None,
+            # The window boundary is part of the content, not metadata about it. Without it,
+            # editing a schedule that is not *currently* active would leave every screen
+            # holding a stale `valid_until` — they would wake at the old boundary, and a
+            # boundary moved earlier would simply be missed. Including it means any change to
+            # when the answer expires is itself a change the device must pick up.
+            resolution.valid_until.isoformat() if resolution.valid_until else None,
+        ),
+        separators=(",", ":"),
+    )
     return "sha256:" + hashlib.sha256(canonical.encode()).hexdigest()
 
 
@@ -92,6 +112,13 @@ class Manifest:
     device_orientation: str
     playlist: ManifestPlaylist | None
     items: list[ManifestItem]
+    #: Name of the schedule currently overriding the default, or None when the device is
+    #: playing its default playlist. Surfaced so the debug overlay can answer "why is this
+    #: showing?" without anyone opening the CMS.
+    schedule_name: str | None = None
+    #: When the current answer expires. The device re-polls then rather than waiting for its
+    #: next 30s tick, so a daypart boundary is hit on time instead of up to 30s late.
+    valid_until: str | None = None
 
 
 def build_manifest(session: Session, device: Device, *, version: str) -> Manifest:
@@ -99,18 +126,22 @@ def build_manifest(session: Session, device: Device, *, version: str) -> Manifes
     it. Presigning N item URLs is cheap (a local HMAC each) but there is no reason to pay it
     on every 30-second poll when nothing has changed; `compute_version` alone answers that."""
     settings = get_settings()
+    resolution = scheduling.resolve(session, device)
+    valid_until = resolution.valid_until.isoformat() if resolution.valid_until else None
 
-    if device.playlist_id is None:
+    if resolution.playlist_id is None:
         return Manifest(
             version=version,
             device_name=device.name,
             device_orientation=device.orientation.value,
             playlist=None,
             items=[],
+            schedule_name=resolution.schedule_name,
+            valid_until=valid_until,
         )
 
-    playlist = session.get(Playlist, device.playlist_id)
-    rows = _enabled_items(session, device.playlist_id)
+    playlist = session.get(Playlist, resolution.playlist_id)
+    rows = _enabled_items(session, resolution.playlist_id)
     items = [
         ManifestItem(
             id=item.id,
@@ -134,6 +165,8 @@ def build_manifest(session: Session, device: Device, *, version: str) -> Manifes
         if playlist
         else None,
         items=items,
+        schedule_name=resolution.schedule_name,
+        valid_until=valid_until,
     )
 
 

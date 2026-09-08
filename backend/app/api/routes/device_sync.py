@@ -66,6 +66,8 @@ def get_manifest(device: CurrentDevice, session: DbSession, request: Request) ->
         device=ManifestDevice(name=manifest.device_name, orientation=manifest.device_orientation),
         playlist=ManifestPlaylist(**manifest.playlist.__dict__) if manifest.playlist else None,
         items=[ManifestItem(**item.__dict__) for item in manifest.items],
+        schedule_name=manifest.schedule_name,
+        valid_until=manifest.valid_until,
     )
     return JSONResponse(content=jsonable_encoder(body.model_dump(mode="json")), headers={"ETag": etag})
 

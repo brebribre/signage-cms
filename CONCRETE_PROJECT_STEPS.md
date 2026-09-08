@@ -1320,9 +1320,58 @@ be exited, comes back from a power cut into the loop, and takes an app update wi
 
 ---
 
-## Phase 13: Scheduling (dayparting)
+## Phase 13: Scheduling (dayparting) ✅ DONE
 
 Once the loop is reliable, decide *when* each playlist runs.
+
+`check_schedules.py` passes 38 checks. Verified in the browser end to end: set a screen to
+Asia/Jakarta, created a weekday 11:30–14:00 rule, and confirmed the resolver flips correctly at
+both boundaries and skips weekends — with the UTC↔local conversion right in every case, which is
+the part most likely to be subtly wrong.
+
+**Schedules are an override layer, not a replacement.** `Device.playlist_id` remains what a screen
+plays normally; a rule only takes over while its window is open. That means adding a schedule can
+never leave a screen blank at 3am, which the obvious alternative — schedules *being* the
+assignment — does by default.
+
+Design decisions worth recording:
+
+- **A window crossing midnight belongs to the day it starts on.** 22:00–02:00 on Monday includes
+  01:00 Tuesday, which is what anyone writing that means. Handled explicitly rather than falling
+  out of a comparison.
+- **Overlaps resolve by priority, ties by the later `starts_at`** — a window starting later is the
+  more specific instruction, so "everything from 09:00, but this from 12:00" behaves as expected
+  without anyone having to reason about priority numbers.
+- **`valid_until` is the next boundary of *any* schedule**, not just the winning one: a
+  higher-priority window opening is as much a change as the current one closing.
+- **The device's timezone is validated on write** (422 on an unknown IANA name) but falls back to
+  UTC on read. A typo must not take a screen off the air, but it also must not silently put every
+  rule an unknown number of hours out.
+- **Playlist deletion now checks schedules too.** A playlist can reach a screen by direct
+  assignment *or* by a rule; deleting one that was only scheduled would have silently blanked that
+  screen when the window next opened — a failure surfacing days later, at 9am, on a wall.
+
+Two things the build corrected:
+
+- **The version hash needed the window boundary, not just the resolved playlist.** Without it,
+  editing a schedule that is not *currently* active left every screen holding a stale
+  `valid_until`: they would wake at the old boundary, and a boundary moved earlier would simply be
+  missed. The hash now includes it, so any change to when the answer expires is itself a change
+  devices pick up.
+- **`compute_version` gained an injectable clock.** The first version of these checks asserted
+  time-dependent behaviour against the real wall clock, so they passed or failed depending on the
+  hour the suite ran — at 17:25 no window was near and every edit legitimately left the hash
+  untouched. Time-dependent logic asserted against `now()` is worse than not testing it.
+
+The player honours `valid_until` by shortening its poll so a daypart boundary lands on time rather
+than up to 30 seconds late, with a 2-second floor so a boundary in the past cannot spin the loop.
+
+**Item validity dates (deferred here from Phase 7) remain unbuilt, and that is now a considered
+decision rather than a postponement.** Dayparting answers "what plays at this hour"; item expiry
+answers "stop showing this after Friday". They are complementary, not competing — and the
+timezone infrastructure this phase added is exactly what item expiry would need, so it is now a
+small addition rather than a new subsystem. Worth doing when there is a real campaign with an end
+date, not before.
 
 - `schedules` table: `device_id`, `playlist_id`, `days_of_week` (bitmask), `starts_at`/`ends_at`
   (local time-of-day), `priority`.

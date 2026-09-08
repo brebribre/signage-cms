@@ -45,6 +45,8 @@ data class DebugInfo(
     /** Whether Device Owner provisioning actually took — the one thing you cannot tell by
      *  looking at a screen, and the difference between a kiosk and a phone showing an app. */
     val kiosk: String = "unknown",
+    /** Which schedule is overriding the default right now, if any. */
+    val schedule: String? = null,
 )
 
 class PlayerViewModel(app: Application) : AndroidViewModel(app) {
@@ -65,6 +67,10 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
      *  every heartbeat — a screen re-downloading an APK every 30 seconds forever, which is
      *  worse than simply not updating. A restart is a deliberate second chance. */
     private var updateAttempted = false
+
+    /** When the current schedule window ends, as epoch millis. The poll interval is
+     *  shortened to land on it. */
+    private var validUntilMillis: Long? = null
 
     fun setScreenSize(w: Int, h: Int) { screenWidth = w; screenHeight = h }
 
@@ -169,16 +175,44 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             }
 
             beatsSincePoll++
-            delay(POLL_SECONDS * 1000L)
+            delay(nextPollDelayMillis())
         }
     }
 
+    /**
+     * Normally the fixed poll interval — but never sleep past a schedule boundary.
+     *
+     * Without this a daypart change lands up to a full poll late: a breakfast menu still on
+     * screen half a minute after it should have switched. Clamped to a floor so a boundary
+     * in the past (clock skew, a long download) cannot spin the loop.
+     */
+    private fun nextPollDelayMillis(): Long {
+        val normal = POLL_SECONDS * 1000L
+        val boundary = validUntilMillis ?: return normal
+        val untilBoundary = boundary - System.currentTimeMillis()
+        return when {
+            untilBoundary <= 0 -> MIN_POLL_MILLIS
+            untilBoundary < normal -> maxOf(untilBoundary, MIN_POLL_MILLIS)
+            else -> normal
+        }
+    }
+
+    private fun parseInstantMillis(iso: String?): Long? = try {
+        if (iso == null) null
+        else java.time.Instant.parse(iso.replace("+00:00", "Z")).toEpochMilli()
+    } catch (e: Exception) {
+        Log.w(TAG, "unparseable valid_until: $iso")
+        null
+    }
+
     private suspend fun applyManifest(manifest: Manifest) = withContext(Dispatchers.IO) {
+        validUntilMillis = parseInstantMillis(manifest.validUntil)
         _debug.update {
             it.copy(
                 deviceName = manifest.device.name,
                 version = manifest.version,
                 itemCount = manifest.items.size,
+                schedule = manifest.scheduleName,
             )
         }
 
@@ -245,5 +279,8 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     companion object {
         const val POLL_SECONDS = 30
+
+        /** Never poll faster than this, whatever a boundary says. */
+        const val MIN_POLL_MILLIS = 2_000L
     }
 }

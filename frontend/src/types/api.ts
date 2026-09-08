@@ -131,6 +131,8 @@ export interface DeviceRead {
   id: string
   name: string
   location: string
+  /** IANA name. Schedules are expressed in this screen's local wall clock. */
+  timezone: string
   orientation: DeviceOrientation
   playlist_id: string | null
   screen_width: number | null
@@ -149,6 +151,7 @@ export interface ClaimBody {
 export interface DeviceUpdateBody {
   name?: string
   location?: string
+  timezone?: string
   orientation?: DeviceOrientation
   playlist_id?: string | null
   /** Explicit, because `playlist_id: null` is indistinguishable from "not sent". */
@@ -184,4 +187,58 @@ export interface ManagerCreateBody {
   display_name: string
   email?: string | null
   device_ids?: string[]
+}
+
+// --- Schedules (dayparting) ---
+
+/** Bit 0 = Monday … bit 6 = Sunday, matching the backend's mask and Python's weekday(). */
+export const DAY_BITS = [
+  { bit: 1 << 0, short: 'Mon' },
+  { bit: 1 << 1, short: 'Tue' },
+  { bit: 1 << 2, short: 'Wed' },
+  { bit: 1 << 3, short: 'Thu' },
+  { bit: 1 << 4, short: 'Fri' },
+  { bit: 1 << 5, short: 'Sat' },
+  { bit: 1 << 6, short: 'Sun' },
+] as const
+
+export const ALL_DAYS = 0b1111111
+export const WEEKDAYS = 0b0011111
+export const WEEKENDS = 0b1100000
+
+export interface ScheduleRead {
+  id: string
+  device_id: string
+  playlist_id: string
+  name: string
+  days_of_week: number
+  /** "HH:MM:SS" local to the device. */
+  starts_at: string
+  ends_at: string
+  priority: number
+  is_enabled: boolean
+  created_at: string
+}
+
+export interface ScheduleWrite {
+  playlist_id: string
+  name?: string
+  days_of_week?: number
+  starts_at: string
+  ends_at: string
+  priority?: number
+}
+
+export interface ScheduleUpdateBody extends Partial<ScheduleWrite> {
+  is_enabled?: boolean
+}
+
+/** What a device is playing right now, and why. */
+export interface ResolutionRead {
+  playlist_id: string | null
+  schedule_id: string | null
+  schedule_name: string | null
+  valid_until: string | null
+  timezone: string
+  device_local_time: string
 }

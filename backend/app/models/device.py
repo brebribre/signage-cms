@@ -59,6 +59,10 @@ class Device(SQLModel, table=True):
         default=None,
         sa_column=Column(ForeignKey("playlists.id", ondelete="SET NULL"), nullable=True, index=True),
     )
+    # IANA name, e.g. "Asia/Jakarta". Schedules are expressed in the screen's local wall
+    # clock, so this is what makes "until 11am" mean the same thing in two cities. UTC is a
+    # safe default rather than a guess at the operator's locale.
+    timezone: str = Field(default="UTC")
     orientation: DeviceOrientation = Field(
         default=DeviceOrientation.LANDSCAPE,
         sa_column=enum_column(DeviceOrientation, nullable=False),

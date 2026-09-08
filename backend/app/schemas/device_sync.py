@@ -32,6 +32,11 @@ class ManifestResponse(BaseModel):
     # None, not a 404: an unassigned screen is a valid state, not an error.
     playlist: ManifestPlaylist | None
     items: list[ManifestItem]
+    # The schedule currently overriding the default, if any.
+    schedule_name: str | None = None
+    # ISO-8601 UTC. The device re-polls at this moment rather than on its next 30s tick, so a
+    # daypart boundary lands on time instead of up to 30 seconds late.
+    valid_until: str | None = None
 
 
 class HeartbeatScreen(BaseModel):

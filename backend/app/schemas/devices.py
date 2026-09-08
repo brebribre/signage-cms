@@ -10,6 +10,7 @@ class DeviceRead(BaseModel):
     id: uuid.UUID
     name: str
     location: str
+    timezone: str
     orientation: DeviceOrientation
     playlist_id: uuid.UUID | None
     screen_width: int | None
@@ -50,6 +51,9 @@ class ClaimRequest(BaseModel):
 class DeviceUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=80)
     location: str | None = Field(default=None, max_length=120)
+    # IANA name. Validated in the service against the system's tz database, so a typo is a
+    # 422 here rather than a screen silently running on UTC.
+    timezone: str | None = Field(default=None, max_length=64)
     orientation: DeviceOrientation | None = None
     playlist_id: uuid.UUID | None = None
     # Explicit, because `playlist_id: null` is indistinguishable from "not supplied" in a

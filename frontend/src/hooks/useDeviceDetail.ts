@@ -46,6 +46,7 @@ export function useDeviceDetail(id: string) {
   const setLocation = (location: string) => run(() => api.update(id, { location }))
   const setOrientation = (orientation: DeviceOrientation) =>
     run(() => api.update(id, { orientation }))
+  const setTimezone = (timezone: string) => run(() => api.update(id, { timezone }))
   const assignPlaylist = (playlistId: string | null) =>
     run(() =>
       api.update(id, playlistId ? { playlist_id: playlistId } : { clear_playlist: true }),
@@ -80,6 +81,6 @@ export function useDeviceDetail(id: string) {
 
   return {
     device, isLoading, isSaving, error, saveError, freshPairing,
-    refresh, rename, setLocation, setOrientation, assignPlaylist, unpair, remove,
+    refresh, rename, setLocation, setOrientation, setTimezone, assignPlaylist, unpair, remove,
   }
 }
