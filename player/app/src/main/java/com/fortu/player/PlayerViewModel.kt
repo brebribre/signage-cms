@@ -367,6 +367,9 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             if (pendingPlays.size >= MAX_PENDING_PLAYS) pendingPlays.removeAt(0)
             pendingPlays.add(
                 PlayReport(
+                    // Null against an older backend that does not send it. The server then
+                    // falls back to whatever filename it can resolve, and the play is still
+                    // recorded rather than dropped.
                     mediaId = item.mediaId,
                     // Left blank on purpose: the server resolves the real name from mediaId,
                     // so the log cannot drift when a file is renamed.

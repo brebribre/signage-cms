@@ -33,14 +33,20 @@ data class ManifestPlaylist(val id: String, val name: String, val shuffle: Boole
 data class ManifestItem(
     val id: String,
     /** The underlying media, distinct from `id` (the playlist slot). Reported back for
-     *  proof-of-play; the server resolves the filename from it. */
-    @SerialName("media_id") val mediaId: String,
+     *  proof-of-play; the server resolves the filename from it.
+     *
+     * Defaulted, like every field added after the first release: a screen must keep playing
+     * against a backend that is a deploy or two behind, because in a real fleet the two
+     * never update at the same moment. Missing it costs proof-of-play, not playback. */
+    @SerialName("media_id") val mediaId: String? = null,
     val kind: String,
     val url: String,
     val checksum: String,
     val bytes: Long,
     @SerialName("duration_seconds") val durationSeconds: Int,
-    val fit: String,
+    /** Defaulted for the same version-skew reason: an older backend that does not send it
+     *  should letterbox rather than stop the screen. */
+    val fit: String = "contain",
 )
 
 @Serializable

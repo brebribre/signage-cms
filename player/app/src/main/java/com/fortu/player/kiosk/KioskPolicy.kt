@@ -39,11 +39,13 @@ object KioskPolicy {
         val admin = admin(context)
 
         if (!isDeviceOwner(context)) {
-            // Not provisioned as Device Owner: fall back to screen pinning, which needs no
-            // special privileges. Weaker (a button combo exits it) but better than nothing,
-            // and it is what a sideloaded install on existing hardware gets.
-            runCatching { activity.startLockTask() }
-                .onFailure { Log.i(TAG, "lock task unavailable: ${it.message}") }
+            // Deliberately does nothing. Calling startLockTask() without Device Owner does
+            // not "fall back to screen pinning" — the task is not allowlisted, so the system
+            // refuses it and logs an "Attempted Lock Task Mode violation" on every launch.
+            // Screen pinning on an unprovisioned device is a thing the *user* turns on from
+            // system settings; the app cannot grant it to itself, and pretending otherwise
+            // only produced log noise that looked like a fault.
+            Log.i(TAG, "not device owner — kiosk policy skipped (see player/README.md)")
             return
         }
 
