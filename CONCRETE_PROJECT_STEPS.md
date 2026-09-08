@@ -1385,6 +1385,23 @@ date, not before.
 
 ---
 
+## Boot relaunch never worked (found while testing on hardware)
+
+`BootReceiver` called `startActivity()` from a broadcast receiver, and **since Android 10 that is
+silently ignored** — background activity starts are blocked, with no crash and no log. The comment
+claimed it relaunched a screen after a power cut; it did nothing at all, on any modern device.
+
+Found only by cold-booting an emulator and noticing it sat on the home screen. No test caught it,
+and no test easily could: the failure is the *absence* of an effect on a real Android version.
+
+The receiver now checks Device Owner first and logs a pointer to the runbook instead of attempting
+a start the system will discard. Auto-start genuinely requires either **Device Owner** (where
+`KioskPolicy` already registers the app as persistent preferred HOME, making the receiver
+redundant) or the **HOME intent-filter** — both documented in `player/README.md`. A plain
+development install booting to its normal launcher is correct behaviour rather than a bug.
+
+---
+
 ## Pairing feedback (added after Phase 14)
 
 Pairing worked but gave almost no sign of progress at either end, which made a routine mistake

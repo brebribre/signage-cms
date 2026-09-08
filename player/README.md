@@ -260,6 +260,24 @@ than a visit to each one.
 
 ---
 
+## Auto-start after a power cut
+
+**A plain install does not relaunch itself on boot, and cannot.** Since Android 10 an app may
+not start an activity from the background, so a boot receiver calling `startActivity()` is
+silently discarded — the device comes back to its normal launcher. That is correct behaviour, not
+a fault: an app that could force itself to the foreground on any phone would be malware.
+
+Two configurations make it legal, and a real signage deployment wants one of them regardless:
+
+- **Device Owner** (see the provisioning runbook above). `KioskPolicy` registers the app as the
+  persistent preferred HOME activity, so the system launches it on boot with no receiver
+  involved.
+- **Declare the app as the launcher** — uncomment the `HOME` intent-filter in
+  `AndroidManifest.xml` and rebuild. Same result, no factory reset needed, but do not do it on a
+  device you use for anything else.
+
+While testing on an emulator or your own phone, just tap the app icon after a boot.
+
 ## Diagnosing a screen in front of you
 
 **Long-press anywhere** to toggle a debug overlay: device name, API URL, manifest version,
