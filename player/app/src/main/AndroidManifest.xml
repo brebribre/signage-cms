@@ -16,10 +16,15 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.FortuPlayer">
 
+        <!--
+          No `screenOrientation` here on purpose. The orientation is set per screen in the
+          CMS and arrives in the manifest, so the activity applies it at runtime instead of
+          being hard-locked at build time. A single APK therefore serves portrait totems and
+          landscape panels without a separate build for each.
+        -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:screenOrientation="landscape"
             android:configChanges="orientation|screenSize|keyboardHidden|uiMode"
             android:launchMode="singleTask"
             android:theme="@style/Theme.FortuPlayer">

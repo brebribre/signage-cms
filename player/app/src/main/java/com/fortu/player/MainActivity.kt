@@ -1,6 +1,7 @@
 package com.fortu.player
 
 import android.os.Build
+import android.content.pm.ActivityInfo
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
@@ -9,6 +10,7 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -66,6 +68,25 @@ class MainActivity : ComponentActivity() {
                         detectTapGestures(onLongPress = { showDebug = !showDebug })
                     }
             ) {
+                // Applied from the CMS rather than fixed in the manifest, so one APK serves
+                // portrait totems and landscape panels. Re-applied whenever the value
+                // changes, since a screen can be re-oriented without being re-paired.
+                LaunchedEffect(state) {
+                    val orientation = when (val s = state) {
+                        is PlayerState.Playing -> s.orientation
+                        is PlayerState.Idle -> s.orientation
+                        else -> null
+                    }
+                    requestedOrientation = when (orientation) {
+                        "portrait" -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                        "landscape" -> ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                        // Before the first manifest arrives, leave it to the hardware: a
+                        // pairing code is legible either way, and forcing a guess would make
+                        // the screen visibly flip once the real value lands.
+                        else -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                    }
+                }
+
                 when (val s = state) {
                     is PlayerState.Starting -> StartingScreen()
                     is PlayerState.Pairing -> PairingScreen(s.code, s.error)

@@ -1385,6 +1385,26 @@ date, not before.
 
 ---
 
+## Orientation fix (found after Phase 14)
+
+**The CMS could set portrait and the player ignored it.** `AndroidManifest.xml` hard-locked
+`screenOrientation="landscape"`, and nothing in the app ever read the `orientation` field the
+manifest had been sending since Phase 10. Three phases of plumbing — a settings dropdown, a field
+in the manifest, inclusion in the version hash — none of which reached the screen.
+
+**The checks passed the whole time**, and that is the more useful lesson. Phase 10 asserted that
+changing orientation *changed the version hash*, which was true and proved nothing about whether
+the screen rotates. A server-side check cannot see that the client discards the value. Now
+asserted directly: a portrait device is told it is portrait, a landscape device is told it is
+landscape, and the two manifests differ.
+
+Fixed by removing the manifest lock and applying orientation at runtime from the device state, so
+one APK serves both. **The default for new devices is now portrait**, matching the fleet this is
+built for — a freshly-paired totem should look right before anyone configures it. Existing devices
+keep whatever they had: the default is application-side, so no migration touches stored rows.
+
+---
+
 ## Phase 14: Operations ✅ DONE
 
 Worth building only once screens are in the wild.

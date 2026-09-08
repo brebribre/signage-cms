@@ -63,8 +63,11 @@ class Device(SQLModel, table=True):
     # clock, so this is what makes "until 11am" mean the same thing in two cities. UTC is a
     # safe default rather than a guess at the operator's locale.
     timezone: str = Field(default="UTC")
+    # Portrait by default: the fleet this is built for is tall totems, and a freshly-paired
+    # screen should look right before anyone configures it. Set per device in the CMS, and
+    # the player applies it at runtime rather than being locked at build time.
     orientation: DeviceOrientation = Field(
-        default=DeviceOrientation.LANDSCAPE,
+        default=DeviceOrientation.PORTRAIT,
         sa_column=enum_column(DeviceOrientation, nullable=False),
     )
 

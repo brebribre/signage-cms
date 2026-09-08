@@ -109,6 +109,19 @@ because it gets read off a television from across a room.
 
 ---
 
+## Orientation
+
+**Set per screen in the CMS, applied by the app at runtime** — the activity deliberately has no
+`screenOrientation` in its manifest. One APK therefore serves portrait totems and landscape
+panels without a separate build for each.
+
+New devices default to **portrait**, since tall totems are the common case here. Change it on the
+device's page in the CMS; the screen picks it up on its next poll (within 30s) with no reinstall.
+
+While a screen is still pairing it uses whatever the hardware reports, rather than guessing — a
+pairing code is legible either way, and forcing a guess would make the screen visibly flip once
+the real value arrives.
+
 ## Making it a real kiosk
 
 The app already keeps the screen awake, hides the system bars, locks to landscape, and

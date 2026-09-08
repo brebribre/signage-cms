@@ -140,6 +140,32 @@ def main() -> None:
         str([i["url"] for i in body["items"]]),
     )
 
+    print("\norientation actually reaches the device")
+    # The gap that let a real bug through: the Phase 10 checks proved the *hash* changed when
+    # orientation changed, but never that the value arrived in the manifest — so the player
+    # ignoring it entirely went unnoticed. The hash moving is not evidence the screen rotates.
+    with Session(engine) as s:
+        d = s.get(Device, device_id)
+        d.orientation = DeviceOrientation.PORTRAIT
+        s.add(d); s.commit()
+    body_p = lobby.get("/device/manifest").json()
+    check("a portrait device is told it is portrait",
+          body_p["device"]["orientation"] == "portrait", str(body_p["device"]["orientation"]))
+    with Session(engine) as s:
+        d = s.get(Device, device_id)
+        d.orientation = DeviceOrientation.LANDSCAPE
+        s.add(d); s.commit()
+    body_l = lobby.get("/device/manifest").json()
+    check("a landscape device is told it is landscape",
+          body_l["device"]["orientation"] == "landscape", str(body_l["device"]["orientation"]))
+    check("the two manifests genuinely differ",
+          body_p["device"]["orientation"] != body_l["device"]["orientation"])
+
+    # Orientation is part of the version hash (deliberately — see compute_version), so the
+    # baseline captured before these flips is now stale. Re-read it rather than leaving the
+    # conditional-GET checks below testing against a version that no longer exists.
+    v1 = lobby.get("/device/manifest").json()["version"]
+
     print("\nconditional GET — the whole point of the version hash")
     r2 = lobby.get("/device/manifest", headers={"If-None-Match": f'"{v1}"'})
     check("a repeat with the matching ETag is 304", r2.status_code == 304, str(r2.status_code))

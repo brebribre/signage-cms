@@ -31,8 +31,12 @@ sealed interface PlayerState {
      *  because a screen showing a pairing code is diagnosable from across the room. */
     data class Pairing(val code: String, val error: String? = null) : PlayerState
     /** Paired but nothing assigned. A valid state, not an error. */
-    data class Idle(val deviceName: String) : PlayerState
-    data class Playing(val items: List<ManifestItem>, val shuffle: Boolean) : PlayerState
+    data class Idle(val deviceName: String, val orientation: String? = null) : PlayerState
+    data class Playing(
+        val items: List<ManifestItem>,
+        val shuffle: Boolean,
+        val orientation: String? = null,
+    ) : PlayerState
 }
 
 data class DebugInfo(
@@ -237,7 +241,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         }
 
         if (manifest.items.isEmpty()) {
-            _state.value = PlayerState.Idle(manifest.device.name)
+            _state.value = PlayerState.Idle(manifest.device.name, manifest.device.orientation)
             cache.evictExcept(emptyList())
             _debug.update { it.copy(cachedBytes = cache.cachedBytes()) }
             return@withContext
@@ -261,9 +265,13 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
         val playable = manifest.items.filter { cache.isCached(it) }
         if (playable.isEmpty()) {
-            _state.value = PlayerState.Idle(manifest.device.name)
+            _state.value = PlayerState.Idle(manifest.device.name, manifest.device.orientation)
         } else {
-            _state.value = PlayerState.Playing(playable, manifest.playlist?.shuffle ?: false)
+            _state.value = PlayerState.Playing(
+                playable,
+                manifest.playlist?.shuffle ?: false,
+                manifest.device.orientation,
+            )
         }
 
         // Evict only after the new set is safely on disk.
