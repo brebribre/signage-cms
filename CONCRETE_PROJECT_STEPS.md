@@ -1385,6 +1385,38 @@ date, not before.
 
 ---
 
+## A failing video stopped the loop dead (found on hardware)
+
+`VideoItem` advanced the playlist on exactly one signal: `STATE_ENDED`. Anything else — a decode
+error, a stalled buffer, a container whose duration disagrees with its data — produced no signal
+at all, so the loop stopped on a black screen **permanently**. It never even reached the next
+photo. One unplayable file could take a screen off the air until someone power-cycled it, and
+nothing anywhere would say why.
+
+That is the worst outcome this whole design exists to avoid, reachable from a single bad file.
+
+Three fixes, all in the same place:
+
+- **`onPlayerError` now advances**, so a video the device cannot decode costs one slot rather than
+  the whole loop.
+- **A watchdog advances anyway** if nothing has finished within the slot duration plus grace,
+  covering the cases an error listener cannot see: a stall, a hung decoder, a lying container.
+- **The slot's duration is finally honoured for video.** The playlist editor offers it, the
+  backend stores it, `check_playlists.py` asserts it — and the player ignored it entirely, always
+  playing to the natural end. "A video can be cut short" was true everywhere except on the screen.
+
+A `finishOnce` guard means exactly one advance per item however it ends, so an error plus a
+watchdog cannot skip two.
+
+**The failure is now reported**, reaching the CMS health page through the next heartbeat with the
+real ExoPlayer error code, instead of being a gap somebody eventually notices.
+
+**Not covered by the new engine tests**, and worth being plain about: this is Compose UI, not the
+state machine, so the twenty JVM tests could not have caught it and still would not. Covering it
+needs Compose UI tests — the same gap that let the `AppInput` blur bug through.
+
+---
+
 ## Player tests (added after five bugs reached hardware)
 
 The Android app shipped with **no automated tests at all**, and it showed: five real bugs reached a

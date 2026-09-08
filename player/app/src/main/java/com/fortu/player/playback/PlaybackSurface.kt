@@ -1,5 +1,6 @@
 package com.fortu.player.playback
 
+import android.util.Log
 import android.view.ViewGroup
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -10,6 +11,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -18,6 +20,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
@@ -39,6 +42,14 @@ private fun contentScaleFor(fit: String): ContentScale = when (fit) {
     "stretch" -> ContentScale.FillBounds
     else -> ContentScale.Fit
 }
+
+/** Cap for a video whose slot has no explicit duration. Long enough for any realistic signage
+ *  clip, short enough that a hung decoder cannot hold a screen black for an entire shift. */
+private const val DEFAULT_VIDEO_CAP_SECONDS = 600
+
+/** Slack over the slot duration before the watchdog fires, so ordinary buffering on bad venue
+ *  wifi is not mistaken for a stall. */
+private const val STALL_GRACE_MILLIS = 5_000L
 
 private fun resizeModeFor(fit: String): Int = when (fit) {
     "cover" -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
@@ -66,6 +77,9 @@ fun PlaybackSurface(
      *  heartbeat rather than immediately — an item can be shorter than the heartbeat
      *  interval, and a request per item would be absurd traffic for a 10-second image. */
     onPlayed: (ManifestItem, Long, Int) -> Unit = { _, _, _ -> },
+    /** Reported to the CMS so an unplayable file shows up on the health page rather than
+     *  only as a gap someone happens to notice. */
+    onPlaybackError: (String) -> Unit = {},
 ) {
     var index by remember(items) { mutableIntStateOf(0) }
     val item = items[index.coerceIn(items.indices)]
@@ -83,9 +97,11 @@ fun PlaybackSurface(
             VideoItem(
                 file = fileFor(item),
                 fit = item.fit,
+                maxSeconds = item.durationSeconds,
                 // Finish the current item before moving on — cutting mid-item to apply an
                 // update is the difference between a CMS and a glitch.
                 onEnded = { advance() },
+                onError = onPlaybackError,
             )
         } else {
             AsyncImage(
@@ -103,7 +119,16 @@ fun PlaybackSurface(
 }
 
 @Composable
-private fun VideoItem(file: File, fit: String, onEnded: () -> Unit) {
+private fun VideoItem(
+    file: File,
+    fit: String,
+    /** The slot's duration from the CMS. A video is cut at this if it runs longer — the
+     *  playlist editor offers it, the backend stores it, and until now the player ignored
+     *  it and always played to the natural end. */
+    maxSeconds: Int,
+    onEnded: () -> Unit,
+    onError: (String) -> Unit,
+) {
     val context = LocalContext.current
     val exo = remember {
         ExoPlayer.Builder(context).build().apply {
@@ -115,17 +140,54 @@ private fun VideoItem(file: File, fit: String, onEnded: () -> Unit) {
         }
     }
 
+    // Guarantees exactly one advance per item however playback ends — naturally, by error,
+    // or by the watchdog below. Without it a video that errors *and* times out would skip
+    // two items.
+    var finished by remember(file.absolutePath) { mutableStateOf(false) }
+    fun finishOnce(reason: String?) {
+        if (finished) return
+        finished = true
+        reason?.let(onError)
+        onEnded()
+    }
+
     DisposableEffect(file.absolutePath) {
         exo.setMediaItem(MediaItem.fromUri(file.toURI().toString()))
         exo.prepare()
         val listener = object : Player.Listener {
             override fun onPlaybackStateChanged(state: Int) {
-                if (state == Player.STATE_ENDED) onEnded()
+                if (state == Player.STATE_ENDED) finishOnce(null)
+            }
+
+            /**
+             * The bug this fixes: without an error listener, a video the device cannot decode
+             * produced no ENDED and no advance, so the loop stopped dead on a black screen
+             * *forever* — it never even reached the next photo. A screen showing nothing is
+             * the single worst outcome for signage, and one unplayable file could cause it.
+             */
+            override fun onPlayerError(error: PlaybackException) {
+                Log.e("FortuPlayer", "playback failed for ${file.name}", error)
+                finishOnce("${file.name}: ${error.errorCodeName}")
             }
         }
         exo.addListener(listener)
-        onDispose {
-            exo.removeListener(listener)
+        onDispose { exo.removeListener(listener) }
+    }
+
+    /**
+     * Watchdog. Covers the cases an error listener cannot: a stream that stalls buffering
+     * forever, a decoder that hangs without reporting, or a file whose container says one
+     * duration and whose data says another.
+     *
+     * Also implements the CMS's per-slot duration — whichever comes first, the natural end or
+     * this, the loop moves on.
+     */
+    LaunchedEffect(file.absolutePath) {
+        val cap = if (maxSeconds > 0) maxSeconds else DEFAULT_VIDEO_CAP_SECONDS
+        delay(cap * 1000L + STALL_GRACE_MILLIS)
+        if (!finished) {
+            Log.w("FortuPlayer", "video did not finish within ${cap}s — advancing")
+            finishOnce("${file.name}: did not finish in ${cap}s")
         }
     }
 

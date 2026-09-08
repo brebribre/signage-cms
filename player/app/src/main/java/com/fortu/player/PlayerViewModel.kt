@@ -42,6 +42,10 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     fun reportPlay(item: ManifestItem, startedAtMillis: Long, seconds: Int) =
         engine.reportPlay(item, startedAtMillis, seconds)
 
+    /** Playback failures reach the CMS health page via the next heartbeat, so an unplayable
+     *  file is visible as an error rather than only as a gap someone happens to notice. */
+    fun reportError(message: String) = engine.reportError(message)
+
     /** File resolution stays here: it is an Android storage concern, not state-machine logic. */
     fun localFileFor(item: ManifestItem) = cache.fileFor(item.checksum)
 

@@ -103,6 +103,7 @@ class MainActivity : ComponentActivity() {
                         items = s.items,
                         fileFor = vm::localFileFor,
                         onPlayed = vm::reportPlay,
+                        onPlaybackError = vm::reportError,
                     )
                 }
                 if (showDebug) DebugOverlay(debug)
