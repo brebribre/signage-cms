@@ -199,6 +199,22 @@ class PlayerEngineTest {
         job.cancelAndJoin()
     }
 
+    @Test
+    fun `an admin unpairing or deleting a screen sees it re-pair within seconds, not minutes`() = runTest {
+        // The retries that confirm a 401 is real must not ride the ordinary 30s poll cadence —
+        // an admin who just clicked Unpair or Delete is watching the screen, and three
+        // five-second confirmations settle it in well under 20 seconds instead of ~90.
+        val store = FakeStore(storedToken = "t", storedName = "Lobby")
+        val api = FakeApi()
+        repeat(5) { api.manifestFailures += unauthorized() }
+        val e = engine(api = api, store = store)
+        val job = launch { e.run() }
+        advanceTimeBy(20_000)
+
+        assertTrue("must re-pair within 20s, not the old ~90s", store.clearCount >= 1)
+        job.cancelAndJoin()
+    }
+
     // --- manifest handling ------------------------------------------------------------------
 
     @Test
@@ -416,7 +432,14 @@ class PlayerEngineTest {
             ),
         )
         val cache = FakeCache().apply { cached += "a" }
-        val api = FakeApi().apply { manifest = m; honourEtag = true }
+        val api = FakeApi().apply {
+            manifest = m
+            honourEtag = true
+            // Consistent with the manifest, or the heartbeat's "version moved under us" fast
+            // path fires on every single beat and this test stops exercising restart/304 at
+            // all — it starts exercising an unrelated race with no delay between iterations.
+            heartbeatResponse = com.fortu.player.api.HeartbeatResponse(version = "v9")
+        }
 
         val e = engine(api = api, store = store, cache = cache)
         val job = launch { e.run() }

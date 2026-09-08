@@ -160,9 +160,11 @@ class PlayerEngine(
                 // is not enough evidence to do that — a request landing mid-deploy, a proxy
                 // hiccup or a brief server fault would permanently unpair a working screen.
                 //
-                // So require several in a row. A genuine unpair or delete answers 401 every
-                // time and still takes effect within a couple of minutes; a transient one
-                // costs nothing and is forgotten on the next success.
+                // So require several in a row — but confirm or dismiss the suspicion quickly
+                // rather than on the normal 30s poll cadence. An admin who just unpaired or
+                // deleted a screen is watching it, and a genuine revocation answers 401 just
+                // as reliably five seconds from now as it will in thirty; there is nothing to
+                // wait for. A transient one still costs nothing and is forgotten on success.
                 unauthorizedStreak++
                 Log.w(TAG, "token rejected ($unauthorizedStreak/$UNAUTHORIZED_BEFORE_REPAIR)")
                 if (unauthorizedStreak >= UNAUTHORIZED_BEFORE_REPAIR) {
@@ -182,7 +184,7 @@ class PlayerEngine(
                             attempts = unauthorizedStreak,
                         )
                     }
-                    delay(POLL_SECONDS * 1000L)
+                    delay(UNAUTHORIZED_RETRY_SECONDS * 1000L)
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "loop error", e)
@@ -517,10 +519,16 @@ class PlayerEngine(
         /** Never poll faster than this, whatever a boundary says. */
         const val MIN_POLL_MILLIS = 2_000L
 
-        /** Consecutive 401s before a screen gives up its pairing. Three, at 30s apart, means
-         *  a genuine unpair still takes effect within ~90 seconds while a transient rejection
-         *  cannot cost somebody a trip to the screen. */
+        /** Consecutive 401s before a screen gives up its pairing. Three confirms a genuine
+         *  revocation rather than one stray rejection costing somebody a trip to the screen. */
         const val UNAUTHORIZED_BEFORE_REPAIR = 3
+
+        /** How soon to re-check after a 401, while still under [UNAUTHORIZED_BEFORE_REPAIR].
+         *  Deliberately much shorter than the normal poll: an admin who just unpaired or
+         *  deleted this screen from the CMS is watching it, and there is no reason to make
+         *  them wait a full 90 seconds for three confirmations to land on the 30s cadence
+         *  when five-second retries confirm just as reliably and finish in well under 20. */
+        const val UNAUTHORIZED_RETRY_SECONDS = 5
 
         // Matches the server's per-heartbeat cap, so a full buffer sends in one go.
         const val MAX_PENDING_PLAYS = 50
