@@ -206,7 +206,7 @@ the endpoint.
 
 ---
 
-## Phase 1b: Deploy the Skeleton ✅ DONE (auto-deploy trigger still unverified)
+## Phase 1b: Deploy the Skeleton ✅ DONE
 
 Live at **https://signage-cms-production.up.railway.app** — `/health` returns 200 against
 Railway's Postgres, `/docs` renders.
@@ -222,9 +222,10 @@ What actually went wrong, in order, since none of it was the application:
 
 Root Directory was already `backend`; the first build proved it by finding `requirements.txt`.
 
-**Still unverified:** that `git push` alone triggers a deploy. The redeploy was CLI-initiated
-(`railway redeploy --from-source`), which proves the source is connected but *not* that a webhook
-exists — precisely the distinction that cost time on strava-comp. One throwaway commit settles it.
+**Auto-deploy verified.** A plain `git push` started a deployment nobody asked for on the CLI,
+which is the actual test — `railway redeploy --from-source` proves only that a source is connected,
+not that a webhook exists, and that distinction is what cost time on strava-comp. The source here
+was connected through the dashboard, and the trigger is real.
 
 **Goal:** `git push` puts a working `/health` on the internet. Do this now, with one endpoint,
 rather than at Phase 11 with fifteen.
@@ -271,9 +272,37 @@ within a couple of minutes, without touching the dashboard.
 
 ---
 
-## Phase 2: Database Schema
+## Phase 2: Database Schema ✅ DONE
 
 **Goal:** every table the CMS needs, created by a single Alembic baseline.
+
+Baseline `d00519ec4dca`. Seven tables; `check_schema_roundtrip.py` passes 16 checks and is
+re-runnable, `alembic check` reports no drift, and `downgrade base && upgrade head` rebuilds the
+database from empty.
+
+Two things found by building it, both worth keeping:
+
+- **SQLModel maps a Python enum to a native Postgres ENUM storing the member *name*.** The first
+  baseline had `users.role` holding `'OWNER'` while the API speaks `'owner'` — two vocabularies for
+  one concept, and `psql` showing the one nobody writes. Worse, adding a value later needs
+  `ALTER TYPE ... ADD VALUE`, which **cannot run inside a transaction block**, and Alembic runs
+  migrations in one. Replaced with `enum_column()` in `models/base.py`
+  (`native_enum=False` + `values_callable`): VARCHAR, a CHECK constraint, lowercase values stored,
+  enum members returned on read. The baseline was regenerated rather than patched — there was no
+  data, and a follow-up migration that immediately alters what the previous one just created is
+  worse than one correct file. `check_schema_roundtrip.py` now asserts the stored form, so this
+  cannot regress silently.
+- **`session.exec(delete(...))` executes immediately**, so a RESTRICT violation raises there, not
+  at `commit()`. A `try` wrapped around the commit alone catches nothing and the check script
+  crashes instead of passing.
+
+Added beyond the plan's column list: `devices.poll_token` (unique, nullable). Phase 8 pairs a
+device by polling with it rather than with the human-readable code, so a shoulder-surfed code
+cannot be exchanged for a token. Putting it in the baseline costs nothing; adding it later costs a
+migration.
+
+Renamed from the plan: `Media.bytes` → **`size_bytes`**, because `bytes` shadows the builtin
+inside the model class.
 
 1. Define models in `app/models/`, one module per table:
 
