@@ -29,6 +29,7 @@ def _read(media: Media, used_in: list[str] | None = None) -> MediaRead:
     return MediaRead(
         **media.model_dump(),
         thumbnail_url=media_service.thumbnail_url(media),
+        url=media_service.view_url(media),
         used_in=used_in or [],
     )
 
@@ -100,8 +101,8 @@ def get_media(media_id: uuid.UUID, user: CurrentUser, session: DbSession) -> Med
     return MediaDetail(
         **media.model_dump(),
         thumbnail_url=media_service.thumbnail_url(media),
-        used_in=media_service.playlists_using(session, media_id),
         url=media_service.view_url(media),
+        used_in=media_service.playlists_using(session, media_id),
     )
 
 

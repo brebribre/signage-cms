@@ -16,6 +16,9 @@ TAGS_METADATA = [
     {"name": "system", "description": "Service and database health."},
     {"name": "auth", "description": "Signup, login and the current session."},
     {"name": "media", "description": "The media library and its upload pipeline."},
+    {"name": "playlists", "description": "Ordered lists of media with a duration per slot."},
+    {"name": "devices", "description": "Screens registered to an account."},
+    {"name": "users", "description": "Subusers and their device grants. Owner only."},
 ]
 
 

@@ -47,8 +47,12 @@ class MediaRead(BaseModel):
     created_at: datetime
     created_by: uuid.UUID | None
     thumbnail_url: str | None
+    # Presigned full-resolution GET. On the listing too, not just the detail, so the
+    # playlist editor's device preview shows the real file the moment an item is added —
+    # previewing a 480px thumbnail would misreport both sharpness and cropping.
+    url: str
     used_in: list[str] = []
 
 
 class MediaDetail(MediaRead):
-    url: str
+    pass

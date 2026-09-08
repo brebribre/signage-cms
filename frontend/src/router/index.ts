@@ -28,10 +28,19 @@ const router = createRouter({
           component: () => import('@/containers/MediaLibraryContainer.vue'),
         },
         {
+          path: 'media/:id',
+          name: 'media-detail',
+          component: () => import('@/containers/MediaDetailContainer.vue'),
+        },
+        {
           path: 'playlists',
           name: 'playlists',
-          component: () => import('@/containers/PlaceholderContainer.vue'),
-          props: { title: 'Playlists', phase: 'Phase 7' },
+          component: () => import('@/containers/PlaylistListContainer.vue'),
+        },
+        {
+          path: 'playlists/:id',
+          name: 'playlist-detail',
+          component: () => import('@/containers/PlaylistEditorContainer.vue'),
         },
         {
           path: 'devices',
@@ -42,8 +51,7 @@ const router = createRouter({
         {
           path: 'settings/users',
           name: 'settings-users',
-          component: () => import('@/containers/PlaceholderContainer.vue'),
-          props: { title: 'Users', phase: 'Phase 9b' },
+          component: () => import('@/containers/UserListContainer.vue'),
           meta: { ownerOnly: true },
         },
       ],

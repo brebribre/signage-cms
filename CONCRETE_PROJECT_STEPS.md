@@ -517,9 +517,36 @@ get bounced to `/login`. The backend's `FRONTEND_ORIGIN` must match or CORS bloc
 
 ---
 
-## Phase 5: Media Storage + Upload Pipeline (backend)
+## Phase 5: Media Storage + Upload Pipeline (backend) ✅ DONE
 
 **Goal:** a file gets from a browser into R2, with a database row that knows about it.
+
+`check_media.py` passes 28 checks with storage stubbed (patching `app.infra.storage`, the one
+module that touches boto3, so it runs with no credentials and no network). Separately, a **live
+round trip against the real `fortu-cms` bucket** — presign PUT → upload → head → presign GET →
+download → delete — confirms the credentials, endpoint, SigV4 signing and the checksum config all
+work. That last part is what a stub can never prove.
+
+Decisions made while building:
+
+- **Allowed types are deliberately narrow**: JPEG, PNG, WebP, GIF and **h.264 MP4 only**. It is the
+  one video combination a cheap Android stick is certain to decode in hardware, and refusing at
+  upload with a message that says so is far kinder than a screen that stutters in a lobby. This
+  closes open question 4 for the upload path; transcoding remains optional later.
+- **A missing thumbnail does not fail the upload.** If the browser could not produce a poster
+  frame, `thumbnail_key` is nulled and the tile falls back to a placeholder.
+- **Completion is verified, not trusted.** `complete_upload` calls `head_object` and compares the
+  stored size against the declared one; a client that claims "done" without uploading gets a 409
+  instead of leaving a permanently broken row in the library.
+- **Manager delete is restricted to their own uploads** (403 otherwise), the Phase 3 guardrail
+  applied where it first bites. Owners may delete anything.
+- **Delete order is row-then-object, deliberately.** If the R2 delete fails the row is already gone
+  and the object is orphaned; an orphan costs storage, whereas rolling back a committed row costs
+  correctness. A sweep script is Phase 14.
+
+**Still yours to do in the Cloudflare dashboard** (step 7 above): the bucket CORS policy. Nothing
+in Phase 5 needs it — the backend talks to R2 server-side — but **Phase 6 cannot upload a single
+byte from the browser without it.**
 
 1. `infra/storage.py` — one boto3 client, built once:
    ```python
@@ -571,13 +598,24 @@ get bounced to `/login`. The backend's `FRONTEND_ORIGIN` must match or CORS bloc
 7. **Bucket CORS policy** — required before Phase 6 can upload anything from the browser:
    ```json
    [{
-     "AllowedOrigins": ["http://localhost:5173", "https://<production-frontend>"],
+     "AllowedOrigins": ["http://localhost:5173", "http://127.0.0.1:5173"],
      "AllowedMethods": ["PUT", "GET", "HEAD"],
      "AllowedHeaders": ["Content-Type"],
      "ExposeHeaders": ["ETag"],
      "MaxAgeSeconds": 3600
    }]
    ```
+   `PUT` is the load-bearing entry — the browser uploads straight to R2, so without it every
+   upload fails. `Content-Type` must be allowed because it is the only header signed into the
+   presigned URL. `ETag` must be *exposed* or the browser hides it even on a 200. Both
+   `localhost` and `127.0.0.1` are listed for the reason given in the Phase 4 notes. Add the
+   production frontend origin as a third entry once that is deployed.
+
+   Cloudflare's placeholder policy (`http://localhost:3000`, `GET` only) is wrong on both
+   counts: wrong port, and no `PUT`.
+
+   **The Android player needs no entry here.** CORS is a browser mechanism; Media3 and OkHttp
+   are native clients and are unaffected by this policy.
    Set it at **R2 object storage → `fortu-cms` → Settings → CORS Policy → Add CORS policy**,
    using the JSON tab. A missing origin here surfaces in the
    browser as a bare "network error" with no CORS message on the preflight, which is a genuinely
@@ -593,9 +631,57 @@ appears in `GET /media` with a working thumbnail URL.
 
 ---
 
-## Phase 6: Media Library UI
+## Phase 6: Media Library UI ✅ DONE
 
 **Goal:** drag a video onto the page and see it in the library.
+
+Verified end to end in the real browser against the real bucket: a 797 KB PNG dropped in, showed a
+progress row, generated its own thumbnail, appeared in the grid at 1280×720, opened in detail with
+a presigned preview, and deleted — **removing both objects from R2**, confirmed by listing the
+bucket afterwards. Account scoping proved itself with live data: two accounts' libraries stayed
+entirely separate.
+
+**The checksum comes from R2's ETag, not from hashing in the browser.** This is a deviation worth
+recording. `crypto.subtle.digest` has no streaming form — it needs the whole file in memory at
+once, so a 500 MB video would freeze the tab and risk an allocation failure. The ETag is computed
+server-side for free and is stable for the object's lifetime, which is all a cache key needs.
+Checksums are therefore stored prefixed (`md5:…`), so the scheme is self-describing and Phase 10's
+version hash is unaffected. It depends on `ExposeHeaders: ["ETag"]` in the bucket CORS policy;
+without it the code falls back to `sha256:…` hashing, which works but is slow on large files.
+
+Other decisions:
+
+- **Probing happens in the browser** — dimensions from `naturalWidth`, duration from the video
+  element, and a poster frame drawn to a canvas at **1 second, not 0**, because the first frame of
+  a video is so often black that a 0-second poster is useless. All best-effort: a probe that fails
+  yields nulls and the upload continues, since a video with no thumbnail is still a usable video.
+- **`XMLHttpRequest`, not `fetch`, for the PUT** — fetch has no upload progress event, and a
+  progress bar is the entire difference between a working upload and an apparently frozen tab.
+- **Two uploads at a time.** A dozen parallel 200 MB PUTs saturate a venue's uplink and make every
+  one of them slow, so the queue is the feature.
+- **The storage error names the likely cause.** A failed PUT to R2 says to check the bucket CORS
+  policy, because the browser reports that misconfiguration as a bare network error that mentions
+  neither CORS nor the origin.
+
+**Bug found and fixed after the first pass — a Vue reactivity trap worth knowing.** Uploads
+completed correctly but the header stayed on "Uploading…" forever and finished rows never cleared.
+The cause: `add()` pushed a **plain object** into `jobs` and then `runOne()` mutated *that same raw
+reference*. Vue's deep reactivity wraps an object in a proxy when it is read out of the array, so
+writing to the raw object goes straight past the proxy's setter and notifies nothing. The row still
+showed "Done" — which is what made it confusing — only because `prepend()` mutates a different ref
+and forced an incidental re-render; the `isUploading` **computed** was never invalidated, so it
+stayed cached at `true` and also hid the Clear button. Fixed by creating each job with `reactive()`
+so every mutation goes through the proxy. Successful rows now also dismiss themselves after 1.5s,
+since the file is already visible in the grid by then; failures stay until read.
+
+The general rule: **if a value is mutated from outside the component that owns the ref, make it
+`reactive()` at creation.** Pushing raw objects into a `ref([])` and holding the raw reference is
+silent — nothing errors, the data is even correct on next render, and only computeds give it away.
+
+One process note: the backend had to be restarted before the media routes appeared. A long-running
+`uvicorn` started **without `--reload`** keeps serving the app it was launched with, and the
+frontend surfaced that as a flat `Not Found` on `GET /media` — which reads exactly like a routing
+bug in code that is in fact correct.
 
 1. `useMediaApi` (transport) + `useMediaUpload` (the business logic of an upload) +
    `useMedia` (the library list).
@@ -617,9 +703,94 @@ grid with correct dimensions and duration, and delete one.
 
 ---
 
-## Phase 7: Playlists
+## Phase 7: Playlists ✅ DONE
 
 **Goal:** an ordered list of media with per-slot durations.
+
+`check_playlists.py` passes 38 checks. Verified in the browser end to end: created a playlist, added
+three files, dragged the third to the top, changed a duration, changed a fit, disabled an item,
+saved, reloaded — and every one of those survived.
+
+### Researched before implementing
+
+Surveyed Xibo, OptiSigns, Yodeck, Play Digital Signage and EasySignage. What they all have:
+per-item duration, drag-to-reorder, **per-item fit/scaling**, transitions, shuffle, item validity
+dates, sub-playlists, dynamic (filtered) playlists, and non-media widgets.
+
+**The finding that changed the design: per-item fit is universal, and we had no equivalent.**
+Signage content is constantly mismatched to its screen — a 2000×2000 image on a 1920×1080 panel,
+landscape video on a portrait screen. `Device.orientation` existed but nothing told the player *how
+to fit* content, so it would have had to guess. Added as `PlaylistItem.fit`
+(`contain` | `cover` | `stretch`, defaulting to `contain` because it neither crops nor distorts).
+One enum column now versus a migration plus a player change later.
+
+Also added, both cheap and both expected by every platform surveyed: `PlaylistItem.is_enabled`
+(take a slot out of rotation without losing its position, duration and fit) and `Playlist.shuffle`.
+
+**Deliberately deferred:**
+- **Transitions** — cheap in schema, real work in the player. Media3 gives gapless playlist
+  transitions free, but a crossfade needs two ExoPlayer instances swapping surfaces. Adding the
+  field now would be an API that lies about what the hardware does. Revisit after Phase 12b shows
+  what a gapless cut looks like on the real screens.
+- **Item validity dates** — Xibo and OptiSigns put start/end dates on playlist *items*, not only on
+  schedules, and it overlaps Phase 13's dayparting. They solve different problems ("this promo ends
+  Friday" vs "breakfast menu until 11am"), so the decision belongs in Phase 13 where both can be
+  designed together rather than becoming two competing time mechanisms.
+- **Sub-playlists, dynamic playlists, widgets, background music** — each is real, none is needed to
+  prove the loop works, and widgets in particular would reshape the media model.
+
+### Device preview (added beyond the plan)
+
+The playlist editor previews each item on a **real screen shape**, at real durations, with the
+item's own fit applied — because the questions "how much black will this have" and "what will Fill
+cut off" cannot be answered from a thumbnail grid, and answering them on the wall is too late.
+
+- **Presets cover portrait and landscape**, portrait first. Tall 4K totems are one of the
+  commonest signage formats and a landscape-only preview would quietly mislead about every one of
+  them. Custom sizes are supported, and the choice is remembered per browser.
+- **The fit mapping is exact, which is what makes the preview trustworthy**: CSS `object-fit`
+  `contain`/`cover`/`fill` correspond one-to-one with Media3's `RESIZE_MODE_FIT`/`ZOOM`/`FILL`.
+  This is a model of the player, not an impression of it.
+- **Two warnings that turn invisible problems into visible ones**: how much of an image `cover`
+  crops away (a 1600×900 image on a 4K portrait totem loses 68%), and whether the media is lower
+  resolution than the panel and will therefore look soft.
+- **Play loop** steps through enabled items at their real durations, driven off the *draft* rather
+  than the saved playlist — the point is seeing an unsaved change before committing it to a wall.
+- `MediaRead` and playlist items now carry a presigned `url`. Presigning is a local HMAC, so N
+  items cost N cheap computations and no network calls; previewing the 480px thumbnail instead
+  would misreport both sharpness and cropping, and would fire the upscaling warning falsely.
+
+Phase 9 will add registered devices to the preset list — `Device.screen_width`/`screen_height` are
+already reported on every heartbeat, so "preview as Lobby screen" becomes a lookup rather than a
+new mechanism.
+
+**Two bugs found by building it, both caught before shipping:**
+
+- **The list and the detail disagreed.** The detail excluded disabled items from its count and
+  total; the list's SQL aggregate did not, so one playlist read "3 items · 0:45" in the list and
+  "2 items · 0:35" in the editor. Fixed by filtering `is_enabled` in the **JOIN condition** rather
+  than a `WHERE` — with an outer join a `WHERE` would drop playlists whose every item is disabled
+  instead of showing them with zero. Now guarded by a check that asserts the two agree.
+- **The preview lied about landscape.** `width: 100%` plus a `max-height` cap makes a wide
+  container clamp the height while the width stays full, so a 16:9 panel rendered at 2.21:1 —
+  precisely the thing a preview must never do. Fixed by deriving the width from the height cap;
+  all four presets now measure within 0.02 of their true ratio.
+
+### Notes from the build
+
+- **The migration needed hand-editing, exactly as `backend/README.md` warns.** Autogenerate wrote
+  three `NOT NULL` columns with no `server_default`, which works only on an empty table — Postgres
+  refuses to add a NOT NULL column to existing rows with nothing to put in them. Rewritten as the
+  standard two-step: add *with* a default so existing rows backfill, then drop the default so the
+  schema matches the model and `alembic check` stays clean (env.py sets
+  `compare_server_default=True`, so a lingering default reads as drift).
+- **Counts and totals ignore disabled items.** The number people read as "how long is this loop"
+  has to match what a screen actually plays, or it is worse than no number.
+- **Editing is explicitly saved, never autosaved.** Rearranging a live playlist must not push
+  half-finished states onto a wall of screens, so Save is the commit point and the button is
+  disabled until something actually changed.
+- **A draft row is keyed by a fresh UUID, not by media id** — the same file may legitimately appear
+  twice in one loop, and keying by media would make Vue treat the two as one row.
 
 1. Backend, `api/routes/playlists.py`:
    - `GET /playlists` — with item count and total duration
@@ -707,9 +878,43 @@ the list with a status dot.
 
 ---
 
-## Phase 9b: Subusers and Device Access
+## Phase 9b: Subusers and Device Access ✅ DONE
 
 **Goal:** the owner delegates a subset of the screens without handing over the account.
+
+`check_users.py` passes 41 checks. Verified in the browser: created manager `cafe-staff` granted
+one of three screens, then signed in as them — `GET /devices` returned exactly `["Cafe panel"]`,
+`GET /users` returned **403**, and media (3) and playlists (1) stayed fully visible, which is the
+shared-library rule working rather than a leak.
+
+**Built out of order.** The plan puts this after Phases 8 and 9 because grants need devices to
+exist. It was built first anyway, so `GET /devices` landed here — the minimum needed to assign a
+grant against something real. Phase 8 adds pairing, claiming and unpairing around it; the listing
+already scopes correctly (owners see the account, managers see their grants, unclaimed devices
+belong to nobody and appear for no one).
+
+Decisions worth recording:
+
+- **The owner is the password recovery path.** `POST /users/{id}/password` sets a subuser's
+  password directly and there is no email reset flow — which is the entire reason email is
+  optional on a user. A screen manager created by the owner often has no address to send one to.
+- **Grants are replaced wholesale**, same shape as `PUT /playlists/{id}/items` and for the same
+  reason: the UI is a checkbox list that produces a complete set anyway. Duplicate ids collapse.
+- **Cross-account references are 404, never 400.** Granting a device that exists in another
+  account returns "Device not found", because calling it *invalid* would confirm it exists.
+- **Deactivation bites on the next request, not the next login** — `is_active` is read per request
+  (Phase 3), so a suspended manager's existing cookie stops working immediately. Asserted.
+
+**A guard that turned out to be unreachable, kept deliberately.** `LastOwner` refuses removing an
+account's final active owner. Over HTTP it can never fire: to act you must be an active owner, and
+the self-guard blocks acting on yourself, so at least one active owner always remains besides the
+target. My first check appeared to exercise it but was actually passing on a 401 from a
+deactivated cookie — a green tick proving nothing. It is now asserted at the **service layer**
+against a fabricated state that HTTP cannot reach, and the guard stays as defence-in-depth for
+whenever role promotion or invitations arrive.
+
+A second check in the same script was worse: it ended in `or True` and could not fail. Both are
+fixed. Worth remembering that a passing check script is only as good as its weakest assertion.
 
 Built here, after Phase 9, because granting access to devices requires devices to exist.
 

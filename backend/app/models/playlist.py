@@ -1,10 +1,27 @@
 import uuid
 from datetime import datetime
+from enum import StrEnum
 
 from sqlalchemy import Column, ForeignKey, UniqueConstraint
 from sqlmodel import Field, SQLModel
 
-from app.models.base import tz_column, utcnow
+from app.models.base import enum_column, tz_column, utcnow
+
+
+class ItemFit(StrEnum):
+    """How a slot's media fills the screen when their aspect ratios differ.
+
+    Every established signage CMS exposes this per item, because mismatched aspect ratios
+    are the normal case rather than the exception — portrait screens, square photos, mixed
+    libraries. Without it the player has to guess, and it guesses wrong half the time.
+    """
+
+    # Whole image visible, letterboxed. The safe default: nothing is cropped or distorted.
+    CONTAIN = "contain"
+    # Fills the screen, cropping the overflow. Best-looking when the content can spare edges.
+    COVER = "cover"
+    # Fills by distorting. Rarely right, but occasionally the only way to place a fixed asset.
+    STRETCH = "stretch"
 
 
 class Playlist(SQLModel, table=True):
@@ -23,6 +40,9 @@ class Playlist(SQLModel, table=True):
         sa_column=Column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True),
     )
     name: str
+    # Randomise the play order. Order still matters when it is off, so this is a flag rather
+    # than a different kind of playlist.
+    shuffle: bool = Field(default=False)
     created_at: datetime = Field(default_factory=utcnow, sa_column=tz_column(nullable=False))
     updated_at: datetime = Field(default_factory=utcnow, sa_column=tz_column(nullable=False))
 
@@ -56,3 +76,10 @@ class PlaylistItem(SQLModel, table=True):
     # fixed number of seconds for an image, but is overridable — cutting a long video short
     # is a thing signage genuinely does.
     duration_seconds: int
+    fit: ItemFit = Field(
+        default=ItemFit.CONTAIN,
+        sa_column=enum_column(ItemFit, nullable=False),
+    )
+    # Take a slot out of rotation without losing its position, duration and fit. Restoring
+    # it is then one click rather than rebuilding the row from memory.
+    is_enabled: bool = Field(default=True)
