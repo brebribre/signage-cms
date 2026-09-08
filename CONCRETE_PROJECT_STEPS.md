@@ -206,7 +206,25 @@ the endpoint.
 
 ---
 
-## Phase 1b: Deploy the Skeleton
+## Phase 1b: Deploy the Skeleton ✅ DONE (auto-deploy trigger still unverified)
+
+Live at **https://signage-cms-production.up.railway.app** — `/health` returns 200 against
+Railway's Postgres, `/docs` renders.
+
+What actually went wrong, in order, since none of it was the application:
+1. **No start command.** Railpack detects Python and installs `requirements.txt` on its own, but
+   refuses to guess how to start an `app/main.py` layout. Fixed with `backend/railpack.json`.
+2. **`DATABASE_URL` unset**, so `config.py` fell back to `localhost:5434` and the container
+   crash-looped at *"Waiting for application startup"* — migrations run in the lifespan, and there
+   was no database to migrate. This is the failure the plan predicted, and it looks like a hang
+   rather than an error, which is what makes it worth naming here.
+   Fixed with the reference variable `${{Postgres.DATABASE_URL}}`.
+
+Root Directory was already `backend`; the first build proved it by finding `requirements.txt`.
+
+**Still unverified:** that `git push` alone triggers a deploy. The redeploy was CLI-initiated
+(`railway redeploy --from-source`), which proves the source is connected but *not* that a webhook
+exists — precisely the distinction that cost time on strava-comp. One throwaway commit settles it.
 
 **Goal:** `git push` puts a working `/health` on the internet. Do this now, with one endpoint,
 rather than at Phase 11 with fifteen.
