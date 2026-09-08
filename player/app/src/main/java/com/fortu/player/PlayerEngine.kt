@@ -17,6 +17,8 @@ import kotlinx.coroutines.withContext
 
 private const val TAG = "FortuPlayer"
 
+private val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+
 /** Everything the UI can be showing. The pairing screen doubles as the error state. */
 sealed interface PlayerState {
     data object Starting : PlayerState
@@ -261,8 +263,21 @@ class PlayerEngine(
     private suspend fun syncAndPlay(token: String) {
         var beatsSincePoll = 0
 
+        // Play whatever was on screen before the restart, from disk, before touching the
+        // network. A screen that comes back from a power cut with the router still booting
+        // must show content, not a logo — the files are already cached, and this is the
+        // only thing that knows which of them to play.
+        restoreFromDisk()
+
         while (true) {
-            val etag = store.etag()
+            // Only send an ETag when there is something on screen for a 304 to mean. After a
+            // restart with nothing restored, "nothing changed" is the one answer the player
+            // cannot act on: the server is right, and the screen still has nothing to show.
+            val etag = if (_state.value is PlayerState.Playing || _state.value is PlayerState.Idle) {
+                store.etag()
+            } else {
+                null
+            }
             val manifest = api.fetchManifest(token, etag)
 
             _debug.update { it.copy(lastPoll = "just now", lastError = null) }
@@ -270,6 +285,8 @@ class PlayerEngine(
             if (manifest != null) {
                 applyManifest(manifest)
                 store.saveEtag("\"${manifest.version}\"")
+                runCatching { store.saveManifestJson(json.encodeToString(Manifest.serializer(), manifest)) }
+                    .onFailure { Log.w(TAG, "could not persist manifest", it) }
             }
 
             // Heartbeat carries liveness and reported resolution. Its response includes the
@@ -337,6 +354,39 @@ class PlayerEngine(
     } catch (e: Exception) {
         Log.w(TAG, "unparseable valid_until: $iso")
         null
+    }
+
+    /**
+     * Restore the last known manifest from disk and play anything already cached.
+     *
+     * Deliberately does not download: this runs before the first network call, and its whole
+     * purpose is getting pixels on screen while the network is still coming up — or never
+     * does. Anything missing is filled in by the normal sync a moment later.
+     */
+    private suspend fun restoreFromDisk() {
+        if (_state.value is PlayerState.Playing) return
+        val stored = store.manifestJson() ?: return
+        val manifest = runCatching { json.decodeFromString(Manifest.serializer(), stored) }
+            .getOrElse {
+                // A manifest written by an older build that this one cannot read. Not fatal:
+                // drop it and let the normal fetch repopulate.
+                Log.w(TAG, "stored manifest unreadable, ignoring", it)
+                return
+            }
+
+        val playable = manifest.items.filter { cache.isCached(it) }
+        if (playable.isEmpty()) return
+
+        Log.i(TAG, "restored ${playable.size} cached items from disk")
+        _state.value = PlayerState.Playing(
+            playable,
+            manifest.playlist?.shuffle ?: false,
+            manifest.device.orientation,
+        )
+        _debug.update {
+            it.copy(deviceName = manifest.device.name, version = manifest.version,
+                    itemCount = playable.size, schedule = manifest.scheduleName)
+        }
     }
 
     private suspend fun applyManifest(manifest: Manifest) = withContext(io) {

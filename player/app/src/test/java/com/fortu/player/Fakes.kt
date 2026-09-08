@@ -59,10 +59,20 @@ class FakeApi : PlayerApi {
         )
     }
 
+    /** ETags actually seen, so a test can assert what the player sent. */
+    val etagsSeen = mutableListOf<String?>()
+
+    /** When true, behave like the real server: answer 304 whenever the ETag matches the
+     *  current manifest version. Without this a reboot test cannot reproduce the bug where a
+     *  persisted ETag left a restarted screen with nothing to show. */
+    var honourEtag = false
+
     override fun fetchManifest(token: String, etag: String?): Manifest? {
         manifestCalls++
+        etagsSeen += etag
         manifestFailures.removeFirstOrNull()?.let { throw it }
         if (manifestReturns304) return null
+        if (honourEtag && etag != null && etag == "\"${manifest?.version}\"") return null
         return manifest
     }
 
@@ -77,6 +87,7 @@ class FakeStore(
     var storedToken: String? = null,
     var storedEtag: String? = null,
     var storedName: String? = null,
+    var storedManifestJson: String? = null,
 ) : TokenStore {
     var clearCount = 0
 
@@ -88,10 +99,13 @@ class FakeStore(
         storedName = name
     }
     override suspend fun saveEtag(etag: String) { storedEtag = etag }
+    override suspend fun manifestJson() = storedManifestJson
+    override suspend fun saveManifestJson(json: String) { storedManifestJson = json }
     override suspend fun clear() {
         clearCount++
         storedToken = null
         storedEtag = null
+        storedManifestJson = null
     }
 }
 

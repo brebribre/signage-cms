@@ -31,6 +31,13 @@ interface TokenStore {
     suspend fun name(): String?
     suspend fun saveToken(token: String, name: String?)
     suspend fun saveEtag(etag: String)
+    /** The last manifest, as JSON.
+     *
+     * Persisted so a screen that reboots can play immediately from its cache, with no network
+     * at all. Without it the ETag survives a restart while the content does not, and the
+     * server's correct 304 leaves the player with nothing to show. */
+    suspend fun manifestJson(): String?
+    suspend fun saveManifestJson(json: String)
     suspend fun clear()
 }
 

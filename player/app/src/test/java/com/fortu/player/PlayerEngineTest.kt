@@ -399,4 +399,99 @@ class PlayerEngineTest {
         assertEquals("one attempt per app run", 1, installs)
         job.cancelAndJoin()
     }
+
+    // --- restart / power cut ------------------------------------------------------------------
+
+    @Test
+    fun `a restarted screen plays again even though the server answers 304`() = runTest {
+        // The bug: the ETag was persisted across a restart but the content was not, so on boot
+        // the server correctly said "nothing changed" and the player — which had just started
+        // and had nothing in memory — sat on the splash until somebody edited the playlist.
+        val m = manifest(version = "v9", items = listOf(item("a")))
+        val store = FakeStore(
+            storedToken = "t",
+            storedEtag = "\"v9\"",
+            storedManifestJson = kotlinx.serialization.json.Json.encodeToString(
+                com.fortu.player.api.Manifest.serializer(), m,
+            ),
+        )
+        val cache = FakeCache().apply { cached += "a" }
+        val api = FakeApi().apply { manifest = m; honourEtag = true }
+
+        val e = engine(api = api, store = store, cache = cache)
+        val job = launch { e.run() }
+        advanceTimeBy(1_000)
+
+        val state = e.state.value
+        assertTrue("a rebooted screen must play, got $state", state is PlayerState.Playing)
+        assertEquals(listOf("a"), (state as PlayerState.Playing).items.map { it.checksum })
+        job.cancelAndJoin()
+    }
+
+    @Test
+    fun `a restarted screen plays from cache with no network at all`() = runTest {
+        // The case that matters after a power cut: the screen comes back before the router
+        // does. The files are on disk; this is the only thing that knows which to play.
+        val m = manifest(version = "v9", items = listOf(item("a"), item("b")))
+        val store = FakeStore(
+            storedToken = "t",
+            storedManifestJson = kotlinx.serialization.json.Json.encodeToString(
+                com.fortu.player.api.Manifest.serializer(), m,
+            ),
+        )
+        val cache = FakeCache().apply { cached += "a"; cached += "b" }
+        val api = FakeApi()
+        repeat(10) { api.manifestFailures += java.io.IOException("network down") }
+
+        val e = engine(api = api, store = store, cache = cache)
+        val job = launch { e.run() }
+        advanceTimeBy(1_000)
+
+        val state = e.state.value
+        assertTrue("must play offline from cache, got $state", state is PlayerState.Playing)
+        assertEquals(2, (state as PlayerState.Playing).items.size)
+        job.cancelAndJoin()
+    }
+
+    @Test
+    fun `with nothing restored, no ETag is sent so the server must answer in full`() = runTest {
+        val store = FakeStore(storedToken = "t", storedEtag = "\"stale\"")
+        val api = FakeApi().apply { manifest = manifest(items = listOf(item("a"))) }
+        val e = engine(api = api, store = store)
+        val job = launch { e.run() }
+        advanceTimeBy(1_000)
+
+        assertNull("first fetch after a restart must not be conditional", api.etagsSeen.first())
+        assertTrue(e.state.value is PlayerState.Playing)
+        job.cancelAndJoin()
+    }
+
+    @Test
+    fun `once playing, the ETag is sent again so polls stay cheap`() = runTest {
+        val store = FakeStore(storedToken = "t")
+        val api = FakeApi().apply { manifest = manifest(items = listOf(item("a"))) }
+        val e = engine(api = api, store = store)
+        val job = launch { e.run() }
+        advanceTimeBy(1_000)
+        advanceTimeBy(35_000)
+
+        assertNotNull(
+            "later polls must be conditional, or every screen re-downloads its manifest forever",
+            api.etagsSeen.last(),
+        )
+        job.cancelAndJoin()
+    }
+
+    @Test
+    fun `an unreadable stored manifest is ignored rather than fatal`() = runTest {
+        // Written by an older build with a shape this one cannot parse.
+        val store = FakeStore(storedToken = "t", storedManifestJson = "{ not json at all")
+        val api = FakeApi().apply { manifest = manifest(items = listOf(item("a"))) }
+        val e = engine(api = api, store = store)
+        val job = launch { e.run() }
+        advanceTimeBy(1_000)
+
+        assertTrue("should recover via the normal fetch", e.state.value is PlayerState.Playing)
+        job.cancelAndJoin()
+    }
 }

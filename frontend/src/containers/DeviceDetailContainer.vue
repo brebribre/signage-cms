@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import DeviceActivityContainer from '@/containers/DeviceActivityContainer.vue'
@@ -21,25 +21,48 @@ const router = useRouter()
 const id = String(route.params.id)
 
 const {
-  device, isLoading, isSaving, error, saveError, freshPairing,
-  rename, setLocation, setOrientation, setTimezone, assignPlaylist, unpair, remove,
+  device, isLoading, isSaving, error, saveError, saveSucceeded, freshPairing,
+  save, unpair, remove,
 } = useDeviceDetail(id)
 const { items: playlists } = usePlaylists()
 const { dimensions, relativeTime, date } = useFormat()
 
-const name = ref('')
-const location = ref('')
 const confirmingUnpair = ref(false)
 const confirmingDelete = ref(false)
 
-// Local edit buffers, seeded once the device loads — editing must not fight a field the
-// user is mid-keystroke in every time a background refresh lands.
+const TABS = ['manage', 'activity'] as const
+const tab = ref<(typeof TABS)[number]>('manage')
+
+// Everything below is a draft the user is composing — nothing here reaches the device until
+// "Save changes" is clicked. Re-seeded whenever the confirmed device state changes, so a
+// background refresh (or a save just landing) doesn't leave the form disagreeing with what
+// the device actually has.
+const form = reactive({
+  name: '',
+  location: '',
+  orientation: 'landscape' as DeviceOrientation,
+  timezone: 'UTC',
+  playlistId: '' as string,
+})
+
 watch(device, (d) => {
-  if (d) {
-    name.value = d.name
-    location.value = d.location
-  }
+  if (!d) return
+  form.name = d.name
+  form.location = d.location
+  form.orientation = d.orientation
+  form.timezone = d.timezone
+  form.playlistId = d.playlist_id ?? ''
 }, { immediate: true })
+
+const isDirty = computed(() => {
+  const d = device.value
+  if (!d) return false
+  return form.name !== d.name
+    || form.location !== d.location
+    || form.orientation !== d.orientation
+    || form.timezone !== d.timezone
+    || form.playlistId !== (d.playlist_id ?? '')
+})
 
 const COMMON_ZONES = [
   'UTC',
@@ -61,17 +84,28 @@ const zoneOptions = computed(() => {
   return current && !COMMON_ZONES.includes(current) ? [current, ...COMMON_ZONES] : COMMON_ZONES
 })
 
-function onTimezone(e: Event) {
-  setTimezone((e.target as HTMLSelectElement).value)
-}
-
 function onOrientation(e: Event) {
-  setOrientation((e.target as HTMLSelectElement).value as DeviceOrientation)
+  form.orientation = (e.target as HTMLSelectElement).value as DeviceOrientation
 }
 
-function onAssign(e: Event) {
-  const value = (e.target as HTMLSelectElement).value
-  assignPlaylist(value || null)
+/**
+ * One request carrying every field the user touched — a dropdown that looks as small as
+ * "pick a playlist" is really "change what this screen shows in the next 30 seconds", and
+ * it deserves the same explicit save and confirmation as everything else here rather than
+ * firing the moment it's clicked.
+ */
+async function onSave() {
+  const d = device.value
+  if (!d) return
+  await save({
+    name: form.name,
+    location: form.location,
+    orientation: form.orientation,
+    timezone: form.timezone,
+    ...(form.playlistId
+      ? { playlist_id: form.playlistId }
+      : { clear_playlist: true }),
+  })
 }
 
 async function onUnpair() {

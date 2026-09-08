@@ -1,6 +1,7 @@
 package com.fortu.player.playback
 
 import android.util.Log
+import android.view.View
 import android.view.ViewGroup
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -92,18 +93,43 @@ fun PlaybackSurface(
         index = if (items.isEmpty()) 0 else (index + 1) % items.size
     }
 
+    // One ExoPlayer, and one PlayerView backing it, for the whole playlist — not one per
+    // video item. The bug this fixes: a playlist alternating picture/video played the first
+    // video fine, but the *second* time a video came around the screen stayed black with no
+    // error logged anywhere. Each video item used to build its own ExoPlayer and its own
+    // PlayerView (hence its own native SurfaceView) from scratch, and tear both down the
+    // moment the loop moved off it. Recreating a SurfaceView that quickly is a known source of
+    // "first frame never arrives" on embedded/signage GPUs — decoding proceeds normally (no
+    // error, no stall the watchdog would catch), it simply never reaches the new surface.
+    // Keeping one player and one surface alive for as long as this screen is playing sidesteps
+    // the recreation entirely.
+    val context = LocalContext.current
+    val exo = remember {
+        ExoPlayer.Builder(context).build().apply {
+            playWhenReady = true
+            // No repeat: the surrounding loop owns advancing, so the playlist order stays in
+            // one place rather than being split between here and the index above.
+            repeatMode = Player.REPEAT_MODE_OFF
+            volume = 0f
+        }
+    }
+    DisposableEffect(Unit) { onDispose { exo.release() } }
+
     Box(modifier.fillMaxSize().background(Color.Black)) {
-        if (item.kind == "video") {
-            VideoItem(
-                file = fileFor(item),
-                fit = item.fit,
-                maxSeconds = item.durationSeconds,
-                // Finish the current item before moving on — cutting mid-item to apply an
-                // update is the difference between a CMS and a glitch.
-                onEnded = { advance() },
-                onError = onPlaybackError,
-            )
-        } else {
+        // Always composed, even on a picture slot, so the underlying SurfaceView is created
+        // once and just hidden — never destroyed and rebuilt on the next video.
+        VideoSurface(
+            exo = exo,
+            active = item.kind == "video",
+            file = if (item.kind == "video") fileFor(item) else null,
+            fit = item.fit,
+            maxSeconds = item.durationSeconds,
+            // Finish the current item before moving on — cutting mid-item to apply an
+            // update is the difference between a CMS and a glitch.
+            onEnded = { advance() },
+            onError = onPlaybackError,
+        )
+        if (item.kind != "video") {
             AsyncImage(
                 model = fileFor(item),
                 contentDescription = null,
@@ -119,8 +145,12 @@ fun PlaybackSurface(
 }
 
 @Composable
-private fun VideoItem(
-    file: File,
+private fun VideoSurface(
+    exo: ExoPlayer,
+    /** False on a picture slot — the surface stays mounted but idle rather than leaving
+     *  composition, so its SurfaceView is never torn down and recreated. */
+    active: Boolean,
+    file: File?,
     fit: String,
     /** The slot's duration from the CMS. A video is cut at this if it runs longer — the
      *  playlist editor offers it, the backend stores it, and until now the player ignored
@@ -129,21 +159,10 @@ private fun VideoItem(
     onEnded: () -> Unit,
     onError: (String) -> Unit,
 ) {
-    val context = LocalContext.current
-    val exo = remember {
-        ExoPlayer.Builder(context).build().apply {
-            playWhenReady = true
-            // No repeat: the surrounding loop owns advancing, so the playlist order stays in
-            // one place rather than being split between here and the index above.
-            repeatMode = Player.REPEAT_MODE_OFF
-            volume = 0f
-        }
-    }
-
     // Guarantees exactly one advance per item however playback ends — naturally, by error,
     // or by the watchdog below. Without it a video that errors *and* times out would skip
     // two items.
-    var finished by remember(file.absolutePath) { mutableStateOf(false) }
+    var finished by remember(file?.absolutePath) { mutableStateOf(false) }
     fun finishOnce(reason: String?) {
         if (finished) return
         finished = true
@@ -151,12 +170,15 @@ private fun VideoItem(
         onEnded()
     }
 
-    DisposableEffect(file.absolutePath) {
-        exo.setMediaItem(MediaItem.fromUri(file.toURI().toString()))
-        exo.prepare()
+    DisposableEffect(file?.absolutePath, active) {
+        if (active && file != null) {
+            exo.setMediaItem(MediaItem.fromUri(file.toURI().toString()))
+            exo.prepare()
+        }
+
         val listener = object : Player.Listener {
             override fun onPlaybackStateChanged(state: Int) {
-                if (state == Player.STATE_ENDED) finishOnce(null)
+                if (active && state == Player.STATE_ENDED) finishOnce(null)
             }
 
             /**
@@ -166,12 +188,18 @@ private fun VideoItem(
              * the single worst outcome for signage, and one unplayable file could cause it.
              */
             override fun onPlayerError(error: PlaybackException) {
-                Log.e("FortuPlayer", "playback failed for ${file.name}", error)
-                finishOnce("${file.name}: ${error.errorCodeName}")
+                if (!active) return
+                Log.e("FortuPlayer", "playback failed for ${file?.name}", error)
+                finishOnce("${file?.name}: ${error.errorCodeName}")
             }
         }
         exo.addListener(listener)
-        onDispose { exo.removeListener(listener) }
+        onDispose {
+            exo.removeListener(listener)
+            // Stop rather than leave the old item buffered behind the next one — the player
+            // instance survives, but nothing it was doing for this slot should carry over.
+            if (active) exo.stop()
+        }
     }
 
     /**
@@ -182,7 +210,8 @@ private fun VideoItem(
      * Also implements the CMS's per-slot duration — whichever comes first, the natural end or
      * this, the loop moves on.
      */
-    LaunchedEffect(file.absolutePath) {
+    LaunchedEffect(file?.absolutePath, active) {
+        if (!active || file == null) return@LaunchedEffect
         val cap = if (maxSeconds > 0) maxSeconds else DEFAULT_VIDEO_CAP_SECONDS
         delay(cap * 1000L + STALL_GRACE_MILLIS)
         if (!finished) {
@@ -190,8 +219,6 @@ private fun VideoItem(
             finishOnce("${file.name}: did not finish in ${cap}s")
         }
     }
-
-    DisposableEffect(Unit) { onDispose { exo.release() } }
 
     AndroidView(
         factory = { ctx ->
@@ -206,7 +233,10 @@ private fun VideoItem(
                 player = exo
             }
         },
-        update = { it.resizeMode = resizeModeFor(fit) },
+        update = {
+            it.resizeMode = resizeModeFor(fit)
+            it.visibility = if (active) View.VISIBLE else View.INVISIBLE
+        },
         modifier = Modifier.fillMaxSize(),
     )
 }

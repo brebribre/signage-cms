@@ -21,6 +21,7 @@ class DeviceStore(private val context: Context) : com.fortu.player.TokenStore {
     private val tokenKey = stringPreferencesKey("device_token")
     private val etagKey = stringPreferencesKey("manifest_etag")
     private val nameKey = stringPreferencesKey("device_name")
+    private val manifestKey = stringPreferencesKey("manifest_json")
 
     override suspend fun token(): String? = context.dataStore.data.first()[tokenKey]
     override suspend fun etag(): String? = context.dataStore.data.first()[etagKey]
@@ -35,6 +36,12 @@ class DeviceStore(private val context: Context) : com.fortu.player.TokenStore {
 
     override suspend fun saveEtag(etag: String) {
         context.dataStore.edit { it[etagKey] = etag }
+    }
+
+    override suspend fun manifestJson(): String? = context.dataStore.data.first()[manifestKey]
+
+    override suspend fun saveManifestJson(json: String) {
+        context.dataStore.edit { it[manifestKey] = json }
     }
 
     /** Called when the server rejects our token — drops everything so the app re-pairs. */
