@@ -443,9 +443,39 @@ Password hashes in the database start with `$argon2id$`.
 
 ---
 
-## Phase 4: Frontend Skeleton
+## Phase 4: Frontend Skeleton ✅ DONE
 
 **Goal:** the Vue app runs, has its layers in place, and can log in against Phase 3.
+
+Verified by driving the real browser: signup → session cookie → `/media` shell → deep link to
+`/devices` after a full reload with no login flash → sign out → login screen. `vue-tsc` clean,
+production build 102 kB (39.8 kB gzip).
+
+**The design system is taken from fortu.co.id by reading its computed styles**, not by eye:
+Helvetica Neue, headings at weight 500 with `-0.025em` tracking at every size, pill buttons
+carrying a 2px border in every variant, and no shadows anywhere. Tokens live in `src/style.css`;
+`frontend/REQUIREMENTS.md` records them and the layer rules.
+
+**The defining constraint is that there is no accent hue.** Nothing can mark "active" with colour,
+so selection, focus and primary actions are expressed with ink fill and weight instead — a selected
+nav row is ink on `raised`, a primary button is solid ink. One colour survives, `danger`, used only
+for destructive actions and errors, and it is flagged in REQUIREMENTS.md §8 as removable.
+
+Four things that cost time, all environmental rather than architectural:
+
+- **npm's cache had root-owned entries**, which surfaced as `vite@undefined` and a bogus ERESOLVE
+  peer conflict. A separate `--cache` dir did not fix it; the real problem was that the pinned
+  versions were far behind this registry. Aligning to strava-comp's proven set (vite 8, vue-router
+  5, pinia 4, typescript 6) installed cleanly. **`npm install | tail` hid the failure** — the pipe's
+  exit code is what gets reported, so the harness called a failed install a success.
+- **Reinstalling `node_modules` under a running dev server** leaves Vite serving a stale
+  pre-bundle: `504 (Outdated Optimize Dep)` and a blank page. Restart Vite, don't debug the app.
+- **`localhost:5173` and `127.0.0.1:5173` are different origins.** Opening the app on the wrong one
+  fails with a bare CORS error naming neither. Both are now in `EXTRA_CORS_ORIGINS` for dev.
+- **`baseUrl` is deprecated in TypeScript 6**; `paths` resolves relative to the tsconfig without it.
+
+The frontend dev server is on 5173 and the backend on **8001** — see the Phase 1 note on why 8000
+is unavailable locally.
 
 1. Scaffold with Vite + Vue 3 + TypeScript. Add Tailwind v4 (`@tailwindcss/vite`), `vue-router`,
    `pinia`, `unplugin-icons` + `@iconify-json/material-symbols`. `@` aliases to `./src`.

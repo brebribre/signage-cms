@@ -15,6 +15,7 @@ setup_logging(settings.log_level)
 TAGS_METADATA = [
     {"name": "system", "description": "Service and database health."},
     {"name": "auth", "description": "Signup, login and the current session."},
+    {"name": "media", "description": "The media library and its upload pipeline."},
 ]
 
 

@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+/*
+  Fortu CMS design tokens.
+
+  Taken from fortu.co.id rather than invented: Helvetica Neue, headings at weight 500 with
+  -0.025em tracking at every size, pill buttons carrying a 2px border, and no shadows
+  anywhere. Light mode only — there is no dark palette and no runtime theming, so
+  `color-scheme: light` is declared and native controls follow it.
+
+  The system is monochrome by design, which has one real consequence worth stating: there
+  is no accent hue to mark what is active. Selection, focus and primary actions are
+  expressed with **ink fill and weight** instead of colour. A "selected" nav row is ink on
+  a tinted surface; a primary button is solid ink. Reaching for a colour here would break
+  the language rather than extend it.
+*/
+
+@theme {
+  /* --- Type --- */
+  --font-sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
+
+  /* Every heading on fortu.co.id uses this, from 30px to 96px. It is the most
+     recognisable single property of the brand. */
+  --tracking-heading: -0.025em;
+
+  /* --- Surfaces, page -> card -> inset, ascending tint --- */
+  --color-canvas: #ffffff;
+  --color-surface: #f9f9f9;
+  --color-raised: #f2f2f2;
+
+  /* --- Ink --- */
+  --color-ink: #101111;
+  --color-ink-muted: #7d7d7d;
+  --color-ink-subtle: #a8a8a8;
+  --color-ink-inverse: #f9f9f9;
+
+  /* --- Lines. Hairlines between things, and outlines around controls. --- */
+  --color-line: #e5e5e5;
+  --color-line-strong: #bfbfbf;
+
+  /* The single non-monochrome token, and only for destructive confirmation and error
+     text. Muted well below a warning red so it reads as part of the palette. Delete it
+     and use ink if you would rather the system be strictly monochrome. */
+  --color-danger: #9b2c2c;
+
+  /* --- Radii. 4-16, plus the pill that every button uses. --- */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+
+  /* --- Motion. One curve, two durations. --- */
+  --ease-fortu: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-quick: 150ms;
+  --duration-soft: 200ms;
+}
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body {
+  background-color: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Headings are medium, never bold, and always tracked in. Set once here so no component
+   has to remember it — the one rule most easily lost across thirty templates. */
+h1, h2, h3, h4 {
+  font-weight: 500;
+  letter-spacing: var(--tracking-heading);
+}
+
+/* Inputs inherit the family; browsers otherwise substitute their own. */
+input, textarea, select, button {
+  font-family: inherit;
+}
+
+*, *::before, *::after {
+  touch-action: manipulation;
+}
