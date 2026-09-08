@@ -365,9 +365,35 @@ the two FK rules above are proven rather than assumed.
 
 ---
 
-## Phase 3: Accounts, Users and Sessions
+## Phase 3: Accounts, Users and Sessions ✅ DONE
 
 **Goal:** an account exists, and every request knows *who* is calling and *what they may reach*.
+
+`check_auth.py` passes 34 checks and is re-runnable. `alembic check` reports no drift — Phase 3 is
+all behaviour, no schema.
+
+Built beyond the plan:
+
+- **Timing equalisation on login.** Returning early for an unknown identifier makes login
+  measurably faster for identifiers that do not exist, which is an account-existence oracle no
+  matter how identical the response body is. `passwords.waste_time_like_a_verify()` burns a
+  verify's worth of CPU against a throwaway hash before raising.
+- **`accessible_device_ids()` returns `None` for an owner**, not an exhaustive list. An owner's
+  reach is defined by the account, so materialising it would invent state that can drift from the
+  thing it describes. A manager gets the explicit list.
+- **`normalise_username()` in the service, not only the schema.** SQLModel skips validation on
+  `table=True` models and the unique index is case-sensitive, so without it `Alvin` and `alvin`
+  are two users. The schema refuses bad input early; the service is the place nothing can bypass.
+- **`email-validator`** added to `requirements.txt`, for `EmailStr`.
+
+Two traps worth remembering, both found the hard way:
+
+- **`TestClient` keeps a cookie jar across requests.** The client that performed signup is
+  authenticated from then on, so `check_auth.py`'s "anonymous /me is 401" was quietly asserting the
+  logged-in path and returning 200. Anything testing anonymous behaviour must clear the jar first.
+- **FastAPI 0.141 no longer flattens included routers into `app.routes`** — they stay wrapped in an
+  `_IncludedRouter`. Inspecting `app.routes` to confirm a route is registered gives a false
+  negative; read `app.openapi()["paths"]` instead.
 
 1. `services/passwords.py` — argon2 `PasswordHasher`: `hash_password`, `verify_password`. Verify
    **also reports whether the hash needs rehashing** (`ph.check_needs_rehash`), so parameter
