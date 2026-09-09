@@ -24,7 +24,12 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     private val api = ApiClient()
     private val store = DeviceStore(app)
     private val cache = MediaCache(app, api.http)
-    private val push = MqttPushClient(host = BuildConfig.MQTT_HOST, port = BuildConfig.MQTT_PORT)
+    private val push = MqttPushClient(
+        host = BuildConfig.MQTT_HOST,
+        port = BuildConfig.MQTT_PORT,
+        username = BuildConfig.MQTT_USERNAME,
+        password = BuildConfig.MQTT_PASSWORD,
+    )
 
     private val engine = PlayerEngine(
         api = api,

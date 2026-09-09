@@ -26,15 +26,24 @@ android {
             ?: "https://signage-cms-production.up.railway.app"
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
 
-        // Push prototype (see PushClient / MqttPushClient). Blank by default: there is no
-        // broker anywhere near production yet, and blank means "don't even try to connect" —
-        // see MqttPushClient.connect(). Point it at a broker for local testing:
+        // Push prototype (see PushClient / MqttPushClient). Blank host by default — not
+        // because there's nothing to point at (mosquitto/ is a real, deployed, authenticated
+        // Railway service now) but because baking it into every release build is a bigger
+        // decision than this flag alone should make silently. Blank means "don't even try to
+        // connect" — see MqttPushClient.connect(). Point it at the deployed broker:
+        //   ./gradlew assembleRelease -PmqttHost=altaria.proxy.rlwy.net -PmqttPort=43320 \
+        //       -PmqttUsername=cms -PmqttPassword=<from Railway's variables, service mqtt-broker>
+        // or at docker-compose's local one for dev, which takes no credentials:
         //   ./gradlew installDebug -PmqttHost=192.168.1.23
         // (a LAN IP, not "localhost" — that resolves to the screen itself, not your machine).
         val mqttHost = (project.findProperty("mqttHost") as String?) ?: ""
         val mqttPort = (project.findProperty("mqttPort") as String?) ?: "1883"
+        val mqttUsername = (project.findProperty("mqttUsername") as String?) ?: ""
+        val mqttPassword = (project.findProperty("mqttPassword") as String?) ?: ""
         buildConfigField("String", "MQTT_HOST", "\"$mqttHost\"")
         buildConfigField("int", "MQTT_PORT", mqttPort)
+        buildConfigField("String", "MQTT_USERNAME", "\"$mqttUsername\"")
+        buildConfigField("String", "MQTT_PASSWORD", "\"$mqttPassword\"")
     }
 
     buildTypes {

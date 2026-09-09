@@ -26,6 +26,10 @@ private const val TAG = "FortuPlayer"
 class MqttPushClient(
     private val host: String,
     private val port: Int,
+    /** Blank when the broker allows anonymous access (local dev's docker-compose mosquitto).
+     *  The deployed broker (mosquitto/, on Railway) does not — see mosquitto.prod.conf. */
+    private val username: String = "",
+    private val password: String = "",
 ) : PushClient {
     private val _signal = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     override val signal: SharedFlow<Unit> = _signal
@@ -38,12 +42,20 @@ class MqttPushClient(
         if (connectedDeviceId == deviceId && client != null) return // Already connecting/connected.
         connectedDeviceId = deviceId
 
-        val c = Mqtt3Client.builder()
+        val unauthed = Mqtt3Client.builder()
             .identifier("player-${UUID.randomUUID()}")
             .serverHost(host)
             .serverPort(port)
             .automaticReconnectWithDefaultConfig()
-            .buildAsync()
+        val builder = if (username.isNotBlank()) {
+            unauthed.simpleAuth()
+                .username(username)
+                .password(password.toByteArray())
+                .applySimpleAuth()
+        } else {
+            unauthed
+        }
+        val c = builder.buildAsync()
         client = c
 
         c.connect().whenComplete { _, error ->
