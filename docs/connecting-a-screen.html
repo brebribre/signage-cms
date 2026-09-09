@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Connecting a Screen &middot; Fortu CMS Docs</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="inner">
+      <a class="wordmark" href="/">FORTU <span>DOCS</span></a>
+      <nav class="site-nav">
+        <a href="/">Guides</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="page">
+
+    <div class="hero">
+      <div class="eyebrow"><b>FORTU</b>&nbsp;CMS &middot; Setup guide</div>
+      <h1>Connecting a Screen</h1>
+      <p class="dek">
+        Two different jobs, easy to conflate: pairing a screen that&rsquo;s already running the
+        Fortu Player, and installing the Fortu Player on a device for the first time. Most days
+        you want the first one.
+      </p>
+    </div>
+
+    <div class="path-grid" style="margin-top: 36px;">
+      <a class="path-card" href="#pairing">
+        <span class="label">Most common</span>
+        <h3>Pair a screen</h3>
+        <p>It&rsquo;s already running Fortu Player and showing a code. Takes under a minute.</p>
+      </a>
+      <a class="path-card" href="#installing">
+        <span class="label">First time only</span>
+        <h3>Set up new hardware</h3>
+        <p>Fresh Android device, nothing installed yet. Ten minutes, done once per screen.</p>
+      </a>
+    </div>
+
+    <section id="pairing">
+      <div class="section-head"><h2>Pairing a screen</h2></div>
+      <div class="section-body">
+        <p class="lede">
+          If the screen is already powered on and showing a code, this is all you need.
+        </p>
+
+        <ol class="steps">
+          <li>
+            <div class="step-body">
+              <b>Power the screen on</b> and let it start up. It shows a 6-character code &mdash;
+              deliberately drawn from letters and numbers that can&rsquo;t be confused for one
+              another, since it&rsquo;s meant to be read off a television from across a room.
+              <span class="step-note">Underneath the code, the screen also names the server
+              it&rsquo;s talking to. If pairing ever seems stuck, that line is the first thing to
+              check &mdash; it's almost always the screen and the CMS pointed at different
+              servers.</span>
+            </div>
+          </li>
+          <li>
+            <div class="step-body">
+              In the CMS, go to <b>Devices &rarr; Add screen</b>, type the code, and give it a
+              name and location.
+            </div>
+          </li>
+          <li>
+            <div class="step-body">
+              The screen picks up its credentials within about 5 seconds and moves to an idle
+              card. <span class="step-note">Assign it a playlist and it starts playing within
+              30 seconds &mdash; sooner in most cases.</span>
+            </div>
+          </li>
+        </ol>
+
+        <div class="callout">
+          <span class="mark">Note</span>
+          <p>
+            If a screen was ever removed or unpaired from the CMS, it notices on its own and
+            falls back to showing a fresh code &mdash; nothing needs to be done to the hardware
+            itself. Just repeat the steps above with the new code.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section id="installing">
+      <div class="section-head"><h2>Setting up new hardware</h2><span class="tag">~10 min</span></div>
+      <div class="section-body">
+        <p class="lede">
+          For a device that has never run Fortu Player before. Once this is done, the screen
+          behaves exactly like the pairing flow above &mdash; you only do this once per screen.
+        </p>
+
+        <h3 class="substep">1. Get the app onto the device</h3>
+        <p class="lede">Whichever is easiest for the hardware in front of you:</p>
+        <ol class="steps">
+          <li>
+            <div class="step-body">
+              <b>Over USB, from a computer</b> &mdash; on the device, go to Settings &rarr; About
+              &rarr; tap <b>Build number</b> seven times to unlock Developer options, then
+              Developer options &rarr; enable <b>USB debugging</b>. Plug it in, accept the prompt
+              on the device, then:
+              <pre><code>adb install -r fortu-player.apk</code></pre>
+            </div>
+          </li>
+          <li>
+            <div class="step-body">
+              <b>Without a cable</b> &mdash; put the APK on a USB stick or in cloud storage, open
+              it from the device&rsquo;s file manager, and allow &ldquo;install from unknown
+              sources&rdquo; when it asks.
+            </div>
+          </li>
+        </ol>
+
+        <h3 class="substep">2. Decide how locked-down it needs to be</h3>
+        <p class="lede">
+          A plain install still keeps the screen awake and hides the system bars, but someone
+          could press Home and leave the app. Three levels, weakest to strongest:
+        </p>
+        <div class="tier-list">
+          <div class="tier">
+            <span class="strength">Basic</span>
+            <div><h4>Screen pinning</h4><p>Works on any device, nothing to set up. Settings &rarr;
+              Security &rarr; App pinning. Stops accidents, not a determined person.</p></div>
+          </div>
+          <div class="tier">
+            <span class="strength">Stronger</span>
+            <div><h4>Make it the launcher</h4><p>The screen boots straight into Fortu Player and
+              Home returns to it. Right for hardware dedicated to signage &mdash; not your own
+              phone, which would also start asking to become its launcher.</p></div>
+          </div>
+          <div class="tier">
+            <span class="strength">Recommended</span>
+            <div><h4>Device Owner mode</h4><p>Genuinely cannot be exited, disables the lock
+              screen, and is what makes silent updates and auto-restart-after-power-cut possible.
+              The real answer for any screen you control. Steps below.</p></div>
+          </div>
+        </div>
+
+        <h3 class="substep">3. Device Owner setup (recommended)</h3>
+        <div class="callout warn">
+          <span class="mark">Before you start</span>
+          <p>
+            The device must be <b>factory-reset with no Google account signed in</b>. Android
+            refuses to grant this otherwise, with no way around it short of resetting again
+            &mdash; so it has to happen before anything else, not after.
+          </p>
+        </div>
+
+        <ol class="steps">
+          <li><div class="step-body"><b>Factory reset</b> the device &mdash; Settings &rarr;
+            System &rarr; Reset &rarr; Erase all data.</div></li>
+          <li><div class="step-body">Walk through setup and <b>skip the Google account step</b>.
+            <span class="step-note">Skip wifi too if it's offered, then add it from Settings
+            afterwards &mdash; some setup wizards quietly add an account the moment they're
+            online.</span></div></li>
+          <li><div class="step-body">Enable Developer options and USB debugging (Settings &rarr;
+            About &rarr; tap Build number &times;7), then install the app and grant it
+            ownership:
+            <pre><code>adb install -r fortu-player.apk
+adb shell dpm set-device-owner \
+  com.fortu.player/com.fortu.player.kiosk.DeviceAdminReceiver</code></pre>
+            <span class="step-note">Expect <code>Success: Device owner set to package
+            com.fortu.player</code>. If it refuses with &ldquo;there are already some accounts
+            on the device,&rdquo; one slipped in during setup &mdash; factory reset and redo the
+            previous step.</span></div></li>
+          <li><div class="step-body"><b>Launch the app.</b> It applies everything on first run:
+            locks itself to the foreground, disables the lock screen, keeps the screen on, and
+            makes itself the device's launcher.</div></li>
+          <li><div class="step-body">Pair it using the code it shows, same as the flow at the top
+            of this page.</div></li>
+          <li><div class="step-body"><b>Verify it took.</b> Long-press anywhere on the screen for
+            the diagnostics overlay &mdash; it should read <code>device owner (full kiosk)</code>.
+            If it says <code>not owner (screen pinning only)</code>, the ownership step
+            didn't succeed.</div></li>
+          <li><div class="step-body">Reboot the device once and confirm it comes back into the
+            loop on its own, with nobody touching it.</div></li>
+        </ol>
+
+        <div class="callout">
+          <span class="mark">Note</span>
+          <p>
+            Device Owner mode can't be removed with a plain <code>adb</code> command once it's
+            set &mdash; recovering the device for something else later means a factory reset.
+            Worth knowing before provisioning hardware you might need back.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head"><h2>Orientation</h2></div>
+      <div class="section-body">
+        <p class="lede">
+          Set per screen in the CMS, not baked into the install &mdash; the same app serves
+          portrait totems and landscape panels. New screens default to portrait. Change it from
+          the screen's page in the CMS and it takes effect on the screen's next check-in, no
+          reinstall needed.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head"><h2>If something looks wrong</h2></div>
+      <div class="section-body">
+        <div class="faq">
+          <div class="faq-item">
+            <h3>The screen is black, not showing a code or content</h3>
+            <p>
+              This shouldn't happen by design &mdash; an unpaired, revoked, or disconnected
+              screen is built to always show a visible code rather than go black, specifically
+              so it can be diagnosed from across a room. A genuinely black screen usually means
+              power or the device itself, not the pairing.
+            </p>
+          </div>
+          <div class="faq-item">
+            <h3>Pairing seems stuck</h3>
+            <p>
+              Check the server address printed under the code on the screen against the CMS
+              you're typing the code into &mdash; a screen pointed at a different server will
+              show a valid code that can never be claimed from the wrong CMS.
+            </p>
+          </div>
+          <div class="faq-item">
+            <h3>How do I check what a screen thinks is going on?</h3>
+            <p>
+              Long-press anywhere on the screen. A diagnostics overlay shows its name, which
+              server it's using, the current content version, how much it has cached, and the
+              last error it saw &mdash; the same information you'd otherwise need a laptop and a
+              cable to see.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <span>Fortu CMS</span>
+      <span>For the team &mdash; share freely with anyone setting up a screen.</span>
+    </footer>
+
+  </div>
+
+</body>
+</html>

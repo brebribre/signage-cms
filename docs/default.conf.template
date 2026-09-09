@@ -1,0 +1,13 @@
+server {
+    # ${PORT} — Railway assigns this at runtime. The official nginx image auto-processes any
+    # *.conf.template in /etc/nginx/templates through envsubst before starting, which is why
+    # this lives there instead of a plain nginx.conf — no custom entrypoint script needed.
+    listen ${PORT};
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # Plain multi-page static site — no SPA fallback needed, every route is a real file.
+    location / {
+        try_files $uri $uri.html $uri/ =404;
+    }
+}
