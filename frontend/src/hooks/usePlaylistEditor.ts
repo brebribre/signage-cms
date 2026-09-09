@@ -18,6 +18,11 @@ export interface DraftItem {
   durationSeconds: number
   fit: ItemFit
   isEnabled: boolean
+  cropX: number | null
+  cropY: number | null
+  cropZoom: number | null
+  trimStartSeconds: number
+  trimEndSeconds: number | null
 }
 
 const IMAGE_DEFAULT_SECONDS = 10
@@ -38,7 +43,10 @@ export function usePlaylistEditor(id: string) {
   const savedSnapshot = ref('')
   const snapshot = computed(() =>
     JSON.stringify(
-      draft.value.map((d) => [d.mediaId, d.durationSeconds, d.fit, d.isEnabled]),
+      draft.value.map((d) => [
+        d.mediaId, d.durationSeconds, d.fit, d.isEnabled,
+        d.cropX, d.cropY, d.cropZoom, d.trimStartSeconds, d.trimEndSeconds,
+      ]),
     ),
   )
   const isDirty = computed(() => snapshot.value !== savedSnapshot.value)
@@ -62,6 +70,11 @@ export function usePlaylistEditor(id: string) {
       durationSeconds: item.duration_seconds,
       fit: item.fit,
       isEnabled: item.is_enabled,
+      cropX: item.crop_x,
+      cropY: item.crop_y,
+      cropZoom: item.crop_zoom,
+      trimStartSeconds: item.trim_start_seconds,
+      trimEndSeconds: item.trim_end_seconds,
     }
   }
 
@@ -102,6 +115,11 @@ export function usePlaylistEditor(id: string) {
             : IMAGE_DEFAULT_SECONDS,
         fit: 'contain',
         isEnabled: true,
+        cropX: null,
+        cropY: null,
+        cropZoom: null,
+        trimStartSeconds: 0,
+        trimEndSeconds: null,
       })
     }
   }
@@ -129,6 +147,11 @@ export function usePlaylistEditor(id: string) {
             duration_seconds: d.durationSeconds,
             fit: d.fit,
             is_enabled: d.isEnabled,
+            crop_x: d.cropX,
+            crop_y: d.cropY,
+            crop_zoom: d.cropZoom,
+            trim_start_seconds: d.trimStartSeconds,
+            trim_end_seconds: d.trimEndSeconds,
           })),
         ),
       )

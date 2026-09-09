@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type { CSSProperties } from 'vue'
+
+import { cropRectToStyle, resolveCropRect } from '@/utils/cropMath'
 
 /**
  * A device screen, drawn at its real aspect ratio and scaled to fit the space it is given.
@@ -22,20 +24,64 @@ const props = withDefaults(
     src: string | null
     kind: 'image' | 'video'
     fit: 'contain' | 'cover' | 'stretch'
-    /** Intrinsic size of the media, for the upscaling warning. */
+    /** Intrinsic size of the media, for the upscaling warning and for resolving a crop. */
     mediaWidth?: number | null
     mediaHeight?: number | null
     label?: string
     maxHeight?: number
+    /** Normalized crop center + zoom (see src/utils/cropMath.ts). Only applied when
+     *  fit === 'cover' and cropZoom is set — otherwise rendering is untouched from before
+     *  this prop existed, so every item that predates a crop keeps rendering exactly as is. */
+    cropX?: number | null
+    cropY?: number | null
+    cropZoom?: number | null
+    /** Video only. trimEndSeconds null means "to the end". */
+    trimStartSeconds?: number
+    trimEndSeconds?: number | null
   }>(),
   { maxHeight: 420 },
 )
 
 const FIT_TO_CSS = { contain: 'contain', cover: 'cover', stretch: 'fill' } as const
 
+const hasCrop = computed(() => props.fit === 'cover' && props.cropZoom != null)
+
+const cropStyle = computed<CSSProperties>(() => {
+  if (!hasCrop.value || !props.mediaWidth || !props.mediaHeight) return {}
+  const rect = resolveCropRect(
+    props.mediaWidth, props.mediaHeight, props.screenWidth / props.screenHeight,
+    props.cropX ?? 0.5, props.cropY ?? 0.5, props.cropZoom ?? 1,
+  )
+  return { position: 'absolute', ...cropRectToStyle(rect) }
+})
+
 // Typed as CSSProperties rather than a bare string: Vue's `:style` binding will not accept
 // `{ objectFit: string }`, only the narrowed literal union.
-const mediaStyle = computed<CSSProperties>(() => ({ objectFit: FIT_TO_CSS[props.fit] }))
+const mediaStyle = computed<CSSProperties>(() =>
+  hasCrop.value ? cropStyle.value : { objectFit: FIT_TO_CSS[props.fit] },
+)
+
+// --- Video trim playback: without this, a saved trim would be invisible in the preview. ---
+
+const videoRef = ref<HTMLVideoElement | null>(null)
+const isTrimmed = computed(() => props.kind === 'video' && (props.trimStartSeconds || props.trimEndSeconds != null))
+
+function onLoadedMetadata() {
+  if (videoRef.value && props.trimStartSeconds) videoRef.value.currentTime = props.trimStartSeconds
+}
+
+function onTimeUpdate() {
+  const v = videoRef.value
+  if (!v || !isTrimmed.value) return
+  const end = props.trimEndSeconds ?? v.duration
+  if (v.currentTime >= end) v.currentTime = props.trimStartSeconds ?? 0
+}
+
+// A trim can change out from under an already-playing preview (e.g. reopening the editor and
+// applying a new trim) — reseek rather than waiting for the next natural loop.
+watch(() => [props.trimStartSeconds, props.trimEndSeconds, props.src], () => {
+  if (videoRef.value && props.trimStartSeconds) videoRef.value.currentTime = props.trimStartSeconds
+})
 
 /**
  * Size by width, capped so the implied height never exceeds `maxHeight`.
@@ -80,19 +126,22 @@ const cropPercent = computed(() => {
     >
       <video
         v-if="src && kind === 'video'"
+        ref="videoRef"
         :src="src"
-        class="size-full"
+        :class="hasCrop ? '' : 'size-full'"
         :style="mediaStyle"
         muted
         autoplay
-        loop
+        :loop="!isTrimmed"
         playsinline
+        @loadedmetadata="onLoadedMetadata"
+        @timeupdate="onTimeUpdate"
       />
       <img
         v-else-if="src"
         :src="src"
         alt=""
-        class="size-full"
+        :class="hasCrop ? '' : 'size-full'"
         :style="mediaStyle"
       />
       <div v-else class="flex size-full items-center justify-center text-[13px] text-white/40">

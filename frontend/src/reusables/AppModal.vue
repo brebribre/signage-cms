@@ -1,8 +1,12 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted } from 'vue'
 
-defineProps<{ title?: string }>()
+const props = withDefaults(defineProps<{ title?: string; size?: 'md' | 'xl' }>(), {
+  size: 'md',
+})
 const emit = defineEmits<{ close: [] }>()
+
+const WIDTH = { md: 'max-w-md', xl: 'max-w-4xl' } as const
 
 function onKey(e: KeyboardEvent) {
   if (e.key === 'Escape') emit('close')
@@ -17,7 +21,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKey))
     @click.self="emit('close')"
   >
     <!-- The panel is a card, so it carries no border either — only the scrim separates it. -->
-    <div class="w-full max-w-md rounded-xl bg-canvas p-5">
+    <div class="w-full rounded-xl bg-canvas p-5" :class="WIDTH[props.size]">
       <h2 v-if="title" class="text-lg">{{ title }}</h2>
       <div class="mt-3"><slot /></div>
     </div>

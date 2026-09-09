@@ -35,6 +35,11 @@ def _item(item: PlaylistItem, media: Media) -> ItemRead:
         duration_seconds=item.duration_seconds,
         fit=item.fit,
         is_enabled=item.is_enabled,
+        crop_x=item.crop_x,
+        crop_y=item.crop_y,
+        crop_zoom=item.crop_zoom,
+        trim_start_seconds=item.trim_start_seconds,
+        trim_end_seconds=item.trim_end_seconds,
         media=ItemMedia(
             id=media.id,
             filename=media.filename,
@@ -134,6 +139,11 @@ def replace_items(
                     duration_seconds=i.duration_seconds,
                     fit=i.fit,
                     is_enabled=i.is_enabled,
+                    crop_x=i.crop_x,
+                    crop_y=i.crop_y,
+                    crop_zoom=i.crop_zoom,
+                    trim_start_seconds=i.trim_start_seconds,
+                    trim_end_seconds=i.trim_end_seconds,
                 )
                 for i in body.items
             ],

@@ -4,7 +4,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 from app.models import ItemFit, MediaKind
-from app.services.playlists import MAX_ITEM_SECONDS, MIN_ITEM_SECONDS
+from app.services.playlists import MAX_CROP_ZOOM, MAX_ITEM_SECONDS, MIN_ITEM_SECONDS
 
 
 class PlaylistCreate(BaseModel):
@@ -25,6 +25,14 @@ class ItemWrite(BaseModel):
     )
     fit: ItemFit = ItemFit.CONTAIN
     is_enabled: bool = True
+    # Normalized crop center + zoom — see PlaylistItem for the full explanation. Stored
+    # regardless of `fit`; only rendered when fit == cover.
+    crop_x: float | None = Field(default=None, ge=0.0, le=1.0)
+    crop_y: float | None = Field(default=None, ge=0.0, le=1.0)
+    crop_zoom: float | None = Field(default=None, ge=1.0, le=MAX_CROP_ZOOM)
+    # Video only — replace_items() rejects these if set on an image.
+    trim_start_seconds: float = Field(default=0.0, ge=0)
+    trim_end_seconds: float | None = Field(default=None, ge=0)
 
 
 class ItemsWrite(BaseModel):
@@ -58,6 +66,11 @@ class ItemRead(BaseModel):
     duration_seconds: int
     fit: ItemFit
     is_enabled: bool
+    crop_x: float | None
+    crop_y: float | None
+    crop_zoom: float | None
+    trim_start_seconds: float
+    trim_end_seconds: float | None
     media: ItemMedia
 
 

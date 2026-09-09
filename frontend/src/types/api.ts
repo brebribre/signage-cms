@@ -97,6 +97,14 @@ export interface PlaylistItemRead {
   duration_seconds: number
   fit: ItemFit
   is_enabled: boolean
+  /** Normalized [0,1] crop center + zoom (>=1). Stored regardless of `fit`, only rendered
+   *  when fit === 'cover'. See src/utils/cropMath.ts for how these resolve into a rectangle. */
+  crop_x: number | null
+  crop_y: number | null
+  crop_zoom: number | null
+  /** Video only. trim_end_seconds null means "to the end". */
+  trim_start_seconds: number
+  trim_end_seconds: number | null
   media: ItemMedia
 }
 
@@ -121,6 +129,11 @@ export interface ItemWrite {
   duration_seconds?: number | null
   fit?: ItemFit
   is_enabled?: boolean
+  crop_x?: number | null
+  crop_y?: number | null
+  crop_zoom?: number | null
+  trim_start_seconds?: number
+  trim_end_seconds?: number | null
 }
 
 // --- Devices ---

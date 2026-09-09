@@ -83,3 +83,14 @@ class PlaylistItem(SQLModel, table=True):
     # Take a slot out of rotation without losing its position, duration and fit. Restoring
     # it is then one click rather than rebuilding the row from memory.
     is_enabled: bool = Field(default=True)
+    # Normalized [0,1] center of the visible crop, and a >=1 zoom relative to whatever aspect
+    # ratio this is rendered against (1.0 == today's plain centered `cover`). Stored regardless
+    # of `fit` so toggling Fit to compare doesn't discard a careful crop — it just isn't
+    # rendered unless fit == COVER. See frontend/src/utils/cropMath.ts for how these resolve
+    # into an actual rectangle at render time.
+    crop_x: float | None = Field(default=None)
+    crop_y: float | None = Field(default=None)
+    crop_zoom: float | None = Field(default=None)
+    # Video only, ignored for images. trim_end None means "to the end".
+    trim_start_seconds: float = Field(default=0.0)
+    trim_end_seconds: float | None = Field(default=None)

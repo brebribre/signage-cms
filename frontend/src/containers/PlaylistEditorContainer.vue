@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import { useDevices } from '@/hooks/useDevices'
 import { useFormat } from '@/hooks/useFormat'
 import { useMedia } from '@/hooks/useMedia'
 import { usePlaylistEditor } from '@/hooks/usePlaylistEditor'
@@ -11,10 +12,11 @@ import AppAlert from '@/reusables/AppAlert.vue'
 import AppButton from '@/reusables/AppButton.vue'
 import AppModal from '@/reusables/AppModal.vue'
 import DurationInput from '@/reusables/DurationInput.vue'
+import MediaPlacementEditor from '@/reusables/MediaPlacementEditor.vue'
 import ScreenPreview from '@/reusables/ScreenPreview.vue'
 import EmptyState from '@/reusables/EmptyState.vue'
 import PageTitle from '@/reusables/PageTitle.vue'
-import type { ItemFit } from '@/types/api'
+import type { DraftItem } from '@/hooks/usePlaylistEditor'
 
 const route = useRoute()
 const router = useRouter()
@@ -25,20 +27,17 @@ const {
   totalSeconds, enabledCount, addMedia, removeAt, move, save, setShuffle, remove,
 } = usePlaylistEditor(id)
 const { items: library, isLoading: libraryLoading } = useMedia()
+const { items: devices } = useDevices()
 const { duration } = useFormat()
-const { presetId, isCustom, customWidth, customHeight, screen } = useScreenPresets()
+const { presetId, isCustom, customWidth, customHeight, screen, deviceOptions } =
+  useScreenPresets(devices)
 const preview = usePlaylistPreview(() => draft.value)
 
 const picking = ref(false)
 const confirmingDelete = ref(false)
 const picked = ref<Set<string>>(new Set())
 const dragFrom = ref<number | null>(null)
-
-const FITS: { value: ItemFit; label: string }[] = [
-  { value: 'contain', label: 'Fit' },
-  { value: 'cover', label: 'Fill' },
-  { value: 'stretch', label: 'Stretch' },
-]
+const placing = ref<DraftItem | null>(null)
 
 function togglePick(mediaId: string) {
   const next = new Set(picked.value)
@@ -60,6 +59,11 @@ function onDrop(to: number) {
 async function onDelete() {
   if (await remove()) router.push({ name: 'playlists' })
   else confirmingDelete.value = false
+}
+
+function applyPlacement(patch: Partial<DraftItem>) {
+  if (placing.value) Object.assign(placing.value, patch)
+  placing.value = null
 }
 </script>
 
@@ -96,65 +100,6 @@ async function onDelete() {
         seconds.
       </AppAlert>
 
-      <!-- Device preview. Sits above the list because it is the thing you are editing
-           *towards* — the rows are the controls, this is the result. -->
-      <div class="flex flex-col gap-3 rounded-xl bg-surface p-4">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <div class="flex flex-wrap items-center gap-2">
-            <select
-              v-model="presetId"
-              :disabled="isCustom"
-              class="rounded-md border border-line-strong bg-canvas px-2 py-1 text-[13px] text-ink
-                     focus:border-ink focus:outline-none disabled:opacity-40"
-            >
-              <option v-for="p in SCREEN_PRESETS" :key="p.id" :value="p.id">{{ p.label }}</option>
-            </select>
-            <label class="flex items-center gap-1.5 text-[13px] text-ink-muted">
-              <input v-model="isCustom" type="checkbox" class="size-3.5 accent-ink" />
-              Custom
-            </label>
-            <template v-if="isCustom">
-              <input
-                v-model.number="customWidth"
-                type="number"
-                min="1"
-                class="w-20 rounded-md border border-line-strong bg-canvas px-2 py-1 text-[13px]
-                       focus:border-ink focus:outline-none"
-              />
-              <span class="text-[13px] text-ink-subtle">×</span>
-              <input
-                v-model.number="customHeight"
-                type="number"
-                min="1"
-                class="w-20 rounded-md border border-line-strong bg-canvas px-2 py-1 text-[13px]
-                       focus:border-ink focus:outline-none"
-              />
-            </template>
-          </div>
-          <AppButton
-            variant="secondary"
-            size="sm"
-            :disabled="!preview.enabled.value.length"
-            @click="preview.toggle()"
-          >
-            {{ preview.isPlaying.value ? 'Pause' : 'Play loop' }}
-          </AppButton>
-        </div>
-
-        <ScreenPreview
-          :screen-width="screen.width"
-          :screen-height="screen.height"
-          :src="preview.current.value?.url ?? null"
-          :kind="preview.current.value?.kind ?? 'image'"
-          :fit="preview.current.value?.fit ?? 'contain'"
-          :media-width="preview.current.value?.mediaWidth ?? null"
-          :media-height="preview.current.value?.mediaHeight ?? null"
-          :label="preview.current.value
-            ? `${preview.current.value.filename} · ${screen.label}`
-            : screen.label"
-        />
-      </div>
-
       <div class="flex items-center justify-between gap-4">
         <label class="flex items-center gap-2 text-sm text-ink-muted">
           <input
@@ -168,6 +113,8 @@ async function onDelete() {
         <AppButton variant="secondary" size="sm" @click="picking = true">Add media</AppButton>
       </div>
 
+      <!-- The media list comes first — it's what you're here to work on. Reference device,
+           preview and Save follow, in that order, as the steps that come after placing items. -->
       <EmptyState
         v-if="!draft.length"
         title="This playlist is empty"
@@ -215,13 +162,9 @@ async function onDelete() {
 
           <DurationInput v-model="row.durationSeconds" />
 
-          <select
-            v-model="row.fit"
-            class="rounded-md border border-line-strong bg-canvas px-2 py-1 text-[13px] text-ink
-                   focus:border-ink focus:outline-none"
-          >
-            <option v-for="f in FITS" :key="f.value" :value="f.value">{{ f.label }}</option>
-          </select>
+          <AppButton variant="ghost" size="sm" @click.stop="placing = row">
+            Placement
+          </AppButton>
 
           <AppButton variant="ghost" size="sm" @click="row.isEnabled = !row.isEnabled">
             {{ row.isEnabled ? 'Disable' : 'Enable' }}
@@ -229,6 +172,75 @@ async function onDelete() {
           <AppButton variant="ghost" size="sm" @click="removeAt(index)">Remove</AppButton>
         </li>
       </ul>
+
+      <!-- Reference device + preview. What every "Placement" edit above is aimed at, and
+           the last check before Save. -->
+      <div class="flex flex-col gap-3 rounded-xl bg-surface p-4">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div class="flex flex-wrap items-center gap-2">
+            <select
+              v-model="presetId"
+              :disabled="isCustom"
+              class="rounded-md border border-line-strong bg-canvas px-2 py-1 text-[13px] text-ink
+                     focus:border-ink focus:outline-none disabled:opacity-40"
+            >
+              <optgroup v-if="deviceOptions.length" label="Your screens">
+                <option v-for="d in deviceOptions" :key="d.id" :value="d.id">{{ d.label }}</option>
+              </optgroup>
+              <optgroup label="Presets">
+                <option v-for="p in SCREEN_PRESETS" :key="p.id" :value="p.id">{{ p.label }}</option>
+              </optgroup>
+            </select>
+            <label class="flex items-center gap-1.5 text-[13px] text-ink-muted">
+              <input v-model="isCustom" type="checkbox" class="size-3.5 accent-ink" />
+              Custom
+            </label>
+            <template v-if="isCustom">
+              <input
+                v-model.number="customWidth"
+                type="number"
+                min="1"
+                class="w-20 rounded-md border border-line-strong bg-canvas px-2 py-1 text-[13px]
+                       focus:border-ink focus:outline-none"
+              />
+              <span class="text-[13px] text-ink-subtle">×</span>
+              <input
+                v-model.number="customHeight"
+                type="number"
+                min="1"
+                class="w-20 rounded-md border border-line-strong bg-canvas px-2 py-1 text-[13px]
+                       focus:border-ink focus:outline-none"
+              />
+            </template>
+          </div>
+          <AppButton
+            variant="secondary"
+            size="sm"
+            :disabled="!preview.enabled.value.length"
+            @click="preview.toggle()"
+          >
+            {{ preview.isPlaying.value ? 'Pause' : 'Preview' }}
+          </AppButton>
+        </div>
+
+        <ScreenPreview
+          :screen-width="screen.width"
+          :screen-height="screen.height"
+          :src="preview.current.value?.url ?? null"
+          :kind="preview.current.value?.kind ?? 'image'"
+          :fit="preview.current.value?.fit ?? 'contain'"
+          :media-width="preview.current.value?.mediaWidth ?? null"
+          :media-height="preview.current.value?.mediaHeight ?? null"
+          :crop-x="preview.current.value?.cropX ?? null"
+          :crop-y="preview.current.value?.cropY ?? null"
+          :crop-zoom="preview.current.value?.cropZoom ?? null"
+          :trim-start-seconds="preview.current.value?.trimStartSeconds ?? 0"
+          :trim-end-seconds="preview.current.value?.trimEndSeconds ?? null"
+          :label="preview.current.value
+            ? `${preview.current.value.filename} · ${screen.label}`
+            : screen.label"
+        />
+      </div>
     </template>
 
     <AppModal v-if="picking" title="Add media" @close="picking = false">
@@ -259,6 +271,10 @@ async function onDelete() {
           Add {{ picked.size || '' }}
         </AppButton>
       </div>
+    </AppModal>
+
+    <AppModal v-if="placing" size="xl" @close="placing = null">
+      <MediaPlacementEditor :row="placing" :reference-screen="screen" @apply="applyPlacement" @close="placing = null" />
     </AppModal>
 
     <AppModal v-if="confirmingDelete" title="Delete this playlist?" @close="confirmingDelete = false">

@@ -56,16 +56,35 @@ procedure below can be done wrong without taking a single screen offline.
    will not tell you.
 
 3. **Connecting (or reconnecting) this service to a GitHub repo resets its Root Directory
-   and Builder to auto-detect.** Confirmed live: after connecting GitHub, a redeploy failed
-   with `railpack prepare exited with an error`, because Railway was no longer treating this
-   as a Dockerfile build. Fixed by explicitly setting `rootDirectory: /mosquitto` and
-   `dockerfilePath: /Dockerfile` on the service (via the Railway API's
-   `serviceInstanceUpdate` mutation — there's no CLI or dashboard toggle for this, and the
-   `builder` field itself only accepts `RAILPACK`/`NIXPACKS`/`PAKETO`/`HEROKU` in the public
-   schema, so setting `dockerfilePath` is what actually flips it to a Dockerfile build). If a
-   future GitHub reconnect breaks the build again, that's almost certainly why — check
-   `railway logs --build --latest --service mqtt-broker` for `railpack prepare` before
-   suspecting the Dockerfile itself.
+   and Builder to auto-detect, and GitHub source paths are relative (no leading slash) —
+   not absolute like CLI upload paths.** Confirmed live, two failures in sequence:
+   - Right after connecting GitHub, a redeploy failed with `railpack prepare exited with an
+     error` — Railway had reset the build to auto-detect instead of Dockerfile.
+   - Setting `rootDirectory: "/mosquitto"` and `dockerfilePath: "/Dockerfile"` (the same
+     leading-slash form the old CLI `--path-as-root` flow used) got further, but then failed
+     instantly with *"Root directory '/mosquitto' was not found in the deployed source"* —
+     even though `mosquitto/` genuinely exists at the tip of `main`. GitHub source
+     resolution wants paths **relative to the repo root, no leading slash**:
+     `rootDirectory: "mosquitto"`, `dockerfilePath: "Dockerfile"`. That's what's set now and
+     what a working deploy actually used.
+
+   There's no CLI or dashboard toggle for either field — both are set via the Railway API's
+   `serviceInstanceUpdate` mutation:
+   ```bash
+   railway api 'mutation($serviceId:String!,$environmentId:String,$input:ServiceInstanceUpdateInput!){serviceInstanceUpdate(serviceId:$serviceId,environmentId:$environmentId,input:$input)}' \
+     --raw-var serviceId=<mqtt-broker service ID> --raw-var environmentId=<production environment ID> \
+     --variables '{"input":{"rootDirectory":"mosquitto","dockerfilePath":"Dockerfile"}}'
+   ```
+   (The `builder` field itself only accepts `RAILPACK`/`NIXPACKS`/`PAKETO`/`HEROKU` in the
+   public schema — there's no `DOCKERFILE` literal to set directly. Setting `dockerfilePath`
+   to a non-null value is what actually flips the effective build to Dockerfile.)
+
+   If a future GitHub reconnect breaks the build again, that's almost certainly why. Check
+   `railway logs --build --latest --service mqtt-broker`: `railpack prepare exited with an
+   error` means Root Directory/Builder got reset; a build that fails within a few seconds
+   with no build-step log lines at all (check `railway api` on the deployment directly, since
+   this particular error doesn't appear in `railway logs` output) means Root Directory has
+   the wrong path format.
 
 ## Rotating the TLS certificate
 
@@ -129,7 +148,7 @@ that line appears, the volume was empty and just got re-seeded from scratch, whi
 every previously-provisioned device needs to re-pair.
 
 Plain CLI upload (`railway up`) no longer works cleanly for this service, now that it has a
-persisted Root Directory (`/mosquitto`, needed for GitHub builds) — confirmed live, both
+persisted Root Directory (`mosquitto`, needed for GitHub builds) — confirmed live, both
 directions fail:
 - `railway up . --path-as-root --service mqtt-broker` (from `mosquitto/`) — server tries to
   apply Root Directory on top of the already-scoped upload and can't find a `mosquitto/`
@@ -144,6 +163,7 @@ railway api 'mutation($serviceId:String!,$environmentId:String,$input:ServiceIns
   --raw-var serviceId=<mqtt-broker service ID> --raw-var environmentId=<production environment ID> \
   --variables '{"input":{"rootDirectory":""}}'
 cd mosquitto && railway up . --path-as-root --service mqtt-broker -y --ci
-# then restore rootDirectory: "/mosquitto" the same way, or GitHub builds break again
+# then restore rootDirectory: "mosquitto" the same way (no leading slash — see gotcha 3),
+# or GitHub builds break again
 ```
 Otherwise, just commit and push — that's the supported path now.
