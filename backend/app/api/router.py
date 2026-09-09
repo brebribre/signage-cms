@@ -9,6 +9,7 @@ from app.api.routes import (
     health,
     media,
     operations,
+    player,
     playlists,
     schedules,
     users,
@@ -24,3 +25,4 @@ api_router.include_router(users.router)
 api_router.include_router(schedules.router)
 api_router.include_router(operations.router)
 api_router.include_router(device_sync.router)
+api_router.include_router(player.router)

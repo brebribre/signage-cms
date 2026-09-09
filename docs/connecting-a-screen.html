@@ -107,7 +107,16 @@
         </p>
 
         <h3 class="substep">Step 1: Install the app</h3>
-        <p class="lede">Choose one of the following two methods.</p>
+
+        <div class="callout" style="align-items: center;">
+          <a class="btn" href="https://signage-cms-production.up.railway.app/player/download" download>
+            Download latest APK
+          </a>
+          <p>Always the current build. Open this link on the device's own browser for Method B
+            below, or on your computer for Method A.</p>
+        </div>
+
+        <p class="lede" style="margin-top: 20px;">Choose one of the following two methods.</p>
 
         <h4 style="font-size: 14.5px; font-weight: 500; margin: 20px 0 4px;">Method A: USB, from a computer</h4>
         <ol class="steps">
@@ -118,13 +127,20 @@
           <li><div class="step-body">Accept the "Allow USB debugging?" prompt on the device.</div></li>
           <li><div class="step-body">Run:
             <pre><code>adb install -r fortu-player.apk</code></pre>
+            <span class="step-note">The file downloaded above, wherever you saved it.</span>
           </div></li>
         </ol>
 
         <h4 style="font-size: 14.5px; font-weight: 500; margin: 28px 0 4px;">Method B: No cable</h4>
         <ol class="steps">
-          <li><div class="step-body">Copy the APK to a USB drive or cloud storage.</div></li>
-          <li><div class="step-body">Open the file from the device's file manager.</div></li>
+          <li><div class="step-body">
+            On the device itself, open this page in its browser and tap Download latest APK
+            above.
+            <span class="step-note">No browser or already locked into another app? Copy the
+            APK to a USB drive or cloud storage from another computer instead, then open it
+            from this device's file manager.</span>
+          </div></li>
+          <li><div class="step-body">Open the downloaded file from the device's notification shade or file manager.</div></li>
           <li><div class="step-body">Allow "Install from unknown sources" when prompted.</div></li>
         </ol>
 
