@@ -26,23 +26,30 @@ android {
             ?: "https://signage-cms-production.up.railway.app"
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
 
-        // Push prototype (see PushClient / MqttPushClient). Blank host by default — not
-        // because there's nothing to point at (mosquitto/ is a real, deployed Railway
-        // service now) but because baking it into every release build is a bigger decision
-        // than this flag alone should make silently. Blank means "don't even try to
-        // connect" — see MqttPushClient.connect(). No username/password here: every device
-        // gets its own MQTT credential from the pairing response, not a shared build-time
-        // one (see PairPollResponse.mqttPassword, TokenStore.mqttPassword). Point this at
-        // the deployed broker:
-        //   ./gradlew assembleRelease -PmqttHost=altaria.proxy.rlwy.net -PmqttPort=<proxy port>
-        // (mqttTls defaults true — the deployed broker is TLS-only; MqttPushClient pins its
-        // self-signed cert, see that file). Or at docker-compose's local one for dev, which
-        // is anonymous and needs no TLS:
-        //   ./gradlew installDebug -PmqttHost=192.168.1.23 -PmqttTls=false
-        // (a LAN IP, not "localhost" — that resolves to the screen itself, not your machine).
-        val mqttHost = (project.findProperty("mqttHost") as String?) ?: ""
-        val mqttPort = (project.findProperty("mqttPort") as String?) ?: "1883"
-        val mqttTls = (project.findProperty("mqttTls") as String?) ?: "true"
+        // Push prototype (see PushClient / MqttPushClient). Defaults to the real deployed
+        // broker, same reasoning as apiBaseUrl above — per-device credentials (each
+        // device's own username/password, minted at pairing, scoped by the broker's
+        // device-role ACL to its own topic) shipped and were verified live, so there is no
+        // longer a shared-secret reason to keep this opt-in. No username/password build
+        // config at all: every device gets its own MQTT credential from the pairing
+        // response, never a build-time one (see PairPollResponse.mqttPassword,
+        // TokenStore.mqttPassword).
+        //
+        // Port and TLS default *together with* host, not independently — passing only
+        // -PmqttHost must not silently pull in the production port/TLS pairing. (This bit
+        // a local test: -PmqttHost=10.0.2.2 alone landed on the leftover default port
+        // 46790 — the real broker's — instead of the local broker's 1883, and the app sat
+        // there failing to connect with nothing but silence to show for it.) Point this at
+        // docker-compose's local broker for dev, which is anonymous and needs no TLS:
+        //   ./gradlew installDebug -PmqttHost=192.168.1.23
+        // (a LAN IP, not "localhost" — that resolves to the screen itself, not your
+        // machine; port/TLS follow automatically). Or disable push outright: -PmqttHost=
+        val mqttHostOverridden = project.hasProperty("mqttHost")
+        val mqttHost = (project.findProperty("mqttHost") as String?) ?: "altaria.proxy.rlwy.net"
+        val mqttPort = (project.findProperty("mqttPort") as String?)
+            ?: if (mqttHostOverridden) "1883" else "46790"
+        val mqttTls = (project.findProperty("mqttTls") as String?)
+            ?: if (mqttHostOverridden) "false" else "true"
         buildConfigField("String", "MQTT_HOST", "\"$mqttHost\"")
         buildConfigField("int", "MQTT_PORT", mqttPort)
         buildConfigField("boolean", "MQTT_TLS", mqttTls)

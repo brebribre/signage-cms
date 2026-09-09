@@ -23,6 +23,7 @@ import threading
 import uuid
 from pathlib import Path
 
+import paho.mqtt.client as mqtt_client
 import paho.mqtt.publish as mqtt_publish
 
 from app.config import get_settings
@@ -30,6 +31,7 @@ from app.config import get_settings
 logger = logging.getLogger(__name__)
 
 _CA_CERT_PATH = Path(__file__).parent / "mqtt_ca.pem"
+_HEALTH_CHECK_TIMEOUT_SECONDS = 3
 
 
 def _topic(device_id: uuid.UUID) -> str:
@@ -68,6 +70,51 @@ def _publish(topic: str, payload: str) -> None:
         # near production yet, this is the expected steady state until that changes.
         logger.debug("mqtt publish to %s failed (device still catches up on its next poll)",
                      topic, exc_info=True)
+
+
+def check_connection() -> bool:
+    """A real network-and-auth round trip against the broker — used by GET /health to
+    answer "is push actually reaching devices right now", which the app process being up
+    and Postgres answering cannot tell you on their own.
+
+    Deliberately just a CONNECT, no publish: a CONNACK alone already proves the network
+    path, TLS chain and the `cms` credential all work, and doing it this way means a
+    health check run every few seconds by an uptime monitor never touches a real device's
+    retained topic.
+
+    Returns False whenever MQTT is disabled entirely, exactly like a broker that failed to
+    connect — /health.py decides what that should mean for the response, not this.
+    """
+    settings = get_settings()
+    if not settings.mqtt_enabled:
+        return False
+
+    connected = threading.Event()
+    result = {"ok": False}
+
+    def on_connect(client, userdata, flags, rc, properties=None):
+        result["ok"] = rc == 0
+        connected.set()
+
+    client = mqtt_client.Client(client_id=f"cms-health-{uuid.uuid4().hex[:8]}")
+    if settings.mqtt_username:
+        client.username_pw_set(settings.mqtt_username, settings.mqtt_password)
+    if settings.mqtt_tls:
+        client.tls_set(ca_certs=str(_CA_CERT_PATH))
+    client.on_connect = on_connect
+
+    try:
+        client.connect_async(settings.mqtt_host, settings.mqtt_port, keepalive=10)
+        client.loop_start()
+        connected.wait(_HEALTH_CHECK_TIMEOUT_SECONDS)
+    except Exception:
+        logger.debug("mqtt health check failed", exc_info=True)
+        return False
+    finally:
+        client.loop_stop()
+        client.disconnect()
+
+    return result["ok"]
 
 
 def notify_manifest_changed(*, device_id: uuid.UUID, version: str) -> None:

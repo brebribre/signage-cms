@@ -4,6 +4,8 @@ from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import text
 
 from app.api.deps import DbSession
+from app.config import get_settings
+from app.infra import mqtt
 from app.schemas.health import HealthResponse
 
 logger = logging.getLogger(__name__)
@@ -17,7 +19,9 @@ def health(session: DbSession) -> HealthResponse:
 
     A health check that reports the process is alive tells you nothing you didn't
     already know from the request reaching it — the interesting failure is the app
-    running fine and the database being unreachable.
+    running fine and a dependency being unreachable. The database is that dependency
+    for the 503; MQTT deliberately is not — see HealthResponse.mqtt's docstring for why
+    a broken broker is reported, not failed on.
     """
     try:
         session.execute(text("SELECT 1"))
@@ -27,4 +31,12 @@ def health(session: DbSession) -> HealthResponse:
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Database unavailable",
         ) from exc
-    return HealthResponse(status="ok", database="ok")
+
+    if not get_settings().mqtt_enabled:
+        mqtt_status = "disabled"
+    elif mqtt.check_connection():
+        mqtt_status = "ok"
+    else:
+        mqtt_status = "unreachable"
+
+    return HealthResponse(status="ok", database="ok", mqtt=mqtt_status)
