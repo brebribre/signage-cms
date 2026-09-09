@@ -49,7 +49,23 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     /** File resolution stays here: it is an Android storage concern, not state-machine logic. */
     fun localFileFor(item: ManifestItem) = cache.fileFor(item.checksum)
 
+    /** True once [engine]'s loop has been launched for this ViewModel instance. */
+    private var started = false
+
+    /**
+     * Idempotent on purpose. `MainActivity.onCreate` calls this, and `onCreate` can run again
+     * on this same, already-running ViewModel — a rotation, or the system recreating the
+     * Activity after trimming it in the background — without that meaning "start a second
+     * copy of the loop."
+     *
+     * The bug this fixes: two `engine.run()` coroutines racing the same manifest concurrently
+     * downloaded the same file at once, wrote to the same `.part` temp path, and only one
+     * `renameTo` could win — the other failed with "could not finalise", and a screen that
+     * hit this on every reappearance of the same missing file could never actually cache it.
+     */
     fun start() {
+        if (started) return
+        started = true
         viewModelScope.launch(Dispatchers.IO) { engine.run() }
     }
 }
