@@ -8,14 +8,15 @@
 </head>
 <body>
 
-  <header class="site-header">
-    <div class="inner">
-      <a class="wordmark" href="/">FORTU <span>DOCS</span></a>
-      <nav class="site-nav">
-        <a href="/">Guides</a>
-      </nav>
-    </div>
-  </header>
+  <div class="shell">
+  <aside class="sidebar">
+    <a class="wordmark" href="/">FORTU <span>DOCS</span></a>
+    <nav class="side-nav">
+      <span class="side-nav-label">Guides</span>
+      <a href="/connecting-a-screen.html">Connecting a Screen</a>
+      <a href="/instant-updates.html" aria-current="page">Instant Updates</a>
+    </nav>
+  </aside>
 
   <div class="page">
 
@@ -23,25 +24,24 @@
       <div class="eyebrow"><b>FORTU</b>&nbsp;CMS &middot; What&rsquo;s new</div>
       <h1>Instant Updates</h1>
       <p class="dek">
-        When you change something in the CMS, your screens now find out right away in most
-        cases &mdash; instead of waiting for their next scheduled check-in.
+        Changes made in the CMS now reach most screens within a few seconds instead of
+        within 30 seconds.
       </p>
       <div class="meta-row"><span>Rolling out gradually</span><span class="dot"></span><span>No setup required</span></div>
     </div>
 
     <section>
-      <div class="section-head"><h2>What changed</h2></div>
+      <div class="section-head"><h2>Summary</h2></div>
       <div class="section-body">
         <p class="lede">
-          Every screen has always checked in with the CMS every 30 seconds to see if anything
-          changed &mdash; that hasn&rsquo;t gone away, and it never will, because it&rsquo;s what
-          keeps a screen working even on a bad connection. What&rsquo;s new is that the CMS can
-          now also reach out to a screen the moment you make a change, instead of leaving it to
-          wait for its next check-in.
+          Screens check in with the CMS every 30 seconds to look for changes. This poll
+          interval has not changed and will not change. It is what keeps a screen working
+          even on a bad connection.
         </p>
         <p class="lede">
-          In practice, that turns most edits from &ldquo;update within half a minute&rdquo; into
-          &ldquo;update in moments.&rdquo;
+          The CMS can now also notify a screen directly when a change is made, instead of
+          waiting for the screen's next check-in. When this notification arrives, the
+          screen updates immediately rather than waiting up to 30 seconds.
         </p>
 
         <div class="timeline-card" style="margin-top: 28px;">
@@ -52,36 +52,36 @@
               <div class="start"></div>
               <div class="arrival"></div>
             </div>
-            <div class="timeline-caption"><span>You save a change</span><span>Screen catches up on its next check-in</span></div>
+            <div class="timeline-caption"><span>Change saved</span><span>Screen updates on its next check-in</span></div>
           </div>
           <div class="timeline-row">
-            <div class="timeline-label"><span>Now</span><span class="result">Moments</span></div>
+            <div class="timeline-label"><span>Now</span><span class="result">A few seconds</span></div>
             <div class="track now">
               <div class="fill"></div>
               <div class="start"></div>
               <div class="arrival"></div>
             </div>
-            <div class="timeline-caption"><span>You save a change</span><span>Screen is nudged immediately</span></div>
+            <div class="timeline-caption"><span>Change saved</span><span>Screen is notified directly</span></div>
           </div>
         </div>
       </div>
     </section>
 
     <section>
-      <div class="section-head"><h2>Where you&rsquo;ll notice it</h2></div>
+      <div class="section-head"><h2>What triggers an instant update</h2></div>
       <div class="section-body">
         <div class="notice-grid">
           <div class="notice-item">
             <span class="term">Assigning a playlist</span>
-            <span class="desc">From a screen&rsquo;s Manage tab, or the quick-assign dropdown on the devices list.</span>
+            <span class="desc">From a screen's Manage tab, or the quick assign dropdown on the devices list.</span>
           </div>
           <div class="notice-item">
             <span class="term">Renaming or relocating a screen</span>
-            <span class="desc">Name, location, orientation and timezone changes all reach the screen right away.</span>
+            <span class="desc">Name, location, orientation, and timezone changes all reach the screen immediately.</span>
           </div>
           <div class="notice-item">
-            <span class="term">Editing what&rsquo;s inside a playlist</span>
-            <span class="desc">Reordering, adding, or removing media updates every screen it plays on.</span>
+            <span class="term">Editing playlist contents</span>
+            <span class="desc">Reordering, adding, or removing media updates every screen that plays the playlist.</span>
           </div>
           <div class="notice-item">
             <span class="term">Changing a daypart schedule</span>
@@ -92,18 +92,19 @@
     </section>
 
     <section>
-      <div class="section-head"><h2>What to expect right now</h2></div>
+      <div class="section-head"><h2>Rollout status</h2></div>
       <div class="section-body">
         <div class="status-card">
           <div class="status-dot"></div>
           <div class="status-text">
             <h3>Rolling out screen by screen</h3>
             <p>
-              This reaches each screen the next time it reconnects &mdash; there&rsquo;s nothing
-              for you to turn on. A screen that hasn&rsquo;t picked it up yet simply keeps
-              working exactly as it always has: changes still land within its normal 30-second
-              check-in. Nothing gets slower while this rolls out &mdash; some things just get
-              faster, screen by screen.
+              This feature reaches each screen the next time it reconnects. No action is
+              required to enable it. A screen that has not picked it up yet continues to
+              work as before: changes reach it within its normal 30 second check-in.
+            </p>
+            <p>
+              This is a one-way improvement. No screen becomes slower during the rollout.
             </p>
           </div>
         </div>
@@ -111,33 +112,33 @@
     </section>
 
     <section>
-      <div class="section-head"><h2>Questions</h2></div>
+      <div class="section-head"><h2>FAQ</h2></div>
       <div class="section-body">
         <div class="faq">
           <div class="faq-item">
             <h3>Do I need to change any settings?</h3>
-            <p>No. This works automatically in the background &mdash; nothing to enable, nothing to configure.</p>
+            <p>No. This works automatically. There is nothing to enable or configure.</p>
           </div>
           <div class="faq-item">
-            <h3>What if a screen is offline when I make a change?</h3>
+            <h3>What happens if a screen is offline when I make a change?</h3>
             <p>
-              It picks up the change as soon as it reconnects, the same as always. Offline
-              screens have never lost changes &mdash; they just catch up a little slower.
+              The screen picks up the change as soon as it reconnects, the same as before.
+              Offline screens do not lose changes. They apply them later, on reconnect.
             </p>
           </div>
           <div class="faq-item">
             <h3>Will every screen get this at the same time?</h3>
             <p>
-              Not necessarily. Screens adopt it individually as they reconnect, so it&rsquo;s
-              normal to see some screens respond instantly while others still take up to 30
-              seconds for a little while longer.
+              No. Screens adopt this individually as they reconnect. It is normal to see
+              some screens update instantly while others still take up to 30 seconds for a
+              period of time.
             </p>
           </div>
           <div class="faq-item">
             <h3>Does this change how playlists or schedules work?</h3>
             <p>
-              No &mdash; it only changes how quickly a screen finds out about a change you&rsquo;ve
-              already made. Everything about how you build playlists and schedules stays the same.
+              No. This only changes how quickly a screen learns about a change that was
+              already made. Playlist and schedule behavior is unchanged.
             </p>
           </div>
         </div>
@@ -146,9 +147,10 @@
 
     <footer>
       <span>Fortu CMS</span>
-      <span>For the team &mdash; share freely with anyone who manages screens.</span>
+      <span>Internal documentation. Share with anyone who manages screens.</span>
     </footer>
 
+  </div>
   </div>
 
 </body>

@@ -12,4 +12,15 @@ if [ ! -f /mosquitto/data/dynamic-security.json ]; then
     cp /mosquitto/dynamic-security-seed.json /mosquitto/data/dynamic-security.json
 fi
 
+# The TLS private key is deliberately not in the image (see Dockerfile) — it's written here
+# from a Railway variable instead, so it never has to exist in git or a build context. Fail
+# loudly rather than let mosquitto start plaintext-only or crash with a confusing bind error.
+if [ -z "$MQTT_TLS_KEY_PEM" ]; then
+    echo "FATAL: MQTT_TLS_KEY_PEM is not set — mosquitto needs it to serve TLS on 8883." >&2
+    exit 1
+fi
+printf '%s\n' "$MQTT_TLS_KEY_PEM" > /mosquitto/config/certs/server.key
+chown mosquitto:mosquitto /mosquitto/config/certs/server.key
+chmod 600 /mosquitto/config/certs/server.key
+
 exec /docker-entrypoint.sh "$@"

@@ -5,7 +5,11 @@ FROM eclipse-mosquitto:2
 
 COPY --chown=mosquitto:mosquitto mosquitto.prod.conf /mosquitto/config/mosquitto.conf
 COPY --chown=mosquitto:mosquitto certs/server.crt /mosquitto/config/certs/server.crt
-COPY --chown=mosquitto:mosquitto certs/server.key /mosquitto/config/certs/server.key
+
+# NOT server.key — that file is gitignored on purpose (a private key has no business in a
+# git history, image layer, or anywhere a `docker history`/`git log` could ever surface it).
+# entrypoint.sh writes it to this same path at container start, from the MQTT_TLS_KEY_PEM
+# Railway variable, so a GitHub-triggered build succeeds with no key in the build context.
 
 # NOT copied straight to /mosquitto/data — that path is a Railway volume, mounted *over*
 # whatever the image put there, so entrypoint.sh copies this in at container start instead,

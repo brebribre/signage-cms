@@ -53,21 +53,22 @@ h1, h2, h3, h4 {
 p { margin: 0; }
 a { color: inherit; }
 
-/* --- Site header --- */
+/* --- Shell + sidebar --- */
 
-.site-header {
-  border-bottom: 1px solid var(--color-line);
-}
-.site-header .inner {
-  max-width: 760px;
-  margin: 0 auto;
-  padding: 20px 24px;
+.shell { display: flex; align-items: flex-start; min-height: 100vh; }
+
+.sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  border-right: 1px solid var(--color-line);
+  padding: 28px 20px;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  flex-direction: column;
 }
-@media (max-width: 640px) { .site-header .inner { padding: 18px 20px; } }
 
 .wordmark {
   display: flex;
@@ -78,6 +79,7 @@ a { color: inherit; }
   font-weight: 700;
   letter-spacing: 0.08em;
   color: var(--color-ink);
+  padding: 0 12px;
 }
 .wordmark span {
   font-weight: 500;
@@ -85,26 +87,53 @@ a { color: inherit; }
   color: var(--color-ink-muted);
 }
 
-.site-nav { display: flex; gap: 4px; }
-.site-nav a {
+.side-nav { display: flex; flex-direction: column; gap: 2px; margin-top: 28px; }
+.side-nav-label {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-ink-subtle);
+  padding: 0 12px;
+  margin: 18px 0 6px;
+}
+.side-nav-label:first-child { margin-top: 0; }
+.side-nav a {
   text-decoration: none;
-  font-size: 13.5px;
+  font-size: 14px;
   color: var(--color-ink-muted);
-  padding: 7px 12px;
-  border-radius: 999px;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
   transition: background var(--duration-soft) var(--ease-fortu), color var(--duration-soft) var(--ease-fortu);
 }
-.site-nav a:hover { background: var(--color-raised); color: var(--color-ink); }
-.site-nav a[aria-current="page"] { background: var(--color-ink); color: var(--color-ink-inverse); }
+.side-nav a:hover { background: var(--color-raised); color: var(--color-ink); }
+.side-nav a[aria-current="page"] { background: var(--color-ink); color: var(--color-ink-inverse); }
+
+@media (max-width: 768px) {
+  .shell { flex-direction: column; }
+  .sidebar {
+    width: 100%;
+    height: auto;
+    position: relative;
+    border-right: none;
+    border-bottom: 1px solid var(--color-line);
+    padding: 18px 20px;
+  }
+  .side-nav { flex-direction: row; flex-wrap: nowrap; overflow-x: auto; gap: 4px; margin-top: 16px; }
+  .side-nav-label { display: none; }
+  .side-nav a { white-space: nowrap; }
+}
 
 /* --- Page shell --- */
 
 .page {
+  flex: 1;
+  min-width: 0;
   max-width: 760px;
   margin: 0 auto;
-  padding: 56px 24px 120px;
+  padding: 56px 48px 120px;
 }
-@media (max-width: 640px) { .page { padding: 40px 20px 80px; } }
+@media (max-width: 768px) { .page { padding: 40px 20px 80px; margin: 0; } }
 
 .eyebrow {
   display: flex;
@@ -266,29 +295,36 @@ code { font-family: var(--font-mono); }
 .callout.warn { background: #f5efe9; }
 .callout.warn .mark { color: #8a5a2b; }
 
-/* --- Tier cards --- */
+/* --- Fact table --- */
 
-.tier-list { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
-.tier {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 16px;
-  align-items: baseline;
+.table-wrap {
+  margin-top: 20px;
+  overflow-x: auto;
   background: var(--color-surface);
   border-radius: var(--radius-xl);
-  padding: 16px 20px;
 }
-.tier .strength {
+table.fact-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+.fact-table th, .fact-table td {
+  text-align: left;
+  padding: 14px 20px;
+  vertical-align: top;
+}
+.fact-table th {
   font-size: 12px;
   font-weight: 500;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--color-ink-subtle);
+  border-bottom: 1px solid var(--color-line-strong);
   white-space: nowrap;
-  padding-top: 2px;
 }
-.tier h4 { font-size: 15px; font-weight: 500; margin: 0 0 4px; }
-.tier p { font-size: 13.5px; color: var(--color-ink-muted); }
+.fact-table td { border-bottom: 1px solid var(--color-line); color: var(--color-ink-muted); }
+.fact-table td:first-child { color: var(--color-ink); font-weight: 500; white-space: nowrap; }
+.fact-table tr:last-child td { border-bottom: none; }
 
 /* --- Notice grid (feature call-outs) --- */
 

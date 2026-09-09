@@ -2,8 +2,10 @@
 
 The push-notification broker (`player/PlayerEngine.kt`'s `PushClient`, `backend/app/infra/mqtt.py`).
 Deployed as its own Railway service, `mqtt-broker`, in the `pleasing-friendship` project —
-not part of the `backend` service, and not connected to GitHub auto-deploy. Changes here
-only take effect after you run `railway up` yourself (see **Deploying a change** below).
+not part of the `backend` service. Connected to GitHub auto-deploy: a push to `main` that
+touches `mosquitto/` redeploys it. Root Directory is set to `/mosquitto` and the build uses
+this directory's `Dockerfile` — see **Deploying a change** below if either setting ever
+reverts to auto-detect (it has happened once already, see that section).
 
 Not the source of truth for anything. A screen that never receives a push still gets the
 same manifest on its next 30s poll — see `PlayerEngine.kt`'s `PushClient` doc comment. Every
@@ -11,12 +13,15 @@ procedure below can be done wrong without taking a single screen offline.
 
 ## What's actually running
 
-- **TLS only, port 8883.** Self-signed cert (`certs/server.crt`/`server.key`), because the
-  broker's hostname is a Railway-owned `*.proxy.rlwy.net` subdomain nothing here controls
-  DNS for, so no ACME challenge (HTTP-01 or DNS-01) can ever be completed for it. Both the
-  backend (`backend/app/infra/mqtt_ca.pem`) and the Android client
+- **TLS only, port 8883.** Self-signed cert (`certs/server.crt`), because the broker's
+  hostname is a Railway-owned `*.proxy.rlwy.net` subdomain nothing here controls DNS for, so
+  no ACME challenge (HTTP-01 or DNS-01) can ever be completed for it. Both the backend
+  (`backend/app/infra/mqtt_ca.pem`) and the Android client
   (`player/.../push/MqttPushClient.kt`'s `MQTT_CA_PEM` constant) pin this exact certificate
-  as their trusted root instead of relying on a public CA chain.
+  as their trusted root instead of relying on a public CA chain. The private key
+  (`certs/server.key`) is gitignored and never enters the Docker image — `entrypoint.sh`
+  writes it to `/mosquitto/config/certs/server.key` at container start, from the
+  `MQTT_TLS_KEY_PEM` Railway variable on this service.
 - **Per-device credentials** via Mosquitto's dynamic-security plugin
   (`dynamic-security.json`), not one shared password. Two roles:
   - `publisher-role` — the CMS backend's own `cms` client. Full publish on `devices/#`.
@@ -50,6 +55,18 @@ procedure below can be done wrong without taking a single screen offline.
    in here "for clarity," you will lock every device out of its own credential and the API
    will not tell you.
 
+3. **Connecting (or reconnecting) this service to a GitHub repo resets its Root Directory
+   and Builder to auto-detect.** Confirmed live: after connecting GitHub, a redeploy failed
+   with `railpack prepare exited with an error`, because Railway was no longer treating this
+   as a Dockerfile build. Fixed by explicitly setting `rootDirectory: /mosquitto` and
+   `dockerfilePath: /Dockerfile` on the service (via the Railway API's
+   `serviceInstanceUpdate` mutation — there's no CLI or dashboard toggle for this, and the
+   `builder` field itself only accepts `RAILPACK`/`NIXPACKS`/`PAKETO`/`HEROKU` in the public
+   schema, so setting `dockerfilePath` is what actually flips it to a Dockerfile build). If a
+   future GitHub reconnect breaks the build again, that's almost certainly why — check
+   `railway logs --build --latest --service mqtt-broker` for `railpack prepare` before
+   suspecting the Dockerfile itself.
+
 ## Rotating the TLS certificate
 
 Needed if the private key leaks, or every ~10 years (current cert's validity).
@@ -65,7 +82,14 @@ Then update all three places that pin the *old* cert, in the same commit:
 - `backend/app/infra/mqtt_ca.pem` — replace with the new `certs/server.crt` verbatim.
 - `player/app/src/main/java/com/fortu/player/push/MqttPushClient.kt` — replace the
   `MQTT_CA_PEM` constant's contents with the new cert.
-- Redeploy the broker (below) so it actually serves the new cert.
+
+And update the private key Railway holds, since it's never in git or the image:
+```bash
+railway variable set MQTT_TLS_KEY_PEM --stdin --service mqtt-broker --skip-deploys \
+  < mosquitto/certs/server.key
+```
+
+Then redeploy the broker (below) so it actually serves the new cert and key together.
 
 Every already-paired screen and the backend will fail to connect between "broker redeployed
 with the new cert" and "that screen/backend gets the new pinned copy" — there's no overlap
@@ -90,13 +114,36 @@ this casually.
 
 ## Deploying a change
 
+Push to `main` with changes under `mosquitto/` — GitHub auto-deploy picks it up. To deploy
+without waiting on a push (or to redeploy the same commit, e.g. after fixing a Railway
+variable), pull the latest commit from source explicitly:
+
 ```bash
-cd mosquitto
-railway service mqtt-broker   # only if some other service is currently linked
-railway up . --path-as-root --service mqtt-broker -y --ci
+railway redeploy --service mqtt-broker --from-source -y
 ```
 
-Not connected to GitHub — a `git push` alone does nothing here. `railway logs` afterward
-should show TLS/dynsec loading with no `"generating a default config"` line; if that line
-appears, the volume was empty and just got re-seeded from scratch, which means every
-previously-provisioned device needs to re-pair.
+`railway logs --build --latest --service mqtt-broker` afterward should show the Dockerfile
+build steps (`[[N]/7] COPY ...`), not `railpack prepare` — see gotcha 3 above if it doesn't.
+Deploy logs should show TLS/dynsec loading with no `"generating a default config"` line; if
+that line appears, the volume was empty and just got re-seeded from scratch, which means
+every previously-provisioned device needs to re-pair.
+
+Plain CLI upload (`railway up`) no longer works cleanly for this service, now that it has a
+persisted Root Directory (`/mosquitto`, needed for GitHub builds) — confirmed live, both
+directions fail:
+- `railway up . --path-as-root --service mqtt-broker` (from `mosquitto/`) — server tries to
+  apply Root Directory on top of the already-scoped upload and can't find a `mosquitto/`
+  subdirectory inside it.
+- `railway up --service mqtt-broker` (from the repo root) — ignores Root Directory entirely
+  and looks for `Dockerfile` at the upload root, i.e. the repo root, where it doesn't exist.
+
+To deploy uncommitted local changes for a one-off test, clear Root Directory first, upload,
+then restore it:
+```bash
+railway api 'mutation($serviceId:String!,$environmentId:String,$input:ServiceInstanceUpdateInput!){serviceInstanceUpdate(serviceId:$serviceId,environmentId:$environmentId,input:$input)}' \
+  --raw-var serviceId=<mqtt-broker service ID> --raw-var environmentId=<production environment ID> \
+  --variables '{"input":{"rootDirectory":""}}'
+cd mosquitto && railway up . --path-as-root --service mqtt-broker -y --ci
+# then restore rootDirectory: "/mosquitto" the same way, or GitHub builds break again
+```
+Otherwise, just commit and push — that's the supported path now.
