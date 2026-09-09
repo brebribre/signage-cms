@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 from sqlmodel import Session, delete, func, select
 
+from app.infra import mqtt
 from app.models import (
     Device,
     ItemFit,
@@ -17,6 +18,7 @@ from app.models import (
     UserRole,
 )
 from app.models.base import utcnow
+from app.services import device_sync
 from app.services.errors import DomainError
 
 # What an image shows for when nothing says otherwise. A video defaults to its own length.
