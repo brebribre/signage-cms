@@ -48,6 +48,16 @@ interface TokenStore {
      * simply has no id to subscribe with; see [PushClient] for what that degrades to. */
     suspend fun deviceId(): String?
     suspend fun saveDeviceId(id: String)
+    /** This screen's own MQTT password — its username is [deviceId] itself.
+     *
+     * Minted once at pairing (see backend's poll_pairing/mqtt_admin.provision_device) and
+     * never reissued outside a re-pair, exactly like the bearer token. There is no shared
+     * password any more: every device gets its own broker credential, scoped so it can only
+     * ever read its own topic — see mosquitto/mosquitto.prod.conf's `device-role`. Null when
+     * MQTT is disabled, or an older pairing predates this field entirely; either way
+     * [PushClient] just never connects. */
+    suspend fun mqttPassword(): String?
+    suspend fun saveMqttPassword(password: String)
     suspend fun clear()
 }
 
@@ -69,15 +79,17 @@ interface MediaStore {
  * whether a push ever arrives.
  */
 interface PushClient {
-    /** Safe to call repeatedly — an implementation already connected to this id no-ops. */
-    fun connect(deviceId: String)
+    /** [deviceId] doubles as the broker username; [password] is this device's own,
+     *  from [TokenStore.mqttPassword] — never a credential shared with any other screen.
+     *  Safe to call repeatedly — an implementation already connected to this id no-ops. */
+    fun connect(deviceId: String, password: String)
     fun disconnect()
     val signal: SharedFlow<Unit>
 }
 
 /** The default: nothing to connect to, nothing ever emitted. */
 object NoopPushClient : PushClient {
-    override fun connect(deviceId: String) {}
+    override fun connect(deviceId: String, password: String) {}
     override fun disconnect() {}
     override val signal: SharedFlow<Unit> = MutableSharedFlow()
 }

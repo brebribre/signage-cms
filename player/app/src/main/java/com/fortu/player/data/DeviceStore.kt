@@ -23,6 +23,7 @@ class DeviceStore(private val context: Context) : com.fortu.player.TokenStore {
     private val nameKey = stringPreferencesKey("device_name")
     private val manifestKey = stringPreferencesKey("manifest_json")
     private val deviceIdKey = stringPreferencesKey("device_id")
+    private val mqttPasswordKey = stringPreferencesKey("mqtt_password")
 
     override suspend fun token(): String? = context.dataStore.data.first()[tokenKey]
     override suspend fun etag(): String? = context.dataStore.data.first()[etagKey]
@@ -49,6 +50,12 @@ class DeviceStore(private val context: Context) : com.fortu.player.TokenStore {
 
     override suspend fun saveDeviceId(id: String) {
         context.dataStore.edit { it[deviceIdKey] = id }
+    }
+
+    override suspend fun mqttPassword(): String? = context.dataStore.data.first()[mqttPasswordKey]
+
+    override suspend fun saveMqttPassword(password: String) {
+        context.dataStore.edit { it[mqttPasswordKey] = password }
     }
 
     /** Called when the server rejects our token — drops everything so the app re-pairs. */

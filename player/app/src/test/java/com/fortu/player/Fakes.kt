@@ -21,6 +21,9 @@ class FakeApi : PlayerApi {
     /** Set to make pollPairing report the pairing as gone (expired / already collected). */
     var pairingExpired = false
     var startPairingThrows: Exception? = null
+    /** Rides along with deviceToken on the claimed poll, like the real mqtt_admin-provisioned
+     *  one — null here means "MQTT disabled," same as the real server's response. */
+    var mqttPasswordOnClaim: String? = "mqtt-secret-1"
 
     var manifest: Manifest? = null
     /** Queue of throwables; each fetchManifest pops one and throws it if present. */
@@ -55,6 +58,7 @@ class FakeApi : PlayerApi {
             claimed = claimed,
             deviceId = "dev-1",
             deviceToken = if (claimed) "device-token" else null,
+            mqttPassword = if (claimed) mqttPasswordOnClaim else null,
             name = if (claimed) "Lobby" else null,
         )
     }
@@ -89,6 +93,7 @@ class FakeStore(
     var storedName: String? = null,
     var storedManifestJson: String? = null,
     var storedDeviceId: String? = null,
+    var storedMqttPassword: String? = null,
 ) : TokenStore {
     var clearCount = 0
 
@@ -104,23 +109,30 @@ class FakeStore(
     override suspend fun saveManifestJson(json: String) { storedManifestJson = json }
     override suspend fun deviceId() = storedDeviceId
     override suspend fun saveDeviceId(id: String) { storedDeviceId = id }
+    override suspend fun mqttPassword() = storedMqttPassword
+    override suspend fun saveMqttPassword(password: String) { storedMqttPassword = password }
     override suspend fun clear() {
         clearCount++
         storedToken = null
         storedEtag = null
         storedManifestJson = null
         storedDeviceId = null
+        storedMqttPassword = null
     }
 }
 
 /** Records connect/disconnect calls and lets a test fire a push on demand. */
 class FakePushClient : PushClient {
     val connectedTo = mutableListOf<String>()
+    val passwordsSeen = mutableListOf<String>()
     var disconnectCount = 0
     private val _signal = kotlinx.coroutines.flow.MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     override val signal: kotlinx.coroutines.flow.SharedFlow<Unit> = _signal
 
-    override fun connect(deviceId: String) { connectedTo += deviceId }
+    override fun connect(deviceId: String, password: String) {
+        connectedTo += deviceId
+        passwordsSeen += password
+    }
     override fun disconnect() { disconnectCount++ }
 
     /** Simulates the CMS having just published a change for this device. */

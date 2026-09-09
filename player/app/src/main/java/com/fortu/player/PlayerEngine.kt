@@ -160,7 +160,7 @@ class PlayerEngine(
                 // Idempotent — see PushClient. Called every time through the loop rather than
                 // only once so a screen paired by an older build (no saved device id yet)
                 // starts pushing the moment it re-pairs, with nothing else to trigger it.
-                store.deviceId()?.let { push.connect(it) }
+                store.deviceId()?.let { push.connect(it, store.mqttPassword() ?: "") }
                 syncAndPlay(token)
                 consecutiveFailures = 0
                 unauthorizedStreak = 0
@@ -262,6 +262,7 @@ class PlayerEngine(
             if (poll.claimed && token != null) {
                 store.saveToken(token, poll.name)
                 store.saveDeviceId(poll.deviceId)
+                poll.mqttPassword?.let { store.saveMqttPassword(it) }
                 _debug.update { it.copy(deviceName = poll.name) }
                 // Held briefly so pairing visibly succeeds instead of cutting to black.
                 _state.value = PlayerState.Claimed(poll.name ?: "This screen")

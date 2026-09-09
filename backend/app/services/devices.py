@@ -6,6 +6,7 @@ is minted by the server and handed to the device, and is never entered on it.
 """
 
 import hashlib
+import logging
 import secrets
 import time
 import uuid
@@ -14,7 +15,7 @@ from datetime import timedelta
 from sqlmodel import Session, delete, select
 
 from app.config import get_settings
-from app.infra import mqtt
+from app.infra import mqtt, mqtt_admin
 from app.models import (
     Device,
     DeviceAccess,
@@ -26,6 +27,8 @@ from app.models import (
 from app.models.base import utcnow
 from app.services import device_sync
 from app.services.errors import DomainError
+
+logger = logging.getLogger(__name__)
 
 # No 0/O, 1/I/L: the code is read off a television from across a room, and every ambiguous
 # glyph becomes a support call.
@@ -110,14 +113,22 @@ def start_pairing(session: Session) -> Device:
     return device
 
 
-def poll_pairing(session: Session, *, poll_token: str) -> tuple[Device, str | None]:
-    """Called by the device every few seconds. Returns `(device, plaintext_token_or_None)`.
+def poll_pairing(session: Session, *, poll_token: str) -> tuple[Device, str | None, str | None]:
+    """Called by the device every few seconds.
+
+    Returns `(device, plaintext_token_or_None, mqtt_password_or_None)`.
 
     **The device token is generated here, not at claim time.** That is what lets us store
     only a hash: a token minted during `claim` would have to sit in plaintext somewhere until
     the device collected it, which defeats hashing entirely. Instead `claim` marks the row as
     owned, and the first poll afterwards mints the token, saves its hash, hands back the
     plaintext, and destroys the poll token so it can never be collected twice.
+
+    The MQTT password gets the same one-time-mint treatment, for the same reason — it is
+    never stored, only handed back once. Unlike the bearer token, provisioning it can fail
+    (a broker hiccup) without failing the pairing itself: a device with no MQTT credentials
+    just never receives a push and polls exactly as it always has, which is the whole point
+    of push being a latency optimization and not a dependency.
     """
     device = session.exec(select(Device).where(Device.poll_token == poll_token)).first()
     if device is None:
@@ -126,7 +137,7 @@ def poll_pairing(session: Session, *, poll_token: str) -> tuple[Device, str | No
     if device.account_id is None:
         if device.pairing_expires_at and device.pairing_expires_at < utcnow():
             raise PairingNotFound(poll_token)
-        return device, None  # still waiting for a human
+        return device, None, None  # still waiting for a human
 
     token = secrets.token_urlsafe(32)
     device.token_hash = hash_token(token)
@@ -137,7 +148,14 @@ def poll_pairing(session: Session, *, poll_token: str) -> tuple[Device, str | No
     session.add(device)
     session.commit()
     session.refresh(device)
-    return device, token
+
+    mqtt_password = None
+    try:
+        mqtt_password = mqtt_admin.provision_device(device.id)
+    except mqtt_admin.MqttAdminError:
+        logger.warning("mqtt credential provisioning failed for device %s", device.id, exc_info=True)
+
+    return device, token, mqtt_password
 
 
 # user id -> timestamps of recent claim attempts. In-process and therefore per-worker: it

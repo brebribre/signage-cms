@@ -1,0 +1,87 @@
+{
+	"changeIndex":	9,
+	"defaultACLAccess":	{
+		"publishClientSend":	false,
+		"publishClientReceive":	true,
+		"subscribe":	false,
+		"unsubscribe":	true
+	},
+	"clients":	[{
+			"username":	"admin",
+			"textname":	"Dynsec admin user",
+			"roles":	[{
+					"rolename":	"admin"
+				}],
+			"encoded_password":	"$7$1000$tu8O3n19OcF9jF8UELBBE6zXNrpy/ZcpQR5hagBRJAgcdIk3usDArASkuGkNQFBIXFneklylKdWTE6QPCNTD2g==$jM7mtS+DuQ7ong+Ze2NkGgZui6EJELtxCQrqdcOkGKxRQXM+MSFS25EXt6LeQ+aDG75LhXXvg1pMtl7wIgQ1Hw=="
+		}, {
+			"username":	"cms",
+			"roles":	[{
+					"rolename":	"publisher-role"
+				}],
+			"encoded_password":	"$7$1000$Amym+vOB20W+dv0LfmbhlqcW4w9Aag5oXQIh7Plnc1YYg0X9kbF1ReOE32NubZPLpOrQwZHRMiaqobM2fZUo6g==$ky10ZKWJqJwR0RZafCU4Az4dl/8qKzWgL17JUXNa0z3el6CP2AjNiUPLBmx9d/20hwrtbk4IhFowEll8v7jmDQ=="
+		}],
+	"groups":	[],
+	"roles":	[{
+			"rolename":	"admin",
+			"allowwildcardsubs":	true,
+			"acls":	[{
+					"acltype":	"publishClientSend",
+					"topic":	"$CONTROL/dynamic-security/#",
+					"priority":	0,
+					"allow":	true
+				}, {
+					"acltype":	"publishClientReceive",
+					"topic":	"$CONTROL/dynamic-security/#",
+					"priority":	0,
+					"allow":	true
+				}, {
+					"acltype":	"publishClientReceive",
+					"topic":	"$SYS/#",
+					"priority":	0,
+					"allow":	true
+				}, {
+					"acltype":	"publishClientReceive",
+					"topic":	"#",
+					"priority":	0,
+					"allow":	true
+				}, {
+					"acltype":	"subscribePattern",
+					"topic":	"$CONTROL/dynamic-security/#",
+					"priority":	0,
+					"allow":	true
+				}, {
+					"acltype":	"subscribePattern",
+					"topic":	"$SYS/#",
+					"priority":	0,
+					"allow":	true
+				}, {
+					"acltype":	"subscribePattern",
+					"topic":	"#",
+					"priority":	0,
+					"allow":	true
+				}, {
+					"acltype":	"unsubscribePattern",
+					"topic":	"#",
+					"priority":	0,
+					"allow":	true
+				}]
+		}, {
+			"rolename":	"device-role",
+			"allowwildcardsubs":	true,
+			"acls":	[{
+					"acltype":	"subscribePattern",
+					"topic":	"devices/%u/manifest",
+					"priority":	0,
+					"allow":	true
+				}]
+		}, {
+			"rolename":	"publisher-role",
+			"allowwildcardsubs":	true,
+			"acls":	[{
+					"acltype":	"publishClientSend",
+					"topic":	"devices/#",
+					"priority":	0,
+					"allow":	true
+				}]
+		}]
+}

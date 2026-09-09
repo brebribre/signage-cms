@@ -27,27 +27,25 @@ android {
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
 
         // Push prototype (see PushClient / MqttPushClient). Blank host by default — not
-        // because there's nothing to point at (mosquitto/ is a real, deployed, authenticated
-        // Railway service now) but because baking it into every release build is a bigger
-        // decision than this flag alone should make silently. Blank means "don't even try to
-        // connect" — see MqttPushClient.connect(). Point it at the deployed broker:
-        //   ./gradlew assembleRelease -PmqttHost=altaria.proxy.rlwy.net -PmqttPort=<proxy port> \
-        //       -PmqttUsername=cms -PmqttPassword=<from Railway's variables, service mqtt-broker>
+        // because there's nothing to point at (mosquitto/ is a real, deployed Railway
+        // service now) but because baking it into every release build is a bigger decision
+        // than this flag alone should make silently. Blank means "don't even try to
+        // connect" — see MqttPushClient.connect(). No username/password here: every device
+        // gets its own MQTT credential from the pairing response, not a shared build-time
+        // one (see PairPollResponse.mqttPassword, TokenStore.mqttPassword). Point this at
+        // the deployed broker:
+        //   ./gradlew assembleRelease -PmqttHost=altaria.proxy.rlwy.net -PmqttPort=<proxy port>
         // (mqttTls defaults true — the deployed broker is TLS-only; MqttPushClient pins its
         // self-signed cert, see that file). Or at docker-compose's local one for dev, which
-        // takes no credentials and no TLS:
+        // is anonymous and needs no TLS:
         //   ./gradlew installDebug -PmqttHost=192.168.1.23 -PmqttTls=false
         // (a LAN IP, not "localhost" — that resolves to the screen itself, not your machine).
         val mqttHost = (project.findProperty("mqttHost") as String?) ?: ""
         val mqttPort = (project.findProperty("mqttPort") as String?) ?: "1883"
-        val mqttUsername = (project.findProperty("mqttUsername") as String?) ?: ""
-        val mqttPassword = (project.findProperty("mqttPassword") as String?) ?: ""
         val mqttTls = (project.findProperty("mqttTls") as String?) ?: "true"
         buildConfigField("String", "MQTT_HOST", "\"$mqttHost\"")
         buildConfigField("int", "MQTT_PORT", mqttPort)
-        buildConfigField("String", "MQTT_USERNAME", "\"$mqttUsername\"")
         buildConfigField("boolean", "MQTT_TLS", mqttTls)
-        buildConfigField("String", "MQTT_PASSWORD", "\"$mqttPassword\"")
     }
 
     buildTypes {

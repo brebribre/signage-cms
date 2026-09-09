@@ -20,6 +20,9 @@ data class PairPollResponse(
     @SerialName("device_id") val deviceId: String,
     /** Present exactly once, on the first poll after a human claims the screen. */
     @SerialName("device_token") val deviceToken: String? = null,
+    /** This device's own MQTT password, rides along with deviceToken for the same reason —
+     *  see TokenStore.mqttPassword. Absent when MQTT is disabled or provisioning failed. */
+    @SerialName("mqtt_password") val mqttPassword: String? = null,
     val name: String? = null,
 )
 

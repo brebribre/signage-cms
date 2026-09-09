@@ -523,8 +523,8 @@ class PlayerEngineTest {
     // --- push notifications (MQTT prototype, backend/app/infra/mqtt.py) --------------------
 
     @Test
-    fun `a stored device id connects the push channel`() = runTest {
-        val store = FakeStore(storedToken = "t", storedDeviceId = "dev-42")
+    fun `a stored device id and mqtt password connect the push channel`() = runTest {
+        val store = FakeStore(storedToken = "t", storedDeviceId = "dev-42", storedMqttPassword = "pw-42")
         val api = FakeApi().apply { manifest = manifest() }
         val push = FakePushClient()
         val e = engine(api = api, store = store, push = push)
@@ -533,15 +533,19 @@ class PlayerEngineTest {
 
         assertTrue("should connect using the persisted device id", push.connectedTo.isNotEmpty())
         assertTrue(push.connectedTo.all { it == "dev-42" })
+        // No shared credential any more — every device connects with its own password.
+        assertTrue(push.passwordsSeen.all { it == "pw-42" })
         job.cancelAndJoin()
     }
 
     @Test
-    fun `pairing saves the device id so a freshly paired screen can push-connect too`() = runTest {
+    fun `pairing saves the device id and mqtt password so a freshly paired screen can push-connect too`() = runTest {
         // Before this, poll.deviceId was read off the pairing response and thrown away —
         // nothing persisted it, so a screen had no id to subscribe with until it happened to
-        // be unpaired and re-paired by a build that saves one.
-        val api = FakeApi().apply { pollsBeforeClaim = 1 }
+        // be unpaired and re-paired by a build that saves one. mqttPassword is new for the
+        // same reason: it is how a device stops sharing one broker credential with every
+        // other screen and gets its own, scoped by mosquitto's device-role to its own topic.
+        val api = FakeApi().apply { pollsBeforeClaim = 1; mqttPasswordOnClaim = "fresh-secret" }
         val store = FakeStore()
         val push = FakePushClient()
         val e = engine(api = api, store = store, push = push)
@@ -549,7 +553,23 @@ class PlayerEngineTest {
         advanceTimeBy(10_000)
 
         assertEquals("dev-1", store.storedDeviceId)
+        assertEquals("fresh-secret", store.storedMqttPassword)
         assertTrue("should connect once paired", push.connectedTo.contains("dev-1"))
+        assertTrue("should connect with its own freshly-issued password", push.passwordsSeen.contains("fresh-secret"))
+        job.cancelAndJoin()
+    }
+
+    @Test
+    fun `no mqtt password still connects — some brokers (local dev) need none`() = runTest {
+        val store = FakeStore(storedToken = "t", storedDeviceId = "dev-1", storedMqttPassword = null)
+        val api = FakeApi().apply { manifest = manifest() }
+        val push = FakePushClient()
+        val e = engine(api = api, store = store, push = push)
+        val job = launch { e.run() }
+        advanceTimeBy(1_000)
+
+        assertTrue(push.connectedTo.contains("dev-1"))
+        assertTrue("a missing password connects with a blank one, not a crash", push.passwordsSeen.all { it == "" })
         job.cancelAndJoin()
     }
 

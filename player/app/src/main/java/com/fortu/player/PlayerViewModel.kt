@@ -27,8 +27,6 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     private val push = MqttPushClient(
         host = BuildConfig.MQTT_HOST,
         port = BuildConfig.MQTT_PORT,
-        username = BuildConfig.MQTT_USERNAME,
-        password = BuildConfig.MQTT_PASSWORD,
         tls = BuildConfig.MQTT_TLS,
     )
 

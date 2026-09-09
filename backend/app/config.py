@@ -65,6 +65,11 @@ class Settings(BaseSettings):
     # see infra/mqtt.py's module docstring for why it's self-signed rather than CA-issued.
     # False for local dev against docker-compose's plaintext mosquitto.
     mqtt_tls: bool = False
+    # The dynsec bootstrap admin — see infra/mqtt_admin.py. Distinct from mqtt_username
+    # (the `cms` publisher identity, which can only publish, never administer the broker).
+    # Empty locally: docker-compose's dev broker has no dynsec plugin loaded at all.
+    mqtt_admin_username: str = ""
+    mqtt_admin_password: str = ""
 
     log_level: str = "INFO"
 

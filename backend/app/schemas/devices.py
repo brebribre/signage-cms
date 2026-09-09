@@ -34,11 +34,16 @@ class PairPollResponse(BaseModel):
     """`claimed` is false while nobody has typed the code yet.
 
     `device_token` is present exactly once, on the first poll after a human claims it.
+    `mqtt_password` rides along the same way, same reasoning — see
+    services/devices.py::poll_pairing. Absent (not just None) when MQTT is disabled or
+    provisioning failed; a screen with no password simply never connects for push and
+    polls exactly as it always has.
     """
 
     claimed: bool
     device_id: uuid.UUID
     device_token: str | None = None
+    mqtt_password: str | None = None
     name: str | None = None
 
 

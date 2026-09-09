@@ -74,10 +74,6 @@ private fun pinnedTrustManagerFactory(): TrustManagerFactory {
 class MqttPushClient(
     private val host: String,
     private val port: Int,
-    /** Blank when the broker allows anonymous access (local dev's docker-compose mosquitto).
-     *  The deployed broker (mosquitto/, on Railway) does not — see mosquitto.prod.conf. */
-    private val username: String = "",
-    private val password: String = "",
     /** True for the deployed broker, false for local dev's plaintext docker-compose one. */
     private val tls: Boolean = false,
 ) : PushClient {
@@ -87,7 +83,14 @@ class MqttPushClient(
     private var client: Mqtt3AsyncClient? = null
     private var connectedDeviceId: String? = null
 
-    override fun connect(deviceId: String) {
+    /**
+     * [deviceId] is also this connection's username — the broker's `device-role` scopes
+     * subscribe access to `devices/{username}/manifest`, so there is nothing else a
+     * username could mean here. [password] is blank against local dev's anonymous
+     * docker-compose broker; the deployed one (mosquitto/, on Railway) requires it —
+     * see mosquitto.prod.conf's dynamic-security setup.
+     */
+    override fun connect(deviceId: String, password: String) {
         if (host.isBlank()) return // No broker configured — see build.gradle.kts's mqttHost.
         if (connectedDeviceId == deviceId && client != null) return // Already connecting/connected.
         connectedDeviceId = deviceId
@@ -104,9 +107,9 @@ class MqttPushClient(
                     .build()
             )
         }
-        if (username.isNotBlank()) {
+        if (password.isNotBlank()) {
             builder = builder.simpleAuth()
-                .username(username)
+                .username(deviceId)
                 .password(password.toByteArray())
                 .applySimpleAuth()
         }

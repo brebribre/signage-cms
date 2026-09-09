@@ -51,14 +51,15 @@ def poll_pairing(poll_token: str, session: DbSession) -> PairPollResponse:
     because the poll token is destroyed when the plaintext is handed over.
     """
     try:
-        device, token = device_service.poll_pairing(session, poll_token=poll_token)
+        device, token, mqtt_password = device_service.poll_pairing(session, poll_token=poll_token)
     except PairingNotFound:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Unknown or expired pairing") from None
 
     if token is None:
         return PairPollResponse(claimed=False, device_id=device.id)
     return PairPollResponse(
-        claimed=True, device_id=device.id, device_token=token, name=device.name
+        claimed=True, device_id=device.id, device_token=token,
+        mqtt_password=mqtt_password, name=device.name
     )
 
 
