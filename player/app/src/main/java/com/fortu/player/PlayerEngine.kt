@@ -12,8 +12,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 
 private const val TAG = "FortuPlayer"
 
@@ -106,6 +108,10 @@ class PlayerEngine(
      *  dispatcher — with a hard-coded `Dispatchers.IO` the download and state-transition work
      *  escapes virtual time entirely and assertions race it. */
     private val io: CoroutineDispatcher = Dispatchers.IO,
+    /** Wakes the poll loop early when a push arrives (see backend/app/infra/mqtt.py).
+     *  Defaults to [NoopPushClient] — nothing to connect to, nothing ever emitted — which is
+     *  exactly "no push available" and leaves the loop on its plain poll cadence. */
+    private val push: PushClient = NoopPushClient,
 ) {
     private val _state = MutableStateFlow<PlayerState>(PlayerState.Starting)
     val state = _state.asStateFlow()
@@ -151,6 +157,10 @@ class PlayerEngine(
         while (true) {
             try {
                 val token = store.token() ?: pairUntilClaimed() ?: continue
+                // Idempotent — see PushClient. Called every time through the loop rather than
+                // only once so a screen paired by an older build (no saved device id yet)
+                // starts pushing the moment it re-pairs, with nothing else to trigger it.
+                store.deviceId()?.let { push.connect(it) }
                 syncAndPlay(token)
                 consecutiveFailures = 0
                 unauthorizedStreak = 0
@@ -170,6 +180,7 @@ class PlayerEngine(
                 if (unauthorizedStreak >= UNAUTHORIZED_BEFORE_REPAIR) {
                     Log.w(TAG, "token rejected repeatedly — clearing and re-pairing")
                     store.clear()
+                    push.disconnect()
                     unauthorizedStreak = 0
                     consecutiveFailures = 0
                     _state.value = PlayerState.Starting
@@ -250,6 +261,7 @@ class PlayerEngine(
             val token = poll.deviceToken
             if (poll.claimed && token != null) {
                 store.saveToken(token, poll.name)
+                store.saveDeviceId(poll.deviceId)
                 _debug.update { it.copy(deviceName = poll.name) }
                 // Held briefly so pairing visibly succeeds instead of cutting to black.
                 _state.value = PlayerState.Claimed(poll.name ?: "This screen")
@@ -332,8 +344,20 @@ class PlayerEngine(
             }
 
             beatsSincePoll++
-            delay(nextPollDelayMillis())
+            waitForNextPoll(nextPollDelayMillis())
         }
+    }
+
+    /**
+     * Sleeps for [ms] — unless [push] wakes it first.
+     *
+     * A plain `delay(ms)` would ignore a push entirely; racing it against [PushClient.signal]
+     * means a screen with a live push connection polls again the moment the CMS actually
+     * changes something, while a screen with none (push disabled, MQTT unreachable, an older
+     * pairing with no device id) behaves exactly as it always has — this is strictly additive.
+     */
+    private suspend fun waitForNextPoll(ms: Long) {
+        withTimeoutOrNull(ms) { push.signal.first() }
     }
 
     /**

@@ -33,6 +33,7 @@ class PlayerEngineTest {
         cache: FakeCache = FakeCache(),
         canSelfUpdate: () -> Boolean = { false },
         installUpdate: (String) -> Boolean = { true },
+        push: PushClient = NoopPushClient,
     ) = PlayerEngine(
         api = api,
         store = store,
@@ -44,6 +45,7 @@ class PlayerEngineTest {
         // The test scheduler's dispatcher, so everything the engine does stays inside
         // virtual time and assertions never race real threads.
         io = UnconfinedTestDispatcher(testScheduler),
+        push = push,
     )
 
     // --- pairing --------------------------------------------------------------------------
@@ -515,6 +517,92 @@ class PlayerEngineTest {
         advanceTimeBy(1_000)
 
         assertTrue("should recover via the normal fetch", e.state.value is PlayerState.Playing)
+        job.cancelAndJoin()
+    }
+
+    // --- push notifications (MQTT prototype, backend/app/infra/mqtt.py) --------------------
+
+    @Test
+    fun `a stored device id connects the push channel`() = runTest {
+        val store = FakeStore(storedToken = "t", storedDeviceId = "dev-42")
+        val api = FakeApi().apply { manifest = manifest() }
+        val push = FakePushClient()
+        val e = engine(api = api, store = store, push = push)
+        val job = launch { e.run() }
+        advanceTimeBy(1_000)
+
+        assertTrue("should connect using the persisted device id", push.connectedTo.isNotEmpty())
+        assertTrue(push.connectedTo.all { it == "dev-42" })
+        job.cancelAndJoin()
+    }
+
+    @Test
+    fun `pairing saves the device id so a freshly paired screen can push-connect too`() = runTest {
+        // Before this, poll.deviceId was read off the pairing response and thrown away —
+        // nothing persisted it, so a screen had no id to subscribe with until it happened to
+        // be unpaired and re-paired by a build that saves one.
+        val api = FakeApi().apply { pollsBeforeClaim = 1 }
+        val store = FakeStore()
+        val push = FakePushClient()
+        val e = engine(api = api, store = store, push = push)
+        val job = launch { e.run() }
+        advanceTimeBy(10_000)
+
+        assertEquals("dev-1", store.storedDeviceId)
+        assertTrue("should connect once paired", push.connectedTo.contains("dev-1"))
+        job.cancelAndJoin()
+    }
+
+    @Test
+    fun `a push wakes the poll loop instead of waiting the full interval`() = runTest {
+        val store = FakeStore(storedToken = "t", storedDeviceId = "dev-1")
+        val api = FakeApi().apply { manifest = manifest(items = listOf(item("a"))) }
+        val push = FakePushClient()
+        val e = engine(api = api, store = store, push = push)
+        val job = launch { e.run() }
+        advanceTimeBy(1_000)
+
+        val callsBeforePush = api.manifestCalls
+        push.push()
+        advanceTimeBy(1_000)
+
+        assertTrue(
+            "a push should trigger another fetch well before the 30s poll interval",
+            api.manifestCalls > callsBeforePush,
+        )
+        job.cancelAndJoin()
+    }
+
+    @Test
+    fun `a screen with no push connection behaves exactly as it always has`() = runTest {
+        // The default is NoopPushClient — nothing to connect to, nothing ever emitted. This
+        // pins that the poll loop's timing is unaffected when push is unavailable, which is
+        // every screen running today until this ships.
+        val store = FakeStore(storedToken = "t")
+        val api = FakeApi().apply { manifest = manifest(items = listOf(item("a"))) }
+        val e = engine(api = api, store = store)
+        val job = launch { e.run() }
+        advanceTimeBy(1_000)
+
+        val callsAfterFirstPoll = api.manifestCalls
+        advanceTimeBy(29_000)
+        assertEquals("must not poll again before ~30s", callsAfterFirstPoll, api.manifestCalls)
+        advanceTimeBy(2_000)
+        assertTrue("must poll again once ~30s has passed", api.manifestCalls > callsAfterFirstPoll)
+        job.cancelAndJoin()
+    }
+
+    @Test
+    fun `push disconnects when the token is cleared for re-pairing`() = runTest {
+        val store = FakeStore(storedToken = "t", storedDeviceId = "dev-1", storedName = "Lobby")
+        val api = FakeApi()
+        repeat(5) { api.manifestFailures += unauthorized() }
+        val push = FakePushClient()
+        val e = engine(api = api, store = store, push = push)
+        val job = launch { e.run() }
+        advanceTimeBy(20_000)
+
+        assertTrue("push must disconnect once the token is cleared", push.disconnectCount >= 1)
         job.cancelAndJoin()
     }
 }

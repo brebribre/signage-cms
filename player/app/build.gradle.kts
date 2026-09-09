@@ -25,6 +25,16 @@ android {
         val apiBaseUrl = (project.findProperty("apiBaseUrl") as String?)
             ?: "https://signage-cms-production.up.railway.app"
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
+
+        // Push prototype (see PushClient / MqttPushClient). Blank by default: there is no
+        // broker anywhere near production yet, and blank means "don't even try to connect" —
+        // see MqttPushClient.connect(). Point it at a broker for local testing:
+        //   ./gradlew installDebug -PmqttHost=192.168.1.23
+        // (a LAN IP, not "localhost" — that resolves to the screen itself, not your machine).
+        val mqttHost = (project.findProperty("mqttHost") as String?) ?: ""
+        val mqttPort = (project.findProperty("mqttPort") as String?) ?: "1883"
+        buildConfigField("String", "MQTT_HOST", "\"$mqttHost\"")
+        buildConfigField("int", "MQTT_PORT", mqttPort)
     }
 
     buildTypes {
@@ -51,6 +61,17 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+
+    packaging {
+        resources {
+            // Netty (hivemq-mqtt-client's transport) ships the same META-INF housekeeping
+            // file in several of its jars — harmless at runtime, but the merge step that
+            // builds the APK's resources treats a genuine duplicate as fatal. None of these
+            // are ever read by the app itself.
+            excludes += "META-INF/INDEX.LIST"
+            excludes += "META-INF/io.netty.versions.properties"
+        }
     }
 
     testOptions {
@@ -80,6 +101,7 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.coil.compose)
+    implementation(libs.hivemq.mqtt.client)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

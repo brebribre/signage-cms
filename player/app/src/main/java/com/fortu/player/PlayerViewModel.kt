@@ -8,6 +8,7 @@ import com.fortu.player.api.ManifestItem
 import com.fortu.player.data.DeviceStore
 import com.fortu.player.data.MediaCache
 import com.fortu.player.kiosk.SelfUpdater
+import com.fortu.player.push.MqttPushClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
@@ -23,6 +24,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     private val api = ApiClient()
     private val store = DeviceStore(app)
     private val cache = MediaCache(app, api.http)
+    private val push = MqttPushClient(host = BuildConfig.MQTT_HOST, port = BuildConfig.MQTT_PORT)
 
     private val engine = PlayerEngine(
         api = api,
@@ -32,6 +34,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         apiBaseUrl = BuildConfig.API_BASE_URL,
         canSelfUpdate = { SelfUpdater.isSupported(app) },
         installUpdate = { url -> SelfUpdater.downloadAndInstall(app, api.http, url) },
+        push = push,
     )
 
     val state = engine.state

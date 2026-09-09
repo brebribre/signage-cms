@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Debug builds only (app/src/debug, never merged into release): permits plain HTTP to
+  10.0.2.2, the Android emulator's fixed alias for the host machine's loopback. Needed to
+  point a debug build at a local backend with `-PapiBaseUrl=http://10.0.2.2:8001` — targetSdk
+  28+ blocks cleartext traffic by default, for good reason, which is exactly why this is
+  scoped to one address in one build type rather than a blanket usesCleartextTraffic="true".
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">10.0.2.2</domain>
+    </domain-config>
+</network-security-config>

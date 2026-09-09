@@ -88,6 +88,7 @@ class FakeStore(
     var storedEtag: String? = null,
     var storedName: String? = null,
     var storedManifestJson: String? = null,
+    var storedDeviceId: String? = null,
 ) : TokenStore {
     var clearCount = 0
 
@@ -101,12 +102,29 @@ class FakeStore(
     override suspend fun saveEtag(etag: String) { storedEtag = etag }
     override suspend fun manifestJson() = storedManifestJson
     override suspend fun saveManifestJson(json: String) { storedManifestJson = json }
+    override suspend fun deviceId() = storedDeviceId
+    override suspend fun saveDeviceId(id: String) { storedDeviceId = id }
     override suspend fun clear() {
         clearCount++
         storedToken = null
         storedEtag = null
         storedManifestJson = null
+        storedDeviceId = null
     }
+}
+
+/** Records connect/disconnect calls and lets a test fire a push on demand. */
+class FakePushClient : PushClient {
+    val connectedTo = mutableListOf<String>()
+    var disconnectCount = 0
+    private val _signal = kotlinx.coroutines.flow.MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    override val signal: kotlinx.coroutines.flow.SharedFlow<Unit> = _signal
+
+    override fun connect(deviceId: String) { connectedTo += deviceId }
+    override fun disconnect() { disconnectCount++ }
+
+    /** Simulates the CMS having just published a change for this device. */
+    fun push() { _signal.tryEmit(Unit) }
 }
 
 class FakeCache : MediaStore {

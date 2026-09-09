@@ -51,6 +51,17 @@ class Settings(BaseSettings):
     pairing_code_ttl_seconds: int = 900
     device_poll_seconds: int = 30
 
+    # --- MQTT push prototype (see app/infra/mqtt.py) ---
+    # Off by default — a device still gets everything from its next poll regardless, since
+    # this is a latency optimization, never the source of truth. Local dev turns it on
+    # against docker-compose's mosquitto service (anonymous, no credentials needed); the
+    # deployed broker (mosquitto/, its own Railway service) requires mqtt_username/password.
+    mqtt_enabled: bool = False
+    mqtt_host: str = "localhost"
+    mqtt_port: int = 1883
+    mqtt_username: str = ""
+    mqtt_password: str = ""
+
     log_level: str = "INFO"
 
     frontend_origin: str = "http://localhost:5173"

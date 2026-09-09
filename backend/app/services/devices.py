@@ -14,6 +14,7 @@ from datetime import timedelta
 from sqlmodel import Session, delete, select
 
 from app.config import get_settings
+from app.infra import mqtt
 from app.models import (
     Device,
     DeviceAccess,
@@ -23,6 +24,7 @@ from app.models import (
     UserRole,
 )
 from app.models.base import utcnow
+from app.services import device_sync
 from app.services.errors import DomainError
 
 # No 0/O, 1/I/L: the code is read off a television from across a room, and every ambiguous
@@ -223,6 +225,15 @@ def update(
     session.add(device)
     session.commit()
     session.refresh(device)
+
+    # Best-effort nudge so a screen picks this up now instead of on its next poll (up to
+    # 30s away). Computed from the row that's now committed, so a screen that acts on it
+    # sees exactly what a manifest fetch would give it — never a signal that races ahead of
+    # the data behind it.
+    mqtt.notify_manifest_changed(
+        device_id=device.id,
+        version=device_sync.compute_version(session, device),
+    )
     return device
 
 
