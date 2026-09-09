@@ -113,8 +113,16 @@ def provision_device(device_id: uuid.UUID) -> str | None:
     password = secrets.token_urlsafe(24)
 
     created = _run_commands([
+        # No `clientid` here, deliberately — confirmed live that dynsec treats it as
+        # binding, not descriptive: a client created with one is refused at CONNECT
+        # ("not authorised") from any MQTT client id but that exact string. The Android
+        # client picks its own random id per connection (MqttPushClient's
+        # "player-${UUID}"), so binding one here would lock every device out entirely.
+        # Username + password is the real credential; the topic ACL (device-role,
+        # scoped to devices/%u/manifest) is what actually confines a device to its own
+        # topic, and neither needs a client id to do its job.
         {"command": "createClient", "username": username, "password": password,
-         "clientid": username, "textname": f"device {username}"},
+         "textname": f"device {username}"},
     ])[0]
 
     if created.get("error") == _ALREADY_EXISTS:
