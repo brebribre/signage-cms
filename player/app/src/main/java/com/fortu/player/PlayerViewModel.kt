@@ -29,6 +29,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         port = BuildConfig.MQTT_PORT,
         username = BuildConfig.MQTT_USERNAME,
         password = BuildConfig.MQTT_PASSWORD,
+        tls = BuildConfig.MQTT_TLS,
     )
 
     private val engine = PlayerEngine(

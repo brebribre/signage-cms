@@ -111,6 +111,36 @@ def get_with_items(
     return playlist, [(item, media) for item, media in rows]
 
 
+def _affected_devices(session: Session, playlist_id: uuid.UUID) -> list[Device]:
+    """Every screen this playlist could reach — by direct assignment or by a schedule.
+
+    Same "both routes count" reasoning as remove()'s in-use check, applied to the push nudge
+    instead of a delete guard: a schedule-only screen must hear about an edit exactly as
+    readily as a directly-assigned one.
+    """
+    from app.services import schedules as schedule_service
+
+    seen: dict[uuid.UUID, Device] = {
+        d.id: d for d in session.exec(select(Device).where(Device.playlist_id == playlist_id)).all()
+    }
+    for device in schedule_service.devices_for_playlist(session, playlist_id):
+        seen[device.id] = device
+    return list(seen.values())
+
+
+def _notify_devices(session: Session, playlist_id: uuid.UUID) -> None:
+    """Best-effort push to every screen this playlist reaches — see devices.update() for the
+    same pattern applied to a direct device change. Never the source of truth: a screen that
+    misses this still catches up on its next poll."""
+    from app.infra import mqtt
+    from app.services import device_sync
+
+    for device in _affected_devices(session, playlist_id):
+        mqtt.notify_manifest_changed(
+            device_id=device.id, version=device_sync.compute_version(session, device),
+        )
+
+
 def update(
     session: Session,
     *,
@@ -128,6 +158,11 @@ def update(
     session.add(playlist)
     session.commit()
     session.refresh(playlist)
+    # Only shuffle changes what a screen shows — compute_version deliberately excludes the
+    # playlist's name (cosmetic, see device_sync.py), and a rename must not wake up every
+    # screen this playlist reaches for nothing.
+    if shuffle is not None:
+        _notify_devices(session, playlist_id)
     return playlist
 
 
@@ -190,6 +225,7 @@ def replace_items(
     playlist.updated_at = utcnow()
     session.add(playlist)
     session.commit()
+    _notify_devices(session, playlist_id)
     return get_with_items(session, user=user, playlist_id=playlist_id)
 
 

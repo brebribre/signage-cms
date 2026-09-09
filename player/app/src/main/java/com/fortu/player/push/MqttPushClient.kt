@@ -2,14 +2,62 @@ package com.fortu.player.push
 
 import android.util.Log
 import com.fortu.player.PushClient
+import com.hivemq.client.mqtt.MqttClientSslConfig
 import com.hivemq.client.mqtt.datatypes.MqttQos
 import com.hivemq.client.mqtt.mqtt3.Mqtt3AsyncClient
 import com.hivemq.client.mqtt.mqtt3.Mqtt3Client
+import com.hivemq.client.mqtt.mqtt3.Mqtt3ClientBuilder
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
+import java.io.ByteArrayInputStream
+import java.security.KeyStore
+import java.security.cert.CertificateFactory
 import java.util.UUID
+import javax.net.ssl.TrustManagerFactory
 
 private const val TAG = "FortuPlayer"
+
+/**
+ * A self-signed certificate, not one from a public CA: the broker's hostname is a
+ * Railway-owned subdomain (*.proxy.rlwy.net) nothing here controls DNS for, so no ACME
+ * challenge can be completed for it. Pinned here as the trusted root instead of relying on
+ * the public CA chain — real encryption and real protection against a network-path
+ * attacker, just via an explicitly trusted cert. The backend publisher pins the identical
+ * file (backend/app/infra/mqtt_ca.pem); rotating it means updating both plus
+ * mosquitto/certs/server.crt.
+ */
+private const val MQTT_CA_PEM = """-----BEGIN CERTIFICATE-----
+MIIDRjCCAi6gAwIBAgIUDvj7QB/G8isBE8E2PAfB9QPBJrIwDQYJKoZIhvcNAQEL
+BQAwITEfMB0GA1UEAwwWYWx0YXJpYS5wcm94eS5ybHd5Lm5ldDAeFw0yNjA5MDkw
+NTIyNDhaFw0zNjA5MDYwNTIyNDhaMCExHzAdBgNVBAMMFmFsdGFyaWEucHJveHku
+cmx3eS5uZXQwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDJ3JvL8qgv
+Rs6JlLq+3HQmrMHpiGWUxiiEGqmJUbLHjz711bqY+An/DuUg6utHBp11k+Cl7wxi
+bSnLELzNQKxFhIdkF/snBdllVmDHpzrMArFpExcfP/aN0d8JXvdvZN3WOUAuILc1
+9FaZtaXGY/eK1GRlCs7lqbKvcJCXPf2+x3EVz0npG9xo8SvSeNJI18zhpWA+ZzzI
+ZwUnw7ZwNUbqwK7i7uSfXy/WkXT93NcwN/JNPubG+1TxfIOkKKKxRSjLuXtQd1/e
+0kOUoijP9oZzucpR5CO0BGiTZaLIsxnqqKIhGUPym9E72ONmP67JWWhT+AoTw0Zl
+Dpf653ExFQapAgMBAAGjdjB0MB0GA1UdDgQWBBSgVZkkSCYMDMT09DhToa1NYuX5
+BjAfBgNVHSMEGDAWgBSgVZkkSCYMDMT09DhToa1NYuX5BjAPBgNVHRMBAf8EBTAD
+AQH/MCEGA1UdEQQaMBiCFmFsdGFyaWEucHJveHkucmx3eS5uZXQwDQYJKoZIhvcN
+AQELBQADggEBAL7Wv7fAAdBBch1IZZaxpXQsBjlxzdHo3WIOn8MXbwaPqYGbJsNz
+bT9nrLH+nLswshuMweRYs0KTbi7m2SUP8hQH+n86clYyE2DjdNsd7piEMf7gRPqD
+Z5bdRgXtlVmB+sgQkokS9CrViEA7cYFtT2/SDlVw5cz8+Fqwi2M51k/xnVdcE686
+n0p5jt7iDZzV5oHhYe48iHYz+G2dw9MefnQb1029Mj8DgE3nazbQFsB2eX9c9+tI
+mhwM0FjQ7ylB7uaYW6J5WuWx6wVjYTrBoUKIMxqoK1beb7i2tyGjKS3ij6NV1ivL
+gcwBz9aZgIwXzsuavxhcjXxe5be8Iz4oUwE=
+-----END CERTIFICATE-----"""
+
+private fun pinnedTrustManagerFactory(): TrustManagerFactory {
+    val cert = CertificateFactory.getInstance("X.509")
+        .generateCertificate(ByteArrayInputStream(MQTT_CA_PEM.toByteArray()))
+    val keyStore = KeyStore.getInstance(KeyStore.getDefaultType()).apply {
+        load(null, null)
+        setCertificateEntry("mqtt-ca", cert)
+    }
+    return TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm()).apply {
+        init(keyStore)
+    }
+}
 
 /**
  * The [PushClient] this app actually ships, backed by [HiveMQ's MQTT client]
@@ -30,6 +78,8 @@ class MqttPushClient(
      *  The deployed broker (mosquitto/, on Railway) does not — see mosquitto.prod.conf. */
     private val username: String = "",
     private val password: String = "",
+    /** True for the deployed broker, false for local dev's plaintext docker-compose one. */
+    private val tls: Boolean = false,
 ) : PushClient {
     private val _signal = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     override val signal: SharedFlow<Unit> = _signal
@@ -42,18 +92,23 @@ class MqttPushClient(
         if (connectedDeviceId == deviceId && client != null) return // Already connecting/connected.
         connectedDeviceId = deviceId
 
-        val unauthed = Mqtt3Client.builder()
+        var builder: Mqtt3ClientBuilder = Mqtt3Client.builder()
             .identifier("player-${UUID.randomUUID()}")
             .serverHost(host)
             .serverPort(port)
             .automaticReconnectWithDefaultConfig()
-        val builder = if (username.isNotBlank()) {
-            unauthed.simpleAuth()
+        if (tls) {
+            builder = builder.sslConfig(
+                MqttClientSslConfig.builder()
+                    .trustManagerFactory(pinnedTrustManagerFactory())
+                    .build()
+            )
+        }
+        if (username.isNotBlank()) {
+            builder = builder.simpleAuth()
                 .username(username)
                 .password(password.toByteArray())
                 .applySimpleAuth()
-        } else {
-            unauthed
         }
         val c = builder.buildAsync()
         client = c
@@ -69,7 +124,10 @@ class MqttPushClient(
             c.subscribeWith()
                 .topicFilter("devices/$deviceId/manifest")
                 .qos(MqttQos.AT_LEAST_ONCE)
-                .callback { _signal.tryEmit(Unit) }
+                .callback { publish ->
+                    Log.i(TAG, "mqtt: push received, version ${publish.payloadAsBytes.toString(Charsets.UTF_8)}")
+                    _signal.tryEmit(Unit)
+                }
                 .send()
                 .whenComplete { _, subError ->
                     if (subError != null) {

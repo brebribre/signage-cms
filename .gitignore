@@ -4,6 +4,12 @@
 .env.*.local
 !.env.example
 
+# --- MQTT broker TLS private key (mosquitto/certs/server.crt is fine — clients only need
+# the public cert to pin; the key is what lets anyone impersonate the broker). The
+# mqtt-broker Railway service deploys via `railway up` from this local directory, not from
+# git, so keeping the key out of the repo doesn't break redeploying it. ---
+mosquitto/certs/server.key
+
 # --- Python ---
 __pycache__/
 *.py[cod]

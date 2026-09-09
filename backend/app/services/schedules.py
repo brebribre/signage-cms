@@ -63,6 +63,7 @@ def create(
     session.add(schedule)
     session.commit()
     session.refresh(schedule)
+    _notify(session, device)
     return schedule
 
 
@@ -103,12 +104,19 @@ def update(
     session.add(schedule)
     session.commit()
     session.refresh(schedule)
+    device = session.get(Device, schedule.device_id)
+    if device:
+        _notify(session, device)
     return schedule
 
 
 def remove(session: Session, *, schedule: Schedule) -> None:
+    device_id = schedule.device_id
     session.exec(delete(Schedule).where(Schedule.id == schedule.id))
     session.commit()
+    device = session.get(Device, device_id)
+    if device:
+        _notify(session, device)
 
 
 def devices_scheduling(session: Session, playlist_id: uuid.UUID) -> list[str]:
@@ -125,4 +133,29 @@ def devices_scheduling(session: Session, playlist_id: uuid.UUID) -> list[str]:
             .where(Schedule.playlist_id == playlist_id)
             .distinct()
         ).all()
+    )
+
+
+def devices_for_playlist(session: Session, playlist_id: uuid.UUID) -> list[Device]:
+    """Same query as devices_scheduling, full rows instead of names — for
+    playlists.py's MQTT fanout rather than a UI warning."""
+    return list(
+        session.exec(
+            select(Device)
+            .join(Schedule, Schedule.device_id == Device.id)
+            .where(Schedule.playlist_id == playlist_id)
+            .distinct()
+        ).all()
+    )
+
+
+def _notify(session: Session, device: Device) -> None:
+    """Best-effort push — see devices.update() for the same pattern applied to a direct
+    device change. Never the source of truth: a screen that misses this still catches up on
+    its next poll."""
+    from app.infra import mqtt
+    from app.services import device_sync
+
+    mqtt.notify_manifest_changed(
+        device_id=device.id, version=device_sync.compute_version(session, device),
     )

@@ -9,17 +9,27 @@ publish — offline, a dropped broker connection, MQTT disabled entirely — sti
 its next poll, because the manifest endpoint and its ETag remain the one source of truth.
 That is what makes every publish here safe to fire-and-forget: it never blocks the caller,
 and it can never fail a request that would otherwise have succeeded.
+
+TLS against the deployed broker uses `mqtt_ca.pem`, a self-signed certificate, not one from
+a public CA — the broker's hostname is a Railway-owned subdomain (*.proxy.rlwy.net) that
+nothing here controls DNS for, so no ACME challenge can be completed for it. Pinning this
+exact certificate as the trusted root (instead of the public CA chain) still gets real
+encryption and real protection against a network-path attacker; the Android client pins the
+same file. Rotating it means updating both.
 """
 
 import logging
 import threading
 import uuid
+from pathlib import Path
 
 import paho.mqtt.publish as mqtt_publish
 
 from app.config import get_settings
 
 logger = logging.getLogger(__name__)
+
+_CA_CERT_PATH = Path(__file__).parent / "mqtt_ca.pem"
 
 
 def _topic(device_id: uuid.UUID) -> str:
@@ -37,6 +47,7 @@ def _publish(topic: str, payload: str) -> None:
         if settings.mqtt_username
         else None
     )
+    tls = {"ca_certs": str(_CA_CERT_PATH)} if settings.mqtt_tls else None
     try:
         mqtt_publish.single(
             topic,
@@ -48,6 +59,7 @@ def _publish(topic: str, payload: str) -> None:
             hostname=settings.mqtt_host,
             port=settings.mqtt_port,
             auth=auth,
+            tls=tls,
             client_id=f"cms-{uuid.uuid4().hex[:8]}",
         )
     except Exception:

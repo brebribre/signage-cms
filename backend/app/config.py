@@ -61,6 +61,10 @@ class Settings(BaseSettings):
     mqtt_port: int = 1883
     mqtt_username: str = ""
     mqtt_password: str = ""
+    # The deployed broker (mosquitto/, on Railway) terminates TLS with a self-signed cert —
+    # see infra/mqtt.py's module docstring for why it's self-signed rather than CA-issued.
+    # False for local dev against docker-compose's plaintext mosquitto.
+    mqtt_tls: bool = False
 
     log_level: str = "INFO"
 

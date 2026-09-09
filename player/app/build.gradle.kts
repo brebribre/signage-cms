@@ -31,18 +31,22 @@ android {
         // Railway service now) but because baking it into every release build is a bigger
         // decision than this flag alone should make silently. Blank means "don't even try to
         // connect" — see MqttPushClient.connect(). Point it at the deployed broker:
-        //   ./gradlew assembleRelease -PmqttHost=altaria.proxy.rlwy.net -PmqttPort=43320 \
+        //   ./gradlew assembleRelease -PmqttHost=altaria.proxy.rlwy.net -PmqttPort=<proxy port> \
         //       -PmqttUsername=cms -PmqttPassword=<from Railway's variables, service mqtt-broker>
-        // or at docker-compose's local one for dev, which takes no credentials:
-        //   ./gradlew installDebug -PmqttHost=192.168.1.23
+        // (mqttTls defaults true — the deployed broker is TLS-only; MqttPushClient pins its
+        // self-signed cert, see that file). Or at docker-compose's local one for dev, which
+        // takes no credentials and no TLS:
+        //   ./gradlew installDebug -PmqttHost=192.168.1.23 -PmqttTls=false
         // (a LAN IP, not "localhost" — that resolves to the screen itself, not your machine).
         val mqttHost = (project.findProperty("mqttHost") as String?) ?: ""
         val mqttPort = (project.findProperty("mqttPort") as String?) ?: "1883"
         val mqttUsername = (project.findProperty("mqttUsername") as String?) ?: ""
         val mqttPassword = (project.findProperty("mqttPassword") as String?) ?: ""
+        val mqttTls = (project.findProperty("mqttTls") as String?) ?: "true"
         buildConfigField("String", "MQTT_HOST", "\"$mqttHost\"")
         buildConfigField("int", "MQTT_PORT", mqttPort)
         buildConfigField("String", "MQTT_USERNAME", "\"$mqttUsername\"")
+        buildConfigField("boolean", "MQTT_TLS", mqttTls)
         buildConfigField("String", "MQTT_PASSWORD", "\"$mqttPassword\"")
     }
 
