@@ -206,6 +206,18 @@ export interface DeviceResolutionRead {
   device_local_time: string
 }
 
+// --- Device settings ---
+// Remotely-configurable values pushed to the screen — volume today, and by the same
+// mechanism, brightness/power scheduling/app lock/touchscreen lock later. `value` is
+// deliberately untyped here: each key's shape is whatever DeviceSettingsContainer.vue's
+// SETTINGS registry says it is, validated server-side, not by this interface.
+
+export interface DeviceSettingRead {
+  key: string
+  value: unknown
+  updated_at: string
+}
+
 /** Returned by unpair — the screen's new pairing code, same shape as a fresh boot. */
 export interface PairStartResponse {
   device_id: string

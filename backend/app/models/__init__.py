@@ -8,6 +8,7 @@ out empty and the omission is silent.
 from app.models.account import Account
 from app.models.campaign import Campaign, CampaignDevice
 from app.models.device import Device, DeviceAccess, DeviceOrientation
+from app.models.device_setting import DeviceSetting
 from app.models.events import DeviceEvent, EventLevel, PlayEvent
 from app.models.media import Media, MediaKind, MediaStatus
 from app.models.playlist import ItemFit, Playlist, PlaylistItem, PlaylistItemElement
@@ -20,6 +21,7 @@ __all__ = [
     "CampaignDevice",
     "Device",
     "DeviceAccess",
+    "DeviceSetting",
     "DeviceEvent",
     "DeviceOrientation",
     "EventLevel",

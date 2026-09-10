@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -55,6 +56,10 @@ class ManifestResponse(BaseModel):
     # ISO-8601 UTC. The device re-polls at this moment rather than on its next 30s tick, so a
     # daypart boundary lands on time instead of up to 30 seconds late.
     valid_until: str | None = None
+    # Every remotely-configurable value currently set — volume today, more later by the same
+    # registry (services/device_settings.py). A key absent here means "use the player's own
+    # default," not "set to nothing."
+    settings: dict[str, Any] = Field(default_factory=dict)
 
 
 class HeartbeatScreen(BaseModel):

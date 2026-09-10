@@ -76,6 +76,7 @@ def get_manifest(device: CurrentDevice, session: DbSession, request: Request) ->
         ],
         schedule_name=manifest.schedule_name,
         valid_until=manifest.valid_until,
+        settings=manifest.settings,
     )
     return JSONResponse(content=jsonable_encoder(body.model_dump(mode="json")), headers={"ETag": etag})
 

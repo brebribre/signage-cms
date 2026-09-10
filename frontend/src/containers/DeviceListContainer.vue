@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 
+import fortuLogoUrl from '@/assets/fortu-logo.png'
 import { useDevices } from '@/hooks/useDevices'
 import { useFormat } from '@/hooks/useFormat'
 import { usePlaylists } from '@/hooks/usePlaylists'
@@ -36,6 +37,25 @@ async function onClaim() {
 }
 
 const playlistName = (playlistId: string) => playlists.value.find((p) => p.id === playlistId)?.name ?? '—'
+
+// Every row reserves the same square footprint for its screen mock, so a portrait device
+// never makes its own row taller than the landscape ones around it — only what's drawn
+// inside that footprint (see screenBox) changes with orientation, letterboxed to fit.
+const SLOT_PX = 88
+
+/** The rectangle drawn inside the fixed slot: the device's actual resolution when it has
+ *  reported one, else a generic ratio for its orientation, scaled to fit within `SLOT_PX`
+ *  on its longer side. Clamped at both ends so one very wide or very narrow screen can't
+ *  collapse to nothing — this is a shape indicator, not a pixel-accurate preview. */
+function screenBox(d: DeviceRead): { width: number; height: number } {
+  const ratio = d.screen_width && d.screen_height
+    ? d.screen_width / d.screen_height
+    : d.orientation === 'portrait' ? 9 / 16 : 16 / 9
+  const clamped = Math.min(Math.max(ratio, 0.4), 2.4)
+  const width = clamped >= 1 ? SLOT_PX : Math.round(SLOT_PX * clamped)
+  const height = clamped >= 1 ? Math.round(SLOT_PX / clamped) : SLOT_PX
+  return { width: Math.max(width, 36), height: Math.max(height, 36) }
+}
 
 /** What a row shows for "currently playing" — resolved server-side from this device's
  *  campaigns, same as the manifest a screen actually gets. Assigning playlists happens only
@@ -82,12 +102,47 @@ function nowPlaying(d: DeviceRead): { text: string; via: string | null } {
         @click="router.push({ name: 'device-detail', params: { id: d.id } })"
       >
         <div class="flex flex-wrap items-center justify-between gap-3">
-          <div class="min-w-0">
-            <p class="truncate text-base text-ink">{{ d.name || 'Unnamed screen' }}</p>
-            <p class="mt-0.5 text-[13px] text-ink-muted">
-              <span v-if="d.location">{{ d.location }} · </span>
-              {{ d.orientation }} · last seen {{ relativeTime(d.last_seen_at) }}
-            </p>
+          <div class="flex min-w-0 items-center gap-4">
+            <!-- A shape, not a pixel-accurate preview: the device's own aspect ratio and
+                 orientation, so a row of screens reads at a glance like the wall it maps to.
+                 The outer slot is a fixed square so every row stays the same height; the
+                 bordered rectangle inside it is what actually changes shape. -->
+            <div
+              class="flex shrink-0 items-center justify-center"
+              :style="{ width: `${SLOT_PX}px`, height: `${SLOT_PX}px` }"
+            >
+              <div
+                class="flex items-center justify-center overflow-hidden rounded-sm
+                       border-[5px] border-ink bg-canvas px-3 py-2"
+                :style="{ width: `${screenBox(d).width}px`, height: `${screenBox(d).height}px` }"
+              >
+                <!-- The source file is a light wordmark on a transparent ground — invisible
+                     on this white screen mock — so it's used as a mask and painted solid
+                     black instead of drawn as-is. -->
+                <span
+                  class="block h-full w-full bg-ink"
+                  :style="{
+                    maskImage: `url(${fortuLogoUrl})`,
+                    WebkitMaskImage: `url(${fortuLogoUrl})`,
+                    maskRepeat: 'no-repeat',
+                    WebkitMaskRepeat: 'no-repeat',
+                    maskPosition: 'center',
+                    WebkitMaskPosition: 'center',
+                    maskSize: 'contain',
+                    WebkitMaskSize: 'contain',
+                  }"
+                  role="img"
+                  aria-label="Fortu logo"
+                />
+              </div>
+            </div>
+            <div class="min-w-0">
+              <p class="truncate text-base text-ink">{{ d.name || 'Unnamed screen' }}</p>
+              <p class="mt-0.5 text-[13px] text-ink-muted">
+                <span v-if="d.location">{{ d.location }} · </span>
+                {{ d.orientation }} · last seen {{ relativeTime(d.last_seen_at) }}
+              </p>
+            </div>
           </div>
 
           <div class="flex shrink-0 items-center gap-3">

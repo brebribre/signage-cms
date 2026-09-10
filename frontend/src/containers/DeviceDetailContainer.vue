@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 
 import DeviceActivityContainer from '@/containers/DeviceActivityContainer.vue'
 import DeviceScheduleContainer from '@/containers/DeviceScheduleContainer.vue'
+import DeviceSettingsContainer from '@/containers/DeviceSettingsContainer.vue'
 import { useDeviceDetail } from '@/hooks/useDeviceDetail'
 import { useFormat } from '@/hooks/useFormat'
 import AppAlert from '@/reusables/AppAlert.vue'
@@ -28,7 +29,7 @@ const { dimensions, relativeTime, date } = useFormat()
 const confirmingUnpair = ref(false)
 const confirmingDelete = ref(false)
 
-const TABS = ['manage', 'activity'] as const
+const TABS = ['manage', 'settings', 'activity'] as const
 const tab = ref<(typeof TABS)[number]>('manage')
 
 // Everything below is a draft the user is composing — nothing here reaches the device until
@@ -173,7 +174,7 @@ async function onDelete() {
             : 'border-line-strong text-ink-muted hover:bg-raised'"
           @click="tab = t"
         >
-          {{ t === 'manage' ? 'Manage' : 'Errors & logs' }}
+          {{ t === 'manage' ? 'Manage' : t === 'settings' ? 'Settings' : 'Errors & logs' }}
         </button>
       </div>
 
@@ -237,6 +238,10 @@ async function onDelete() {
         <div class="mt-2 border-t border-line pt-6">
           <DeviceScheduleContainer :device-id="device.id" :timezone="device.timezone" />
         </div>
+      </template>
+
+      <template v-else-if="tab === 'settings'">
+        <DeviceSettingsContainer :device-id="device.id" />
       </template>
 
       <template v-else>

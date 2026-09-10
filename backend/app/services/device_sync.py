@@ -9,7 +9,7 @@ import hashlib
 import json
 import logging
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 
 from sqlmodel import Session, select
@@ -18,6 +18,7 @@ from app.config import get_settings
 from app.models import Device, ItemFit, Media, MediaKind, Playlist, PlaylistItem, PlaylistItemElement
 from app.models.base import utcnow
 from app.infra import storage
+from app.services import device_settings
 from app.services import media as media_service
 from app.services import scheduling
 
@@ -107,8 +108,14 @@ def compute_version(session: Session, device: Device, now: datetime | None = Non
             # boundary moved earlier would simply be missed. Including it means any change to
             # when the answer expires is itself a change the device must pick up.
             resolution.valid_until.isoformat() if resolution.valid_until else None,
+            # Volume, brightness, and the rest of services/device_settings.py's registry: a
+            # settings-only change is exactly as much "something the screen must pick up" as a
+            # new playlist, so it has to move this hash the same way.
+            device_settings.as_dict(session, device_id=device.id),
         ),
-        separators=(",", ":"),
+        # sort_keys, because the settings dict above is the only non-tuple/list value in this
+        # payload — everything else already has a fixed field order for free.
+        separators=(",", ":"), sort_keys=True,
     )
     return "sha256:" + hashlib.sha256(canonical.encode()).hexdigest()
 
@@ -159,6 +166,10 @@ class Manifest:
     #: When the current answer expires. The device re-polls then rather than waiting for its
     #: next 30s tick, so a daypart boundary is hit on time instead of up to 30s late.
     valid_until: str | None = None
+    #: Every remotely-configurable value currently set on this device — volume today, more by
+    #: the same registry later (services/device_settings.py). A key absent here means "use the
+    #: player's own default," not "set to nothing."
+    settings: dict = field(default_factory=dict)
 
 
 def build_manifest(session: Session, device: Device, *, version: str) -> Manifest:
@@ -169,6 +180,7 @@ def build_manifest(session: Session, device: Device, *, version: str) -> Manifes
     settings = get_settings()
     resolution = scheduling.resolve(session, device)
     valid_until = resolution.valid_until.isoformat() if resolution.valid_until else None
+    device_settings_dict = device_settings.as_dict(session, device_id=device.id)
 
     if resolution.playlist_id is None:
         return Manifest(
@@ -179,6 +191,7 @@ def build_manifest(session: Session, device: Device, *, version: str) -> Manifes
             slots=[],
             schedule_name=resolution.schedule_name,
             valid_until=valid_until,
+            settings=device_settings_dict,
         )
 
     playlist = session.get(Playlist, resolution.playlist_id)
@@ -223,6 +236,7 @@ def build_manifest(session: Session, device: Device, *, version: str) -> Manifes
         slots=slots,
         schedule_name=resolution.schedule_name,
         valid_until=valid_until,
+        settings=device_settings_dict,
     )
 
 
