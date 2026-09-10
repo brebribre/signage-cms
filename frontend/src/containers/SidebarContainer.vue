@@ -49,6 +49,16 @@ const LINKS = [
           Users
         </router-link>
       </li>
+      <li v-if="isOwner">
+        <router-link
+          :to="{ name: 'settings-updates' }"
+          class="block rounded-lg px-2.5 py-1.5 text-sm text-ink-muted transition-colors
+                 duration-150 hover:bg-surface hover:text-ink"
+          active-class="bg-raised font-medium text-ink"
+        >
+          Player updates
+        </router-link>
+      </li>
       <li>
         <a
           href="https://docs-production-9a3e.up.railway.app"

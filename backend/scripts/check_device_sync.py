@@ -4,6 +4,7 @@ Run with:  .venv/bin/python -m scripts.check_device_sync
 """
 
 import uuid
+from datetime import timedelta
 
 from fastapi.testclient import TestClient
 from sqlmodel import Session, delete, select
@@ -18,12 +19,14 @@ from app.models import (
     Media,
     MediaKind,
     MediaStatus,
+    PlayerRollout,
     Playlist,
     PlaylistItem,
     PlaylistItemElement,
     User,
     UserRole,
 )
+from app.models.base import utcnow
 from app.services import devices as device_service
 from app.services.passwords import hash_password
 
@@ -273,37 +276,51 @@ def main() -> None:
     r = lobby.post("/device/heartbeat", json={"errors": ["decoder init failed"]})
     check("an error report does not fail the request", r.status_code == 200)
 
-    print("\nself-update offers (Phase 12c)")
-    from app.config import get_settings as _gs
-    settings_obj = _gs()
-    original = (settings_obj.player_latest_version, settings_obj.player_apk_key)
+    print("\nself-update offers (Phase 12+: scheduled rollouts)")
+    rollout_ids: list[uuid.UUID] = []
     try:
-        # Unconfigured is the default, and must never offer anything: a blank version
-        # cannot accidentally push an APK to every screen.
-        settings_obj.player_latest_version = ""
-        settings_obj.player_apk_key = ""
+        # No rollout ever created is the default, and must never offer anything: an account
+        # with no `player_rollouts` row cannot accidentally push an APK to every screen.
         r = lobby.post("/device/heartbeat", json={"app_version": "1.0.0", "errors": []})
-        check("no update offered when unconfigured", r.json()["update"] is None)
+        check("no update offered when nothing has been rolled out", r.json()["update"] is None)
 
-        settings_obj.player_latest_version = "1.1.0"
-        settings_obj.player_apk_key = "apks/fortu-player-1.1.0.apk"
+        with Session(engine) as s:
+            row = PlayerRollout(
+                version="1.1.0", apk_key="apks/fortu-player-1.1.0.apk", scheduled_at=utcnow(),
+            )
+            s.add(row); s.commit(); s.refresh(row)
+            rollout_ids.append(row.id)
 
         r = lobby.post("/device/heartbeat", json={"app_version": "1.0.0", "errors": []})
         upd = r.json()["update"]
         check("an out-of-date screen is offered the update", upd is not None)
-        check("...with the published version", upd and upd["version"] == "1.1.0", str(upd))
+        check("...with the rolled-out version", upd and upd["version"] == "1.1.0", str(upd))
         check("...and a presigned URL at the device TTL",
               upd and "ttl=21600" in upd["url"], str(upd and upd["url"])[:60])
 
         r = lobby.post("/device/heartbeat", json={"app_version": "1.1.0", "errors": []})
-        check("a screen already on the published build is offered nothing",
+        check("a screen already on the rolled-out build is offered nothing",
               r.json()["update"] is None)
 
-        # A rollback is a config change, not a field visit — so a *newer* device version
-        # must still be offered the older published one.
+        # A rollback is scheduling an earlier version, not preventing a downgrade — so a
+        # *newer* device version must still be offered the rolled-out one.
         r = lobby.post("/device/heartbeat", json={"app_version": "2.0.0", "errors": []})
-        check("a newer screen is offered the published build (rollback works)",
+        check("a newer screen is offered the rolled-out build (rollback works)",
               r.json()["update"] is not None)
+
+        # A rollout scheduled in the future must not take effect early.
+        with Session(engine) as s:
+            row = PlayerRollout(
+                version="1.2.0", apk_key="apks/fortu-player-1.2.0.apk",
+                scheduled_at=utcnow() + timedelta(hours=1),
+            )
+            s.add(row); s.commit(); s.refresh(row)
+            rollout_ids.append(row.id)
+        # A screen already on the still-active 1.1.0 build must be offered nothing — if the
+        # future 1.2.0 rollout leaked into effect early, this would offer 1.2.0 instead.
+        r = lobby.post("/device/heartbeat", json={"app_version": "1.1.0", "errors": []})
+        check("a rollout scheduled in the future is not offered early",
+              r.json()["update"] is None, str(r.json()["update"]))
 
         # Pushing blind to a device that has never said what it runs would risk an install
         # loop on every heartbeat.
@@ -313,7 +330,14 @@ def main() -> None:
         check("a screen that never reported a version is offered nothing",
               r.json()["update"] is None)
     finally:
-        settings_obj.player_latest_version, settings_obj.player_apk_key = original
+        # This table is real — anything left behind here would change what `/player/download`
+        # actually serves to a real device the next time this script runs.
+        with Session(engine) as s:
+            for rid in rollout_ids:
+                row = s.get(PlayerRollout, rid)
+                if row:
+                    s.delete(row)
+            s.commit()
 
     print("\nno mixing credentials")
     with Session(engine) as s:

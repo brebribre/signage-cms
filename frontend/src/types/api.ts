@@ -377,3 +377,29 @@ export interface PlayEventRead {
   started_at: string
   seconds: number
 }
+
+// --- Player rollouts (owner only) ---
+// Which player-app build every screen should be running, and when it took (or will take)
+// effect. Replaces manually flipping env vars after `publish_player_apk.py` — a rollout can
+// now be scheduled for later, not just applied immediately.
+
+export interface PlayerReleaseRead {
+  version: string
+  size_bytes: number
+  uploaded_at: string
+  is_current: boolean
+}
+
+export interface PlayerRolloutWrite {
+  version: string
+  /** Omit (or null) to publish immediately. */
+  scheduled_at?: string | null
+}
+
+export interface PlayerRolloutRead {
+  id: string
+  version: string
+  scheduled_at: string
+  created_at: string
+  is_active: boolean
+}

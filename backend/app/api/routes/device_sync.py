@@ -99,7 +99,7 @@ def heartbeat(body: HeartbeatRequest, device: CurrentDevice, session: DbSession)
             device=device,
             plays=[(p.media_id, p.filename, p.started_at, p.seconds) for p in body.plays],
         )
-    update = device_sync.available_update(device)
+    update = device_sync.available_update(session, device)
     return HeartbeatResponse(
         version=device_sync.compute_version(session, device),
         update=UpdateInfo(version=update.version, url=update.url) if update else None,

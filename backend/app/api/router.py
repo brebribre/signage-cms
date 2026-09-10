@@ -12,6 +12,7 @@ from app.api.routes import (
     media,
     operations,
     player,
+    player_rollouts,
     playlists,
     schedules,
     users,
@@ -30,3 +31,4 @@ api_router.include_router(device_settings.router)
 api_router.include_router(operations.router)
 api_router.include_router(device_sync.router)
 api_router.include_router(player.router)
+api_router.include_router(player_rollouts.router)

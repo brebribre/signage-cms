@@ -78,6 +78,12 @@ const router = createRouter({
           component: () => import('@/containers/UserListContainer.vue'),
           meta: { ownerOnly: true },
         },
+        {
+          path: 'settings/updates',
+          name: 'settings-updates',
+          component: () => import('@/containers/PlayerRolloutsContainer.vue'),
+          meta: { ownerOnly: true },
+        },
       ],
     },
     { path: '/:pathMatch(.*)*', redirect: { name: 'media' } },

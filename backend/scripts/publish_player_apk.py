@@ -92,17 +92,14 @@ def main() -> None:
         raise SystemExit(1)
     print(f"  ✓ uploaded and verified ({head['ContentLength']} bytes)\n")
 
-    print("  Nothing is published yet. To roll it out to every screen, set:\n")
-    print(f"    PLAYER_LATEST_VERSION={version}")
-    print(f"    PLAYER_APK_KEY={key}\n")
-    print("  On Railway:")
-    print(
-        f"    railway variables --service signage-cms \\\n"
-        f"      --set 'PLAYER_LATEST_VERSION={version}' \\\n"
-        f"      --set 'PLAYER_APK_KEY={key}'\n"
-    )
-    print("  Screens pick it up on their next heartbeat (within ~30s) and install silently.")
-    print("  To roll back, point PLAYER_LATEST_VERSION at an earlier version already in R2.\n")
+    print(f"  Uploaded, but nothing is published yet — version {version} is now sitting in R2")
+    print("  alongside every earlier build.\n")
+    print("  To roll it out, open the CMS as an owner: Settings > Player updates, pick this")
+    print("  version, and choose \"now\" or a future date/time. Screens pick it up on their")
+    print("  next heartbeat after that moment (within ~30s) and install silently.\n")
+    print("  To roll back, schedule an earlier version the same way — the most recently")
+    print("  *scheduled* rollout whose time has passed is always what's live, so an older")
+    print("  build scheduled for now simply takes over.\n")
 
 
 if __name__ == "__main__":

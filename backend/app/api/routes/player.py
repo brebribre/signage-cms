@@ -12,9 +12,10 @@ import html as html_lib
 from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 
+from app.api.deps import DbSession
 from app.config import get_settings
 from app.infra import storage
-from app.services import player_releases
+from app.services import player_releases, player_rollouts
 
 router = APIRouter(tags=["player"])
 
@@ -27,17 +28,19 @@ DOCS_ORIGIN = "https://docs-production-9a3e.up.railway.app"
 
 
 @router.get("/player/download")
-def download_latest_apk() -> RedirectResponse:
-    """Redirects to a fresh presigned URL for whatever `publish_player_apk.py` last uploaded.
+def download_latest_apk(session: DbSession) -> RedirectResponse:
+    """Redirects to a fresh presigned URL for whichever build is currently active — see
+    `services/player_rollouts.py::active_rollout`.
 
     A redirect rather than streaming the file through this process — R2 serves the bytes
     directly, and the presigned URL is generated fresh on every hit rather than cached, so it
     is never stale past its own short TTL.
     """
-    settings = get_settings()
-    if not settings.player_latest_version or not settings.player_apk_key:
+    rollout = player_rollouts.active_rollout(session)
+    if rollout is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "No player build has been published yet")
-    url = storage.presign_get(settings.player_apk_key, settings.device_presign_ttl_seconds)
+    settings = get_settings()
+    url = storage.presign_get(rollout.apk_key, settings.device_presign_ttl_seconds)
     return RedirectResponse(url, status_code=status.HTTP_302_FOUND)
 
 
@@ -117,7 +120,7 @@ def _render_versions_page(releases: list[player_releases.PlayerRelease]) -> str:
 
 
 @router.get("/player/versions", response_class=HTMLResponse)
-def list_player_versions() -> HTMLResponse:
+def list_player_versions(session: DbSession) -> HTMLResponse:
     """Every build `publish_player_apk.py` has ever uploaded, not just the one `/player/
     download` currently redirects to — for rolling a screen back, or just seeing the history.
 
@@ -125,4 +128,6 @@ def list_player_versions() -> HTMLResponse:
     step and no JS, and a cross-origin fetch would need CORS wired up in production for no
     real benefit — a plain link works today with nothing to misconfigure.
     """
-    return HTMLResponse(_render_versions_page(player_releases.list_releases()))
+    rollout = player_rollouts.active_rollout(session)
+    current_key = rollout.apk_key if rollout else None
+    return HTMLResponse(_render_versions_page(player_releases.list_releases(current_key=current_key)))

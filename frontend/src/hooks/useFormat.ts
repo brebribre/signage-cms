@@ -49,5 +49,11 @@ export function useFormat() {
     })
   }
 
-  return { bytes, duration, dimensions, date, relativeTime }
+  /** "10 Sep 2026, 14:30" — for anything where the time of day matters, not just the day. */
+  function dateTime(iso: string): string {
+    const d = new Date(iso)
+    return `${date(iso)}, ${d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}`
+  }
+
+  return { bytes, duration, dimensions, date, dateTime, relativeTime }
 }
