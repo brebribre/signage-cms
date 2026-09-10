@@ -91,9 +91,6 @@ class PlaylistItem(SQLModel, table=True):
     crop_x: float | None = Field(default=None)
     crop_y: float | None = Field(default=None)
     crop_zoom: float | None = Field(default=None)
-    # Video only, ignored for images. trim_end None means "to the end".
-    trim_start_seconds: float = Field(default=0.0)
-    trim_end_seconds: float | None = Field(default=None)
     # Video only. Every video is muted by default — see PlaybackSurface.kt's `volume = 0f` —
     # so this is opt-in per item, not a mute toggle on an otherwise-audible default.
     has_audio: bool = Field(default=False)

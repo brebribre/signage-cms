@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 
-import { useFormat } from '@/hooks/useFormat'
 import { cropRectToStyle, resolveCropRect } from '@/utils/cropMath'
 import type { DraftItem } from '@/hooks/usePlaylistEditor'
 import type { ItemFit } from '@/types/api'
@@ -17,8 +16,6 @@ const emit = defineEmits<{
   close: []
 }>()
 
-const { duration: formatDuration } = useFormat()
-
 const FITS: { value: ItemFit; label: string }[] = [
   { value: 'contain', label: 'Contain' },
   { value: 'cover', label: 'Fill' },
@@ -30,8 +27,6 @@ const fit = ref<ItemFit>(props.row.fit)
 const cropX = ref(props.row.cropX ?? 0.5)
 const cropY = ref(props.row.cropY ?? 0.5)
 const cropZoom = ref(props.row.cropZoom ?? 1)
-const trimStart = ref(props.row.trimStartSeconds)
-const trimEnd = ref(props.row.trimEndSeconds)
 const hasAudio = ref(props.row.hasAudio)
 
 const hasDimensions = computed(() => !!props.row.mediaWidth && !!props.row.mediaHeight)
@@ -109,62 +104,12 @@ function onPointerUp(e: PointerEvent) {
   releaseCapture(e)
 }
 
-// --- Trim (video only): a draggable in/out bar, the way every video editor does it, rather
-// than two bare number inputs — drag either handle along the timeline to set the start or end.
-
-const maxTrim = computed(() => props.row.mediaDuration ?? props.row.durationSeconds)
-const MIN_TRIM_GAP = 0.5
-
-const trimTrackRef = ref<HTMLElement | null>(null)
-const draggingHandle = ref<'start' | 'end' | null>(null)
-
-const startPercent = computed(() => (trimStart.value / maxTrim.value) * 100)
-const endPercent = computed(() => ((trimEnd.value ?? maxTrim.value) / maxTrim.value) * 100)
-
-function timeFromClientX(clientX: number): number {
-  const rect = trimTrackRef.value!.getBoundingClientRect()
-  const frac = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width))
-  return frac * maxTrim.value
-}
-
-function onHandlePointerDown(which: 'start' | 'end', e: PointerEvent) {
-  draggingHandle.value = which
-  ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
-}
-
-function onHandlePointerMove(e: PointerEvent) {
-  if (!draggingHandle.value) return
-  const t = timeFromClientX(e.clientX)
-  if (draggingHandle.value === 'start') {
-    trimStart.value = Math.min(t, (trimEnd.value ?? maxTrim.value) - MIN_TRIM_GAP)
-  } else {
-    trimEnd.value = Math.max(t, trimStart.value + MIN_TRIM_GAP)
-  }
-}
-
-function onHandlePointerUp(e: PointerEvent) {
-  draggingHandle.value = null
-  releaseCapture(e)
-}
-
-// Scrub the preview video to whichever trim boundary is being dragged, so the frame itself
-// (not just the bar) shows exactly what will and won't play.
-const previewVideoRef = ref<HTMLVideoElement | null>(null)
-watch(trimStart, (v) => {
-  if (previewVideoRef.value) previewVideoRef.value.currentTime = v
-})
-watch(trimEnd, (v) => {
-  if (previewVideoRef.value && v != null) previewVideoRef.value.currentTime = v
-})
-
 function apply() {
   emit('apply', {
     fit: fit.value,
     cropX: cropX.value,
     cropY: cropY.value,
     cropZoom: cropZoom.value,
-    trimStartSeconds: props.row.kind === 'video' ? trimStart.value : 0,
-    trimEndSeconds: props.row.kind === 'video' ? trimEnd.value : null,
     hasAudio: props.row.kind === 'video' ? hasAudio.value : false,
   })
 }
@@ -220,7 +165,6 @@ function apply() {
               />
               <video
                 v-else
-                ref="previewVideoRef"
                 :src="row.url"
                 class="absolute select-none"
                 :style="cropStyle"
@@ -271,35 +215,6 @@ function apply() {
         Play with sound
         <span class="text-[13px] text-ink-subtle">(every video is muted by default)</span>
       </label>
-
-      <div v-if="row.kind === 'video'" class="flex flex-col gap-2 rounded-xl bg-surface p-3">
-        <div class="flex items-center justify-between text-[13px] text-ink-subtle">
-          <span>Trim</span>
-          <span>{{ formatDuration(trimStart) }} – {{ formatDuration(trimEnd ?? maxTrim) }} of {{ formatDuration(maxTrim) }}</span>
-        </div>
-        <div ref="trimTrackRef" class="relative h-8 rounded-md bg-raised">
-          <div
-            class="absolute inset-y-0 rounded bg-ink/25"
-            :style="{ left: `${startPercent}%`, width: `${endPercent - startPercent}%` }"
-          />
-          <div
-            class="absolute inset-y-0 w-3 -translate-x-1/2 cursor-ew-resize touch-none rounded-full bg-ink"
-            :style="{ left: `${startPercent}%` }"
-            @pointerdown="onHandlePointerDown('start', $event)"
-            @pointermove="onHandlePointerMove"
-            @pointerup="onHandlePointerUp"
-            @pointercancel="onHandlePointerUp"
-          />
-          <div
-            class="absolute inset-y-0 w-3 -translate-x-1/2 cursor-ew-resize touch-none rounded-full bg-ink"
-            :style="{ left: `${endPercent}%` }"
-            @pointerdown="onHandlePointerDown('end', $event)"
-            @pointermove="onHandlePointerMove"
-            @pointerup="onHandlePointerUp"
-            @pointercancel="onHandlePointerUp"
-          />
-        </div>
-      </div>
     </template>
 
     <div class="flex justify-end gap-2">

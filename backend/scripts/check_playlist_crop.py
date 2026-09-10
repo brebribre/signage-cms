@@ -1,4 +1,4 @@
-"""Checkpoint for the playlist item crop/placement and video-trim fields.
+"""Checkpoint for the playlist item crop/placement and has_audio fields.
 
 Run with:  .venv/bin/python -m scripts.check_playlist_crop
 """
@@ -107,16 +107,6 @@ def main() -> None:
     check("crop_y round-trips", item["crop_y"] == 0.7, str(item["crop_y"]))
     check("crop_zoom round-trips", item["crop_zoom"] == 1.5, str(item["crop_zoom"]))
     check("stored even though fit is contain, not cover", item["fit"] == "contain")
-    check("trim defaults to 0 / null for a non-trimmed item",
-          item["trim_start_seconds"] == 0.0 and item["trim_end_seconds"] is None)
-
-    print("\nvideo trim round-trips")
-    body = o.put(f"/playlists/{pid}/items", json={"items": [
-        {"media_id": str(vid), "trim_start_seconds": 2.5, "trim_end_seconds": 10.0},
-    ]}).json()
-    item = body["items"][0]
-    check("trim_start_seconds round-trips", item["trim_start_seconds"] == 2.5, str(item))
-    check("trim_end_seconds round-trips", item["trim_end_seconds"] == 10.0, str(item))
 
     print("\nhas_audio round-trips, video only")
     body = o.put(f"/playlists/{pid}/items", json={"items": [
@@ -131,12 +121,6 @@ def main() -> None:
 
     print("\nrejections")
     for label, payload in [
-        ("trim on an image is refused",
-         {"items": [{"media_id": str(img), "trim_start_seconds": 1.0}]}),
-        ("trim_end at or before trim_start is refused",
-         {"items": [{"media_id": str(vid), "trim_start_seconds": 5.0, "trim_end_seconds": 5.0}]}),
-        ("trim_end past the media's real duration is refused",
-         {"items": [{"media_id": str(vid), "trim_end_seconds": 999.0}]}),
         ("crop_zoom below 1.0 is refused (schema-level)",
          {"items": [{"media_id": str(img), "crop_zoom": 0.5}]}),
         ("crop_zoom above MAX_CROP_ZOOM is refused (schema-level)",
@@ -158,7 +142,7 @@ def main() -> None:
     if failures:
         print(f"FAILED: {len(failures)} check(s) — " + ", ".join(failures))
         raise SystemExit(1)
-    print("All crop/trim checks passed.")
+    print("All crop/has_audio checks passed.")
 
 
 if __name__ == "__main__":

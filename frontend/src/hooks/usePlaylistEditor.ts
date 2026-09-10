@@ -21,8 +21,6 @@ export interface DraftItem {
   cropX: number | null
   cropY: number | null
   cropZoom: number | null
-  trimStartSeconds: number
-  trimEndSeconds: number | null
   hasAudio: boolean
 }
 
@@ -46,7 +44,7 @@ export function usePlaylistEditor(id: string) {
     JSON.stringify(
       draft.value.map((d) => [
         d.mediaId, d.durationSeconds, d.fit, d.isEnabled,
-        d.cropX, d.cropY, d.cropZoom, d.trimStartSeconds, d.trimEndSeconds, d.hasAudio,
+        d.cropX, d.cropY, d.cropZoom, d.hasAudio,
       ]),
     ),
   )
@@ -74,8 +72,6 @@ export function usePlaylistEditor(id: string) {
       cropX: item.crop_x,
       cropY: item.crop_y,
       cropZoom: item.crop_zoom,
-      trimStartSeconds: item.trim_start_seconds,
-      trimEndSeconds: item.trim_end_seconds,
       hasAudio: item.has_audio,
     }
   }
@@ -120,8 +116,6 @@ export function usePlaylistEditor(id: string) {
         cropX: null,
         cropY: null,
         cropZoom: null,
-        trimStartSeconds: 0,
-        trimEndSeconds: null,
         hasAudio: false,
       })
     }
@@ -153,8 +147,6 @@ export function usePlaylistEditor(id: string) {
             crop_x: d.cropX,
             crop_y: d.cropY,
             crop_zoom: d.cropZoom,
-            trim_start_seconds: d.trimStartSeconds,
-            trim_end_seconds: d.trimEndSeconds,
             has_audio: d.hasAudio,
           })),
         ),

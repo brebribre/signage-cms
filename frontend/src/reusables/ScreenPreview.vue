@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed } from 'vue'
 import type { CSSProperties } from 'vue'
 
 import { cropRectToStyle, resolveCropRect } from '@/utils/cropMath'
@@ -35,9 +35,6 @@ const props = withDefaults(
     cropX?: number | null
     cropY?: number | null
     cropZoom?: number | null
-    /** Video only. trimEndSeconds null means "to the end". */
-    trimStartSeconds?: number
-    trimEndSeconds?: number | null
     /** Video only. Every video is muted unless this is set. */
     hasAudio?: boolean
   }>(),
@@ -62,28 +59,6 @@ const cropStyle = computed<CSSProperties>(() => {
 const mediaStyle = computed<CSSProperties>(() =>
   hasCrop.value ? cropStyle.value : { objectFit: FIT_TO_CSS[props.fit] },
 )
-
-// --- Video trim playback: without this, a saved trim would be invisible in the preview. ---
-
-const videoRef = ref<HTMLVideoElement | null>(null)
-const isTrimmed = computed(() => props.kind === 'video' && (props.trimStartSeconds || props.trimEndSeconds != null))
-
-function onLoadedMetadata() {
-  if (videoRef.value && props.trimStartSeconds) videoRef.value.currentTime = props.trimStartSeconds
-}
-
-function onTimeUpdate() {
-  const v = videoRef.value
-  if (!v || !isTrimmed.value) return
-  const end = props.trimEndSeconds ?? v.duration
-  if (v.currentTime >= end) v.currentTime = props.trimStartSeconds ?? 0
-}
-
-// A trim can change out from under an already-playing preview (e.g. reopening the editor and
-// applying a new trim) — reseek rather than waiting for the next natural loop.
-watch(() => [props.trimStartSeconds, props.trimEndSeconds, props.src], () => {
-  if (videoRef.value && props.trimStartSeconds) videoRef.value.currentTime = props.trimStartSeconds
-})
 
 /**
  * Size by width, capped so the implied height never exceeds `maxHeight`.
@@ -128,16 +103,13 @@ const cropPercent = computed(() => {
     >
       <video
         v-if="src && kind === 'video'"
-        ref="videoRef"
         :src="src"
         :class="hasCrop ? '' : 'size-full'"
         :style="mediaStyle"
         :muted="!hasAudio"
         autoplay
-        :loop="!isTrimmed"
+        loop
         playsinline
-        @loadedmetadata="onLoadedMetadata"
-        @timeupdate="onTimeUpdate"
       />
       <img
         v-else-if="src"

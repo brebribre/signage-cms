@@ -42,8 +42,6 @@ class ItemSpec:
     crop_x: float | None = None
     crop_y: float | None = None
     crop_zoom: float | None = None
-    trim_start_seconds: float = 0.0
-    trim_end_seconds: float | None = None
     has_audio: bool = False
 
 
@@ -218,21 +216,6 @@ def replace_items(
             raise InvalidItems(
                 f"duration must be between {MIN_ITEM_SECONDS} and {MAX_ITEM_SECONDS} seconds"
             )
-        # Trim is time-domain and only makes sense for video — reject rather than silently
-        # zero it, matching how an out-of-range duration is rejected above rather than clamped.
-        if media.kind != MediaKind.VIDEO and (
-            spec.trim_start_seconds or spec.trim_end_seconds is not None
-        ):
-            raise InvalidItems(f"{media_id}: trim only applies to video")
-        if spec.trim_end_seconds is not None and spec.trim_end_seconds <= spec.trim_start_seconds:
-            raise InvalidItems(f"{media_id}: trim end must be after trim start")
-        if (
-            spec.trim_end_seconds is not None
-            and media.duration_seconds is not None
-            # Slack for ffprobe rounding between the stored duration and the real file.
-            and spec.trim_end_seconds > media.duration_seconds + 0.5
-        ):
-            raise InvalidItems(f"{media_id}: trim end is past the end of the video")
         if media.kind != MediaKind.VIDEO and spec.has_audio:
             raise InvalidItems(f"{media_id}: sound only applies to video")
 
@@ -251,8 +234,6 @@ def replace_items(
                 crop_x=spec.crop_x,
                 crop_y=spec.crop_y,
                 crop_zoom=spec.crop_zoom,
-                trim_start_seconds=spec.trim_start_seconds,
-                trim_end_seconds=spec.trim_end_seconds,
                 has_audio=spec.has_audio,
             )
         )
