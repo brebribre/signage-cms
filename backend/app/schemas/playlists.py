@@ -33,6 +33,8 @@ class ItemWrite(BaseModel):
     # Video only — replace_items() rejects these if set on an image.
     trim_start_seconds: float = Field(default=0.0, ge=0)
     trim_end_seconds: float | None = Field(default=None, ge=0)
+    # Video only. Every video is muted unless this is set — see PlaylistItem.has_audio.
+    has_audio: bool = False
 
 
 class ItemsWrite(BaseModel):
@@ -71,6 +73,7 @@ class ItemRead(BaseModel):
     crop_zoom: float | None
     trim_start_seconds: float
     trim_end_seconds: float | None
+    has_audio: bool
     media: ItemMedia
 
 

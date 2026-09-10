@@ -38,6 +38,8 @@ const props = withDefaults(
     /** Video only. trimEndSeconds null means "to the end". */
     trimStartSeconds?: number
     trimEndSeconds?: number | null
+    /** Video only. Every video is muted unless this is set. */
+    hasAudio?: boolean
   }>(),
   { maxHeight: 420 },
 )
@@ -130,7 +132,7 @@ const cropPercent = computed(() => {
         :src="src"
         :class="hasCrop ? '' : 'size-full'"
         :style="mediaStyle"
-        muted
+        :muted="!hasAudio"
         autoplay
         :loop="!isTrimmed"
         playsinline

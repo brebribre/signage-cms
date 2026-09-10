@@ -40,6 +40,7 @@ def _item(item: PlaylistItem, media: Media) -> ItemRead:
         crop_zoom=item.crop_zoom,
         trim_start_seconds=item.trim_start_seconds,
         trim_end_seconds=item.trim_end_seconds,
+        has_audio=item.has_audio,
         media=ItemMedia(
             id=media.id,
             filename=media.filename,
@@ -144,6 +145,7 @@ def replace_items(
                     crop_zoom=i.crop_zoom,
                     trim_start_seconds=i.trim_start_seconds,
                     trim_end_seconds=i.trim_end_seconds,
+                    has_audio=i.has_audio,
                 )
                 for i in body.items
             ],

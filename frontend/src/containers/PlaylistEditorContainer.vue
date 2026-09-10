@@ -236,6 +236,7 @@ function applyPlacement(patch: Partial<DraftItem>) {
           :crop-zoom="preview.current.value?.cropZoom ?? null"
           :trim-start-seconds="preview.current.value?.trimStartSeconds ?? 0"
           :trim-end-seconds="preview.current.value?.trimEndSeconds ?? null"
+          :has-audio="preview.current.value?.hasAudio ?? false"
           :label="preview.current.value
             ? `${preview.current.value.filename} · ${screen.label}`
             : screen.label"

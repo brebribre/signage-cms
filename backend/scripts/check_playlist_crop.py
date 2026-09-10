@@ -118,6 +118,17 @@ def main() -> None:
     check("trim_start_seconds round-trips", item["trim_start_seconds"] == 2.5, str(item))
     check("trim_end_seconds round-trips", item["trim_end_seconds"] == 10.0, str(item))
 
+    print("\nhas_audio round-trips, video only")
+    body = o.put(f"/playlists/{pid}/items", json={"items": [
+        {"media_id": str(vid), "has_audio": True},
+    ]}).json()
+    item = body["items"][0]
+    check("has_audio round-trips true", item["has_audio"] is True, str(item))
+    body = o.put(f"/playlists/{pid}/items", json={"items": [
+        {"media_id": str(img)},
+    ]}).json()
+    check("has_audio defaults to false for a fresh item", body["items"][0]["has_audio"] is False)
+
     print("\nrejections")
     for label, payload in [
         ("trim on an image is refused",
@@ -132,6 +143,8 @@ def main() -> None:
          {"items": [{"media_id": str(img), "crop_zoom": 10.0}]}),
         ("crop_x out of [0,1] is refused (schema-level)",
          {"items": [{"media_id": str(img), "crop_x": 1.5}]}),
+        ("has_audio on an image is refused",
+         {"items": [{"media_id": str(img), "has_audio": True}]}),
     ]:
         r = o.put(f"/playlists/{pid}/items", json=payload)
         check(label, r.status_code == 422, f"got {r.status_code}: {r.text}")

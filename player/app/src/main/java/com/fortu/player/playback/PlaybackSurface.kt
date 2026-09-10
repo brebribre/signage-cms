@@ -123,6 +123,7 @@ fun PlaybackSurface(
             active = item.kind == "video",
             file = if (item.kind == "video") fileFor(item) else null,
             fit = item.fit,
+            hasAudio = item.hasAudio,
             maxSeconds = item.durationSeconds,
             // Finish the current item before moving on — cutting mid-item to apply an
             // update is the difference between a CMS and a glitch.
@@ -152,6 +153,8 @@ private fun VideoSurface(
     active: Boolean,
     file: File?,
     fit: String,
+    /** Every video is muted unless this is set — see PlaylistItem.has_audio. */
+    hasAudio: Boolean,
     /** The slot's duration from the CMS. A video is cut at this if it runs longer — the
      *  playlist editor offers it, the backend stores it, and until now the player ignored
      *  it and always played to the natural end. */
@@ -236,6 +239,10 @@ private fun VideoSurface(
         update = {
             it.resizeMode = resizeModeFor(fit)
             it.visibility = if (active) View.VISIBLE else View.INVISIBLE
+            // Same "set imperatively here, re-runs on recomposition" pattern as resizeMode
+            // above — no separate effect needed. Only meaningful while this slot is active;
+            // an inactive slot's exo.volume would otherwise leak into whatever plays next.
+            if (active) exo.volume = if (hasAudio) 1f else 0f
         },
         modifier = Modifier.fillMaxSize(),
     )

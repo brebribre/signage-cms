@@ -105,6 +105,8 @@ export interface PlaylistItemRead {
   /** Video only. trim_end_seconds null means "to the end". */
   trim_start_seconds: number
   trim_end_seconds: number | null
+  /** Video only. Every video is muted unless this is set. */
+  has_audio: boolean
   media: ItemMedia
 }
 
@@ -134,6 +136,7 @@ export interface ItemWrite {
   crop_zoom?: number | null
   trim_start_seconds?: number
   trim_end_seconds?: number | null
+  has_audio?: boolean
 }
 
 // --- Devices ---

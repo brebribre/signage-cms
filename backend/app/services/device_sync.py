@@ -97,6 +97,7 @@ class ManifestItem:
     bytes: int
     duration_seconds: int
     fit: ItemFit
+    has_audio: bool
 
 
 @dataclass
@@ -156,6 +157,7 @@ def build_manifest(session: Session, device: Device, *, version: str) -> Manifes
             bytes=media.size_bytes,
             duration_seconds=item.duration_seconds,
             fit=item.fit,
+            has_audio=item.has_audio,
         )
         for item, media in rows
     ]

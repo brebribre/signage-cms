@@ -50,17 +50,28 @@ export function resolveCropRect(
 }
 
 /** `resolveCropRect`, expressed as CSS percentages for absolute positioning a media element
- *  that is itself sized to the *full* media (not the crop) inside an `overflow: hidden` box. */
+ *  that is itself sized to the *full* media (not the crop) inside an `overflow: hidden` box.
+ *
+ *  `maxWidth`/`maxHeight: 'none'` are load-bearing, not decoration: Tailwind's preflight resets
+ *  `img`/`video` to `max-width: 100%; height: auto`, which silently caps this element at its
+ *  container's own size — the zoomed-in width this function computes (routinely >100%) gets
+ *  clamped right back down, and every crop renders as "mostly the container's background,
+ *  barely any image." Confirmed live: without this, both the placement editor and the main
+ *  screen preview showed a nearly-black frame with only a sliver of the media visible. */
 export function cropRectToStyle(rect: CropRect): {
   left: string
   top: string
   width: string
   height: string
+  maxWidth: string
+  maxHeight: string
 } {
   return {
     left: `${(-rect.x / rect.w) * 100}%`,
     top: `${(-rect.y / rect.h) * 100}%`,
     width: `${(1 / rect.w) * 100}%`,
     height: `${(1 / rect.h) * 100}%`,
+    maxWidth: 'none',
+    maxHeight: 'none',
   }
 }

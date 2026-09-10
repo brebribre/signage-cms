@@ -29,6 +29,7 @@ class ManifestItem(BaseModel):
     bytes: int
     duration_seconds: int
     fit: ItemFit
+    has_audio: bool
 
 
 class ManifestResponse(BaseModel):

@@ -23,6 +23,7 @@ export interface DraftItem {
   cropZoom: number | null
   trimStartSeconds: number
   trimEndSeconds: number | null
+  hasAudio: boolean
 }
 
 const IMAGE_DEFAULT_SECONDS = 10
@@ -45,7 +46,7 @@ export function usePlaylistEditor(id: string) {
     JSON.stringify(
       draft.value.map((d) => [
         d.mediaId, d.durationSeconds, d.fit, d.isEnabled,
-        d.cropX, d.cropY, d.cropZoom, d.trimStartSeconds, d.trimEndSeconds,
+        d.cropX, d.cropY, d.cropZoom, d.trimStartSeconds, d.trimEndSeconds, d.hasAudio,
       ]),
     ),
   )
@@ -75,6 +76,7 @@ export function usePlaylistEditor(id: string) {
       cropZoom: item.crop_zoom,
       trimStartSeconds: item.trim_start_seconds,
       trimEndSeconds: item.trim_end_seconds,
+      hasAudio: item.has_audio,
     }
   }
 
@@ -120,6 +122,7 @@ export function usePlaylistEditor(id: string) {
         cropZoom: null,
         trimStartSeconds: 0,
         trimEndSeconds: null,
+        hasAudio: false,
       })
     }
   }
@@ -152,6 +155,7 @@ export function usePlaylistEditor(id: string) {
             crop_zoom: d.cropZoom,
             trim_start_seconds: d.trimStartSeconds,
             trim_end_seconds: d.trimEndSeconds,
+            has_audio: d.hasAudio,
           })),
         ),
       )

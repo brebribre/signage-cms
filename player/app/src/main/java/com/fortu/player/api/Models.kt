@@ -50,6 +50,9 @@ data class ManifestItem(
     /** Defaulted for the same version-skew reason: an older backend that does not send it
      *  should letterbox rather than stop the screen. */
     val fit: String = "contain",
+    /** Video only. Every video is muted unless this is set — defaulted false so an older
+     *  backend that predates this field keeps every screen silent, not suddenly audible. */
+    @SerialName("has_audio") val hasAudio: Boolean = false,
 )
 
 @Serializable

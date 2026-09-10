@@ -44,6 +44,7 @@ class ItemSpec:
     crop_zoom: float | None = None
     trim_start_seconds: float = 0.0
     trim_end_seconds: float | None = None
+    has_audio: bool = False
 
 
 class PlaylistNotFound(DomainError):
@@ -232,6 +233,8 @@ def replace_items(
             and spec.trim_end_seconds > media.duration_seconds + 0.5
         ):
             raise InvalidItems(f"{media_id}: trim end is past the end of the video")
+        if media.kind != MediaKind.VIDEO and spec.has_audio:
+            raise InvalidItems(f"{media_id}: sound only applies to video")
 
     session.exec(delete(PlaylistItem).where(PlaylistItem.playlist_id == playlist_id))
     for position, spec in enumerate(items):
@@ -250,6 +253,7 @@ def replace_items(
                 crop_zoom=spec.crop_zoom,
                 trim_start_seconds=spec.trim_start_seconds,
                 trim_end_seconds=spec.trim_end_seconds,
+                has_audio=spec.has_audio,
             )
         )
     playlist.updated_at = utcnow()
