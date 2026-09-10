@@ -26,6 +26,7 @@ from app.models import (
     MediaStatus,
     Playlist,
     PlaylistItem,
+    PlaylistItemElement,
     Schedule,
     User,
     UserRole,
@@ -205,7 +206,9 @@ def main() -> None:
                   mime_type="image/png", size_bytes=100, storage_key="k/p",
                   checksum="md5:promo", status=MediaStatus.READY)
         s.add(m); s.flush()
-        s.add(PlaylistItem(playlist_id=promo_pl, media_id=m.id, position=0, duration_seconds=10))
+        item = PlaylistItem(playlist_id=promo_pl, position=0, duration_seconds=10)
+        s.add(item); s.flush()
+        s.add(PlaylistItemElement(playlist_item_id=item.id, media_id=m.id))
         s.commit()
 
     body = screen.get("/device/manifest").json()

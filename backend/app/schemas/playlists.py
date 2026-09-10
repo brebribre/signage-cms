@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -16,22 +17,35 @@ class PlaylistUpdate(BaseModel):
     shuffle: bool | None = None
 
 
-class ItemWrite(BaseModel):
+class ElementWrite(BaseModel):
     media_id: uuid.UUID
-    # Null means "use the media's own length for a video, the image default otherwise" —
-    # the server decides, so the client need not know the rule.
-    duration_seconds: int | None = Field(
-        default=None, ge=MIN_ITEM_SECONDS, le=MAX_ITEM_SECONDS
-    )
-    fit: ItemFit = ItemFit.CONTAIN
-    is_enabled: bool = True
-    # Normalized crop center + zoom — see PlaylistItem for the full explanation. Stored
+    z_index: int = 0
+    # Normalized against the scene's own frame, deliberately unbounded — see
+    # PlaylistItemElement for why a design surface must allow partially-off-canvas elements.
+    x: float = 0.0
+    y: float = 0.0
+    width: float = Field(default=1.0, gt=0.0)
+    height: float = Field(default=1.0, gt=0.0)
+    fit: ItemFit = ItemFit.COVER
+    # Normalized crop center + zoom — see PlaylistItemElement for the full explanation. Stored
     # regardless of `fit`; only rendered when fit == cover.
     crop_x: float | None = Field(default=None, ge=0.0, le=1.0)
     crop_y: float | None = Field(default=None, ge=0.0, le=1.0)
     crop_zoom: float | None = Field(default=None, ge=1.0, le=MAX_CROP_ZOOM)
-    # Video only. Every video is muted unless this is set — see PlaylistItem.has_audio.
+    # Video only. Every video is muted unless this is set — see PlaylistItemElement.has_audio.
     has_audio: bool = False
+    # Video only. See PlaylistItemElement.rotation_degrees.
+    rotation_degrees: Literal[0, 90, 180, 270] = 0
+
+
+class ItemWrite(BaseModel):
+    # Null means "use the one video element's own length, or a fixed default for an
+    # image-only scene" — the server decides, so the client need not know the rule.
+    duration_seconds: int | None = Field(
+        default=None, ge=MIN_ITEM_SECONDS, le=MAX_ITEM_SECONDS
+    )
+    is_enabled: bool = True
+    elements: list[ElementWrite] = Field(default_factory=list, max_length=20)
 
 
 class ItemsWrite(BaseModel):
@@ -43,10 +57,10 @@ class ItemsWrite(BaseModel):
 class ItemMedia(BaseModel):
     """Enough of the media to render a row *and* preview it at full size.
 
-    `url` is a presigned GET, included per item so the editor's device preview can show the
+    `url` is a presigned GET, included per element so the editor's device preview can show the
     real file rather than the 480px thumbnail — the whole point of the preview is judging
     sharpness and cropping, which a thumbnail cannot answer. Presigning is a local HMAC, so
-    N items cost N cheap computations and no network calls.
+    N elements cost N cheap computations and no network calls.
     """
 
     id: uuid.UUID
@@ -59,17 +73,28 @@ class ItemMedia(BaseModel):
     duration_seconds: float | None
 
 
-class ItemRead(BaseModel):
+class ElementRead(BaseModel):
     id: uuid.UUID
-    position: int
-    duration_seconds: int
+    z_index: int
+    x: float
+    y: float
+    width: float
+    height: float
     fit: ItemFit
-    is_enabled: bool
     crop_x: float | None
     crop_y: float | None
     crop_zoom: float | None
     has_audio: bool
+    rotation_degrees: int
     media: ItemMedia
+
+
+class ItemRead(BaseModel):
+    id: uuid.UUID
+    position: int
+    duration_seconds: int
+    is_enabled: bool
+    elements: list[ElementRead]
 
 
 class PlaylistSummary(BaseModel):

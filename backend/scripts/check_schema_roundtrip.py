@@ -23,6 +23,7 @@ from app.models import (
     MediaStatus,
     Playlist,
     PlaylistItem,
+    PlaylistItemElement,
     User,
     UserRole,
 )
@@ -46,8 +47,9 @@ def cleanup(session: Session) -> None:
     accounts = session.exec(select(Account).where(Account.name.startswith(PREFIX))).all()
     ids = [a.id for a in accounts]
     if ids:
-        # devices.account_id is ON DELETE CASCADE, but playlist_items -> media is RESTRICT,
-        # so items must go before the account takes the media with it.
+        # devices.account_id is ON DELETE CASCADE, but playlist_item_elements -> media is
+        # RESTRICT, so items (and their elements, via CASCADE) must go before the account
+        # takes the media with it.
         pls = session.exec(select(Playlist).where(Playlist.account_id.in_(ids))).all()
         if pls:
             session.exec(delete(PlaylistItem).where(PlaylistItem.playlist_id.in_([p.id for p in pls])))
@@ -149,7 +151,9 @@ def main() -> None:
         s.add(playlist)
         s.commit()
         for pos, m in enumerate(media):
-            s.add(PlaylistItem(playlist_id=playlist.id, media_id=m.id, position=pos, duration_seconds=30))
+            item = PlaylistItem(playlist_id=playlist.id, position=pos, duration_seconds=30)
+            s.add(item)
+            s.add(PlaylistItemElement(playlist_item_id=item.id, media_id=m.id))
         s.commit()
 
         got = s.exec(
@@ -158,7 +162,7 @@ def main() -> None:
         check("three items round-trip in order", [i.position for i in got] == [0, 1, 2])
         check("size_bytes survives as BIGINT", media[0].size_bytes == 48_210_233)
 
-        s.add(PlaylistItem(playlist_id=playlist.id, media_id=media[0].id, position=0, duration_seconds=10))
+        s.add(PlaylistItem(playlist_id=playlist.id, position=0, duration_seconds=10))
         try:
             s.commit()
             check("duplicate (playlist, position) rejected", False, "commit succeeded")

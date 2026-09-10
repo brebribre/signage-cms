@@ -91,20 +91,36 @@ export interface ItemMedia {
   duration_seconds: number | null
 }
 
-export interface PlaylistItemRead {
+export interface ElementRead {
   id: string
-  position: number
-  duration_seconds: number
+  /** Paint order within the scene — higher draws on top. */
+  z_index: number
+  /** Normalized [0,1] against the scene's own frame, deliberately unclamped — an element can
+   *  sit partially off-canvas, same as any real design surface. */
+  x: number
+  y: number
+  width: number
+  height: number
   fit: ItemFit
-  is_enabled: boolean
-  /** Normalized [0,1] crop center + zoom (>=1). Stored regardless of `fit`, only rendered
-   *  when fit === 'cover'. See src/utils/cropMath.ts for how these resolve into a rectangle. */
+  /** Normalized [0,1] crop center + zoom (>=1), relative to this element's own box. Stored
+   *  regardless of `fit`, only rendered when fit === 'cover'. See src/utils/cropMath.ts for
+   *  how these resolve into a rectangle. */
   crop_x: number | null
   crop_y: number | null
   crop_zoom: number | null
   /** Video only. Every video is muted unless this is set. */
   has_audio: boolean
+  /** Video only. Degrees clockwise (0/90/180/270) to correct a file shot sideways. */
+  rotation_degrees: number
   media: ItemMedia
+}
+
+export interface PlaylistItemRead {
+  id: string
+  position: number
+  duration_seconds: number
+  is_enabled: boolean
+  elements: ElementRead[]
 }
 
 export interface PlaylistSummary {
@@ -123,15 +139,25 @@ export interface PlaylistDetail extends PlaylistSummary {
   used_by: string[]
 }
 
-export interface ItemWrite {
+export interface ElementWrite {
   media_id: string
-  duration_seconds?: number | null
+  z_index?: number
+  x?: number
+  y?: number
+  width?: number
+  height?: number
   fit?: ItemFit
-  is_enabled?: boolean
   crop_x?: number | null
   crop_y?: number | null
   crop_zoom?: number | null
   has_audio?: boolean
+  rotation_degrees?: number
+}
+
+export interface ItemWrite {
+  duration_seconds?: number | null
+  is_enabled?: boolean
+  elements: ElementWrite[]
 }
 
 // --- Devices ---

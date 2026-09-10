@@ -17,19 +17,31 @@ class ManifestPlaylist(BaseModel):
     shuffle: bool
 
 
-class ManifestItem(BaseModel):
+class ManifestElement(BaseModel):
     id: uuid.UUID
-    #: The underlying media, distinct from `id` (which identifies the playlist *slot*). The
-    #: device reports this back for proof-of-play, and the server resolves the filename from
-    #: it — so the log stays authoritative rather than trusting a name the device made up.
+    #: The underlying media, distinct from `id` (which identifies the *element*, not the
+    #: scene). The device reports this back for proof-of-play, and the server resolves the
+    #: filename from it — so the log stays authoritative rather than trusting a name the
+    #: device made up.
     media_id: uuid.UUID
     kind: MediaKind
     url: str
     checksum: str
     bytes: int
-    duration_seconds: int
+    z_index: int
+    x: float
+    y: float
+    width: float
+    height: float
     fit: ItemFit
     has_audio: bool
+    rotation_degrees: int
+
+
+class ManifestSlot(BaseModel):
+    id: uuid.UUID
+    duration_seconds: int
+    elements: list[ManifestElement]
 
 
 class ManifestResponse(BaseModel):
@@ -37,7 +49,7 @@ class ManifestResponse(BaseModel):
     device: ManifestDevice
     # None, not a 404: an unassigned screen is a valid state, not an error.
     playlist: ManifestPlaylist | None
-    items: list[ManifestItem]
+    slots: list[ManifestSlot]
     # The schedule currently overriding the default, if any.
     schedule_name: str | None = None
     # ISO-8601 UTC. The device re-polls at this moment rather than on its next 30s tick, so a

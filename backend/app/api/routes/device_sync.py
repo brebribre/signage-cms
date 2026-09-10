@@ -14,9 +14,10 @@ from app.schemas.device_sync import (
     HeartbeatRequest,
     HeartbeatResponse,
     ManifestDevice,
-    ManifestItem,
+    ManifestElement,
     ManifestPlaylist,
     ManifestResponse,
+    ManifestSlot,
     UpdateInfo,
 )
 from app.services import device_sync, operations
@@ -65,7 +66,14 @@ def get_manifest(device: CurrentDevice, session: DbSession, request: Request) ->
         version=manifest.version,
         device=ManifestDevice(name=manifest.device_name, orientation=manifest.device_orientation),
         playlist=ManifestPlaylist(**manifest.playlist.__dict__) if manifest.playlist else None,
-        items=[ManifestItem(**item.__dict__) for item in manifest.items],
+        slots=[
+            ManifestSlot(
+                id=slot.id,
+                duration_seconds=slot.duration_seconds,
+                elements=[ManifestElement(**el.__dict__) for el in slot.elements],
+            )
+            for slot in manifest.slots
+        ],
         schedule_name=manifest.schedule_name,
         valid_until=manifest.valid_until,
     )

@@ -20,6 +20,7 @@ from app.models import (
     MediaStatus,
     Playlist,
     PlaylistItem,
+    PlaylistItemElement,
     User,
     UserRole,
 )
@@ -86,11 +87,13 @@ def main() -> None:
 
         playlist = Playlist(account_id=acct.id, name="Loop")
         s.add(playlist); s.flush()
-        i1 = PlaylistItem(playlist_id=playlist.id, media_id=m1.id, position=0, duration_seconds=30)
-        i2 = PlaylistItem(playlist_id=playlist.id, media_id=m2.id, position=1, duration_seconds=10)
-        i3 = PlaylistItem(playlist_id=playlist.id, media_id=m2.id, position=2, duration_seconds=5,
-                          is_enabled=False)
+        i1 = PlaylistItem(playlist_id=playlist.id, position=0, duration_seconds=30)
+        i2 = PlaylistItem(playlist_id=playlist.id, position=1, duration_seconds=10)
+        i3 = PlaylistItem(playlist_id=playlist.id, position=2, duration_seconds=5, is_enabled=False)
         s.add(i1); s.add(i2); s.add(i3)
+        s.add(PlaylistItemElement(playlist_item_id=i1.id, media_id=m1.id))
+        s.add(PlaylistItemElement(playlist_item_id=i2.id, media_id=m2.id))
+        s.add(PlaylistItemElement(playlist_item_id=i3.id, media_id=m2.id))
 
         assigned = Device(account_id=acct.id, name="Lobby", token_hash=device_service.hash_token("tok-a"),
                           playlist_id=playlist.id)
@@ -117,7 +120,7 @@ def main() -> None:
     body = r.json()
     check("status is 200", r.status_code == 200, str(r.status_code))
     check("playlist is null", body["playlist"] is None)
-    check("items is empty", body["items"] == [])
+    check("slots is empty", body["slots"] == [])
     check("device info is still present", body["device"]["name"] == "Spare")
 
     print("\nan assigned device gets the full manifest")
@@ -125,19 +128,20 @@ def main() -> None:
     body = r.json()
     v1 = body["version"]
     check("status is 200", r.status_code == 200)
-    check("two items, disabled one excluded", len(body["items"]) == 2, str(len(body["items"])))
-    check("order matches position", [i["duration_seconds"] for i in body["items"]] == [30, 10])
-    check("kind is carried through", body["items"][0]["kind"] == "video")
-    check("checksum is carried through", body["items"][0]["checksum"] == "md5:aaa")
-    check("bytes is carried through", body["items"][0]["bytes"] == 1000)
-    check("fit defaults through", body["items"][0]["fit"] == "contain")
+    check("two slots, disabled one excluded", len(body["slots"]) == 2, str(len(body["slots"])))
+    check("order matches position", [sl["duration_seconds"] for sl in body["slots"]] == [30, 10])
+    check("each slot has its one element", all(len(sl["elements"]) == 1 for sl in body["slots"]))
+    check("kind is carried through", body["slots"][0]["elements"][0]["kind"] == "video")
+    check("checksum is carried through", body["slots"][0]["elements"][0]["checksum"] == "md5:aaa")
+    check("bytes is carried through", body["slots"][0]["elements"][0]["bytes"] == 1000)
+    check("fit defaults through", body["slots"][0]["elements"][0]["fit"] == "cover")
     check("playlist name and shuffle are present", body["playlist"]["name"] == "Loop"
           and body["playlist"]["shuffle"] is False)
     check("an ETag header is set", r.headers.get("etag") == f'"{v1}"', r.headers.get("etag"))
     check(
-        "item URLs are presigned with the DEVICE ttl, not the CMS one",
-        any("ttl=21600" in i["url"] for i in body["items"]),
-        str([i["url"] for i in body["items"]]),
+        "element URLs are presigned with the DEVICE ttl, not the CMS one",
+        any("ttl=21600" in sl["elements"][0]["url"] for sl in body["slots"]),
+        str([sl["elements"][0]["url"] for sl in body["slots"]]),
     )
 
     print("\norientation actually reaches the device")
@@ -188,15 +192,17 @@ def main() -> None:
     # `playlist_service.replace_items` exists to avoid. Exercising the actual write path
     # here is also the more honest test.
     from app.services import playlists as playlist_service
-    from app.services.playlists import ItemSpec
+    from app.services.playlists import ElementSpec, ItemSpec
 
     with Session(engine) as s:
         owner_obj = s.get(User, owner_id)
         playlist_service.replace_items(
             s, user=owner_obj, playlist_id=playlist_id,
-            items=[ItemSpec(media_id=m2_id, duration_seconds=10),
-                   ItemSpec(media_id=m1_id, duration_seconds=30),
-                   ItemSpec(media_id=m2_id, duration_seconds=5, is_enabled=False)],
+            items=[
+                ItemSpec(elements=[ElementSpec(media_id=m2_id)], duration_seconds=10),
+                ItemSpec(elements=[ElementSpec(media_id=m1_id)], duration_seconds=30),
+                ItemSpec(elements=[ElementSpec(media_id=m2_id)], duration_seconds=5, is_enabled=False),
+            ],
         )
     v_reorder = lobby.get("/device/manifest").json()["version"]
     check("reordering changes the version", v_reorder != v1)
@@ -205,9 +211,11 @@ def main() -> None:
         owner_obj = s.get(User, owner_id)
         playlist_service.replace_items(
             s, user=owner_obj, playlist_id=playlist_id,
-            items=[ItemSpec(media_id=m2_id, duration_seconds=999),
-                   ItemSpec(media_id=m1_id, duration_seconds=30),
-                   ItemSpec(media_id=m2_id, duration_seconds=5, is_enabled=False)],
+            items=[
+                ItemSpec(elements=[ElementSpec(media_id=m2_id)], duration_seconds=999),
+                ItemSpec(elements=[ElementSpec(media_id=m1_id)], duration_seconds=30),
+                ItemSpec(elements=[ElementSpec(media_id=m2_id)], duration_seconds=5, is_enabled=False),
+            ],
         )
     v_duration = lobby.get("/device/manifest").json()["version"]
     check("editing a duration changes the version", v_duration != v_reorder)

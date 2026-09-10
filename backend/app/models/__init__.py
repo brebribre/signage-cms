@@ -9,7 +9,7 @@ from app.models.account import Account
 from app.models.device import Device, DeviceAccess, DeviceOrientation
 from app.models.events import DeviceEvent, EventLevel, PlayEvent
 from app.models.media import Media, MediaKind, MediaStatus
-from app.models.playlist import ItemFit, Playlist, PlaylistItem
+from app.models.playlist import ItemFit, Playlist, PlaylistItem, PlaylistItemElement
 from app.models.schedule import ALL_DAYS, WEEKDAYS, WEEKENDS, Schedule
 from app.models.user import User, UserRole
 
@@ -27,6 +27,7 @@ __all__ = [
     "MediaStatus",
     "Playlist",
     "PlaylistItem",
+    "PlaylistItemElement",
     "Schedule",
     "ALL_DAYS",
     "WEEKDAYS",

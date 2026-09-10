@@ -12,11 +12,11 @@ import AppAlert from '@/reusables/AppAlert.vue'
 import AppButton from '@/reusables/AppButton.vue'
 import AppModal from '@/reusables/AppModal.vue'
 import DurationInput from '@/reusables/DurationInput.vue'
-import MediaPlacementEditor from '@/reusables/MediaPlacementEditor.vue'
+import SceneEditor from '@/reusables/SceneEditor.vue'
 import ScreenPreview from '@/reusables/ScreenPreview.vue'
 import EmptyState from '@/reusables/EmptyState.vue'
 import PageTitle from '@/reusables/PageTitle.vue'
-import type { DraftItem } from '@/hooks/usePlaylistEditor'
+import type { DraftElement, DraftItem } from '@/hooks/usePlaylistEditor'
 
 const route = useRoute()
 const router = useRouter()
@@ -61,9 +61,16 @@ async function onDelete() {
   else confirmingDelete.value = false
 }
 
-function applyPlacement(patch: Partial<DraftItem>) {
-  if (placing.value) Object.assign(placing.value, patch)
+function applyPlacement(elements: DraftElement[]) {
+  if (placing.value) placing.value.elements = elements
   placing.value = null
+}
+
+/** A row's list label — the scene's first element, plus a count if there's more than one. */
+function sceneLabel(item: DraftItem): string {
+  if (!item.elements.length) return 'Empty scene'
+  if (item.elements.length === 1) return item.elements[0].filename
+  return `${item.elements[0].filename} +${item.elements.length - 1} more`
 }
 </script>
 
@@ -148,22 +155,24 @@ function applyPlacement(patch: Partial<DraftItem>) {
 
           <div class="h-11 w-20 shrink-0 overflow-hidden rounded-md bg-raised">
             <img
-              v-if="row.thumbnailUrl"
-              :src="row.thumbnailUrl"
-              :alt="row.filename"
+              v-if="row.elements[0]?.thumbnailUrl"
+              :src="row.elements[0].thumbnailUrl"
+              :alt="sceneLabel(row)"
               class="size-full object-cover"
             />
           </div>
 
           <div class="min-w-0 flex-1">
-            <p class="truncate text-sm text-ink">{{ row.filename }}</p>
-            <p class="text-[13px] text-ink-subtle">{{ row.kind }}</p>
+            <p class="truncate text-sm text-ink">{{ sceneLabel(row) }}</p>
+            <p class="text-[13px] text-ink-subtle">
+              {{ row.elements.length }} element{{ row.elements.length === 1 ? '' : 's' }}
+            </p>
           </div>
 
           <DurationInput v-model="row.durationSeconds" />
 
           <AppButton variant="ghost" size="sm" @click.stop="placing = row">
-            Placement
+            Edit scene
           </AppButton>
 
           <AppButton variant="ghost" size="sm" @click="row.isEnabled = !row.isEnabled">
@@ -226,17 +235,9 @@ function applyPlacement(patch: Partial<DraftItem>) {
         <ScreenPreview
           :screen-width="screen.width"
           :screen-height="screen.height"
-          :src="preview.current.value?.url ?? null"
-          :kind="preview.current.value?.kind ?? 'image'"
-          :fit="preview.current.value?.fit ?? 'contain'"
-          :media-width="preview.current.value?.mediaWidth ?? null"
-          :media-height="preview.current.value?.mediaHeight ?? null"
-          :crop-x="preview.current.value?.cropX ?? null"
-          :crop-y="preview.current.value?.cropY ?? null"
-          :crop-zoom="preview.current.value?.cropZoom ?? null"
-          :has-audio="preview.current.value?.hasAudio ?? false"
+          :elements="preview.current.value?.elements ?? []"
           :label="preview.current.value
-            ? `${preview.current.value.filename} · ${screen.label}`
+            ? `${sceneLabel(preview.current.value)} · ${screen.label}`
             : screen.label"
         />
       </div>
@@ -273,7 +274,13 @@ function applyPlacement(patch: Partial<DraftItem>) {
     </AppModal>
 
     <AppModal v-if="placing" size="xl" @close="placing = null">
-      <MediaPlacementEditor :row="placing" :reference-screen="screen" @apply="applyPlacement" @close="placing = null" />
+      <SceneEditor
+        :item="placing"
+        :reference-screen="screen"
+        :library="library"
+        @apply="applyPlacement"
+        @close="placing = null"
+      />
     </AppModal>
 
     <AppModal v-if="confirmingDelete" title="Delete this playlist?" @close="confirmingDelete = false">

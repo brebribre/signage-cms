@@ -102,23 +102,30 @@ def main() -> None:
 
     print("\nreplace items — the whole list, in order")
     r = o.put(f"/playlists/{pid}/items", json={"items": [
-        {"media_id": str(img_a)}, {"media_id": str(vid)}, {"media_id": str(img_b)}]})
+        {"elements": [{"media_id": str(img_a)}]},
+        {"elements": [{"media_id": str(vid)}]},
+        {"elements": [{"media_id": str(img_b)}]},
+    ]})
     body = r.json()
     check("replace returns 200", r.status_code == 200, str(r.status_code))
     check("positions come from the array index", [i["position"] for i in body["items"]] == [0, 1, 2])
-    check("order is preserved", [i["media"]["filename"] for i in body["items"]] == ["a.png", "clip.mp4", "b.png"])
+    check("order is preserved",
+          [i["elements"][0]["media"]["filename"] for i in body["items"]] == ["a.png", "clip.mp4", "b.png"])
     check("an image gets the default duration", body["items"][0]["duration_seconds"] == 10)
     check("a video defaults to its own length (rounded)", body["items"][1]["duration_seconds"] == 42,
           str(body["items"][1]["duration_seconds"]))
-    check("fit defaults to contain", all(i["fit"] == "contain" for i in body["items"]))
+    check("fit defaults to cover", all(i["elements"][0]["fit"] == "cover" for i in body["items"]))
     check("items are enabled by default", all(i["is_enabled"] for i in body["items"]))
     check("total duration is summed", body["total_duration_seconds"] == 10 + 42 + 10,
           str(body["total_duration_seconds"]))
 
     print("\nreplace is a replace, not an append")
     body = o.put(f"/playlists/{pid}/items", json={"items": [
-        {"media_id": str(img_b)}, {"media_id": str(img_a)}]}).json()
-    check("the list is exactly what was sent", [i["media"]["filename"] for i in body["items"]] == ["b.png", "a.png"])
+        {"elements": [{"media_id": str(img_b)}]},
+        {"elements": [{"media_id": str(img_a)}]},
+    ]}).json()
+    check("the list is exactly what was sent",
+          [i["elements"][0]["media"]["filename"] for i in body["items"]] == ["b.png", "a.png"])
     check("no duplicate rows survive", body["item_count"] == 2, str(body["item_count"]))
     with Session(engine) as s:
         rows = s.exec(select(PlaylistItem).where(PlaylistItem.playlist_id == uuid.UUID(pid))).all()
@@ -126,11 +133,13 @@ def main() -> None:
 
     print("\nper-item fit, duration and enable")
     body = o.put(f"/playlists/{pid}/items", json={"items": [
-        {"media_id": str(img_a), "duration_seconds": 25, "fit": "cover"},
-        {"media_id": str(vid), "duration_seconds": 15, "fit": "stretch", "is_enabled": False}]}).json()
+        {"duration_seconds": 25, "elements": [{"media_id": str(img_a), "fit": "cover"}]},
+        {"duration_seconds": 15, "is_enabled": False,
+         "elements": [{"media_id": str(vid), "fit": "stretch"}]},
+    ]}).json()
     check("explicit duration overrides the default", body["items"][0]["duration_seconds"] == 25)
     check("a video can be cut short", body["items"][1]["duration_seconds"] == 15)
-    check("fit round-trips", [i["fit"] for i in body["items"]] == ["cover", "stretch"])
+    check("fit round-trips", [i["elements"][0]["fit"] for i in body["items"]] == ["cover", "stretch"])
     check("a disabled item keeps its position", body["items"][1]["is_enabled"] is False)
     check("disabled items are excluded from the count", body["item_count"] == 1, str(body["item_count"]))
     check("...and from the total duration", body["total_duration_seconds"] == 25,
@@ -148,12 +157,18 @@ def main() -> None:
 
     print("\nvalidation")
     for label, payload, code in [
-        ("media from another account is refused", {"items": [{"media_id": str(foreign)}]}, 422),
-        ("media still uploading is refused", {"items": [{"media_id": str(pending)}]}, 422),
-        ("a media id that does not exist is refused", {"items": [{"media_id": str(uuid.uuid4())}]}, 422),
-        ("duration below the minimum is refused", {"items": [{"media_id": str(img_a), "duration_seconds": 0}]}, 422),
-        ("duration above the maximum is refused", {"items": [{"media_id": str(img_a), "duration_seconds": 99999}]}, 422),
-        ("an unknown fit value is refused", {"items": [{"media_id": str(img_a), "fit": "warp"}]}, 422),
+        ("media from another account is refused",
+         {"items": [{"elements": [{"media_id": str(foreign)}]}]}, 422),
+        ("media still uploading is refused",
+         {"items": [{"elements": [{"media_id": str(pending)}]}]}, 422),
+        ("a media id that does not exist is refused",
+         {"items": [{"elements": [{"media_id": str(uuid.uuid4())}]}]}, 422),
+        ("duration below the minimum is refused",
+         {"items": [{"duration_seconds": 0, "elements": [{"media_id": str(img_a)}]}]}, 422),
+        ("duration above the maximum is refused",
+         {"items": [{"duration_seconds": 99999, "elements": [{"media_id": str(img_a)}]}]}, 422),
+        ("an unknown fit value is refused",
+         {"items": [{"elements": [{"media_id": str(img_a), "fit": "warp"}]}]}, 422),
     ]:
         check(label, o.put(f"/playlists/{pid}/items", json=payload).status_code == code)
     check("the failed writes left the list untouched",

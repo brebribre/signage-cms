@@ -2,10 +2,11 @@ import { computed, onMounted, ref } from 'vue'
 
 import { ApiError } from '@/api/request'
 import { usePlaylistApi } from '@/api/usePlaylistApi'
-import type { ItemFit, MediaRead, PlaylistDetail, PlaylistItemRead } from '@/types/api'
+import type { ElementRead, ItemFit, MediaRead, PlaylistDetail, PlaylistItemRead } from '@/types/api'
 
-/** A row being edited. Mirrors PlaylistItemRead but is local until Save. */
-export interface DraftItem {
+/** One media element within a scene, positioned/sized/rotated on its own. Mirrors
+ *  ElementRead but is local until Save. */
+export interface DraftElement {
   key: string
   mediaId: string
   filename: string
@@ -15,16 +16,83 @@ export interface DraftItem {
   mediaWidth: number | null
   mediaHeight: number | null
   mediaDuration: number | null
-  durationSeconds: number
+  zIndex: number
+  x: number
+  y: number
+  width: number
+  height: number
   fit: ItemFit
-  isEnabled: boolean
   cropX: number | null
   cropY: number | null
   cropZoom: number | null
   hasAudio: boolean
+  rotationDegrees: number
+}
+
+/** One slot (scene) being edited. Mirrors PlaylistItemRead but is local until Save. */
+export interface DraftItem {
+  key: string
+  durationSeconds: number
+  isEnabled: boolean
+  elements: DraftElement[]
 }
 
 const IMAGE_DEFAULT_SECONDS = 10
+
+/** A fresh element for `media`, full-bleed by default — the common case (one element filling
+ *  the whole scene) is just this with no overrides. `SceneEditor.vue` calls this too, with a
+ *  smaller centered default, when adding an element into an already-populated scene, so the
+ *  two paths can never drift on what a "new element" starts out as. */
+export function mediaToDraftElement(m: MediaRead, overrides: Partial<DraftElement> = {}): DraftElement {
+  return {
+    key: crypto.randomUUID(),
+    mediaId: m.id,
+    filename: m.filename,
+    kind: m.kind,
+    thumbnailUrl: m.thumbnail_url,
+    url: m.url,
+    mediaWidth: m.width,
+    mediaHeight: m.height,
+    mediaDuration: m.duration_seconds,
+    zIndex: 0,
+    x: 0,
+    y: 0,
+    width: 1,
+    height: 1,
+    fit: 'cover',
+    cropX: null,
+    cropY: null,
+    cropZoom: null,
+    hasAudio: false,
+    rotationDegrees: 0,
+    ...overrides,
+  }
+}
+
+function toDraftElement(el: ElementRead): DraftElement {
+  return {
+    key: el.id,
+    mediaId: el.media.id,
+    filename: el.media.filename,
+    kind: el.media.kind,
+    thumbnailUrl: el.media.thumbnail_url,
+    url: el.media.url,
+    mediaWidth: el.media.width,
+    mediaHeight: el.media.height,
+    mediaDuration: el.media.duration_seconds,
+    zIndex: el.z_index,
+    x: el.x,
+    y: el.y,
+    width: el.width,
+    height: el.height,
+    fit: el.fit,
+    cropX: el.crop_x,
+    cropY: el.crop_y,
+    cropZoom: el.crop_zoom,
+    hasAudio: el.has_audio,
+    rotationDegrees: el.rotation_degrees,
+  }
+}
 
 export function usePlaylistEditor(id: string) {
   const api = usePlaylistApi()
@@ -43,8 +111,11 @@ export function usePlaylistEditor(id: string) {
   const snapshot = computed(() =>
     JSON.stringify(
       draft.value.map((d) => [
-        d.mediaId, d.durationSeconds, d.fit, d.isEnabled,
-        d.cropX, d.cropY, d.cropZoom, d.hasAudio,
+        d.durationSeconds, d.isEnabled,
+        d.elements.map((e) => [
+          e.mediaId, e.zIndex, e.x, e.y, e.width, e.height, e.fit,
+          e.cropX, e.cropY, e.cropZoom, e.hasAudio, e.rotationDegrees,
+        ]),
       ]),
     ),
   )
@@ -58,21 +129,9 @@ export function usePlaylistEditor(id: string) {
   function toDraft(item: PlaylistItemRead): DraftItem {
     return {
       key: item.id,
-      mediaId: item.media.id,
-      filename: item.media.filename,
-      kind: item.media.kind,
-      thumbnailUrl: item.media.thumbnail_url,
-      url: item.media.url,
-      mediaWidth: item.media.width,
-      mediaHeight: item.media.height,
-      mediaDuration: item.media.duration_seconds,
       durationSeconds: item.duration_seconds,
-      fit: item.fit,
       isEnabled: item.is_enabled,
-      cropX: item.crop_x,
-      cropY: item.crop_y,
-      cropZoom: item.crop_zoom,
-      hasAudio: item.has_audio,
+      elements: item.elements.map(toDraftElement),
     }
   }
 
@@ -94,29 +153,19 @@ export function usePlaylistEditor(id: string) {
     }
   }
 
+  /** Each picked media becomes its own new scene (slot), one full-bleed element — "Add
+   *  media" on the playlist row list, not "add an element to this scene" (that's
+   *  SceneEditor.vue, mutating one scene's `elements` array directly). */
   function addMedia(media: MediaRead[]) {
     for (const m of media) {
       draft.value.push({
-        // Not the media id: the same file may legitimately appear twice in one loop.
         key: crypto.randomUUID(),
-        mediaId: m.id,
-        filename: m.filename,
-        kind: m.kind,
-        thumbnailUrl: m.thumbnail_url,
-        url: m.url,
-        mediaWidth: m.width,
-        mediaHeight: m.height,
-        mediaDuration: m.duration_seconds,
         durationSeconds:
           m.kind === 'video' && m.duration_seconds
             ? Math.max(1, Math.round(m.duration_seconds))
             : IMAGE_DEFAULT_SECONDS,
-        fit: 'contain',
         isEnabled: true,
-        cropX: null,
-        cropY: null,
-        cropZoom: null,
-        hasAudio: false,
+        elements: [mediaToDraftElement(m)],
       })
     }
   }
@@ -140,14 +189,22 @@ export function usePlaylistEditor(id: string) {
         await api.replaceItems(
           id,
           draft.value.map((d) => ({
-            media_id: d.mediaId,
             duration_seconds: d.durationSeconds,
-            fit: d.fit,
             is_enabled: d.isEnabled,
-            crop_x: d.cropX,
-            crop_y: d.cropY,
-            crop_zoom: d.cropZoom,
-            has_audio: d.hasAudio,
+            elements: d.elements.map((e) => ({
+              media_id: e.mediaId,
+              z_index: e.zIndex,
+              x: e.x,
+              y: e.y,
+              width: e.width,
+              height: e.height,
+              fit: e.fit,
+              crop_x: e.cropX,
+              crop_y: e.cropY,
+              crop_zoom: e.cropZoom,
+              has_audio: e.hasAudio,
+              rotation_degrees: e.rotationDegrees,
+            })),
           })),
         ),
       )

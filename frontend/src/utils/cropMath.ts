@@ -1,3 +1,20 @@
+import type { CSSProperties } from 'vue'
+
+/** Swaps width/height for a 90°/270° rotation — "rotate the video upright first, then
+ *  crop/fit the corrected orientation" is the whole rotation feature in one function. Every
+ *  aspect-ratio computation downstream (resolveCropRect, or a plain object-fit box for
+ *  Contain/Stretch) should use these effective dimensions, never the raw media ones, once a
+ *  rotation is in play. */
+export function effectiveDimensions(
+  width: number,
+  height: number,
+  rotationDegrees: number,
+): { width: number; height: number } {
+  return rotationDegrees === 90 || rotationDegrees === 270
+    ? { width: height, height: width }
+    : { width, height }
+}
+
 export interface CropRect {
   /** Normalized [0,1] top-left of the visible crop, in the media's own 0-1 space. */
   x: number
@@ -73,5 +90,35 @@ export function cropRectToStyle(rect: CropRect): {
     height: `${(1 / rect.h) * 100}%`,
     maxWidth: 'none',
     maxHeight: 'none',
+  }
+}
+
+/** Style for the wrapper a rotated video/image sits inside — needs `container-type: size` so
+ *  `rotationStyle()`'s `cqw`/`cqh` units below resolve against *this* element's own box, not
+ *  the page. Apply on top of whatever already positions the wrapper itself (cropRectToStyle's
+ *  percentages for Fill, or a plain inset/aspect-ratio box for Contain/Stretch). */
+export const ROTATION_WRAPPER_STYLE = { containerType: 'size' } as const
+
+/**
+ * Style for the innermost, actually-rotated video/image element — the only thing in the
+ * whole crop/rotate system that ever gets a `transform`.
+ *
+ * The geometry (verified numerically, not guessed): a WxH box, rotated N° around its own
+ * center and sized via `cqw`/`cqh` (1% of ROTATION_WRAPPER_STYLE's own box, swapped for
+ * 90°/270°) rather than plain `%`, exactly fills a wrapper sized to the swapped aspect ratio
+ * — with zero JS pixel measurement. At 0°/180° there's no swap, so this degrades to exactly
+ * the old unrotated centered-fill behavior.
+ */
+export function rotationStyle(rotationDegrees: number): CSSProperties {
+  const swap = rotationDegrees === 90 || rotationDegrees === 270
+  return {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    width: swap ? '100cqh' : '100cqw',
+    height: swap ? '100cqw' : '100cqh',
+    maxWidth: 'none',
+    maxHeight: 'none',
+    transform: `translate(-50%, -50%) rotate(${rotationDegrees}deg)`,
   }
 }

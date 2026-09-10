@@ -1,7 +1,8 @@
-"""Playlists: an ordered list of media with a duration per slot."""
+"""Playlists: an ordered list of scenes, each a set of one or more positioned media elements
+shown simultaneously."""
 
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from sqlmodel import Session, delete, func, select
 
@@ -14,6 +15,7 @@ from app.models import (
     MediaStatus,
     Playlist,
     PlaylistItem,
+    PlaylistItemElement,
     User,
     UserRole,
 )
@@ -21,7 +23,8 @@ from app.models.base import utcnow
 from app.services import device_sync
 from app.services.errors import DomainError
 
-# What an image shows for when nothing says otherwise. A video defaults to its own length.
+# What an image shows for when nothing says otherwise. A lone video element defaults to its
+# own length instead.
 IMAGE_DEFAULT_SECONDS = 10
 MIN_ITEM_SECONDS = 1
 MAX_ITEM_SECONDS = 3600
@@ -31,18 +34,31 @@ MAX_CROP_ZOOM = 3.0
 
 
 @dataclass(frozen=True)
-class ItemSpec:
-    """One slot as the client describes it. Position is deliberately absent — it is the
-    index in the list, so the two can never disagree."""
+class ElementSpec:
+    """One media element within a scene, as the client describes it."""
 
     media_id: uuid.UUID
-    duration_seconds: int | None = None
-    fit: ItemFit = ItemFit.CONTAIN
-    is_enabled: bool = True
+    z_index: int = 0
+    x: float = 0.0
+    y: float = 0.0
+    width: float = 1.0
+    height: float = 1.0
+    fit: ItemFit = ItemFit.COVER
     crop_x: float | None = None
     crop_y: float | None = None
     crop_zoom: float | None = None
     has_audio: bool = False
+    rotation_degrees: int = 0
+
+
+@dataclass(frozen=True)
+class ItemSpec:
+    """One slot (scene) as the client describes it. Position is deliberately absent — it is
+    the index in the list, so the two can never disagree."""
+
+    elements: list[ElementSpec] = field(default_factory=list)
+    duration_seconds: int | None = None
+    is_enabled: bool = True
 
 
 class PlaylistNotFound(DomainError):
@@ -107,17 +123,35 @@ def list_playlists(session: Session, *, user: User) -> list[tuple[Playlist, int,
     return [(p, int(count), int(total)) for p, count, total in rows]
 
 
-def get_with_items(
-    session: Session, *, user: User, playlist_id: uuid.UUID
-) -> tuple[Playlist, list[tuple[PlaylistItem, Media]]]:
+# A scene's elements, media joined in, ordered for paint (z_index ascending — later draws
+# on top).
+SceneRows = list[tuple[PlaylistItem, list[tuple[PlaylistItemElement, Media]]]]
+
+
+def _with_elements(session: Session, items: list[PlaylistItem]) -> SceneRows:
+    if not items:
+        return []
+    item_ids = [i.id for i in items]
+    element_rows = session.exec(
+        select(PlaylistItemElement, Media)
+        .join(Media, Media.id == PlaylistItemElement.media_id)
+        .where(PlaylistItemElement.playlist_item_id.in_(item_ids))
+        .order_by(PlaylistItemElement.z_index)
+    ).all()
+    by_item: dict[uuid.UUID, list[tuple[PlaylistItemElement, Media]]] = {i.id: [] for i in items}
+    for element, media in element_rows:
+        by_item[element.playlist_item_id].append((element, media))
+    return [(item, by_item[item.id]) for item in items]
+
+
+def get_with_items(session: Session, *, user: User, playlist_id: uuid.UUID) -> tuple[Playlist, SceneRows]:
     playlist = _owned(session, user, playlist_id)
-    rows = session.exec(
-        select(PlaylistItem, Media)
-        .join(Media, Media.id == PlaylistItem.media_id)
+    items = session.exec(
+        select(PlaylistItem)
         .where(PlaylistItem.playlist_id == playlist_id)
         .order_by(PlaylistItem.position)
     ).all()
-    return playlist, [(item, media) for item, media in rows]
+    return playlist, _with_elements(session, list(items))
 
 
 def _affected_devices(session: Session, playlist_id: uuid.UUID) -> list[Device]:
@@ -175,9 +209,13 @@ def update(
     return playlist
 
 
-def default_duration(media: Media) -> int:
-    if media.kind == MediaKind.VIDEO and media.duration_seconds:
-        return max(MIN_ITEM_SECONDS, round(media.duration_seconds))
+def default_duration(elements_media: list[Media]) -> int:
+    """A scene's default length: its one video element's own duration, or the fixed image
+    default otherwise (an image-only scene, an empty scene, or one with no single canonical
+    video to take a length from)."""
+    videos = [m for m in elements_media if m.kind == MediaKind.VIDEO and m.duration_seconds]
+    if len(videos) == 1:
+        return max(MIN_ITEM_SECONDS, round(videos[0].duration_seconds))
     return IMAGE_DEFAULT_SECONDS
 
 
@@ -187,56 +225,85 @@ def replace_items(
     user: User,
     playlist_id: uuid.UUID,
     items: list["ItemSpec"],
-) -> tuple[Playlist, list[tuple[PlaylistItem, Media]]]:
-    """Replace the entire list in one transaction.
+) -> tuple[Playlist, SceneRows]:
+    """Replace the entire list of scenes in one transaction.
 
     Whole-array replace rather than insert/move/reorder verbs: drag-and-drop produces a
     complete new order anyway, so per-item mutation would only add conflict handling for a
     problem nobody has. Delete-then-insert also means the unique `(playlist_id, position)`
-    constraint is never violated mid-transaction and needs no DEFERRABLE.
+    constraint is never violated mid-transaction and needs no DEFERRABLE — elements cascade
+    with their scene, so clearing `playlist_items` is enough.
 
-    An empty list is legal — emptying a playlist is not an error.
+    An empty list is legal — emptying a playlist is not an error. A scene with zero elements
+    is also legal (a blank frame), for the same reason.
     """
     playlist = _owned(session, user, playlist_id)
 
-    media_ids = [spec.media_id for spec in items]
+    media_ids = {el.media_id for spec in items for el in spec.elements}
     found: dict[uuid.UUID, Media] = {}
     if media_ids:
         for media in session.exec(select(Media).where(Media.id.in_(media_ids))).all():
             found[media.id] = media
 
     for spec in items:
-        media_id, seconds = spec.media_id, spec.duration_seconds
-        media = found.get(media_id)
-        # Same message whether it is missing, another account's, or still uploading — a
-        # playlist editor must not become a probe for what exists elsewhere.
-        if media is None or media.account_id != user.account_id or media.status != MediaStatus.READY:
-            raise InvalidItems(f"{media_id} is not available in this library")
-        if seconds is not None and not (MIN_ITEM_SECONDS <= seconds <= MAX_ITEM_SECONDS):
+        video_count = 0
+        for el in spec.elements:
+            media = found.get(el.media_id)
+            # Same message whether it is missing, another account's, or still uploading — a
+            # playlist editor must not become a probe for what exists elsewhere.
+            if media is None or media.account_id != user.account_id or media.status != MediaStatus.READY:
+                raise InvalidItems(f"{el.media_id} is not available in this library")
+            if media.kind != MediaKind.VIDEO and el.has_audio:
+                raise InvalidItems(f"{el.media_id}: sound only applies to video")
+            if media.kind != MediaKind.VIDEO and el.rotation_degrees:
+                raise InvalidItems(f"{el.media_id}: rotation only applies to video")
+            if media.kind == MediaKind.VIDEO:
+                video_count += 1
+        # Hardware, not taste: the player keeps exactly one long-lived video decoder/surface
+        # alive per screen (see PlaybackSurface.kt), and low-end signage SoCs commonly expose
+        # only 1-2 concurrent hardware decoders system-wide. Two videos in one scene risks the
+        # "decodes fine, frame never paints, no error" failure this codebase has already been
+        # burned by once — caught here, at save time, rather than discovered on a wall.
+        if video_count > 1:
+            raise InvalidItems("a scene can only have one video element at a time")
+        if spec.duration_seconds is not None and not (
+            MIN_ITEM_SECONDS <= spec.duration_seconds <= MAX_ITEM_SECONDS
+        ):
             raise InvalidItems(
                 f"duration must be between {MIN_ITEM_SECONDS} and {MAX_ITEM_SECONDS} seconds"
             )
-        if media.kind != MediaKind.VIDEO and spec.has_audio:
-            raise InvalidItems(f"{media_id}: sound only applies to video")
 
     session.exec(delete(PlaylistItem).where(PlaylistItem.playlist_id == playlist_id))
     for position, spec in enumerate(items):
-        session.add(
-            PlaylistItem(
-                playlist_id=playlist_id,
-                media_id=spec.media_id,
-                # Position comes from the array index; the client never sends one.
-                position=position,
-                duration_seconds=spec.duration_seconds
-                or default_duration(found[spec.media_id]),
-                fit=spec.fit,
-                is_enabled=spec.is_enabled,
-                crop_x=spec.crop_x,
-                crop_y=spec.crop_y,
-                crop_zoom=spec.crop_zoom,
-                has_audio=spec.has_audio,
-            )
+        elements_media = [found[el.media_id] for el in spec.elements]
+        # id is generated client-side (default_factory), so it's already real before add() —
+        # no flush needed to reference it while building this scene's elements below.
+        item = PlaylistItem(
+            playlist_id=playlist_id,
+            # Position comes from the array index; the client never sends one.
+            position=position,
+            duration_seconds=spec.duration_seconds or default_duration(elements_media),
+            is_enabled=spec.is_enabled,
         )
+        session.add(item)
+        for el in spec.elements:
+            session.add(
+                PlaylistItemElement(
+                    playlist_item_id=item.id,
+                    media_id=el.media_id,
+                    z_index=el.z_index,
+                    x=el.x,
+                    y=el.y,
+                    width=el.width,
+                    height=el.height,
+                    fit=el.fit,
+                    crop_x=el.crop_x,
+                    crop_y=el.crop_y,
+                    crop_zoom=el.crop_zoom,
+                    has_audio=el.has_audio,
+                    rotation_degrees=el.rotation_degrees,
+                )
+            )
     playlist.updated_at = utcnow()
     session.add(playlist)
     session.commit()
@@ -269,7 +336,8 @@ def remove(session: Session, *, user: User, playlist_id: uuid.UUID) -> None:
     if names:
         raise PlaylistInUse(sorted(n or "Unnamed screen" for n in names))
 
-    # Items cascade with the playlist; the media they referenced is untouched.
+    # Items (and their elements, via CASCADE) go with the playlist; the media they
+    # referenced is untouched.
     session.exec(delete(PlaylistItem).where(PlaylistItem.playlist_id == playlist_id))
     session.exec(delete(Playlist).where(Playlist.id == playlist_id))
     session.commit()

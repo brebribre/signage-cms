@@ -2,62 +2,39 @@
 import { computed } from 'vue'
 import type { CSSProperties } from 'vue'
 
-import { cropRectToStyle, resolveCropRect } from '@/utils/cropMath'
+import {
+  cropRectToStyle,
+  effectiveDimensions,
+  resolveCropRect,
+  ROTATION_WRAPPER_STYLE,
+  rotationStyle,
+} from '@/utils/cropMath'
+import type { DraftElement } from '@/hooks/usePlaylistEditor'
 
 /**
- * A device screen, drawn at its real aspect ratio and scaled to fit the space it is given.
+ * A device screen, drawn at its real aspect ratio and scaled to fit the space it is given —
+ * a scene of one or more positioned elements, not a single full-bleed media file.
  *
- * The fit modes map **exactly** onto CSS `object-fit`, which is what makes this preview
- * trustworthy rather than an approximation:
+ * `fit` maps **exactly** onto CSS `object-fit`, which is what makes this preview trustworthy
+ * rather than an approximation:
  *
  *   contain → object-fit: contain → Media3 RESIZE_MODE_FIT
  *   cover   → object-fit: cover   → Media3 RESIZE_MODE_ZOOM
  *   stretch → object-fit: fill    → Media3 RESIZE_MODE_FILL
  *
- * The screen is black because a signage panel is black behind letterboxed content, and the
- * whole point of `contain` is to show you exactly how much black you are buying.
+ * The screen is black because a signage panel is black behind whatever isn't covered by an
+ * element — the whole point of an empty or partial scene is showing you exactly how much
+ * black you are buying.
  */
 const props = withDefaults(
   defineProps<{
     screenWidth: number
     screenHeight: number
-    src: string | null
-    kind: 'image' | 'video'
-    fit: 'contain' | 'cover' | 'stretch'
-    /** Intrinsic size of the media, for the upscaling warning and for resolving a crop. */
-    mediaWidth?: number | null
-    mediaHeight?: number | null
+    elements: DraftElement[]
     label?: string
     maxHeight?: number
-    /** Normalized crop center + zoom (see src/utils/cropMath.ts). Only applied when
-     *  fit === 'cover' and cropZoom is set — otherwise rendering is untouched from before
-     *  this prop existed, so every item that predates a crop keeps rendering exactly as is. */
-    cropX?: number | null
-    cropY?: number | null
-    cropZoom?: number | null
-    /** Video only. Every video is muted unless this is set. */
-    hasAudio?: boolean
   }>(),
   { maxHeight: 420 },
-)
-
-const FIT_TO_CSS = { contain: 'contain', cover: 'cover', stretch: 'fill' } as const
-
-const hasCrop = computed(() => props.fit === 'cover' && props.cropZoom != null)
-
-const cropStyle = computed<CSSProperties>(() => {
-  if (!hasCrop.value || !props.mediaWidth || !props.mediaHeight) return {}
-  const rect = resolveCropRect(
-    props.mediaWidth, props.mediaHeight, props.screenWidth / props.screenHeight,
-    props.cropX ?? 0.5, props.cropY ?? 0.5, props.cropZoom ?? 1,
-  )
-  return { position: 'absolute', ...cropRectToStyle(rect) }
-})
-
-// Typed as CSSProperties rather than a bare string: Vue's `:style` binding will not accept
-// `{ objectFit: string }`, only the narrowed literal union.
-const mediaStyle = computed<CSSProperties>(() =>
-  hasCrop.value ? cropStyle.value : { objectFit: FIT_TO_CSS[props.fit] },
 )
 
 /**
@@ -74,62 +51,93 @@ const frameStyle = computed(() => ({
   width: `min(100%, ${Math.round(props.maxHeight * (props.screenWidth / props.screenHeight))}px)`,
 }))
 
-/** True when the screen has more pixels than the file, so the panel upscales and softens. */
-const isUpscaled = computed(() => {
-  if (!props.mediaWidth || !props.mediaHeight) return false
-  // Under `cover` the media is scaled to the larger ratio, under `contain` the smaller.
-  const ratio =
-    props.fit === 'cover'
-      ? Math.max(props.screenWidth / props.mediaWidth, props.screenHeight / props.mediaHeight)
-      : Math.min(props.screenWidth / props.mediaWidth, props.screenHeight / props.mediaHeight)
-  return ratio > 1.15
-})
+const sortedElements = computed(() => [...props.elements].sort((a, b) => a.zIndex - b.zIndex))
 
-/** How much of the media is cropped away under `cover`, as a percentage of its area. */
-const cropPercent = computed(() => {
-  if (props.fit !== 'cover' || !props.mediaWidth || !props.mediaHeight) return 0
-  const screenAspect = props.screenWidth / props.screenHeight
-  const mediaAspect = props.mediaWidth / props.mediaHeight
-  const visible = mediaAspect > screenAspect ? screenAspect / mediaAspect : mediaAspect / screenAspect
-  return Math.round((1 - visible) * 100)
-})
+function boxStyle(el: DraftElement): CSSProperties {
+  return {
+    position: 'absolute',
+    left: `${el.x * 100}%`,
+    top: `${el.y * 100}%`,
+    width: `${el.width * 100}%`,
+    height: `${el.height * 100}%`,
+    zIndex: el.zIndex,
+    overflow: 'hidden',
+  }
+}
+
+/** This element's own target aspect ratio — its box's fraction of the frame, corrected by
+ *  the frame's real aspect ratio (a box that's 50% wide and 50% tall isn't square unless the
+ *  frame itself is). */
+function targetAspect(el: DraftElement): number {
+  return (el.width / el.height) * (props.screenWidth / props.screenHeight)
+}
+
+/**
+ * `cover`: the exact crop/rotate composition this session's crop and rotation work already
+ * verified — resolveCropRect + cropRectToStyle position a wrapper sized for the element's
+ * *effective* (post-rotation) aspect ratio, and the innermost media element is the only
+ * thing that actually rotates, via `rotationStyle`'s container-query sizing.
+ *
+ * `contain`/`stretch`: a simpler, approximate composition — plain `object-fit` plus a CSS
+ * `rotate()` on the media element directly, with no effective-dimension swap. No element
+ * produced by the current editor (SceneEditor.vue always writes `fit: 'cover'`) can combine
+ * a non-cover fit with a non-zero rotation, so this path only exists for legacy data and
+ * doesn't need the full treatment.
+ */
+function wrapperStyle(el: DraftElement): CSSProperties {
+  if (!el.mediaWidth || !el.mediaHeight) return {}
+  if (el.fit === 'cover') {
+    const eff = effectiveDimensions(el.mediaWidth, el.mediaHeight, el.rotationDegrees)
+    const rect = resolveCropRect(
+      eff.width, eff.height, targetAspect(el),
+      el.cropX ?? 0.5, el.cropY ?? 0.5, el.cropZoom ?? 1,
+    )
+    return { position: 'absolute', ...cropRectToStyle(rect), ...ROTATION_WRAPPER_STYLE } as CSSProperties
+  }
+  return { position: 'absolute', inset: 0 }
+}
+
+function mediaStyle(el: DraftElement): CSSProperties {
+  if (el.fit === 'cover') return rotationStyle(el.rotationDegrees) as CSSProperties
+  const FIT_TO_CSS = { contain: 'contain', stretch: 'fill' } as const
+  return {
+    objectFit: FIT_TO_CSS[el.fit as 'contain' | 'stretch'],
+    width: '100%',
+    height: '100%',
+    transform: el.rotationDegrees ? `rotate(${el.rotationDegrees}deg)` : undefined,
+  }
+}
 </script>
 
 <template>
   <div class="flex flex-col items-center gap-2">
-    <div
-      class="relative overflow-hidden rounded-md bg-black"
-      :style="frameStyle"
-    >
-      <video
-        v-if="src && kind === 'video'"
-        :src="src"
-        :class="hasCrop ? '' : 'size-full'"
-        :style="mediaStyle"
-        :muted="!hasAudio"
-        autoplay
-        loop
-        playsinline
-      />
-      <img
-        v-else-if="src"
-        :src="src"
-        alt=""
-        :class="hasCrop ? '' : 'size-full'"
-        :style="mediaStyle"
-      />
-      <div v-else class="flex size-full items-center justify-center text-[13px] text-white/40">
+    <div class="relative overflow-hidden rounded-md bg-black" :style="frameStyle">
+      <div v-for="el in sortedElements" :key="el.key" :style="boxStyle(el)">
+        <div :style="wrapperStyle(el)">
+          <video
+            v-if="el.kind === 'video'"
+            :src="el.url"
+            class="select-none"
+            :style="mediaStyle(el)"
+            :muted="!el.hasAudio"
+            autoplay
+            loop
+            playsinline
+          />
+          <img
+            v-else
+            :src="el.url"
+            alt=""
+            class="select-none"
+            :style="mediaStyle(el)"
+          />
+        </div>
+      </div>
+      <div v-if="!elements.length" class="flex size-full items-center justify-center text-[13px] text-white/40">
         Nothing to preview
       </div>
     </div>
 
     <p class="text-[13px] text-ink-subtle">{{ label }}</p>
-
-    <p v-if="cropPercent >= 5" class="text-center text-[13px] text-ink-muted">
-      Fill crops about {{ cropPercent }}% of this image away.
-    </p>
-    <p v-if="isUpscaled" class="text-center text-[13px] text-danger">
-      Lower resolution than the screen — this will look soft.
-    </p>
   </div>
 </template>

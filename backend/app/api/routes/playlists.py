@@ -3,8 +3,9 @@ import uuid
 from fastapi import APIRouter, HTTPException, status
 
 from app.api.deps import CurrentUser, DbSession
-from app.models import Media, Playlist, PlaylistItem
+from app.models import Media, Playlist, PlaylistItem, PlaylistItemElement
 from app.schemas.playlists import (
+    ElementRead,
     ItemMedia,
     ItemRead,
     ItemsWrite,
@@ -16,6 +17,7 @@ from app.schemas.playlists import (
 from app.services import media as media_service
 from app.services import playlists as playlist_service
 from app.services.playlists import (
+    ElementSpec,
     InvalidItems,
     ItemSpec,
     NotYours,
@@ -28,17 +30,20 @@ router = APIRouter(tags=["playlists"])
 NOT_FOUND = HTTPException(status.HTTP_404_NOT_FOUND, "Playlist not found")
 
 
-def _item(item: PlaylistItem, media: Media) -> ItemRead:
-    return ItemRead(
-        id=item.id,
-        position=item.position,
-        duration_seconds=item.duration_seconds,
-        fit=item.fit,
-        is_enabled=item.is_enabled,
-        crop_x=item.crop_x,
-        crop_y=item.crop_y,
-        crop_zoom=item.crop_zoom,
-        has_audio=item.has_audio,
+def _element(element: PlaylistItemElement, media: Media) -> ElementRead:
+    return ElementRead(
+        id=element.id,
+        z_index=element.z_index,
+        x=element.x,
+        y=element.y,
+        width=element.width,
+        height=element.height,
+        fit=element.fit,
+        crop_x=element.crop_x,
+        crop_y=element.crop_y,
+        crop_zoom=element.crop_zoom,
+        has_audio=element.has_audio,
+        rotation_degrees=element.rotation_degrees,
         media=ItemMedia(
             id=media.id,
             filename=media.filename,
@@ -52,8 +57,18 @@ def _item(item: PlaylistItem, media: Media) -> ItemRead:
     )
 
 
+def _item(item: PlaylistItem, elements: list[tuple[PlaylistItemElement, Media]]) -> ItemRead:
+    return ItemRead(
+        id=item.id,
+        position=item.position,
+        duration_seconds=item.duration_seconds,
+        is_enabled=item.is_enabled,
+        elements=[_element(el, media) for el, media in elements],
+    )
+
+
 def _detail(session, playlist: Playlist, rows) -> PlaylistDetail:
-    items = [_item(i, m) for i, m in rows]
+    items = [_item(i, elements) for i, elements in rows]
     return PlaylistDetail(
         id=playlist.id,
         name=playlist.name,
@@ -122,7 +137,7 @@ def update_playlist(
 def replace_items(
     playlist_id: uuid.UUID, body: ItemsWrite, user: CurrentUser, session: DbSession
 ) -> PlaylistDetail:
-    """Replace the entire list, in order.
+    """Replace the entire list of scenes, in order.
 
     One endpoint rather than insert/move/reorder verbs — drag-and-drop produces a complete
     new order anyway, and the array index *is* the position, so the two cannot disagree.
@@ -134,14 +149,25 @@ def replace_items(
             playlist_id=playlist_id,
             items=[
                 ItemSpec(
-                    media_id=i.media_id,
                     duration_seconds=i.duration_seconds,
-                    fit=i.fit,
                     is_enabled=i.is_enabled,
-                    crop_x=i.crop_x,
-                    crop_y=i.crop_y,
-                    crop_zoom=i.crop_zoom,
-                    has_audio=i.has_audio,
+                    elements=[
+                        ElementSpec(
+                            media_id=el.media_id,
+                            z_index=el.z_index,
+                            x=el.x,
+                            y=el.y,
+                            width=el.width,
+                            height=el.height,
+                            fit=el.fit,
+                            crop_x=el.crop_x,
+                            crop_y=el.crop_y,
+                            crop_zoom=el.crop_zoom,
+                            has_audio=el.has_audio,
+                            rotation_degrees=el.rotation_degrees,
+                        )
+                        for el in i.elements
+                    ],
                 )
                 for i in body.items
             ],

@@ -15,7 +15,7 @@ from datetime import datetime
 from sqlmodel import Session, select
 
 from app.config import get_settings
-from app.models import Device, ItemFit, Media, MediaKind, Playlist, PlaylistItem
+from app.models import Device, ItemFit, Media, MediaKind, Playlist, PlaylistItem, PlaylistItemElement
 from app.models.base import utcnow
 from app.infra import storage
 from app.services import media as media_service
@@ -24,16 +24,30 @@ from app.services import scheduling
 logger = logging.getLogger(__name__)
 
 
-def _enabled_items(session: Session, playlist_id: uuid.UUID) -> list[tuple[PlaylistItem, Media]]:
-    """Playable slots only, in play order. A disabled item is not paused — it does not exist
-    as far as a screen is concerned."""
-    rows = session.exec(
-        select(PlaylistItem, Media)
-        .join(Media, Media.id == PlaylistItem.media_id)
+def _enabled_items(
+    session: Session, playlist_id: uuid.UUID
+) -> list[tuple[PlaylistItem, list[tuple[PlaylistItemElement, Media]]]]:
+    """Playable slots only, in play order, each with its elements (media joined in, paint
+    order). A disabled item is not paused — it does not exist as far as a screen is
+    concerned."""
+    items = session.exec(
+        select(PlaylistItem)
         .where(PlaylistItem.playlist_id == playlist_id, PlaylistItem.is_enabled.is_(True))
         .order_by(PlaylistItem.position)
     ).all()
-    return [(item, media) for item, media in rows]
+    if not items:
+        return []
+    item_ids = [i.id for i in items]
+    element_rows = session.exec(
+        select(PlaylistItemElement, Media)
+        .join(Media, Media.id == PlaylistItemElement.media_id)
+        .where(PlaylistItemElement.playlist_item_id.in_(item_ids))
+        .order_by(PlaylistItemElement.z_index)
+    ).all()
+    by_item: dict[uuid.UUID, list[tuple[PlaylistItemElement, Media]]] = {i.id: [] for i in items}
+    for element, media in element_rows:
+        by_item[element.playlist_item_id].append((element, media))
+    return [(item, by_item[item.id]) for item in items]
 
 
 def compute_version(session: Session, device: Device, now: datetime | None = None) -> str:
@@ -67,8 +81,20 @@ def compute_version(session: Session, device: Device, now: datetime | None = Non
             device.orientation.value,
             playlist.shuffle if playlist else False,
             [
-                (str(item.id), media.checksum, item.duration_seconds, item.position, item.fit.value)
-                for item, media in rows
+                (
+                    str(item.id),
+                    item.duration_seconds,
+                    item.position,
+                    [
+                        (
+                            str(el.id), media.checksum, el.z_index, el.x, el.y, el.width,
+                            el.height, el.fit.value, el.crop_x, el.crop_y, el.crop_zoom,
+                            el.has_audio, el.rotation_degrees,
+                        )
+                        for el, media in elements
+                    ],
+                )
+                for item, elements in rows
             ],
         )
     canonical = json.dumps(
@@ -88,16 +114,28 @@ def compute_version(session: Session, device: Device, now: datetime | None = Non
 
 
 @dataclass
-class ManifestItem:
+class ManifestElement:
     id: uuid.UUID
     media_id: uuid.UUID
     kind: MediaKind
     url: str
     checksum: str
     bytes: int
-    duration_seconds: int
+    z_index: int
+    x: float
+    y: float
+    width: float
+    height: float
     fit: ItemFit
     has_audio: bool
+    rotation_degrees: int
+
+
+@dataclass
+class ManifestSlot:
+    id: uuid.UUID
+    duration_seconds: int
+    elements: list[ManifestElement]
 
 
 @dataclass
@@ -113,7 +151,7 @@ class Manifest:
     device_name: str
     device_orientation: str
     playlist: ManifestPlaylist | None
-    items: list[ManifestItem]
+    slots: list[ManifestSlot]
     #: Name of the schedule currently overriding the default, or None when the device is
     #: playing its default playlist. Surfaced so the debug overlay can answer "why is this
     #: showing?" without anyone opening the CMS.
@@ -125,8 +163,9 @@ class Manifest:
 
 def build_manifest(session: Session, device: Device, *, version: str) -> Manifest:
     """The full payload — only built once a version mismatch says the device actually needs
-    it. Presigning N item URLs is cheap (a local HMAC each) but there is no reason to pay it
-    on every 30-second poll when nothing has changed; `compute_version` alone answers that."""
+    it. Presigning N element URLs is cheap (a local HMAC each) but there is no reason to pay
+    it on every 30-second poll when nothing has changed; `compute_version` alone answers
+    that."""
     settings = get_settings()
     resolution = scheduling.resolve(session, device)
     valid_until = resolution.valid_until.isoformat() if resolution.valid_until else None
@@ -137,29 +176,42 @@ def build_manifest(session: Session, device: Device, *, version: str) -> Manifes
             device_name=device.name,
             device_orientation=device.orientation.value,
             playlist=None,
-            items=[],
+            slots=[],
             schedule_name=resolution.schedule_name,
             valid_until=valid_until,
         )
 
     playlist = session.get(Playlist, resolution.playlist_id)
     rows = _enabled_items(session, resolution.playlist_id)
-    items = [
-        ManifestItem(
+    slots = [
+        ManifestSlot(
             id=item.id,
-            media_id=media.id,
-            kind=media.kind,
-            # 6 hours, not the CMS's shorter preview TTL: a screen may be pulling a large
-            # file over bad venue wifi. The checksum — not this URL — is the device's cache
-            # key, so a re-issued URL for unchanged content is never treated as a re-download.
-            url=media_service.view_url(media, ttl=settings.device_presign_ttl_seconds),
-            checksum=media.checksum,
-            bytes=media.size_bytes,
             duration_seconds=item.duration_seconds,
-            fit=item.fit,
-            has_audio=item.has_audio,
+            elements=[
+                ManifestElement(
+                    id=el.id,
+                    media_id=media.id,
+                    kind=media.kind,
+                    # 6 hours, not the CMS's shorter preview TTL: a screen may be pulling a
+                    # large file over bad venue wifi. The checksum — not this URL — is the
+                    # device's cache key, so a re-issued URL for unchanged content is never
+                    # treated as a re-download.
+                    url=media_service.view_url(media, ttl=settings.device_presign_ttl_seconds),
+                    checksum=media.checksum,
+                    bytes=media.size_bytes,
+                    z_index=el.z_index,
+                    x=el.x,
+                    y=el.y,
+                    width=el.width,
+                    height=el.height,
+                    fit=el.fit,
+                    has_audio=el.has_audio,
+                    rotation_degrees=el.rotation_degrees,
+                )
+                for el, media in elements
+            ],
         )
-        for item, media in rows
+        for item, elements in rows
     ]
     return Manifest(
         version=version,
@@ -168,7 +220,7 @@ def build_manifest(session: Session, device: Device, *, version: str) -> Manifes
         playlist=ManifestPlaylist(id=playlist.id, name=playlist.name, shuffle=playlist.shuffle)
         if playlist
         else None,
-        items=items,
+        slots=slots,
         schedule_name=resolution.schedule_name,
         valid_until=valid_until,
     )

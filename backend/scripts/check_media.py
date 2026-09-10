@@ -22,6 +22,7 @@ from app.models import (
     MediaStatus,
     Playlist,
     PlaylistItem,
+    PlaylistItemElement,
     User,
     UserRole,
 )
@@ -196,14 +197,16 @@ def main() -> None:
         media = s.get(Media, uuid.UUID(ready_id))
         pl = Playlist(account_id=media.account_id, name=f"{PREFIX} Lobby Loop")
         s.add(pl); s.flush()
-        s.add(PlaylistItem(playlist_id=pl.id, media_id=media.id, position=0, duration_seconds=30))
+        item = PlaylistItem(playlist_id=pl.id, position=0, duration_seconds=30)
+        s.add(item); s.flush()
+        s.add(PlaylistItemElement(playlist_item_id=item.id, media_id=media.id))
         s.commit()
     r = o.delete(f"/media/{ready_id}")
     check("deleting on-air media is 409", r.status_code == 409, str(r.status_code))
     check("...and the message names the playlist", "Lobby Loop" in r.json()["detail"], r.json()["detail"])
 
     with Session(engine) as s:
-        s.exec(delete(PlaylistItem).where(PlaylistItem.media_id == uuid.UUID(ready_id)))
+        s.exec(delete(PlaylistItemElement).where(PlaylistItemElement.media_id == uuid.UUID(ready_id)))
         s.commit()
     DELETED.clear()
     check("once free, delete returns 204", o.delete(f"/media/{ready_id}").status_code == 204)

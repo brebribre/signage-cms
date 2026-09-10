@@ -12,7 +12,17 @@ from sqlmodel import Session, delete, select
 
 from app.infra import storage
 from app.config import get_settings
-from app.models import Account, Media, MediaKind, MediaStatus, Playlist, PlaylistItem, User, UserRole
+from app.models import (
+    Account,
+    Media,
+    MediaKind,
+    MediaStatus,
+    Playlist,
+    PlaylistItem,
+    PlaylistItemElement,
+    User,
+    UserRole,
+)
 from app.services.errors import DomainError
 
 # Deliberately narrow. h.264/AAC in MP4 is the only combination a cheap Android stick is
@@ -186,7 +196,8 @@ def playlists_using(session: Session, media_id: uuid.UUID) -> list[str]:
         session.exec(
             select(Playlist.name)
             .join(PlaylistItem, PlaylistItem.playlist_id == Playlist.id)
-            .where(PlaylistItem.media_id == media_id)
+            .join(PlaylistItemElement, PlaylistItemElement.playlist_item_id == PlaylistItem.id)
+            .where(PlaylistItemElement.media_id == media_id)
             .distinct()
         ).all()
     )
