@@ -7,11 +7,10 @@
     "dev": "vite",
     "build": "vue-tsc -b && vite build",
     "preview": "vite preview",
-    "start": "serve -s dist -l ${PORT:-4173}"
+    "start": "node server.mjs"
   },
   "dependencies": {
     "pinia": "^4.0.3",
-    "serve": "^14.2.6",
     "vue": "^3.5.40",
     "vue-router": "^5.2.0"
   },
