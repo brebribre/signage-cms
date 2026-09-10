@@ -48,6 +48,21 @@ const router = createRouter({
           component: () => import('@/containers/FleetHealthContainer.vue'),
         },
         {
+          path: 'campaigns',
+          name: 'campaigns',
+          component: () => import('@/containers/CampaignListContainer.vue'),
+        },
+        {
+          path: 'campaigns/new',
+          name: 'campaign-new',
+          component: () => import('@/containers/CampaignDetailContainer.vue'),
+        },
+        {
+          path: 'campaigns/:id',
+          name: 'campaign-detail',
+          component: () => import('@/containers/CampaignDetailContainer.vue'),
+        },
+        {
           path: 'devices',
           name: 'devices',
           component: () => import('@/containers/DeviceListContainer.vue'),

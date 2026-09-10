@@ -195,17 +195,15 @@ export interface DeviceUpdateBody {
   clear_playlist?: boolean
 }
 
-export interface BulkAssignPlaylistBody {
-  device_ids: string[]
-  playlist_id?: string | null
-  /** Explicit, same reasoning as `DeviceUpdateBody.clear_playlist`. */
-  clear_playlist?: boolean
-}
-
-export interface BulkAssignPlaylistResponse {
-  updated: DeviceRead[]
-  /** Ids the caller couldn't reach — dropped server-side rather than failing the batch. */
-  skipped_ids: string[]
+/** What a device is playing right now — the read-only counterpart to Campaign. */
+export interface DeviceResolutionRead {
+  device_id: string
+  playlist_id: string | null
+  schedule_id: string | null
+  schedule_name: string | null
+  valid_until: string | null
+  timezone: string
+  device_local_time: string
 }
 
 /** Returned by unpair — the screen's new pairing code, same shape as a fresh boot. */
@@ -270,19 +268,6 @@ export interface ScheduleRead {
   created_at: string
 }
 
-export interface ScheduleWrite {
-  playlist_id: string
-  name?: string
-  days_of_week?: number
-  starts_at: string
-  ends_at: string
-  priority?: number
-}
-
-export interface ScheduleUpdateBody extends Partial<ScheduleWrite> {
-  is_enabled?: boolean
-}
-
 /** What a device is playing right now, and why. */
 export interface ResolutionRead {
   playlist_id: string | null
@@ -291,6 +276,59 @@ export interface ResolutionRead {
   valid_until: string | null
   timezone: string
   device_local_time: string
+}
+
+// --- Campaigns ---
+// A campaign is a named set of devices plus the playlist-on-schedule rules that play across
+// all of them. It owns the `Schedule` rows it produces — one per (device, rule) pair — so
+// editing one regenerates that whole set rather than patching individual schedules.
+
+export interface CampaignRuleWrite {
+  playlist_id: string
+  name?: string
+  days_of_week?: number
+  starts_at: string
+  ends_at: string
+  priority?: number
+}
+
+export interface CampaignRuleRead {
+  playlist_id: string
+  name: string
+  days_of_week: number
+  starts_at: string
+  ends_at: string
+  priority: number
+}
+
+export interface CampaignWrite {
+  name: string
+  device_ids: string[]
+  rules: CampaignRuleWrite[]
+}
+
+export interface CampaignSummary {
+  id: string
+  name: string
+  device_count: number
+  rule_count: number
+  created_at: string
+  updated_at: string
+}
+
+export interface CampaignRead {
+  id: string
+  name: string
+  device_ids: string[]
+  rules: CampaignRuleRead[]
+  created_at: string
+  updated_at: string
+}
+
+export interface CampaignSaveResult {
+  campaign: CampaignRead
+  /** Requested device ids the caller couldn't reach — dropped rather than failing the save. */
+  skipped_device_ids: string[]
 }
 
 // --- Operations ---

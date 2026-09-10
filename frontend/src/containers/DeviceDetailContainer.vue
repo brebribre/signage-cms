@@ -6,7 +6,6 @@ import DeviceActivityContainer from '@/containers/DeviceActivityContainer.vue'
 import DeviceScheduleContainer from '@/containers/DeviceScheduleContainer.vue'
 import { useDeviceDetail } from '@/hooks/useDeviceDetail'
 import { useFormat } from '@/hooks/useFormat'
-import { usePlaylists } from '@/hooks/usePlaylists'
 import AppAlert from '@/reusables/AppAlert.vue'
 import AppButton from '@/reusables/AppButton.vue'
 import AppCard from '@/reusables/AppCard.vue'
@@ -24,7 +23,6 @@ const {
   device, isLoading, isSaving, error, saveError, saveSucceeded, freshPairing,
   save, unpair, remove,
 } = useDeviceDetail(id)
-const { items: playlists } = usePlaylists()
 const { dimensions, relativeTime, date } = useFormat()
 
 const confirmingUnpair = ref(false)
@@ -42,7 +40,6 @@ const form = reactive({
   location: '',
   orientation: 'landscape' as DeviceOrientation,
   timezone: 'UTC',
-  playlistId: '' as string,
 })
 
 watch(device, (d) => {
@@ -51,7 +48,6 @@ watch(device, (d) => {
   form.location = d.location
   form.orientation = d.orientation
   form.timezone = d.timezone
-  form.playlistId = d.playlist_id ?? ''
 }, { immediate: true })
 
 const isDirty = computed(() => {
@@ -61,7 +57,6 @@ const isDirty = computed(() => {
     || form.location !== d.location
     || form.orientation !== d.orientation
     || form.timezone !== d.timezone
-    || form.playlistId !== (d.playlist_id ?? '')
 })
 
 const COMMON_ZONES = [
@@ -102,9 +97,6 @@ async function onSave() {
     location: form.location,
     orientation: form.orientation,
     timezone: form.timezone,
-    ...(form.playlistId
-      ? { playlist_id: form.playlistId }
-      : { clear_playlist: true }),
   })
 }
 
@@ -214,18 +206,6 @@ async function onDelete() {
             </select>
             <p class="text-[13px] text-ink-subtle">Schedule times are read in this zone.</p>
           </div>
-
-          <div class="flex flex-col gap-1.5">
-            <label class="text-[13px] text-ink-muted">Playlist</label>
-            <select
-              class="rounded-lg border border-line-strong bg-canvas px-3 py-2 text-sm text-ink
-                     focus:border-ink focus:outline-none"
-              v-model="form.playlistId"
-            >
-              <option value="">No playlist</option>
-              <option v-for="p in playlists" :key="p.id" :value="p.id">{{ p.name }}</option>
-            </select>
-          </div>
         </div>
 
         <!-- Nothing above has touched the device yet. This is the one moment it does, and
@@ -253,8 +233,7 @@ async function onDelete() {
           </span>
         </div>
 
-        <!-- Dayparting. Below the default assignment on purpose: a schedule is an override of
-             that default, and reading them in that order matches how they behave. -->
+        <!-- Read-only: what this screen plays and when is decided in Campaigns, not here. -->
         <div class="mt-2 border-t border-line pt-6">
           <DeviceScheduleContainer :device-id="device.id" :timezone="device.timezone" />
         </div>

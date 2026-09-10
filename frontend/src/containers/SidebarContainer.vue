@@ -16,6 +16,7 @@ async function onLogout() {
 const LINKS = [
   { name: 'media', label: 'Media' },
   { name: 'playlists', label: 'Playlists' },
+  { name: 'campaigns', label: 'Campaigns' },
   { name: 'devices', label: 'Devices' },
   { name: 'health', label: 'Health' },
 ] as const

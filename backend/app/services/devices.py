@@ -255,56 +255,6 @@ def update(
     return device
 
 
-def bulk_assign_playlist(
-    session: Session,
-    *,
-    user: User,
-    device_ids: list[uuid.UUID],
-    playlist_id: uuid.UUID | None = None,
-    clear_playlist: bool = False,
-) -> tuple[list[Device], list[uuid.UUID]]:
-    """Assign one playlist to many devices in a single transaction.
-
-    Ids the user cannot reach (another account, unclaimed, or — for a manager — ungranted)
-    are dropped rather than raising, for the same reason `device_for_user` returns 404 instead
-    of 403: which case applies must not be observable from outside. Callers get the dropped
-    ids back as `skipped_ids` to report, not to diagnose.
-    """
-    if not clear_playlist and playlist_id is not None:
-        playlist = session.get(Playlist, playlist_id)
-        if playlist is None or playlist.account_id != user.account_id:
-            raise InvalidPlaylist(str(playlist_id))
-
-    statement = select(Device).where(
-        Device.id.in_(device_ids),
-        Device.account_id == user.account_id,
-        Device.account_id.is_not(None),
-    )
-    if user.role == UserRole.MANAGER:
-        statement = statement.join(
-            DeviceAccess,
-            (DeviceAccess.device_id == Device.id) & (DeviceAccess.user_id == user.id),
-        )
-    devices = list(session.exec(statement).all())
-
-    for device in devices:
-        device.playlist_id = None if clear_playlist else playlist_id
-        session.add(device)
-    session.commit()
-
-    for device in devices:
-        session.refresh(device)
-        # Best-effort nudge, same as a single update — see `update` above.
-        mqtt.notify_manifest_changed(
-            device_id=device.id,
-            version=device_sync.compute_version(session, device),
-        )
-
-    found_ids = {d.id for d in devices}
-    skipped_ids = [did for did in device_ids if did not in found_ids]
-    return devices, skipped_ids
-
-
 def unpair(session: Session, *, device: Device) -> Device:
     """Revoke the token and send the screen back to showing a pairing code.
 

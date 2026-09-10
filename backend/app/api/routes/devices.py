@@ -5,15 +5,15 @@ from fastapi import APIRouter, HTTPException, status
 from app.api.deps import CurrentUser, DbSession, DeviceForUser
 from app.config import get_settings
 from app.schemas.devices import (
-    BulkAssignPlaylistRequest,
-    BulkAssignPlaylistResponse,
     ClaimRequest,
     DeviceRead,
+    DeviceResolutionRead,
     DeviceUpdate,
     PairPollResponse,
     PairStartResponse,
 )
 from app.services import devices as device_service
+from app.services import scheduling
 from app.services.devices import (
     InvalidPlaylist,
     InvalidTimezone,
@@ -98,25 +98,28 @@ def list_devices(user: CurrentUser, session: DbSession) -> list[DeviceRead]:
     return [_read(d) for d in device_service.list_devices(session, user=user)]
 
 
-@router.post("/devices/bulk-assign-playlist", response_model=BulkAssignPlaylistResponse)
-def bulk_assign_playlist(
-    body: BulkAssignPlaylistRequest, user: CurrentUser, session: DbSession
-) -> BulkAssignPlaylistResponse:
-    """Set (or clear) one playlist across many screens at once, instead of one PATCH per
-    device. Declared ahead of `/devices/{device_id}` so it can never be shadowed by it."""
-    try:
-        updated, skipped_ids = device_service.bulk_assign_playlist(
-            session,
-            user=user,
-            device_ids=body.device_ids,
-            playlist_id=body.playlist_id,
-            clear_playlist=body.clear_playlist,
-        )
-    except InvalidPlaylist:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Playlist not found") from None
-    return BulkAssignPlaylistResponse(
-        updated=[_read(d) for d in updated], skipped_ids=skipped_ids
-    )
+@router.get("/devices/resolved", response_model=list[DeviceResolutionRead])
+def resolved_devices(user: CurrentUser, session: DbSession) -> list[DeviceResolutionRead]:
+    """What every reachable device is playing right now — one resolve() per device, done here
+    so the device list can show it without N round trips. Read-only counterpart to Campaign,
+    which is the only place that can change it. Declared ahead of `/devices/{device_id}` so
+    it can never be shadowed by it."""
+    import datetime as dt
+
+    out: list[DeviceResolutionRead] = []
+    for device in device_service.list_devices(session, user=user):
+        resolution = scheduling.resolve(session, device)
+        zone = scheduling.device_zone(device)
+        out.append(DeviceResolutionRead(
+            device_id=device.id,
+            playlist_id=resolution.playlist_id,
+            schedule_id=resolution.schedule_id,
+            schedule_name=resolution.schedule_name,
+            valid_until=resolution.valid_until,
+            timezone=str(zone),
+            device_local_time=dt.datetime.now(dt.UTC).astimezone(zone),
+        ))
+    return out
 
 
 @router.get("/devices/{device_id}", response_model=DeviceRead)

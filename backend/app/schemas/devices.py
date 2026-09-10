@@ -66,15 +66,14 @@ class DeviceUpdate(BaseModel):
     clear_playlist: bool = False
 
 
-class BulkAssignPlaylistRequest(BaseModel):
-    device_ids: list[uuid.UUID] = Field(min_length=1)
-    playlist_id: uuid.UUID | None = None
-    clear_playlist: bool = False
+class DeviceResolutionRead(BaseModel):
+    """What one device is playing right now — the read-only counterpart to Campaign, which is
+    the only place that can change it. Same shape as `ResolutionRead` plus which device."""
 
-
-class BulkAssignPlaylistResponse(BaseModel):
-    updated: list[DeviceRead]
-    # Ids the caller cannot reach — another account, unclaimed, or (for a manager) ungranted.
-    # Never distinguished from each other, same reasoning as the 404 on a single device: which
-    # reason applies must not be observable from outside.
-    skipped_ids: list[uuid.UUID]
+    device_id: uuid.UUID
+    playlist_id: uuid.UUID | None
+    schedule_id: uuid.UUID | None
+    schedule_name: str | None
+    valid_until: datetime | None
+    timezone: str
+    device_local_time: datetime

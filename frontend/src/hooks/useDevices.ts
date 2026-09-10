@@ -2,13 +2,17 @@ import { onMounted, ref } from 'vue'
 
 import { ApiError } from '@/api/request'
 import { useDeviceApi } from '@/api/useDeviceApi'
-import type { ClaimBody, DeviceRead, DeviceUpdateBody } from '@/types/api'
+import type { ClaimBody, DeviceRead, DeviceResolutionRead } from '@/types/api'
 
-/** The screen list: loading, claiming a new one, and the mutations its rows need inline. */
+/** The screen list: loading, claiming a new one, and what each screen is playing right now.
+ *  Playlist assignment itself lives entirely in Campaigns — this hook only reads the result. */
 export function useDevices() {
   const api = useDeviceApi()
 
   const items = ref<DeviceRead[]>([])
+  /** Keyed by device id — what each screen currently resolves to, via Campaign schedules or
+   *  its own default. */
+  const resolved = ref<Map<string, DeviceResolutionRead>>(new Map())
   const isLoading = ref(false)
   const isSaving = ref(false)
   const error = ref<string | null>(null)
@@ -21,7 +25,9 @@ export function useDevices() {
     isLoading.value = true
     error.value = null
     try {
-      items.value = await api.list()
+      const [list, resolutions] = await Promise.all([api.list(), api.resolved()])
+      items.value = list
+      resolved.value = new Map(resolutions.map((r) => [r.device_id, r]))
     } catch (e) {
       error.value = e instanceof ApiError ? e.message : 'Could not load screens'
     } finally {
@@ -79,48 +85,7 @@ export function useDevices() {
     }
   }
 
-  /** Returns whether it took, so the row can show its own loading state and checkmark
-   *  rather than silently succeeding or silently swallowing a failure. */
-  async function assignPlaylist(id: string, playlistId: string | null): Promise<boolean> {
-    const body: DeviceUpdateBody = playlistId
-      ? { playlist_id: playlistId }
-      : { clear_playlist: true }
-    try {
-      const updated = await api.update(id, body)
-      const row = items.value.find((d) => d.id === id)
-      if (row) row.playlist_id = updated.playlist_id
-      return true
-    } catch (e) {
-      error.value = e instanceof ApiError ? e.message : 'Could not update playlist'
-      return false
-    }
-  }
-
-  /** Same as `assignPlaylist`, for many devices in one request. Ids the server skipped
-   *  (unreachable by this user) come back so the caller can say which ones didn't take. */
-  async function bulkAssignPlaylist(
-    ids: string[], playlistId: string | null
-  ): Promise<{ ok: boolean; skippedIds: string[] }> {
-    try {
-      const res = await api.bulkAssignPlaylist({
-        device_ids: ids,
-        ...(playlistId ? { playlist_id: playlistId } : { clear_playlist: true }),
-      })
-      for (const updated of res.updated) {
-        const row = items.value.find((d) => d.id === updated.id)
-        if (row) row.playlist_id = updated.playlist_id
-      }
-      return { ok: true, skippedIds: res.skipped_ids }
-    } catch (e) {
-      error.value = e instanceof ApiError ? e.message : 'Could not update screens'
-      return { ok: false, skippedIds: [] }
-    }
-  }
-
   onMounted(refresh)
 
-  return {
-    items, isLoading, isSaving, error, claimError, connecting,
-    refresh, claim, assignPlaylist, bulkAssignPlaylist,
-  }
+  return { items, resolved, isLoading, isSaving, error, claimError, connecting, refresh, claim }
 }

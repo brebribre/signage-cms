@@ -6,6 +6,7 @@ out empty and the omission is silent.
 """
 
 from app.models.account import Account
+from app.models.campaign import Campaign, CampaignDevice
 from app.models.device import Device, DeviceAccess, DeviceOrientation
 from app.models.events import DeviceEvent, EventLevel, PlayEvent
 from app.models.media import Media, MediaKind, MediaStatus
@@ -15,6 +16,8 @@ from app.models.user import User, UserRole
 
 __all__ = [
     "Account",
+    "Campaign",
+    "CampaignDevice",
     "Device",
     "DeviceAccess",
     "DeviceEvent",
