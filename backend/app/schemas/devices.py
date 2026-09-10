@@ -64,3 +64,17 @@ class DeviceUpdate(BaseModel):
     # Explicit, because `playlist_id: null` is indistinguishable from "not supplied" in a
     # PATCH body — without this there is no way to say "play nothing".
     clear_playlist: bool = False
+
+
+class BulkAssignPlaylistRequest(BaseModel):
+    device_ids: list[uuid.UUID] = Field(min_length=1)
+    playlist_id: uuid.UUID | None = None
+    clear_playlist: bool = False
+
+
+class BulkAssignPlaylistResponse(BaseModel):
+    updated: list[DeviceRead]
+    # Ids the caller cannot reach — another account, unclaimed, or (for a manager) ungranted.
+    # Never distinguished from each other, same reasoning as the 404 on a single device: which
+    # reason applies must not be observable from outside.
+    skipped_ids: list[uuid.UUID]

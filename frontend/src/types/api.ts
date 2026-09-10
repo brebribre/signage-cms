@@ -195,6 +195,19 @@ export interface DeviceUpdateBody {
   clear_playlist?: boolean
 }
 
+export interface BulkAssignPlaylistBody {
+  device_ids: string[]
+  playlist_id?: string | null
+  /** Explicit, same reasoning as `DeviceUpdateBody.clear_playlist`. */
+  clear_playlist?: boolean
+}
+
+export interface BulkAssignPlaylistResponse {
+  updated: DeviceRead[]
+  /** Ids the caller couldn't reach — dropped server-side rather than failing the batch. */
+  skipped_ids: string[]
+}
+
 /** Returned by unpair — the screen's new pairing code, same shape as a fresh boot. */
 export interface PairStartResponse {
   device_id: string

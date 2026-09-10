@@ -5,6 +5,8 @@ from fastapi import APIRouter, HTTPException, status
 from app.api.deps import CurrentUser, DbSession, DeviceForUser
 from app.config import get_settings
 from app.schemas.devices import (
+    BulkAssignPlaylistRequest,
+    BulkAssignPlaylistResponse,
     ClaimRequest,
     DeviceRead,
     DeviceUpdate,
@@ -94,6 +96,27 @@ def claim_device(body: ClaimRequest, user: CurrentUser, session: DbSession) -> D
 def list_devices(user: CurrentUser, session: DbSession) -> list[DeviceRead]:
     """Screens this user may reach. Unclaimed devices belong to nobody and appear for no one."""
     return [_read(d) for d in device_service.list_devices(session, user=user)]
+
+
+@router.post("/devices/bulk-assign-playlist", response_model=BulkAssignPlaylistResponse)
+def bulk_assign_playlist(
+    body: BulkAssignPlaylistRequest, user: CurrentUser, session: DbSession
+) -> BulkAssignPlaylistResponse:
+    """Set (or clear) one playlist across many screens at once, instead of one PATCH per
+    device. Declared ahead of `/devices/{device_id}` so it can never be shadowed by it."""
+    try:
+        updated, skipped_ids = device_service.bulk_assign_playlist(
+            session,
+            user=user,
+            device_ids=body.device_ids,
+            playlist_id=body.playlist_id,
+            clear_playlist=body.clear_playlist,
+        )
+    except InvalidPlaylist:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Playlist not found") from None
+    return BulkAssignPlaylistResponse(
+        updated=[_read(d) for d in updated], skipped_ids=skipped_ids
+    )
 
 
 @router.get("/devices/{device_id}", response_model=DeviceRead)

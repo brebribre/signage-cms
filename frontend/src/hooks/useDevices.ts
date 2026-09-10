@@ -96,10 +96,31 @@ export function useDevices() {
     }
   }
 
+  /** Same as `assignPlaylist`, for many devices in one request. Ids the server skipped
+   *  (unreachable by this user) come back so the caller can say which ones didn't take. */
+  async function bulkAssignPlaylist(
+    ids: string[], playlistId: string | null
+  ): Promise<{ ok: boolean; skippedIds: string[] }> {
+    try {
+      const res = await api.bulkAssignPlaylist({
+        device_ids: ids,
+        ...(playlistId ? { playlist_id: playlistId } : { clear_playlist: true }),
+      })
+      for (const updated of res.updated) {
+        const row = items.value.find((d) => d.id === updated.id)
+        if (row) row.playlist_id = updated.playlist_id
+      }
+      return { ok: true, skippedIds: res.skipped_ids }
+    } catch (e) {
+      error.value = e instanceof ApiError ? e.message : 'Could not update screens'
+      return { ok: false, skippedIds: [] }
+    }
+  }
+
   onMounted(refresh)
 
   return {
     items, isLoading, isSaving, error, claimError, connecting,
-    refresh, claim, assignPlaylist,
+    refresh, claim, assignPlaylist, bulkAssignPlaylist,
   }
 }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { useDevices } from '@/hooks/useDevices'
@@ -16,8 +16,10 @@ import StatusDot from '@/reusables/StatusDot.vue'
 import type { DeviceRead } from '@/types/api'
 
 const router = useRouter()
-const { items, isLoading, isSaving, error, claimError, connecting, claim, assignPlaylist } =
-  useDevices()
+const {
+  items, isLoading, isSaving, error, claimError, connecting,
+  claim, assignPlaylist, bulkAssignPlaylist,
+} = useDevices()
 const { items: playlists } = usePlaylists()
 const { relativeTime } = useFormat()
 
@@ -68,17 +70,104 @@ async function onSend(d: DeviceRead) {
     setTimeout(() => { if (sentId.value === d.id) sentId.value = null }, 2500)
   }
 }
+
+// Bulk mode: apply one playlist to many screens instead of visiting each row. Kept as a
+// separate mode rather than layered onto the per-row draft above — the two pickers would
+// otherwise fight over what a selected row is "about to" show.
+const selecting = ref(false)
+const selectedIds = ref<Set<string>>(new Set())
+const bulkPlaylistId = ref('')
+const bulkApplying = ref(false)
+const bulkResult = ref<{ skippedCount: number } | null>(null)
+
+const allSelected = computed(
+  () => items.value.length > 0 && selectedIds.value.size === items.value.length
+)
+
+function toggleSelecting() {
+  selecting.value = !selecting.value
+  if (!selecting.value) {
+    selectedIds.value = new Set()
+    bulkPlaylistId.value = ''
+    bulkResult.value = null
+  }
+}
+
+function toggleSelected(id: string) {
+  const next = new Set(selectedIds.value)
+  next.has(id) ? next.delete(id) : next.add(id)
+  selectedIds.value = next
+}
+
+function toggleSelectAll() {
+  selectedIds.value = allSelected.value ? new Set() : new Set(items.value.map((d) => d.id))
+}
+
+async function onBulkApply() {
+  bulkApplying.value = true
+  bulkResult.value = null
+  const { ok, skippedIds } = await bulkAssignPlaylist(
+    Array.from(selectedIds.value), bulkPlaylistId.value || null
+  )
+  bulkApplying.value = false
+  if (!ok) return
+  bulkResult.value = { skippedCount: skippedIds.length }
+  // Only the screens that took the change stay meaningfully "selected" — drop the rest so
+  // a retry (if any) is aimed at just what actually failed.
+  selectedIds.value = new Set(skippedIds)
+  bulkPlaylistId.value = ''
+}
 </script>
 
 <template>
   <div class="flex flex-col gap-6">
     <PageTitle title="Devices" :subtitle="`${items.length} screen${items.length === 1 ? '' : 's'}`">
       <template #actions>
+        <AppButton v-if="items.length" size="sm" variant="secondary" @click="toggleSelecting">
+          {{ selecting ? 'Cancel' : 'Select screens' }}
+        </AppButton>
         <AppButton size="sm" @click="pairing = true">Add screen</AppButton>
       </template>
     </PageTitle>
 
     <AppAlert v-if="error" tone="danger">{{ error }}</AppAlert>
+
+    <!-- Bulk playlist assignment: pick a playlist once, apply it to every checked screen in
+         one request instead of visiting each row's own picker. -->
+    <div
+      v-if="selecting"
+      class="flex flex-wrap items-center gap-3 rounded-lg bg-surface px-3 py-2.5"
+    >
+      <label class="flex cursor-pointer items-center gap-2 text-[13px] text-ink-muted">
+        <input
+          type="checkbox" class="size-4 accent-ink" :checked="allSelected"
+          @change="toggleSelectAll"
+        />
+        Select all
+      </label>
+      <span class="text-[13px] text-ink-muted">{{ selectedIds.size }} selected</span>
+      <select
+        class="rounded-md border border-line-strong bg-canvas px-2 py-1 text-[13px]
+               text-ink focus:border-ink focus:outline-none"
+        v-model="bulkPlaylistId"
+      >
+        <option value="">No playlist</option>
+        <option v-for="p in playlists" :key="p.id" :value="p.id">{{ p.name }}</option>
+      </select>
+      <AppButton
+        size="sm" :disabled="!selectedIds.size" :loading="bulkApplying"
+        @click="onBulkApply"
+      >
+        Apply to {{ selectedIds.size }} screen{{ selectedIds.size === 1 ? '' : 's' }}
+      </AppButton>
+      <span v-if="bulkResult" class="text-[13px]" :class="bulkResult.skippedCount ? 'text-danger' : 'text-ink-muted'">
+        <template v-if="bulkResult.skippedCount">
+          Applied — {{ bulkResult.skippedCount }} screen{{ bulkResult.skippedCount === 1 ? '' : 's' }} couldn't be updated
+        </template>
+        <template v-else>Applied to every selected screen</template>
+      </span>
+    </div>
+
     <p v-if="isLoading" class="text-sm text-ink-muted">Loading…</p>
 
     <EmptyState
@@ -96,18 +185,26 @@ async function onSend(d: DeviceRead) {
         v-for="d in items"
         :key="d.id"
         interactive
-        @click="router.push({ name: 'device-detail', params: { id: d.id } })"
+        @click="selecting ? toggleSelected(d.id) : router.push({ name: 'device-detail', params: { id: d.id } })"
       >
         <div class="flex flex-wrap items-center justify-between gap-3">
-          <div class="min-w-0">
-            <p class="truncate text-base text-ink">{{ d.name || 'Unnamed screen' }}</p>
-            <p class="mt-0.5 text-[13px] text-ink-muted">
-              <span v-if="d.location">{{ d.location }} · </span>
-              {{ d.orientation }} · last seen {{ relativeTime(d.last_seen_at) }}
-            </p>
+          <div class="flex min-w-0 items-center gap-3">
+            <input
+              v-if="selecting"
+              type="checkbox" class="size-4 shrink-0 accent-ink"
+              :checked="selectedIds.has(d.id)"
+              @click.stop="toggleSelected(d.id)"
+            />
+            <div class="min-w-0">
+              <p class="truncate text-base text-ink">{{ d.name || 'Unnamed screen' }}</p>
+              <p class="mt-0.5 text-[13px] text-ink-muted">
+                <span v-if="d.location">{{ d.location }} · </span>
+                {{ d.orientation }} · last seen {{ relativeTime(d.last_seen_at) }}
+              </p>
+            </div>
           </div>
 
-          <div class="flex shrink-0 items-center gap-2" @click.stop>
+          <div v-if="!selecting" class="flex shrink-0 items-center gap-2" @click.stop>
             <StatusDot :last-seen-at="d.last_seen_at" />
             <!-- Assignable right from the list: this is the single most common thing a
                  screen row is opened for. But picking a playlist only drafts it — it does
@@ -142,6 +239,7 @@ async function onSend(d: DeviceRead) {
               />
             </svg>
           </div>
+          <StatusDot v-else :last-seen-at="d.last_seen_at" />
         </div>
       </AppCard>
     </div>

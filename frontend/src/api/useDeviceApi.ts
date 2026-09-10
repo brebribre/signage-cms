@@ -1,5 +1,12 @@
 import { request } from '@/api/request'
-import type { ClaimBody, DeviceRead, DeviceUpdateBody, PairStartResponse } from '@/types/api'
+import type {
+  BulkAssignPlaylistBody,
+  BulkAssignPlaylistResponse,
+  ClaimBody,
+  DeviceRead,
+  DeviceUpdateBody,
+  PairStartResponse,
+} from '@/types/api'
 
 /**
  * The CMS side only. `/devices/pair` and `/devices/pair/{token}` belong to the device
@@ -14,6 +21,9 @@ export function useDeviceApi() {
     claim: (body: ClaimBody) => request<DeviceRead>('POST', '/devices/claim', body),
     update: (id: string, body: DeviceUpdateBody) =>
       request<DeviceRead>('PATCH', `/devices/${id}`, body),
+    /** One playlist across many screens in a single request/transaction. */
+    bulkAssignPlaylist: (body: BulkAssignPlaylistBody) =>
+      request<BulkAssignPlaylistResponse>('POST', '/devices/bulk-assign-playlist', body),
     /** Revokes the token and returns a fresh pairing code — the screen falls back to
      *  showing it, same as a first boot. */
     unpair: (id: string) => request<PairStartResponse>('POST', `/devices/${id}/unpair`),
