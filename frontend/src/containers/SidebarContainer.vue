@@ -48,6 +48,18 @@ const LINKS = [
           Users
         </router-link>
       </li>
+      <li>
+        <a
+          href="https://docs-production-9a3e.up.railway.app"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm text-ink-muted
+                 transition-colors duration-150 hover:bg-surface hover:text-ink"
+        >
+          Documentation
+          <span aria-hidden="true" class="text-ink-subtle">&#8599;</span>
+        </a>
+      </li>
     </ul>
 
     <div class="mt-auto border-t border-line pt-4">
