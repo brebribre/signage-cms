@@ -7,6 +7,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,16 +18,25 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -261,7 +271,7 @@ fun StartingScreen() {
  * front of with no keyboard and no logcat.
  */
 @Composable
-fun DebugOverlay(info: DebugInfo) {
+fun DebugOverlay(info: DebugInfo, onExitRequested: () -> Unit = {}) {
     Box(Modifier.fillMaxSize().background(Color(0xE6101111)), contentAlignment = Alignment.Center) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             DebugRow("device", info.deviceName ?: "—")
@@ -274,10 +284,19 @@ fun DebugOverlay(info: DebugInfo) {
             DebugRow("kiosk", info.kiosk)
             DebugRow("last error", info.lastError ?: "none")
             Text(
+                "Exit kiosk",
+                color = InkInverse,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier
+                    .padding(top = 16.dp)
+                    .clickable(onClick = onExitRequested),
+            )
+            Text(
                 "Long-press again to dismiss",
                 color = InkMuted,
                 fontSize = 14.sp,
-                modifier = Modifier.padding(top = 16.dp),
+                modifier = Modifier.padding(top = 6.dp),
             )
         }
     }
@@ -294,4 +313,37 @@ private fun Row2(label: String, value: String) {
         Text(label.padEnd(12), color = InkMuted, fontSize = 18.sp)
         Text(value, color = InkInverse, fontSize = 18.sp)
     }
+}
+
+/**
+ * Gates "Exit kiosk" behind the CMS-configured PIN (`ManifestSettings.appPassword`).
+ * `MainActivity` only shows this when a PIN is actually set — an unset PIN exits immediately,
+ * with nothing to enter here.
+ */
+@Composable
+fun ExitPinDialog(error: Boolean, onSubmit: (String) -> Unit, onDismiss: () -> Unit) {
+    var pin by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Enter PIN to exit") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = pin,
+                    onValueChange = { pin = it },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                )
+                if (error) {
+                    Text(
+                        "Incorrect PIN", color = Color(0xFFB3261E), fontSize = 13.sp,
+                        modifier = Modifier.padding(top = 6.dp),
+                    )
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { onSubmit(pin) }) { Text("Exit") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
 }

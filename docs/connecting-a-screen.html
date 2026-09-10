@@ -106,14 +106,45 @@
           once per screen.
         </p>
 
-        <h3 class="substep">Step 1: Install the app</h3>
+        <h3 class="substep">Step 1: Allow the APK to install</h3>
+        <p class="lede">
+          Google Play Protect blocks installing an APK that did not come from the Play
+          Store by default. Turn this off once per device before attempting either install
+          method below — otherwise the install is silently blocked or flagged as harmful.
+        </p>
+        <div class="callout">
+          <span class="mark">Skip if</span>
+          <p>
+            You're going straight to Device Owner setup (Step 4). That flow factory resets
+            the device and installs over <code>adb install</code>, which isn't gated by
+            Play Protect's unknown-sources restriction the way a browser or file-manager
+            install is — and a freshly reset device has no signed-in Google account to
+            reach this setting with anyway.
+          </p>
+        </div>
+        <ol class="steps">
+          <li><div class="step-body">Open the <b>Google Play Store</b> app on the device.</div></li>
+          <li><div class="step-body">Tap the profile icon, top right.</div></li>
+          <li><div class="step-body">Tap <b>Play Protect</b>.</div></li>
+          <li><div class="step-body">Tap the gear/settings icon, top right of the Play Protect screen.</div></li>
+          <li><div class="step-body">
+            Turn off <b>Scan apps with Play Protect</b>.
+            <span class="step-note">Wording and navigation vary slightly by Play Store
+            version — look for anything mentioning scanning or blocking apps installed
+            from outside the Play Store.</span>
+          </div></li>
+        </ol>
+
+        <h3 class="substep" style="margin-top: 32px;">Step 2: Install the app</h3>
 
         <div class="callout" style="align-items: center;">
           <a class="btn" href="https://signage-cms-production.up.railway.app/player/download" download>
             Download latest APK
           </a>
           <p>Always the current build. Open this link on the device's own browser for Method B
-            below, or on your computer for Method A.</p>
+            below, or on your computer for Method A.
+            <a href="https://signage-cms-production.up.railway.app/player/versions">Looking for
+            an older build?</a></p>
         </div>
 
         <p class="lede" style="margin-top: 20px;">Choose one of the following two methods.</p>
@@ -144,7 +175,7 @@
           <li><div class="step-body">Allow "Install from unknown sources" when prompted.</div></li>
         </ol>
 
-        <h3 class="substep">Step 2: Choose a kiosk level</h3>
+        <h3 class="substep">Step 3: Choose a kiosk level</h3>
         <p class="lede">
           A plain install keeps the screen awake and hides the system bars, but the Home
           button still exits the app. Three levels are available, in order of strength.
@@ -168,14 +199,14 @@
               </tr>
               <tr>
                 <td>Device Owner mode</td>
-                <td>See Step 3 below</td>
+                <td>See Step 4 below</td>
                 <td>Recommended. Cannot be exited. Required for silent updates and automatic restart after a power loss.</td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        <h3 class="substep">Step 3: Set up Device Owner mode (recommended)</h3>
+        <h3 class="substep">Step 4: Set up Device Owner mode (recommended)</h3>
 
         <div class="callout warn">
           <span class="mark">Prerequisite</span>

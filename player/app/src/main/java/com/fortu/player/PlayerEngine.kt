@@ -5,6 +5,7 @@ import com.fortu.player.api.HeartbeatRequest
 import com.fortu.player.api.HeartbeatScreen
 import com.fortu.player.api.Manifest
 import com.fortu.player.api.ManifestItem
+import com.fortu.player.api.ManifestSettings
 import com.fortu.player.api.PlayReport
 import com.fortu.player.api.UnauthorizedException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -104,6 +105,10 @@ class PlayerEngine(
     /** Injected so tests can assert on it without a device-owner check. */
     private val canSelfUpdate: () -> Boolean = { false },
     private val installUpdate: (String) -> Boolean = { false },
+    /** The real side effects of volume/brightness (`AudioManager`, `Settings.System`) live in
+     *  `kiosk/DeviceSettingsApplier.kt`, not here — same reasoning as `installUpdate` above:
+     *  this class has no Android dependencies, so anything that needs one is a callback. */
+    private val applySettings: (ManifestSettings) -> Unit = {},
     /** Where blocking work runs. Injected so tests can supply the test scheduler's
      *  dispatcher — with a hard-coded `Dispatchers.IO` the download and state-transition work
      *  escapes virtual time entirely and assertions race it. */
@@ -118,6 +123,12 @@ class PlayerEngine(
 
     private val _debug = MutableStateFlow(DebugInfo(apiBaseUrl = apiBaseUrl))
     val debug = _debug.asStateFlow()
+
+    /** Exposed separately from [DebugInfo] because the exit-PIN dialog needs to read
+     *  `appPassword` directly — that one is compared by the UI, not applied as a side
+     *  effect, so it has nowhere else to live. */
+    private val _settings = MutableStateFlow(ManifestSettings())
+    val settings = _settings.asStateFlow()
 
     private var screenWidth = 0
     private var screenHeight = 0
@@ -418,10 +429,17 @@ class PlayerEngine(
             it.copy(deviceName = manifest.device.name, version = manifest.version,
                     itemCount = playable.size, schedule = manifest.scheduleName)
         }
+        // Re-applied on the disk-restore path too, not just after a live poll: a screen
+        // rebooting must come back at its configured volume/brightness immediately, not sit
+        // at system defaults until the first network round trip lands.
+        _settings.value = manifest.settings
+        applySettings(manifest.settings)
     }
 
     private suspend fun applyManifest(manifest: Manifest) = withContext(io) {
         validUntilMillis = parseInstantMillis(manifest.validUntil)
+        _settings.value = manifest.settings
+        applySettings(manifest.settings)
         _debug.update {
             it.copy(
                 deviceName = manifest.device.name,

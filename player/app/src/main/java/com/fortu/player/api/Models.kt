@@ -55,6 +55,27 @@ data class ManifestItem(
     @SerialName("has_audio") val hasAudio: Boolean = false,
 )
 
+/**
+ * Remotely-configured values from the CMS's device-settings registry (backend
+ * `services/device_settings.py`). Typed fields for what this build knows how to apply —
+ * `touchscreen_disabled` and `power_schedule` arrive in the same JSON object but have no
+ * field here yet, so `ignoreUnknownKeys` on the shared [kotlinx.serialization.json.Json]
+ * instance just drops them; they cost nothing to add later, the same way every field below
+ * did.
+ */
+@Serializable
+data class ManifestSettings(
+    /** 0-100. Applied to `STREAM_MUSIC` — see `kiosk/DeviceSettingsApplier.kt`. */
+    val volume: Int? = null,
+    /** 0-100. Requires Device Owner to actually take effect; degrades to a no-op otherwise,
+     *  same as everything else in `kiosk/`. */
+    val brightness: Int? = null,
+    /** The PIN required to exit kiosk mode from the debug overlay. Null or blank means no
+     *  PIN is configured, and exit is unguarded. Compared in `MainActivity`, never applied
+     *  as a system side effect like the two above. */
+    @SerialName("app_password") val appPassword: String? = null,
+)
+
 @Serializable
 data class Manifest(
     val version: String,
@@ -69,6 +90,10 @@ data class Manifest(
      *  than its usual interval when a boundary is closer, so a daypart change lands on time
      *  rather than up to a full poll late. */
     @SerialName("valid_until") val validUntil: String? = null,
+    /** Defaulted for the same version-skew reason as every field above: an older backend
+     *  that predates settings entirely sends no key, and this becomes "nothing configured"
+     *  rather than a parse failure. */
+    val settings: ManifestSettings = ManifestSettings(),
 )
 
 @Serializable

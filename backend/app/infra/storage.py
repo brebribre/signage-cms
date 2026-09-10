@@ -69,6 +69,17 @@ def presign_get(key: str, ttl: int | None = None) -> str:
     )
 
 
+def list_objects(prefix: str) -> list[dict]:
+    """Every object under a prefix — key, size, last-modified. Paginated automatically; a
+    folder of APK builds will never be large enough for pagination to matter in practice, but
+    a silently-truncated first page hiding an old build would be worse than the extra call."""
+    paginator = _client().get_paginator("list_objects_v2")
+    out: list[dict] = []
+    for page in paginator.paginate(Bucket=get_settings().r2_bucket, Prefix=prefix):
+        out.extend(page.get("Contents", []))
+    return out
+
+
 def head_object(key: str) -> dict | None:
     """Object metadata, or None if it is not there. Used to confirm an upload really landed."""
     try:

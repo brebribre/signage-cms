@@ -3,6 +3,7 @@ package com.fortu.player
 import android.os.Build
 import android.content.pm.ActivityInfo
 import android.os.Bundle
+import android.util.Log
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -25,6 +26,7 @@ import com.fortu.player.kiosk.KioskPolicy
 import com.fortu.player.playback.PlaybackSurface
 import com.fortu.player.ui.ClaimedScreen
 import com.fortu.player.ui.DebugOverlay
+import com.fortu.player.ui.ExitPinDialog
 import com.fortu.player.ui.IdleScreen
 import com.fortu.player.ui.PairingScreen
 import com.fortu.player.ui.PreparingScreen
@@ -59,7 +61,10 @@ class MainActivity : ComponentActivity() {
         setContent {
             val state by vm.state.collectAsState()
             val debug by vm.debug.collectAsState()
+            val settings by vm.settings.collectAsState()
             var showDebug by remember { mutableStateOf(false) }
+            var showExitPin by remember { mutableStateOf(false) }
+            var exitPinError by remember { mutableStateOf(false) }
 
             Box(
                 Modifier
@@ -106,8 +111,45 @@ class MainActivity : ComponentActivity() {
                         onPlaybackError = vm::reportError,
                     )
                 }
-                if (showDebug) DebugOverlay(debug)
+                if (showDebug) {
+                    DebugOverlay(
+                        debug,
+                        onExitRequested = {
+                            val pin = settings.appPassword
+                            if (pin.isNullOrBlank()) {
+                                exitKiosk()
+                                showDebug = false
+                            } else {
+                                exitPinError = false
+                                showExitPin = true
+                            }
+                        },
+                    )
+                }
+                if (showExitPin) {
+                    ExitPinDialog(
+                        error = exitPinError,
+                        onDismiss = { showExitPin = false },
+                        onSubmit = { entered ->
+                            if (entered == settings.appPassword) {
+                                showExitPin = false
+                                showDebug = false
+                                exitKiosk()
+                            } else {
+                                exitPinError = true
+                            }
+                        },
+                    )
+                }
             }
         }
+    }
+
+    /** Lifts lock task mode so the device's normal navigation becomes reachable again — the
+     *  one exit this app has. A no-op, logged rather than crashing, when the device was never
+     *  in lock task to begin with (not Device Owner, or already out of it). */
+    private fun exitKiosk() {
+        runCatching { stopLockTask() }
+            .onFailure { Log.w("FortuPlayer", "stopLockTask failed", it) }
     }
 }

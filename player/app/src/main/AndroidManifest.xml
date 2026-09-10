@@ -8,6 +8,12 @@
     <!-- Silent self-update as Device Owner (Phase 12c). Harmless on a non-owner install,
          where SelfUpdater declines to run at all. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Remote brightness (kiosk/DeviceSettingsApplier.kt). Declaring it doesn't grant it —
+         a non-owner install still can't write SCREEN_BRIGHTNESS without a trip through the
+         system's "Modify system settings" screen, which nothing here drives it through, so
+         brightness only actually applies on a Device Owner install, same as everything else
+         gated by KioskPolicy.isDeviceOwner. -->
+    <uses-permission android:name="android.permission.WRITE_SETTINGS" />
 
     <application
         android:allowBackup="false"

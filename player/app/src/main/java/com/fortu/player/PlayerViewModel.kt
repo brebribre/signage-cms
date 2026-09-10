@@ -7,6 +7,7 @@ import com.fortu.player.api.ApiClient
 import com.fortu.player.api.ManifestItem
 import com.fortu.player.data.DeviceStore
 import com.fortu.player.data.MediaCache
+import com.fortu.player.kiosk.DeviceSettingsApplier
 import com.fortu.player.kiosk.SelfUpdater
 import com.fortu.player.push.MqttPushClient
 import kotlinx.coroutines.Dispatchers
@@ -38,11 +39,15 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         apiBaseUrl = BuildConfig.API_BASE_URL,
         canSelfUpdate = { SelfUpdater.isSupported(app) },
         installUpdate = { url -> SelfUpdater.downloadAndInstall(app, api.http, url) },
+        applySettings = { settings -> DeviceSettingsApplier.apply(app, settings) },
         push = push,
     )
 
     val state = engine.state
     val debug = engine.debug
+    /** Read by the exit-PIN dialog in MainActivity — `settings.appPassword` is the current
+     *  configured PIN, or null/blank when exit isn't guarded. */
+    val settings = engine.settings
 
     fun setScreenSize(w: Int, h: Int) = engine.setScreenSize(w, h)
     fun setKioskState(description: String) = engine.setKioskState(description)
