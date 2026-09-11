@@ -47,6 +47,15 @@ def _validate_touchscreen_disabled(value: Any) -> bool:
     return value
 
 
+def _validate_power_on(value: Any) -> bool:
+    """A direct, unscheduled override — set the screen's power state right now, independent
+    of `power_schedule`. Exists mainly to test the underlying power control in isolation from
+    the day/time logic layered on top of it."""
+    if not isinstance(value, bool):
+        raise InvalidSetting("power_on must be true or false")
+    return value
+
+
 def _validate_app_password(value: Any) -> str:
     # A PIN typed on the device's own screen to exit the player app, not an account
     # credential — no hashing here, the device needs the plaintext to compare against.
@@ -93,6 +102,7 @@ VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "touchscreen_disabled": _validate_touchscreen_disabled,
     "app_password": _validate_app_password,
     "power_schedule": _validate_power_schedule,
+    "power_on": _validate_power_on,
 }
 
 

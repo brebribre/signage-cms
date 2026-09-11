@@ -26,7 +26,7 @@ interface PowerScheduleValue {
  */
 type SettingSpec =
   | { key: string; label: string; description: string; kind: 'slider'; min: number; max: number; unit?: string }
-  | { key: string; label: string; description: string; kind: 'toggle' }
+  | { key: string; label: string; description: string; kind: 'toggle'; onLabel?: string; offLabel?: string }
   | { key: string; label: string; description: string; kind: 'text'; mask?: boolean; maxLength?: number }
   | { key: string; label: string; description: string; kind: 'power_schedule' }
 
@@ -50,6 +50,10 @@ const SETTINGS: SettingSpec[] = [
   {
     key: 'power_schedule', label: 'Power on/off', kind: 'power_schedule',
     description: 'Turn the screen hardware on and off automatically, on its own days and times.',
+  },
+  {
+    key: 'power_on', label: 'Power (manual)', kind: 'toggle', onLabel: 'On', offLabel: 'Off',
+    description: 'Direct override, ignoring the schedule above — for testing power control itself.',
   },
 ]
 
@@ -175,7 +179,7 @@ async function onSaveAll() {
                   @change="onToggle(spec, $event)"
                 />
                 <span class="text-[13px] text-ink-muted">
-                  {{ draftValue(spec) ? 'Disabled' : 'Enabled' }}
+                  {{ draftValue(spec) ? (spec.onLabel ?? 'Disabled') : (spec.offLabel ?? 'Enabled') }}
                 </span>
               </label>
 

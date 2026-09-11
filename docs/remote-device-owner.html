@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Remote Device Owner Setup &middot; Fortu CMS Docs</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+
+  <div class="shell">
+  <aside class="sidebar">
+    <a class="wordmark" href="/">FORTU <span>DOCS</span></a>
+    <nav class="side-nav">
+      <span class="side-nav-label">Guides</span>
+      <a href="/connecting-a-screen.html">Connecting a Screen</a>
+      <a href="/remote-device-owner.html" aria-current="page">Remote Device Owner Setup</a>
+      <a href="/instant-updates.html">Instant Updates</a>
+    </nav>
+  </aside>
+
+  <div class="page">
+
+    <div class="hero">
+      <div class="eyebrow"><b>FORTU</b>&nbsp;CMS &middot; Setup guide</div>
+      <h1>Remote Device Owner Setup</h1>
+      <p class="dek">
+        Granting Device Owner status to a screen over Wi-Fi, with no USB cable and no
+        factory reset. Use this for a screen that's already running Fortu Player and is
+        reachable on the network, but was never provisioned as Device Owner.
+      </p>
+    </div>
+
+    <div class="callout warn">
+      <span class="mark">When to use this</span>
+      <p>
+        Setting up a brand new device? Use <a href="/connecting-a-screen.html#installing">Set
+        up new hardware</a> instead &mdash; a factory reset plus USB is simpler and more
+        reliable when you're starting from nothing. This guide is for a screen you already
+        have running, in place, that you now want to upgrade to full kiosk mode remotely.
+      </p>
+    </div>
+
+    <section>
+      <div class="section-head"><h2>Step 1: Install adb</h2></div>
+      <div class="section-body">
+        <p class="lede">On your computer, not the device. One-time setup.</p>
+        <pre><code>brew install --cask android-platform-tools</code></pre>
+        <p class="lede" style="margin-top: 12px;">Confirm it installed:</p>
+        <pre><code>adb version</code></pre>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head"><h2>Step 2: Connect to the device over Wi-Fi</h2></div>
+      <div class="section-body">
+        <p class="lede">
+          The device must already be network-debuggable. If it was ever connected over USB
+          before with <code>adb tcpip 5555</code> run against it, it may already be
+          listening &mdash; try connecting directly first:
+        </p>
+        <pre><code>adb connect &lt;device-ip&gt;:5555</code></pre>
+        <div class="callout">
+          <span class="mark">Note</span>
+          <p>
+            Get the device's IP from Settings &gt; Wi-Fi &gt; tap the connected network
+            &gt; Details. If the connect above succeeds immediately, skip to Step 3.
+          </p>
+        </div>
+
+        <p class="lede" style="margin-top: 24px;">
+          If that fails, the device needs Wireless debugging turned on first &mdash;
+          <b>Android 11 or newer only</b>.
+        </p>
+        <ol class="steps">
+          <li><div class="step-body">On the device: Settings &gt; About &gt; tap Build number 7 times to enable Developer options.</div></li>
+          <li><div class="step-body">Settings &gt; Developer options &gt; <b>Wireless debugging</b> &mdash; turn it on.
+            <span class="step-note">Tap the words "Wireless debugging" itself, not just its toggle, to open the detail screen &mdash; the pairing option below only appears there.</span>
+          </div></li>
+          <li><div class="step-body">Tap <b>Pair device with pairing code</b>. It shows a 6-digit code and an IP:port.</div></li>
+          <li><div class="step-body">From your computer, on the same Wi-Fi network:
+            <pre><code>adb pair &lt;ip&gt;:&lt;pairing-port&gt;</code></pre>
+            Enter the 6-digit code when prompted.
+            <span class="step-note">Using zsh? Quote any glob-like argument
+            (<code>"FortuPlayer:*"</code> later in this guide, for example) &mdash; zsh
+            expands an unquoted <code>*</code> itself and fails with "no matches found"
+            before adb ever sees it.</span>
+          </div></li>
+          <li><div class="step-body">
+            Go back to the main Wireless debugging screen &mdash; it now shows a second,
+            different IP:port. Use that one to actually connect:
+            <pre><code>adb connect &lt;ip&gt;:&lt;connect-port&gt;</code></pre>
+          </div></li>
+        </ol>
+
+        <div class="callout warn">
+          <span class="mark">Android 10 or older</span>
+          <p>
+            Wireless debugging doesn't exist on these versions &mdash; there's no way to
+            enable network adb without touching a cable at least once. Connect the device
+            over USB and run <code>adb tcpip 5555</code> once, then unplug. It listens over
+            the network on port 5555 until the next reboot. From there, connect with
+            <code>adb connect &lt;device-ip&gt;:5555</code> as in the first box above.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head"><h2>Step 3: Remove any accounts on the device</h2></div>
+      <div class="section-body">
+        <p class="lede">
+          Device Owner can only be granted to a device with zero accounts &mdash; Google,
+          Samsung, work, anything. This is the single most common failure at the next step.
+        </p>
+        <p class="lede">Check what's there:</p>
+        <pre><code>adb shell dumpsys account | grep "Account {"</code></pre>
+        <p class="lede" style="margin-top: 12px;">
+          If anything is listed, remove it on the device: Settings &gt; Accounts &gt; tap
+          each account &gt; Remove account.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head"><h2>Step 4: Grant Device Owner</h2></div>
+      <div class="section-body">
+        <pre><code>adb shell dpm set-device-owner \
+  com.fortu.player/com.fortu.player.kiosk.DeviceAdminReceiver</code></pre>
+        <div class="callout warn">
+          <span class="mark">If this fails</span>
+          <p>
+            <code>IllegalStateException: Not allowed to set the device owner because there
+            are already some accounts on the device</code> means Step 3 wasn't complete.
+            Remove the remaining account and retry &mdash; no reboot needed.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head"><h2>Step 5: Restart the app</h2></div>
+      <div class="section-body">
+        <p class="lede">
+          Kiosk features check Device Owner status at startup, so an already-running
+          instance won't pick up the change on its own.
+        </p>
+        <pre><code>adb shell am force-stop com.fortu.player
+adb shell monkey -p com.fortu.player -c android.intent.category.LAUNCHER 1</code></pre>
+        <p class="lede" style="margin-top: 12px;">A reboot works just as well, if that's easier.</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head"><h2>Step 6: Verify</h2></div>
+      <div class="section-body">
+        <p class="lede">
+          Long press anywhere on the screen to open the diagnostics overlay. Confirm it
+          reads <code>device owner (full kiosk)</code>, not
+          <code>not owner (screen pinning only)</code>.
+        </p>
+        <div class="callout">
+          <span class="mark">Note</span>
+          <p>
+            From here on, silent self-updates and automatic recovery after a power loss
+            both work the same as a device provisioned via factory reset + USB. Device Owner
+            status cannot be removed with an adb command &mdash; to reuse this device for
+            something else later, factory reset it.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <span>Fortu CMS</span>
+      <span>Internal documentation. Share with anyone setting up a screen.</span>
+    </footer>
+
+  </div>
+  </div>
+
+</body>
+</html>

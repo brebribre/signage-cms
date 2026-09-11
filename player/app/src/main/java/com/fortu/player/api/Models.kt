@@ -74,6 +74,10 @@ data class ManifestSettings(
      *  PIN is configured, and exit is unguarded. Compared in `MainActivity`, never applied
      *  as a system side effect like the two above. */
     @SerialName("app_password") val appPassword: String? = null,
+    /** A direct, unscheduled override of the screen's power state — see
+     *  `kiosk/DeviceSettingsApplier.applyPower`. Independent of `power_schedule`, which this
+     *  build does not apply at all yet. */
+    @SerialName("power_on") val powerOn: Boolean? = null,
 )
 
 @Serializable
