@@ -32,6 +32,7 @@ import com.fortu.player.ui.PairingScreen
 import com.fortu.player.ui.PreparingScreen
 import com.fortu.player.ui.StartingScreen
 import com.fortu.player.ui.TroubleScreen
+import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
     private val vm: PlayerViewModel by viewModels()
@@ -104,6 +105,16 @@ class MainActivity : ComponentActivity() {
                         }
                         if (locked) runCatching { startLockTask() }
                         appliedOrientation = orientation
+                    }
+                }
+
+                // Nobody is meant to leave this open — it's a diagnostics view, not a mode.
+                // Restarted whenever showExitPin changes too, so entering a PIN doesn't get
+                // cut off mid-entry by the same countdown that dismisses an idle overlay.
+                LaunchedEffect(showDebug, showExitPin) {
+                    if (showDebug && !showExitPin) {
+                        delay(10_000)
+                        showDebug = false
                     }
                 }
 
