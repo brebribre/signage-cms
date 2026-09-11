@@ -19,10 +19,8 @@ private const val TAG = "FortuUpdater"
  * playing — strictly worse than not updating at all. So this checks first and declines to
  * start rather than half-doing it.
  *
- * Not wired to a trigger yet: the backend has no `apk_url` in its heartbeat response (that is
- * the remaining half of Phase 12c, and it needs a decision about where APKs are hosted). The
- * mechanism is here and testable so that adding the trigger later is a small change rather
- * than a new subsystem.
+ * Triggered from `PlayerEngine.maybeSelfUpdate`, off `HeartbeatResponse.update` — see that
+ * function for the retry/backoff policy around a failed attempt.
  */
 object SelfUpdater {
 

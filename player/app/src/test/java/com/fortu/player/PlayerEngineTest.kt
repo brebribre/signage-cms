@@ -396,7 +396,8 @@ class PlayerEngineTest {
 
     @Test
     fun `a failed update is not retried on every heartbeat`() = runTest {
-        // Otherwise a bad APK becomes a 30-second re-download loop.
+        // Otherwise a bad APK becomes a 30-second re-download loop. It does back off and
+        // retry eventually (PlayerEngine.UPDATE_RETRY_COOLDOWN_MILLIS) — just not this fast.
         var installs = 0
         val store = FakeStore(storedToken = "t")
         val api = FakeApi().apply {
@@ -414,7 +415,39 @@ class PlayerEngineTest {
         val job = launch { e.run() }
         advanceTimeBy(180_000)
 
-        assertEquals("one attempt per app run", 1, installs)
+        assertEquals("no retry within the cooldown window", 1, installs)
+        job.cancelAndJoin()
+    }
+
+    @Test
+    fun `a different version is retried immediately, even mid-cooldown`() = runTest {
+        // A newer rollout (or a rollback) after a failed attempt must not sit behind the
+        // cooldown meant for retrying the *same* failed download.
+        var installs = 0
+        val store = FakeStore(storedToken = "t")
+        val api = FakeApi().apply {
+            manifest = manifest()
+            heartbeatResponse = com.fortu.player.api.HeartbeatResponse(
+                version = "v1",
+                update = com.fortu.player.api.UpdateInfo("2.0.0", "https://fake/app.apk"),
+            )
+        }
+        val e = engine(
+            api = api, store = store,
+            canSelfUpdate = { true },
+            installUpdate = { installs++; false },
+        )
+        val job = launch { e.run() }
+        advanceTimeBy(35_000)
+        assertEquals(1, installs)
+
+        api.heartbeatResponse = com.fortu.player.api.HeartbeatResponse(
+            version = "v1",
+            update = com.fortu.player.api.UpdateInfo("2.0.1", "https://fake/app2.apk"),
+        )
+        advanceTimeBy(35_000)
+
+        assertEquals("2.0.1 is a different download than the one that just failed", 2, installs)
         job.cancelAndJoin()
     }
 

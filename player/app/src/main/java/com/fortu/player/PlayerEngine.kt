@@ -136,10 +136,13 @@ class PlayerEngine(
     private var screenWidth = 0
     private var screenHeight = 0
 
-    /** One install attempt per process. Without this a failing install would be retried on
-     *  every heartbeat — a screen re-downloading an APK every 30 seconds forever, which is
-     *  worse than simply not updating. A restart is a deliberate second chance. */
-    private var updateAttempted = false
+    /** The version a self-update last failed for, and when — so a failure backs off instead
+     *  of re-downloading the APK on every 30-second heartbeat forever, but still gets retried
+     *  after [UPDATE_RETRY_COOLDOWN_MILLIS] rather than silently giving up until someone
+     *  physically restarts the screen. A *different* version (a newer rollout, or a rollback)
+     *  is always attempted immediately, cooldown or not — it is a different download, not a
+     *  repeat of the one that just failed. */
+    private var lastFailedUpdate: Pair<String, Long>? = null
 
     /** When the current schedule window ends, as epoch millis. The poll interval is
      *  shortened to land on it. */
@@ -513,21 +516,29 @@ class PlayerEngine(
      * Silently declines on anything that isn't Device Owner. That is not a failure worth
      * surfacing on screen: a sideloaded or development install simply updates by hand, and
      * the alternative — the system's confirmation dialog — would park the screen on a prompt
-     * nobody is standing in front of.
+     * nobody is standing in front of. That check is re-run every time rather than cached,
+     * since it is a cheap local call and Device Owner status cannot change without a restart
+     * anyway.
      */
     private fun maybeSelfUpdate(version: String, url: String) {
-        if (updateAttempted) return
         if (!canSelfUpdate()) {
             Log.i(TAG, "update $version available but this device cannot install silently")
-            updateAttempted = true
             return
         }
-        updateAttempted = true
+        val lastFailure = lastFailedUpdate
+        if (lastFailure != null && lastFailure.first == version &&
+            System.currentTimeMillis() - lastFailure.second < UPDATE_RETRY_COOLDOWN_MILLIS
+        ) {
+            return
+        }
         Log.i(TAG, "installing update $version")
         _debug.update { it.copy(lastError = "installing update $version…") }
         val ok = installUpdate(url)
-        if (!ok) {
-            _debug.update { it.copy(lastError = "update $version failed — see logcat") }
+        if (ok) {
+            lastFailedUpdate = null
+        } else {
+            lastFailedUpdate = version to System.currentTimeMillis()
+            _debug.update { it.copy(lastError = "update $version failed — retrying later") }
         }
     }
 
@@ -565,6 +576,12 @@ class PlayerEngine(
 
         /** Never poll faster than this, whatever a boundary says. */
         const val MIN_POLL_MILLIS = 2_000L
+
+        /** How long a failed self-update backs off before retrying the *same* version — long
+         *  enough that a persistent failure (bad wifi, a bad build) doesn't re-download the
+         *  APK on every 30-second heartbeat forever, short enough that a transient failure
+         *  recovers on its own well within a support call. */
+        const val UPDATE_RETRY_COOLDOWN_MILLIS = 10 * 60 * 1000L
 
         /** Consecutive 401s before a screen gives up its pairing. Three confirms a genuine
          *  revocation rather than one stray rejection costing somebody a trip to the screen. */
