@@ -45,12 +45,32 @@ class ManifestSlot(BaseModel):
     elements: list[ManifestElement]
 
 
+class ManifestItem(BaseModel):
+    """The flat shape the player app actually deserializes (`Models.kt`'s `ManifestItem`) —
+    one element per slot, everything about it lifted onto the slot itself. The player predates
+    the multi-element scene model `ManifestSlot`/`ManifestElement` above were built for, and
+    was never updated to render more than one layer per item, so a slot with more than one
+    element degrades to its first (paint-order) element rather than being dropped outright —
+    the common case (every slot today has exactly one) plays correctly either way."""
+
+    id: uuid.UUID
+    media_id: uuid.UUID
+    kind: MediaKind
+    url: str
+    checksum: str
+    bytes: int
+    duration_seconds: int
+    fit: ItemFit
+    has_audio: bool
+
+
 class ManifestResponse(BaseModel):
     version: str
     device: ManifestDevice
     # None, not a 404: an unassigned screen is a valid state, not an error.
     playlist: ManifestPlaylist | None
-    slots: list[ManifestSlot]
+    # Named to match what `Models.kt` actually deserializes — see `ManifestItem`'s docstring.
+    items: list[ManifestItem]
     # The schedule currently overriding the default, if any.
     schedule_name: str | None = None
     # ISO-8601 UTC. The device re-polls at this moment rather than on its next 30s tick, so a

@@ -14,10 +14,9 @@ from app.schemas.device_sync import (
     HeartbeatRequest,
     HeartbeatResponse,
     ManifestDevice,
-    ManifestElement,
+    ManifestItem,
     ManifestPlaylist,
     ManifestResponse,
-    ManifestSlot,
     UpdateInfo,
 )
 from app.services import device_sync, operations
@@ -66,13 +65,23 @@ def get_manifest(device: CurrentDevice, session: DbSession, request: Request) ->
         version=manifest.version,
         device=ManifestDevice(name=manifest.device_name, orientation=manifest.device_orientation),
         playlist=ManifestPlaylist(**manifest.playlist.__dict__) if manifest.playlist else None,
-        slots=[
-            ManifestSlot(
+        # Flattened to the one-element-per-slot shape the player actually deserializes — see
+        # `ManifestItem`'s docstring. A slot with no elements has nothing to play and is
+        # dropped rather than sent as an empty/broken item.
+        items=[
+            ManifestItem(
                 id=slot.id,
+                media_id=slot.elements[0].media_id,
+                kind=slot.elements[0].kind,
+                url=slot.elements[0].url,
+                checksum=slot.elements[0].checksum,
+                bytes=slot.elements[0].bytes,
                 duration_seconds=slot.duration_seconds,
-                elements=[ManifestElement(**el.__dict__) for el in slot.elements],
+                fit=slot.elements[0].fit,
+                has_audio=slot.elements[0].has_audio,
             )
             for slot in manifest.slots
+            if slot.elements
         ],
         schedule_name=manifest.schedule_name,
         valid_until=manifest.valid_until,

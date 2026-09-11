@@ -65,6 +65,7 @@ class MainActivity : ComponentActivity() {
             var showDebug by remember { mutableStateOf(false) }
             var showExitPin by remember { mutableStateOf(false) }
             var exitPinError by remember { mutableStateOf(false) }
+            var appliedOrientation by remember { mutableStateOf<String?>(null) }
 
             Box(
                 Modifier
@@ -85,13 +86,24 @@ class MainActivity : ComponentActivity() {
                         is PlayerState.Idle -> s.orientation
                         else -> null
                     }
-                    requestedOrientation = when (orientation) {
-                        "portrait" -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-                        "landscape" -> ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-                        // Before the first manifest arrives, leave it to the hardware: a
-                        // pairing code is legible either way, and forcing a guess would make
-                        // the screen visibly flip once the real value lands.
-                        else -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                    if (orientation != appliedOrientation) {
+                        // Lock Task Mode (Device Owner builds only — see KioskPolicy.apply)
+                        // freezes whatever orientation was active when it started and ignores
+                        // requestedOrientation changes after that. Cycling out of and back
+                        // into lock task around the change is the documented workaround; a
+                        // no-op pair of calls on a non-owner build, which was never locked.
+                        val locked = KioskPolicy.isDeviceOwner(this@MainActivity)
+                        if (locked) runCatching { stopLockTask() }
+                        requestedOrientation = when (orientation) {
+                            "portrait" -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                            "landscape" -> ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                            // Before the first manifest arrives, leave it to the hardware: a
+                            // pairing code is legible either way, and forcing a guess would
+                            // make the screen visibly flip once the real value lands.
+                            else -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                        }
+                        if (locked) runCatching { startLockTask() }
+                        appliedOrientation = orientation
                     }
                 }
 
