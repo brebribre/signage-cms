@@ -86,6 +86,11 @@ data class DebugInfo(
     val kiosk: String = "unknown",
     /** Which schedule is overriding the default right now, if any. */
     val schedule: String? = null,
+    /** Where the most recent self-update attempt (automatic or manually requested from the
+     *  debug overlay) stands — "no update available", "installing 2.0.0…", a failure, or null
+     *  before any check has happened yet. Separate from [lastError], which is sync/poll
+     *  failures — conflating the two made a successful "up to date" read as an error. */
+    val updateStatus: String? = null,
 )
 
 
@@ -511,15 +516,31 @@ class PlayerEngine(
     }
 
     /**
-     * Install a published build over ourselves, if this screen is provisioned to do so.
+     * Install a published build over ourselves, if this screen is provisioned to do so —
+     * called both off the regular heartbeat (cooldown-gated, see [maybeSelfUpdate]) and from
+     * [checkForUpdateNow] (a human standing at the screen, who does not want to hear "try
+     * again in ten minutes").
      *
      * Silently declines on anything that isn't Device Owner. That is not a failure worth
      * surfacing on screen: a sideloaded or development install simply updates by hand, and
      * the alternative — the system's confirmation dialog — would park the screen on a prompt
-     * nobody is standing in front of. That check is re-run every time rather than cached,
-     * since it is a cheap local call and Device Owner status cannot change without a restart
-     * anyway.
+     * nobody is standing in front of.
      */
+    private fun performInstall(version: String, url: String) {
+        Log.i(TAG, "installing update $version")
+        _debug.update { it.copy(updateStatus = "installing update $version…") }
+        val ok = installUpdate(url)
+        if (ok) {
+            lastFailedUpdate = null
+        } else {
+            lastFailedUpdate = version to System.currentTimeMillis()
+            _debug.update { it.copy(updateStatus = "update $version failed — see logcat") }
+        }
+    }
+
+    /** Called off every heartbeat response. Backs off a failed version for
+     *  [UPDATE_RETRY_COOLDOWN_MILLIS] instead of hammering the same failing download — see
+     *  [checkForUpdateNow] for the version a person can trigger on demand, which skips this. */
     private fun maybeSelfUpdate(version: String, url: String) {
         if (!canSelfUpdate()) {
             Log.i(TAG, "update $version available but this device cannot install silently")
@@ -531,14 +552,54 @@ class PlayerEngine(
         ) {
             return
         }
-        Log.i(TAG, "installing update $version")
-        _debug.update { it.copy(lastError = "installing update $version…") }
-        val ok = installUpdate(url)
-        if (ok) {
-            lastFailedUpdate = null
-        } else {
-            lastFailedUpdate = version to System.currentTimeMillis()
-            _debug.update { it.copy(lastError = "update $version failed — retrying later") }
+        performInstall(version, url)
+    }
+
+    /**
+     * "Check for update" from the debug overlay's long-press menu — the on-screen counterpart
+     * to rolling an update out from the CMS. Sends its own heartbeat rather than waiting for
+     * the next scheduled one, and — unlike [maybeSelfUpdate] — ignores any cooldown from a
+     * previous failed attempt: someone standing at the screen asking for this explicitly is
+     * exactly the moment a ten-minute backoff should not apply.
+     *
+     * Safe to call while the normal poll loop is also running: heartbeats are side-effect-safe
+     * to send more than once, and the pending-plays/errors queues it drains from are already
+     * synchronized against exactly this kind of concurrent access.
+     */
+    suspend fun checkForUpdateNow() {
+        _debug.update { it.copy(updateStatus = "checking for update…") }
+        val token = store.token()
+        if (token == null) {
+            _debug.update { it.copy(updateStatus = "not paired yet") }
+            return
+        }
+        try {
+            // The whole thing — heartbeat and, if there's an update, the download+install —
+            // is blocking I/O, moved off whatever dispatcher the caller (the UI) is on. The
+            // automatic path gets this for free by living inside `syncAndPlay`, which only
+            // ever runs on `io` to begin with.
+            withContext(io) {
+                val res = api.heartbeat(
+                    token,
+                    HeartbeatRequest(
+                        appVersion = appVersion,
+                        screen = if (screenWidth > 0) HeartbeatScreen(screenWidth, screenHeight) else null,
+                    ),
+                )
+                val update = res.update
+                when {
+                    update == null ->
+                        _debug.update { it.copy(updateStatus = "up to date ($appVersion)") }
+                    !canSelfUpdate() ->
+                        _debug.update {
+                            it.copy(updateStatus = "${update.version} available, but this screen can't self-install")
+                        }
+                    else -> performInstall(update.version, update.url)
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "manual update check failed", e)
+            _debug.update { it.copy(updateStatus = "check failed: ${e.message}") }
         }
     }
 

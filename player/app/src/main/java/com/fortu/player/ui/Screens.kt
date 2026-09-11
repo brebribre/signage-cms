@@ -271,7 +271,11 @@ fun StartingScreen() {
  * front of with no keyboard and no logcat.
  */
 @Composable
-fun DebugOverlay(info: DebugInfo, onExitRequested: () -> Unit = {}) {
+fun DebugOverlay(
+    info: DebugInfo,
+    onExitRequested: () -> Unit = {},
+    onCheckUpdateRequested: () -> Unit = {},
+) {
     Box(Modifier.fillMaxSize().background(Color(0xE6101111)), contentAlignment = Alignment.Center) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             DebugRow("device", info.deviceName ?: "—")
@@ -282,14 +286,24 @@ fun DebugOverlay(info: DebugInfo, onExitRequested: () -> Unit = {}) {
             DebugRow("last poll", info.lastPoll)
             DebugRow("schedule", info.schedule ?: "default playlist")
             DebugRow("kiosk", info.kiosk)
+            DebugRow("update", info.updateStatus ?: "not checked")
             DebugRow("last error", info.lastError ?: "none")
+            Text(
+                "Check for update",
+                color = InkInverse,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier
+                    .padding(top = 16.dp)
+                    .clickable(onClick = onCheckUpdateRequested),
+            )
             Text(
                 "Exit kiosk",
                 color = InkInverse,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Medium,
                 modifier = Modifier
-                    .padding(top = 16.dp)
+                    .padding(top = 12.dp)
                     .clickable(onClick = onExitRequested),
             )
             Text(

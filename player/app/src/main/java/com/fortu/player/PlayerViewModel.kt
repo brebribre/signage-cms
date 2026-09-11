@@ -59,6 +59,12 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
      *  file is visible as an error rather than only as a gap someone happens to notice. */
     fun reportError(message: String) = engine.reportError(message)
 
+    /** "Check for update" from the debug overlay — the on-screen counterpart to rolling an
+     *  update out from the CMS, for exactly the situation that motivated it: an update that
+     *  should have landed automatically but has not, and someone is now standing at the
+     *  screen wanting it now rather than on the next scheduled heartbeat. */
+    fun checkForUpdateNow() = viewModelScope.launch(Dispatchers.IO) { engine.checkForUpdateNow() }
+
     /** File resolution stays here: it is an Android storage concern, not state-machine logic. */
     fun localFileFor(item: ManifestItem) = cache.fileFor(item.checksum)
 

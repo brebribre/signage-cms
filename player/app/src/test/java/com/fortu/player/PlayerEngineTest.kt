@@ -451,6 +451,89 @@ class PlayerEngineTest {
         job.cancelAndJoin()
     }
 
+    @Test
+    fun `checking for an update manually reports up to date when there is nothing to install`() = runTest {
+        val api = FakeApi().apply {
+            heartbeatResponse = com.fortu.player.api.HeartbeatResponse(version = "v1", update = null)
+        }
+        val e = engine(api = api, store = FakeStore(storedToken = "t"), canSelfUpdate = { true })
+
+        e.checkForUpdateNow()
+
+        assertEquals("up to date (1.0.0)", e.debug.value.updateStatus)
+    }
+
+    @Test
+    fun `checking for an update manually installs immediately, ignoring any cooldown`() = runTest {
+        // The whole point of the on-screen button: someone standing at the device asking for
+        // this explicitly should never hear "try again in ten minutes."
+        var installs = 0
+        val store = FakeStore(storedToken = "t")
+        val api = FakeApi().apply {
+            manifest = manifest()
+            heartbeatResponse = com.fortu.player.api.HeartbeatResponse(
+                version = "v1",
+                update = com.fortu.player.api.UpdateInfo("2.0.0", "https://fake/app.apk"),
+            )
+        }
+        val e = engine(
+            api = api, store = store,
+            canSelfUpdate = { true },
+            installUpdate = { installs++; false },
+        )
+        val job = launch { e.run() }
+        advanceTimeBy(35_000)
+        assertEquals("the automatic attempt used up the install", 1, installs)
+
+        e.checkForUpdateNow()
+
+        assertEquals("the manual check tried again despite the cooldown", 2, installs)
+        job.cancelAndJoin()
+    }
+
+    @Test
+    fun `checking for an update manually declines on a device that cannot self-install`() = runTest {
+        var installs = 0
+        val api = FakeApi().apply {
+            heartbeatResponse = com.fortu.player.api.HeartbeatResponse(
+                version = "v1",
+                update = com.fortu.player.api.UpdateInfo("2.0.0", "https://fake/app.apk"),
+            )
+        }
+        val e = engine(
+            api = api, store = FakeStore(storedToken = "t"),
+            canSelfUpdate = { false },
+            installUpdate = { installs++; true },
+        )
+
+        e.checkForUpdateNow()
+
+        assertEquals(0, installs)
+        assertEquals(
+            "2.0.0 available, but this screen can't self-install",
+            e.debug.value.updateStatus,
+        )
+    }
+
+    @Test
+    fun `checking for an update manually surfaces a heartbeat failure instead of hanging`() = runTest {
+        val api = FakeApi().apply { heartbeatThrows = java.io.IOException("no network") }
+        val e = engine(api = api, store = FakeStore(storedToken = "t"), canSelfUpdate = { true })
+
+        e.checkForUpdateNow()
+
+        assertEquals("check failed: no network", e.debug.value.updateStatus)
+    }
+
+    @Test
+    fun `checking for an update manually before pairing does not crash`() = runTest {
+        val e = engine(store = FakeStore(storedToken = null))
+
+        e.checkForUpdateNow()
+
+        assertEquals("not paired yet", e.debug.value.updateStatus)
+    }
+
     // --- restart / power cut ------------------------------------------------------------------
 
     @Test

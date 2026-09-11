@@ -110,8 +110,10 @@ class MainActivity : ComponentActivity() {
 
                 // Nobody is meant to leave this open — it's a diagnostics view, not a mode.
                 // Restarted whenever showExitPin changes too, so entering a PIN doesn't get
-                // cut off mid-entry by the same countdown that dismisses an idle overlay.
-                LaunchedEffect(showDebug, showExitPin) {
+                // cut off mid-entry by the same countdown that dismisses an idle overlay — and
+                // whenever the update status changes, so tapping "Check for update" gets a
+                // fresh 10 seconds to actually show the result instead of vanishing mid-check.
+                LaunchedEffect(showDebug, showExitPin, debug.updateStatus) {
                     if (showDebug && !showExitPin) {
                         delay(10_000)
                         showDebug = false
@@ -147,6 +149,7 @@ class MainActivity : ComponentActivity() {
                                 showExitPin = true
                             }
                         },
+                        onCheckUpdateRequested = vm::checkForUpdateNow,
                     )
                 }
                 if (showExitPin) {
