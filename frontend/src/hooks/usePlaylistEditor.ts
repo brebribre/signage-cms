@@ -69,6 +69,13 @@ export function mediaToDraftElement(m: MediaRead, overrides: Partial<DraftElemen
   }
 }
 
+/** A fresh, empty scene — the "Create custom" starting point. Callers push this into
+ *  `draft` themselves (typically only once the canvas editor's first Apply gives it
+ *  elements), so cancelling out of the editor never leaves a stray empty scene behind. */
+export function createEmptyItem(): DraftItem {
+  return { key: crypto.randomUUID(), durationSeconds: IMAGE_DEFAULT_SECONDS, isEnabled: true, elements: [] }
+}
+
 function toDraftElement(el: ElementRead): DraftElement {
   return {
     key: el.id,

@@ -1,13 +1,24 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import IconDeleteOutline from '~icons/material-symbols/delete-outline'
+import IconDragIndicator from '~icons/material-symbols/drag-indicator'
+import IconEditSquareOutline from '~icons/material-symbols/edit-square-outline'
+import IconClose from '~icons/material-symbols/close'
+import IconCheck from '~icons/material-symbols/check'
+import IconVisibility from '~icons/material-symbols/visibility'
+import IconVisibilityOff from '~icons/material-symbols/visibility-off'
+import IconPlayArrow from '~icons/material-symbols/play-arrow'
+import IconPause from '~icons/material-symbols/pause'
+import IconArrowBack from '~icons/material-symbols/arrow-back'
 
 import { useDevices } from '@/hooks/useDevices'
 import { useFormat } from '@/hooks/useFormat'
 import { useMedia } from '@/hooks/useMedia'
-import { usePlaylistEditor } from '@/hooks/usePlaylistEditor'
+import { createEmptyItem, usePlaylistEditor } from '@/hooks/usePlaylistEditor'
 import { usePlaylistPreview } from '@/hooks/usePlaylistPreview'
 import { SCREEN_PRESETS, useScreenPresets } from '@/hooks/useScreenPresets'
+import AddMediaMenu from '@/reusables/AddMediaMenu.vue'
 import AppAlert from '@/reusables/AppAlert.vue'
 import AppButton from '@/reusables/AppButton.vue'
 import AppModal from '@/reusables/AppModal.vue'
@@ -37,7 +48,12 @@ const picking = ref(false)
 const confirmingDelete = ref(false)
 const picked = ref<Set<string>>(new Set())
 const dragFrom = ref<number | null>(null)
-const placing = ref<DraftItem | null>(null)
+
+// The full-page canvas editor. `editingIsNew` tracks whether `editingItem` is still just a
+// candidate — it only lands in `draft` once Apply gives it at least one element, so
+// cancelling "Create custom" never leaves a stray empty scene in the list.
+const editingItem = ref<DraftItem | null>(null)
+const editingIsNew = ref(false)
 
 function togglePick(mediaId: string) {
   const next = new Set(picked.value)
@@ -64,9 +80,25 @@ async function onDelete() {
   else confirmingDelete.value = false
 }
 
-function applyPlacement(elements: DraftElement[]) {
-  if (placing.value) placing.value.elements = elements
-  placing.value = null
+function startEditScene(row: DraftItem) {
+  editingIsNew.value = false
+  editingItem.value = row
+}
+
+function startCreateCustom() {
+  editingIsNew.value = true
+  editingItem.value = createEmptyItem()
+}
+
+function applySceneEdit(elements: DraftElement[]) {
+  if (!editingItem.value) return
+  editingItem.value.elements = elements
+  if (editingIsNew.value && elements.length) draft.value.push(editingItem.value)
+  editingItem.value = null
+}
+
+function closeSceneEdit() {
+  editingItem.value = null
 }
 
 /** A row's list label — the scene's first element, plus a count if there's more than one. */
@@ -80,7 +112,8 @@ function sceneLabel(item: DraftItem): string {
 <template>
   <div class="flex flex-col gap-6">
     <AppButton variant="ghost" size="sm" class="self-start" @click="router.push({ name: 'playlists' })">
-      ← Playlists
+      <IconArrowBack class="size-4" />
+      Playlists
     </AppButton>
 
     <p v-if="isLoading" class="text-sm text-ink-muted">Loading…</p>
@@ -93,10 +126,14 @@ function sceneLabel(item: DraftItem): string {
       >
         <template #actions>
           <div class="flex items-center gap-2">
-            <AppButton variant="danger" size="sm" @click="confirmingDelete = true">Delete</AppButton>
+            <AppButton variant="danger" size="sm" @click="confirmingDelete = true">
+              <IconDeleteOutline class="size-4" />
+              Delete
+            </AppButton>
             <!-- Explicitly saved, never autosaved: rearranging a live playlist must not push
                  half-finished states onto a wall of screens. -->
             <AppButton size="sm" :disabled="!isDirty" :loading="isSaving" @click="save">
+              <IconCheck v-if="!isSaving" class="size-4" />
               {{ isDirty ? 'Save' : 'Saved' }}
             </AppButton>
           </div>
@@ -120,7 +157,7 @@ function sceneLabel(item: DraftItem): string {
           />
           Shuffle
         </label>
-        <AppButton variant="secondary" size="sm" @click="picking = true">Add media</AppButton>
+        <AddMediaMenu @use-existing="picking = true" @create-custom="startCreateCustom" />
       </div>
 
       <!-- The media list comes first — it's what you're here to work on. Reference device,
@@ -131,7 +168,7 @@ function sceneLabel(item: DraftItem): string {
         description="Add media to build the loop. Items play top to bottom."
       >
         <template #actions>
-          <AppButton size="sm" @click="picking = true">Add media</AppButton>
+          <AddMediaMenu @use-existing="picking = true" @create-custom="startCreateCustom" />
         </template>
       </EmptyState>
 
@@ -154,7 +191,7 @@ function sceneLabel(item: DraftItem): string {
           @dragend="dragFrom = null"
           @click="preview.select(row)"
         >
-          <span class="cursor-grab select-none text-ink-subtle" aria-hidden="true">⠿</span>
+          <IconDragIndicator class="size-4 shrink-0 cursor-grab select-none text-ink-subtle" aria-hidden="true" />
           <span class="w-5 shrink-0 text-[13px] text-ink-subtle">{{ index + 1 }}</span>
 
           <div class="h-11 w-20 shrink-0 overflow-hidden rounded-md bg-raised">
@@ -175,14 +212,19 @@ function sceneLabel(item: DraftItem): string {
 
           <DurationInput v-model="row.durationSeconds" />
 
-          <AppButton variant="ghost" size="sm" @click.stop="placing = row">
+          <AppButton variant="ghost" size="sm" @click.stop="startEditScene(row)">
+            <IconEditSquareOutline class="size-4" />
             Edit scene
           </AppButton>
 
           <AppButton variant="ghost" size="sm" @click="row.isEnabled = !row.isEnabled">
+            <component :is="row.isEnabled ? IconVisibilityOff : IconVisibility" class="size-4" />
             {{ row.isEnabled ? 'Disable' : 'Enable' }}
           </AppButton>
-          <AppButton variant="ghost" size="sm" @click="removeAt(index)">Remove</AppButton>
+          <AppButton variant="ghost" size="sm" @click="removeAt(index)">
+            <IconClose class="size-4" />
+            Remove
+          </AppButton>
         </li>
       </ul>
 
@@ -232,6 +274,7 @@ function sceneLabel(item: DraftItem): string {
             :disabled="!preview.enabled.value.length"
             @click="preview.toggle()"
           >
+            <component :is="preview.isPlaying.value ? IconPause : IconPlayArrow" class="size-4" />
             {{ preview.isPlaying.value ? 'Pause' : 'Preview' }}
           </AppButton>
         </div>
@@ -272,19 +315,10 @@ function sceneLabel(item: DraftItem): string {
       <div class="mt-4 flex justify-end gap-2">
         <AppButton variant="secondary" size="sm" @click="picking = false">Cancel</AppButton>
         <AppButton size="sm" :disabled="!picked.size" @click="confirmPick">
+          <IconCheck class="size-4" />
           Add {{ picked.size || '' }}
         </AppButton>
       </div>
-    </AppModal>
-
-    <AppModal v-if="placing" size="xl" @close="placing = null">
-      <SceneEditor
-        :item="placing"
-        :reference-screen="screen"
-        :library="library"
-        @apply="applyPlacement"
-        @close="placing = null"
-      />
     </AppModal>
 
     <AppModal v-if="confirmingDelete" title="Delete this playlist?" @close="confirmingDelete = false">
@@ -296,5 +330,18 @@ function sceneLabel(item: DraftItem): string {
         <AppButton variant="danger" size="sm" @click="onDelete">Delete</AppButton>
       </div>
     </AppModal>
+
+    <!-- The scene canvas is a full page, not a modal: it needs the room, and it's the same
+         editor whether you got here from "Edit scene" on an existing row or "Create custom"
+         on a brand new one (editingIsNew just decides whether Apply also inserts the row). -->
+    <div v-if="editingItem" class="fixed inset-0 z-40 bg-canvas">
+      <SceneEditor
+        :item="editingItem"
+        :reference-screen="screen"
+        :library="library"
+        @apply="applySceneEdit"
+        @close="closeSceneEdit"
+      />
+    </div>
   </div>
 </template>
