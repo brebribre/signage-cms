@@ -25,6 +25,30 @@ object DeviceSettingsApplier {
         settings.brightness?.let { applyBrightness(context, it) }
     }
 
+    /**
+     * What volume and brightness actually are right now, read straight from the system
+     * rather than from whatever was last applied — the CMS shows this next to the value it
+     * wants, and the two are allowed to disagree (a change still in flight, someone turning
+     * the volume up by hand at the screen). Brightness is included even off Device Owner:
+     * reading it needs no special access, only *writing* it does.
+     */
+    fun currentSettings(context: Context): Map<String, Int> {
+        val out = mutableMapOf<String, Int>()
+        runCatching {
+            val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            val max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+            if (max > 0) {
+                val current = am.getStreamVolume(AudioManager.STREAM_MUSIC)
+                out["volume"] = (current * 100 + max / 2) / max // rounded, not floored
+            }
+        }.onFailure { Log.w(TAG, "reading volume failed", it) }
+        runCatching {
+            val level = Settings.System.getInt(context.contentResolver, Settings.System.SCREEN_BRIGHTNESS)
+            out["brightness"] = (level * 100 + 127) / 255
+        }.onFailure { Log.w(TAG, "reading brightness failed", it) }
+        return out
+    }
+
     private fun applyVolume(context: Context, percent: Int) {
         val clamped = percent.coerceIn(0, 100)
         runCatching {

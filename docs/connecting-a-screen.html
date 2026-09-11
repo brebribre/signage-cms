@@ -278,6 +278,31 @@ adb shell dpm set-device-owner \
     </section>
 
     <section>
+      <div class="section-head"><h2>Screen status</h2></div>
+      <div class="section-body">
+        <p class="lede">
+          Based on how long ago a screen last checked in — not a live connection, since a
+          screen only ever polls the CMS, it isn't polled by it.
+        </p>
+        <div class="table-wrap">
+          <table class="fact-table">
+            <thead><tr><th>Status</th><th>Last checked in</th></tr></thead>
+            <tbody>
+              <tr><td>Online</td><td>Under 2 minutes ago</td></tr>
+              <tr><td>Slow to respond</td><td>2–15 minutes ago</td></tr>
+              <tr><td>Offline</td><td>Over 15 minutes ago, or never</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="lede" style="margin-top: 20px;">
+          To check right now instead of waiting: open the screen's page and click
+          <b>Probe</b>, next to its status. It asks the screen to check in immediately and
+          waits up to 40 seconds for it to do so.
+        </p>
+      </div>
+    </section>
+
+    <section>
       <div class="section-head"><h2>Troubleshooting</h2></div>
       <div class="section-body">
         <div class="faq">

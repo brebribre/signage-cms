@@ -117,6 +117,12 @@ data class HeartbeatRequest(
     /** Batched since the last heartbeat. An item can be shorter than the heartbeat interval,
      *  so reporting only what is on screen right now would miss most of the loop. */
     val plays: List<PlayReport> = emptyList(),
+    /** What settings.volume/brightness actually are right now, read straight from the
+     *  system (`DeviceSettingsApplier.currentSettings`) — distinct from [ManifestSettings],
+     *  which is what the CMS wants them to be. `Int`-only for now, matching the two settings
+     *  that are genuine system side effects; a future non-numeric reportable setting would
+     *  need this typed more generally. */
+    @SerialName("reported_settings") val reportedSettings: Map<String, Int>? = null,
 )
 
 @Serializable

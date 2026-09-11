@@ -86,6 +86,11 @@ class HeartbeatRequest(BaseModel):
     # Proof of play. Capped so a device with a runaway loop or a broken clock cannot flood
     # the table in one request.
     plays: list[PlayReport] = Field(default_factory=list, max_length=50)
+    # What the device's settings actually are right now — distinct from `ManifestResponse
+    # .settings`, which is what the CMS wants them to be. Absent entirely on a build that
+    # predates reporting; an unrecognized key inside it is dropped, not rejected — see
+    # services/device_settings.py::record_reported.
+    reported_settings: dict[str, Any] | None = None
 
 
 class UpdateInfo(BaseModel):

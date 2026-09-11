@@ -1,38 +1,27 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 
 import { useDeviceActivity } from '@/hooks/useDeviceActivity'
 import { useFormat } from '@/hooks/useFormat'
 import AppAlert from '@/reusables/AppAlert.vue'
 import AppButton from '@/reusables/AppButton.vue'
+import AppTabs from '@/reusables/AppTabs.vue'
 
 const props = defineProps<{ deviceId: string }>()
 const { events, plays, isLoading, error, refresh } = useDeviceActivity(props.deviceId)
 const { relativeTime, duration } = useFormat()
 
 const tab = ref<'plays' | 'events'>('plays')
+const TABS = computed(() => [
+  { value: 'plays', label: 'What played' },
+  { value: 'events', label: 'Errors', badge: events.value.length || undefined },
+])
 </script>
 
 <template>
   <div class="flex flex-col gap-3">
     <div class="flex items-center justify-between gap-4">
-      <div class="flex items-center gap-2">
-        <button
-          v-for="t in (['plays', 'events'] as const)"
-          :key="t"
-          type="button"
-          class="rounded-full border-2 px-3 py-1 text-[13px] transition-colors duration-200"
-          :class="tab === t
-            ? 'border-ink bg-ink text-ink-inverse'
-            : 'border-line-strong text-ink-muted hover:bg-raised'"
-          @click="tab = t"
-        >
-          {{ t === 'plays' ? 'What played' : 'Errors' }}
-          <span v-if="t === 'events' && events.length" :class="tab === t ? 'text-ink-inverse/60' : 'text-ink-subtle'">
-            &nbsp;{{ events.length }}
-          </span>
-        </button>
-      </div>
+      <AppTabs :items="TABS" v-model="tab" />
       <AppButton variant="ghost" size="sm" :loading="isLoading" @click="refresh">Refresh</AppButton>
     </div>
 

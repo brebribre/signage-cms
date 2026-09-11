@@ -11,6 +11,7 @@ from app.schemas.devices import (
     DeviceUpdate,
     PairPollResponse,
     PairStartResponse,
+    ProbeResponse,
 )
 from app.services import devices as device_service
 from app.services import scheduling
@@ -166,6 +167,17 @@ def unpair_device(device: DeviceForUser, session: DbSession) -> PairStartRespons
         poll_token=updated.poll_token,
         expires_at=updated.pairing_expires_at,
         poll_seconds=5,
+    )
+
+
+@router.post("/devices/{device_id}/probe", response_model=ProbeResponse)
+def probe_device(device: DeviceForUser, session: DbSession) -> ProbeResponse:
+    """Ask a screen to check in right now — see services/devices.py::probe. The frontend
+    polls GET /devices/{id} afterward and watches last_seen_at for confirmation; this only
+    hands back the baseline to watch for."""
+    result = device_service.probe(session, device=device)
+    return ProbeResponse(
+        probed_at=result.probed_at, previous_last_seen_at=result.previous_last_seen_at,
     )
 
 

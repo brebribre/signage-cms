@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 
 import { useDeviceSettings } from '@/hooks/useDeviceSettings'
 import AppAlert from '@/reusables/AppAlert.vue'
@@ -9,7 +9,7 @@ import { ALL_DAYS, DAY_BITS, WEEKDAYS, WEEKENDS } from '@/types/api'
 
 const props = defineProps<{ deviceId: string }>()
 
-const { isLoading, savingKey, error, value, set } = useDeviceSettings(props.deviceId)
+const { isLoading, isSaving, error, value, reportedValue, setMany } = useDeviceSettings(props.deviceId)
 
 interface PowerScheduleValue {
   enabled: boolean
@@ -21,8 +21,8 @@ interface PowerScheduleValue {
 /**
  * Every remotely-configurable setting this app knows how to show, in one place. Adding a new
  * one is a new entry here — plus, only if its shape is genuinely new, one more `kind` branch
- * in the template below. The hook, the API call, the draft/Send row, and the backend route
- * are already generic over the key; nothing else about this file changes.
+ * in the template below. The hook, the API call, the draft row, and the backend route are
+ * already generic over the key; nothing else about this file changes.
  */
 type SettingSpec =
   | { key: string; label: string; description: string; kind: 'slider'; min: number; max: number; unit?: string }
@@ -33,7 +33,7 @@ type SettingSpec =
 const SETTINGS: SettingSpec[] = [
   {
     key: 'volume', label: 'Volume', kind: 'slider', min: 0, max: 100, unit: '%',
-    description: 'Remote speaker volume. Reaches the screen the same way a playlist change does.',
+    description: 'Remote speaker volume.',
   },
   {
     key: 'brightness', label: 'Brightness', kind: 'slider', min: 0, max: 100, unit: '%',
@@ -63,11 +63,11 @@ function defaultFor(spec: SettingSpec): unknown {
   }
 }
 
-// Staged the same way every other device-affecting control in this app is: a change here
-// only reaches the screen once its own "Send" is clicked, keyed by setting so rows don't
-// interfere with each other.
+// Staged the same way every other device-affecting control in this app is: nothing reaches
+// the screen until "Save changes" is clicked, keyed by setting so rows don't interfere with
+// each other.
 const drafts = reactive<Record<string, unknown>>({})
-const sentKey = ref<string | null>(null)
+const justSaved = ref(false)
 
 function currentValue(spec: SettingSpec): unknown {
   const stored = value(spec.key)
@@ -91,9 +91,12 @@ function isDirty(spec: SettingSpec): boolean {
   return JSON.stringify(drafts[spec.key]) !== JSON.stringify(currentValue(spec))
 }
 
+const dirtySpecs = computed(() => SETTINGS.filter(isDirty))
+const anyDirty = computed(() => dirtySpecs.value.length > 0)
+
 function setDraft(spec: SettingSpec, next: unknown) {
   drafts[spec.key] = next
-  sentKey.value = null
+  justSaved.value = false
 }
 
 function onSlider(spec: SettingSpec, e: Event) {
@@ -112,24 +115,30 @@ function togglePowerDay(spec: SettingSpec, bit: number) {
   onPowerScheduleField(spec, { days_of_week: powerDraft(spec).days_of_week ^ bit })
 }
 
-async function onSend(spec: SettingSpec) {
-  const ok = await set(spec.key, drafts[spec.key])
-  if (ok) {
-    delete drafts[spec.key]
-    sentKey.value = spec.key
-    setTimeout(() => { if (sentKey.value === spec.key) sentKey.value = null }, 2500)
+/** Only sliders (volume/brightness) have a device-reported value today — see
+ *  `DeviceSettingsApplier.currentSettings` on the player side. Everything else is either
+ *  read-only from the CMS's perspective or has no genuinely observable system state. */
+function reportedCaption(spec: SettingSpec): string | undefined {
+  if (spec.kind !== 'slider') return undefined
+  const reported = reportedValue(spec.key)
+  if (typeof reported !== 'number') return undefined
+  return `Currently ${reported}${spec.unit ?? ''}`
+}
+
+async function onSaveAll() {
+  const dirty = dirtySpecs.value
+  const failedKeys = await setMany(dirty.map((spec) => ({ key: spec.key, value: drafts[spec.key] })))
+  for (const spec of dirty) {
+    if (!failedKeys.includes(spec.key)) delete drafts[spec.key]
   }
+  justSaved.value = failedKeys.length === 0
+  if (justSaved.value) setTimeout(() => { justSaved.value = false }, 2500)
 }
 </script>
 
 <template>
   <div class="flex flex-col gap-4">
-    <div>
-      <h2 class="text-lg">Settings</h2>
-      <p class="mt-0.5 text-[13px] text-ink-muted">
-        Pushed to the screen the moment they're sent — no reboot or manual sync needed.
-      </p>
-    </div>
+    <h2 class="text-lg">Settings</h2>
 
     <AppAlert v-if="error" tone="danger">{{ error }}</AppAlert>
     <p v-if="isLoading" class="text-sm text-ink-muted">Loading…</p>
@@ -141,6 +150,9 @@ async function onSend(spec: SettingSpec) {
             <div class="min-w-0">
               <p class="text-sm text-ink">{{ spec.label }}</p>
               <p class="mt-0.5 text-[13px] text-ink-muted">{{ spec.description }}</p>
+              <p v-if="reportedCaption(spec)" class="mt-0.5 text-[13px] text-ink-subtle">
+                {{ reportedCaption(spec) }}
+              </p>
             </div>
 
             <div v-if="spec.kind !== 'power_schedule'" class="flex shrink-0 items-center gap-3">
@@ -179,26 +191,6 @@ async function onSend(spec: SettingSpec) {
 
               <!-- A genuinely new control shape (not slider/toggle/text) gets one more
                    branch here — everything else on this row is already generic. -->
-
-              <AppButton
-                v-if="isDirty(spec)"
-                size="sm"
-                :loading="savingKey === spec.key"
-                @click="onSend(spec)"
-              >
-                Send
-              </AppButton>
-              <svg
-                v-else-if="sentKey === spec.key"
-                viewBox="0 0 16 16" class="size-4 shrink-0 text-ink-muted" fill="none"
-                aria-hidden="true"
-              >
-                <circle cx="8" cy="8" r="7" class="stroke-current" stroke-width="1.5" />
-                <path
-                  d="M5 8.2l2 2 4-4.4" class="stroke-current" stroke-width="1.5"
-                  stroke-linecap="round" stroke-linejoin="round"
-                />
-              </svg>
             </div>
           </div>
 
@@ -258,33 +250,33 @@ async function onSend(spec: SettingSpec) {
                 />
               </div>
             </div>
-
-            <div class="flex items-center gap-3">
-              <AppButton
-                v-if="isDirty(spec)"
-                size="sm"
-                :loading="savingKey === spec.key"
-                @click="onSend(spec)"
-              >
-                Send
-              </AppButton>
-              <span
-                v-else-if="sentKey === spec.key"
-                class="inline-flex items-center gap-1.5 text-[13px] text-ink-muted"
-              >
-                <svg viewBox="0 0 16 16" class="size-4 shrink-0" fill="none" aria-hidden="true">
-                  <circle cx="8" cy="8" r="7" class="stroke-current" stroke-width="1.5" />
-                  <path
-                    d="M5 8.2l2 2 4-4.4" class="stroke-current" stroke-width="1.5"
-                    stroke-linecap="round" stroke-linejoin="round"
-                  />
-                </svg>
-                Sent
-              </span>
-            </div>
           </div>
         </AppCard>
       </li>
     </ul>
+
+    <!-- One save for every setting, staged above: matches DeviceDetailContainer's own
+         "Manage" tab rather than a per-row send. -->
+    <div v-if="!isLoading" class="flex items-center gap-3">
+      <AppButton :disabled="!anyDirty" :loading="isSaving" @click="onSaveAll">
+        Save changes
+      </AppButton>
+      <span v-if="anyDirty && !isSaving" class="text-[13px] text-ink-subtle">
+        Not sent to the screen yet
+      </span>
+      <span
+        v-else-if="justSaved"
+        class="inline-flex items-center gap-1.5 text-[13px] text-ink-muted"
+      >
+        <svg viewBox="0 0 16 16" class="size-4 shrink-0" fill="none" aria-hidden="true">
+          <circle cx="8" cy="8" r="7" class="stroke-current" stroke-width="1.5" />
+          <path
+            d="M5 8.2l2 2 4-4.4" class="stroke-current" stroke-width="1.5"
+            stroke-linecap="round" stroke-linejoin="round"
+          />
+        </svg>
+        Saved to the screen
+      </span>
+    </div>
   </div>
 </template>

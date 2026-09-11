@@ -105,6 +105,9 @@ class PlaylistSummary(BaseModel):
     total_duration_seconds: int
     created_at: datetime
     updated_at: datetime
+    # A preview strip, not the whole loop — capped, see services/playlists.py::list_playlists.
+    # `None` for a scene whose media has no thumbnail: a blank tile, not a skipped one.
+    thumbnails: list[str | None] = []
 
 
 class PlaylistDetail(PlaylistSummary):

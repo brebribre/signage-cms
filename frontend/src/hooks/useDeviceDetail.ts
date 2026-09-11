@@ -19,15 +19,18 @@ export function useDeviceDetail(id: string) {
    *  point is to read the new code off the screen (or off here, until it re-displays it). */
   const freshPairing = ref<PairStartResponse | null>(null)
 
-  async function refresh() {
-    isLoading.value = true
+  /** `silent` skips the loading flag — used while polling during a probe, where flashing
+   *  the whole page to "Loading…" every couple of seconds would be worse than the thing
+   *  it's trying to show. */
+  async function refresh(silent = false) {
+    if (!silent) isLoading.value = true
     error.value = null
     try {
       device.value = await api.get(id)
     } catch (e) {
       error.value = e instanceof ApiError ? e.message : 'Could not load this screen'
     } finally {
-      isLoading.value = false
+      if (!silent) isLoading.value = false
     }
   }
 
@@ -90,10 +93,40 @@ export function useDeviceDetail(id: string) {
     }
   }
 
+  /** Nothing can call the device directly — it only ever polls in — so "probe" means: ask it
+   *  to check in now, then watch `last_seen_at` for a value newer than the moment asked.
+   *  Long enough to cover the device's own ~30s poll cadence even with no push available. */
+  const PROBE_TIMEOUT_MS = 40_000
+  const PROBE_INTERVAL_MS = 2_000
+  const probeState = ref<'idle' | 'probing' | 'online' | 'no-response'>('idle')
+
+  async function probe(): Promise<void> {
+    probeState.value = 'probing'
+    try {
+      const result = await api.probe(id)
+      const baseline = new Date(result.probed_at).getTime()
+      const deadline = Date.now() + PROBE_TIMEOUT_MS
+
+      while (Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, PROBE_INTERVAL_MS))
+        await refresh(true)
+        const seenAt = device.value?.last_seen_at
+        if (seenAt && new Date(seenAt).getTime() >= baseline) {
+          probeState.value = 'online'
+          setTimeout(() => { if (probeState.value === 'online') probeState.value = 'idle' }, 4000)
+          return
+        }
+      }
+      probeState.value = 'no-response'
+    } catch {
+      probeState.value = 'no-response'
+    }
+  }
+
   onMounted(refresh)
 
   return {
-    device, isLoading, isSaving, error, saveError, saveSucceeded, freshPairing,
-    refresh, save, unpair, remove,
+    device, isLoading, isSaving, error, saveError, saveSucceeded, freshPairing, probeState,
+    refresh, save, unpair, remove, probe,
   }
 }

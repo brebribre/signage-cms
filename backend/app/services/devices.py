@@ -10,7 +10,8 @@ import logging
 import secrets
 import time
 import uuid
-from datetime import timedelta
+from dataclasses import dataclass
+from datetime import datetime, timedelta
 
 from sqlmodel import Session, delete, select
 
@@ -253,6 +254,30 @@ def update(
         version=device_sync.compute_version(session, device),
     )
     return device
+
+
+@dataclass
+class ProbeResult:
+    probed_at: datetime
+    previous_last_seen_at: datetime | None
+
+
+def probe(session: Session, *, device: Device) -> ProbeResult:
+    """Ask a screen to check in right now, instead of waiting on whatever `last_seen_at`
+    already says.
+
+    There's no channel to actually ask a device anything directly — it only ever polls in,
+    never accepts a connection — so this nudges over MQTT the same "come look" signal every
+    other mutation here already sends, and returns immediately with a baseline. The caller
+    (routes/devices.py) watches `last_seen_at` move past that baseline: if it does, the
+    nudge (or the device's own ~30s poll cadence, MQTT or not) reached it; if it doesn't
+    within a reasonable window, nothing is currently listening.
+    """
+    previous = device.last_seen_at
+    mqtt.notify_manifest_changed(
+        device_id=device.id, version=device_sync.compute_version(session, device),
+    )
+    return ProbeResult(probed_at=utcnow(), previous_last_seen_at=previous)
 
 
 def unpair(session: Session, *, device: Device) -> Device:

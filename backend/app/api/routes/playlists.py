@@ -95,8 +95,9 @@ def list_playlists(user: CurrentUser, session: DbSession) -> list[PlaylistSummar
             total_duration_seconds=total,
             created_at=p.created_at,
             updated_at=p.updated_at,
+            thumbnails=thumbnails,
         )
-        for p, count, total in playlist_service.list_playlists(session, user=user)
+        for p, count, total, thumbnails in playlist_service.list_playlists(session, user=user)
     ]
 
 

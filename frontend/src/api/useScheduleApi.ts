@@ -1,14 +1,11 @@
 import { request } from '@/api/request'
-import type { ResolutionRead, ScheduleRead } from '@/types/api'
+import type { ResolutionRead } from '@/types/api'
 
-/** Read-only from the frontend — creating or changing a schedule rule happens only through
- *  Campaigns, which writes these rows directly rather than going through this API. */
 export function useScheduleApi() {
   return {
-    list: (deviceId: string) =>
-      request<ScheduleRead[]>('GET', `/devices/${deviceId}/schedules`),
     /** What the screen is playing at this moment, resolved server-side exactly as the
-     *  manifest does it. */
+     *  manifest does it. Assigning what plays happens only in Campaigns — this is the only
+     *  schedule-related call the frontend still makes. */
     now: (deviceId: string) =>
       request<ResolutionRead>('GET', `/devices/${deviceId}/schedules/now`),
   }

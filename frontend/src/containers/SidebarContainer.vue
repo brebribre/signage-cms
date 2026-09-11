@@ -2,24 +2,18 @@
 import { useRouter } from 'vue-router'
 
 import { useAuth } from '@/hooks/useAuth'
+import { useNavLinks } from '@/hooks/useNavLinks'
 import AppButton from '@/reusables/AppButton.vue'
 import AppLogo from '@/reusables/AppLogo.vue'
 
 const router = useRouter()
 const { user, account, isOwner, logout } = useAuth()
+const { primary: LINKS } = useNavLinks()
 
 async function onLogout() {
   await logout()
   router.push({ name: 'login' })
 }
-
-const LINKS = [
-  { name: 'media', label: 'Media' },
-  { name: 'playlists', label: 'Playlists' },
-  { name: 'campaigns', label: 'Campaigns' },
-  { name: 'devices', label: 'Devices' },
-  { name: 'health', label: 'Health' },
-] as const
 </script>
 
 <template>

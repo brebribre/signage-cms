@@ -107,16 +107,17 @@ def list_settings(session: Session, *, device: Device) -> list[DeviceSetting]:
 
 
 def as_dict(session: Session, *, device_id: uuid.UUID) -> dict[str, Any]:
-    """Keyed form for `compute_version`/`build_manifest` — every setting a device should
-    apply, in one shape a player can iterate without knowing the individual keys in advance.
-    Ordered by key so the hash `compute_version` folds this into is stable regardless of
-    insertion order."""
+    """Keyed form for `compute_version`/`build_manifest` — every setting the CMS actually
+    wants a device to apply, in one shape a player can iterate without knowing the individual
+    keys in advance. A row with no `value` (only ever reported, never configured) is excluded
+    — there is nothing to deliver for it. Ordered by key so the hash `compute_version` folds
+    this into is stable regardless of insertion order."""
     rows = session.exec(
         select(DeviceSetting)
         .where(DeviceSetting.device_id == device_id)
         .order_by(DeviceSetting.key)
     ).all()
-    return {row.key: row.value for row in rows}
+    return {row.key: row.value for row in rows if row.value is not None}
 
 
 def set_setting(session: Session, *, device: Device, key: str, value: Any) -> DeviceSetting:
@@ -137,6 +138,34 @@ def set_setting(session: Session, *, device: Device, key: str, value: Any) -> De
 
     _notify(session, device)
     return row
+
+
+def record_reported(session: Session, *, device: Device, reported: dict[str, Any]) -> None:
+    """What a device's heartbeat says its settings actually are right now — separate from
+    `value`, which is what the CMS wants them to be (see `DeviceSetting`'s docstring).
+
+    Never raises: a heartbeat must always succeed regardless of what a device sends, so an
+    unrecognized key or a value that fails its validator is silently dropped rather than
+    failing the whole request. Does not notify or touch `updated_at` — this is the device
+    telling the CMS something, not the other way around, and must never look like a CMS-side
+    change or wake the device right back up over what it just said.
+    """
+    for key, raw_value in reported.items():
+        validator = VALIDATORS.get(key)
+        if validator is None:
+            continue
+        try:
+            validated = validator(raw_value)
+        except InvalidSetting:
+            continue
+
+        row = session.get(DeviceSetting, (device.id, key))
+        if row is None:
+            row = DeviceSetting(device_id=device.id, key=key)
+        row.reported_value = validated
+        row.reported_at = utcnow()
+        session.add(row)
+    session.commit()
 
 
 def _notify(session: Session, device: Device) -> None:

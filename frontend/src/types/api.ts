@@ -131,6 +131,9 @@ export interface PlaylistSummary {
   total_duration_seconds: number
   created_at: string
   updated_at: string
+  /** A preview strip, not the whole loop — capped server-side. `null` for a scene whose
+   *  media has no thumbnail: a blank tile, not a skipped one. */
+  thumbnails: (string | null)[]
 }
 
 export interface PlaylistDetail extends PlaylistSummary {
@@ -206,6 +209,12 @@ export interface DeviceResolutionRead {
   device_local_time: string
 }
 
+/** Baseline to watch after asking a screen to check in — see useDeviceDetail.ts's probe(). */
+export interface ProbeResponse {
+  probed_at: string
+  previous_last_seen_at: string | null
+}
+
 // --- Device settings ---
 // Remotely-configurable values pushed to the screen — volume today, and by the same
 // mechanism, brightness/power scheduling/app lock/touchscreen lock later. `value` is
@@ -216,6 +225,11 @@ export interface DeviceSettingRead {
   key: string
   value: unknown
   updated_at: string
+  /** What the device's own heartbeat most recently said this actually is, and when — both
+   *  null until the first heartbeat that reports this key. Independent of `value`: a change
+   *  still in flight, or someone adjusting the screen by hand, can disagree with it. */
+  reported_value: unknown
+  reported_at: string | null
 }
 
 /** Returned by unpair — the screen's new pairing code, same shape as a fresh boot. */
@@ -265,20 +279,6 @@ export const DAY_BITS = [
 export const ALL_DAYS = 0b1111111
 export const WEEKDAYS = 0b0011111
 export const WEEKENDS = 0b1100000
-
-export interface ScheduleRead {
-  id: string
-  device_id: string
-  playlist_id: string
-  name: string
-  days_of_week: number
-  /** "HH:MM:SS" local to the device. */
-  starts_at: string
-  ends_at: string
-  priority: number
-  is_enabled: boolean
-  created_at: string
-}
 
 /** What a device is playing right now, and why. */
 export interface ResolutionRead {

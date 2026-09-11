@@ -3,7 +3,7 @@ import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import DeviceActivityContainer from '@/containers/DeviceActivityContainer.vue'
-import DeviceScheduleContainer from '@/containers/DeviceScheduleContainer.vue'
+import DeviceNowPlayingContainer from '@/containers/DeviceNowPlayingContainer.vue'
 import DeviceSettingsContainer from '@/containers/DeviceSettingsContainer.vue'
 import { useDeviceDetail } from '@/hooks/useDeviceDetail'
 import { useFormat } from '@/hooks/useFormat'
@@ -12,6 +12,7 @@ import AppButton from '@/reusables/AppButton.vue'
 import AppCard from '@/reusables/AppCard.vue'
 import AppInput from '@/reusables/AppInput.vue'
 import AppModal from '@/reusables/AppModal.vue'
+import AppTabs from '@/reusables/AppTabs.vue'
 import PageTitle from '@/reusables/PageTitle.vue'
 import StatusDot from '@/reusables/StatusDot.vue'
 import type { DeviceOrientation } from '@/types/api'
@@ -21,16 +22,20 @@ const router = useRouter()
 const id = String(route.params.id)
 
 const {
-  device, isLoading, isSaving, error, saveError, saveSucceeded, freshPairing,
-  save, unpair, remove,
+  device, isLoading, isSaving, error, saveError, saveSucceeded, freshPairing, probeState,
+  save, unpair, remove, probe,
 } = useDeviceDetail(id)
 const { dimensions, relativeTime, date } = useFormat()
 
 const confirmingUnpair = ref(false)
 const confirmingDelete = ref(false)
 
-const TABS = ['manage', 'settings', 'activity'] as const
-const tab = ref<(typeof TABS)[number]>('manage')
+const TABS = [
+  { value: 'manage', label: 'Manage' },
+  { value: 'settings', label: 'Settings' },
+  { value: 'activity', label: 'Errors & logs' },
+] as const
+const tab = ref<(typeof TABS)[number]['value']>('manage')
 
 // Everything below is a draft the user is composing — nothing here reaches the device until
 // "Save changes" is clicked. Re-seeded whenever the confirmed device state changes, so a
@@ -140,7 +145,23 @@ async function onDelete() {
         <dl class="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
           <div>
             <dt class="text-[13px] text-ink-muted">Status</dt>
-            <dd class="mt-0.5"><StatusDot :last-seen-at="device.last_seen_at" /></dd>
+            <dd class="mt-0.5 flex items-center gap-2">
+              <StatusDot :last-seen-at="device.last_seen_at" />
+              <button
+                type="button"
+                class="text-[13px] underline underline-offset-2 disabled:opacity-50"
+                :class="probeState === 'no-response' ? 'text-danger' : 'text-ink'"
+                :disabled="probeState === 'probing'"
+                @click="probe"
+              >
+                {{
+                  probeState === 'probing' ? 'Probing…'
+                  : probeState === 'online' ? 'Online'
+                  : probeState === 'no-response' ? 'No response'
+                  : 'Probe'
+                }}
+              </button>
+            </dd>
           </div>
           <div>
             <dt class="text-[13px] text-ink-muted">Last seen</dt>
@@ -161,22 +182,7 @@ async function onDelete() {
         </dl>
       </AppCard>
 
-      <!-- Same pill style as the Activity sub-tabs below, so the two tab rows in this page
-           read as one pattern rather than two different widgets. -->
-      <div class="flex items-center gap-2 border-b border-line pb-4">
-        <button
-          v-for="t in TABS"
-          :key="t"
-          type="button"
-          class="rounded-full border-2 px-3 py-1 text-[13px] transition-colors duration-200"
-          :class="tab === t
-            ? 'border-ink bg-ink text-ink-inverse'
-            : 'border-line-strong text-ink-muted hover:bg-raised'"
-          @click="tab = t"
-        >
-          {{ t === 'manage' ? 'Manage' : t === 'settings' ? 'Settings' : 'Errors & logs' }}
-        </button>
-      </div>
+      <AppTabs :items="TABS" v-model="tab" />
 
       <template v-if="tab === 'manage'">
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -234,9 +240,8 @@ async function onDelete() {
           </span>
         </div>
 
-        <!-- Read-only: what this screen plays and when is decided in Campaigns, not here. -->
         <div class="mt-2 border-t border-line pt-6">
-          <DeviceScheduleContainer :device-id="device.id" :timezone="device.timezone" />
+          <DeviceNowPlayingContainer :device-id="device.id" />
         </div>
       </template>
 

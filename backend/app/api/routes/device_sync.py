@@ -91,6 +91,7 @@ def heartbeat(body: HeartbeatRequest, device: CurrentDevice, session: DbSession)
         screen_height=body.screen.height if body.screen else None,
         current_item_id=body.current_item_id,
         errors=body.errors,
+        reported_settings=body.reported_settings,
     )
 
     if body.plays:

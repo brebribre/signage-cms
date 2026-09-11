@@ -109,6 +109,9 @@ class PlayerEngine(
      *  `kiosk/DeviceSettingsApplier.kt`, not here — same reasoning as `installUpdate` above:
      *  this class has no Android dependencies, so anything that needs one is a callback. */
     private val applySettings: (ManifestSettings) -> Unit = {},
+    /** Same reasoning, the other direction: what volume/brightness actually are right now,
+     *  read from the system for the next heartbeat to report. */
+    private val currentSettings: () -> Map<String, Int> = { emptyMap() },
     /** Where blocking work runs. Injected so tests can supply the test scheduler's
      *  dispatcher — with a hard-coded `Dispatchers.IO` the download and state-transition work
      *  escapes virtual time entirely and assertions race it. */
@@ -337,6 +340,7 @@ class PlayerEngine(
                         currentItemId = null,
                         errors = errors,
                         plays = plays,
+                        reportedSettings = currentSettings().ifEmpty { null },
                     ),
                 )
                 res.update?.let { maybeSelfUpdate(it.version, it.url) }

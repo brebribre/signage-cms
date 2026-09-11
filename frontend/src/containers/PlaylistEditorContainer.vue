@@ -51,9 +51,12 @@ function confirmPick() {
   picking.value = false
 }
 
-function onDrop(to: number) {
-  if (dragFrom.value !== null) move(dragFrom.value, to)
-  dragFrom.value = null
+/** Reorders the moment the dragged row crosses into another row, rather than waiting for
+ *  drop — so the list visibly snaps into its new order while the user is still dragging. */
+function onDragEnter(to: number) {
+  if (dragFrom.value === null || dragFrom.value === to) return
+  move(dragFrom.value, to)
+  dragFrom.value = to
 }
 
 async function onDelete() {
@@ -146,7 +149,8 @@ function sceneLabel(item: DraftItem): string {
           ]"
           @dragstart="dragFrom = index"
           @dragover.prevent
-          @drop.prevent="onDrop(index)"
+          @dragenter.prevent="onDragEnter(index)"
+          @drop.prevent
           @dragend="dragFrom = null"
           @click="preview.select(row)"
         >

@@ -287,6 +287,7 @@ def record_heartbeat(
     screen_height: int | None,
     current_item_id: uuid.UUID | None,
     errors: list[str],
+    reported_settings: dict | None = None,
 ) -> None:
     """Update liveness. Errors are logged, not stored — Phase 14 gives them a table if a
     device health page is ever built; until then they only need to be visible to whoever is
@@ -300,6 +301,9 @@ def record_heartbeat(
         device.screen_height = screen_height
     session.add(device)
     session.commit()
+
+    if reported_settings:
+        device_settings.record_reported(session, device=device, reported=reported_settings)
 
     # Persisted now, not just logged. Logging alone is fine while someone is watching a
     # terminal during setup and useless a week later, which is exactly when a health page has

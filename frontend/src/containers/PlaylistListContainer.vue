@@ -57,8 +57,8 @@ async function onCreate() {
         interactive
         @click="router.push({ name: 'playlist-detail', params: { id: p.id } })"
       >
-        <div class="flex items-center justify-between gap-4">
-          <div class="min-w-0">
+        <div class="flex items-center gap-4">
+          <div class="min-w-0 flex-1">
             <p class="truncate text-base text-ink">{{ p.name }}</p>
             <p class="mt-0.5 text-[13px] text-ink-muted">
               {{ p.item_count }} item{{ p.item_count === 1 ? '' : 's' }} ·
@@ -66,6 +66,15 @@ async function onCreate() {
               <span v-if="p.shuffle"> · shuffled</span>
               · updated {{ date(p.updated_at) }}
             </p>
+          </div>
+          <div v-if="p.thumbnails.length" class="flex max-w-[13rem] shrink-0 gap-1.5 overflow-x-auto">
+            <div
+              v-for="(url, i) in p.thumbnails"
+              :key="i"
+              class="size-14 shrink-0 overflow-hidden rounded-lg bg-raised"
+            >
+              <img v-if="url" :src="url" class="size-full object-cover" loading="lazy" />
+            </div>
           </div>
           <span class="shrink-0 text-ink-subtle" aria-hidden="true">›</span>
         </div>

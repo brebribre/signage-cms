@@ -40,6 +40,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         canSelfUpdate = { SelfUpdater.isSupported(app) },
         installUpdate = { url -> SelfUpdater.downloadAndInstall(app, api.http, url) },
         applySettings = { settings -> DeviceSettingsApplier.apply(app, settings) },
+        currentSettings = { DeviceSettingsApplier.currentSettings(app) },
         push = push,
     )
 

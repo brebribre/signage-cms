@@ -66,6 +66,15 @@ class DeviceUpdate(BaseModel):
     clear_playlist: bool = False
 
 
+class ProbeResponse(BaseModel):
+    """Baseline for the frontend to watch: it polls `GET /devices/{id}` afterward and treats
+    `last_seen_at` moving past `probed_at` as "the screen just checked in" — a live confirmation
+    rather than whatever `last_seen_at` already said before this was called."""
+
+    probed_at: datetime
+    previous_last_seen_at: datetime | None
+
+
 class DeviceResolutionRead(BaseModel):
     """What one device is playing right now — the read-only counterpart to Campaign, which is
     the only place that can change it. Same shape as `ResolutionRead` plus which device."""

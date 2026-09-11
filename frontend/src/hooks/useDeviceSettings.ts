@@ -12,7 +12,7 @@ export function useDeviceSettings(deviceId: string) {
 
   const items = ref<DeviceSettingRead[]>([])
   const isLoading = ref(false)
-  const savingKey = ref<string | null>(null)
+  const isSaving = ref(false)
   const error = ref<string | null>(null)
 
   async function refresh() {
@@ -31,26 +31,41 @@ export function useDeviceSettings(deviceId: string) {
     return items.value.find((s) => s.key === key)?.value
   }
 
-  /** Returns whether it took, so the row can show its own loading state and checkmark rather
-   *  than silently succeeding or silently swallowing a failure. */
-  async function set(key: string, newValue: unknown): Promise<boolean> {
-    savingKey.value = key
+  /** What the device itself last reported for this key, or undefined before any heartbeat
+   *  has said so. */
+  function reportedValue(key: string): unknown {
+    return items.value.find((s) => s.key === key)?.reported_value
+  }
+
+  /**
+   * Saves every entry in one action. Each key is still its own backend request — there's no
+   * bulk route — fired together rather than one at a time so a slow key doesn't hold up the
+   * rest. Returns the keys that failed, so the caller can leave just those drafts dirty
+   * instead of losing every pending change over one bad key.
+   */
+  async function setMany(entries: { key: string; value: unknown }[]): Promise<string[]> {
+    isSaving.value = true
     error.value = null
-    try {
-      const row = await api.set(deviceId, key, newValue)
-      const existing = items.value.find((s) => s.key === key)
-      if (existing) existing.value = row.value
-      else items.value.push(row)
-      return true
-    } catch (e) {
-      error.value = e instanceof ApiError ? e.message : 'Could not update this setting'
-      return false
-    } finally {
-      savingKey.value = null
-    }
+    const failedKeys: string[] = []
+    const results = await Promise.allSettled(
+      entries.map((entry) => api.set(deviceId, entry.key, entry.value)),
+    )
+    results.forEach((result, i) => {
+      const key = entries[i].key
+      if (result.status === 'fulfilled') {
+        const existing = items.value.find((s) => s.key === key)
+        if (existing) Object.assign(existing, result.value)
+        else items.value.push(result.value)
+      } else {
+        failedKeys.push(key)
+      }
+    })
+    if (failedKeys.length) error.value = 'Could not save every setting'
+    isSaving.value = false
+    return failedKeys
   }
 
   onMounted(refresh)
 
-  return { items, isLoading, savingKey, error, refresh, value, set }
+  return { items, isLoading, isSaving, error, refresh, value, reportedValue, setMany }
 }

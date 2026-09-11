@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 
 from sqlmodel import Session, delete, func, select
 
-from app.infra import mqtt
+from app.infra import storage
 from app.models import (
     Device,
     ItemFit,
@@ -95,12 +95,23 @@ def create(session: Session, *, user: User, name: str) -> Playlist:
     return playlist
 
 
-def list_playlists(session: Session, *, user: User) -> list[tuple[Playlist, int, int]]:
-    """Every playlist in the account, with its **enabled** item count and total duration.
+#: Thumbnails shown per playlist on the list page — a preview, not the whole loop. Capped so
+#: a playlist with hundreds of items doesn't presign hundreds of URLs just to render a strip
+#: that scrolls into view maybe six wide; the detail page (one playlist at a time) has no
+#: such cap because there's no N-playlists-at-once cost to bound.
+MAX_PREVIEW_THUMBNAILS = 6
 
-    Aggregated in one query rather than by loading items per playlist — the list page shows
-    both numbers for every row, and N+1 queries for a number is exactly the kind of thing
-    that is invisible at three playlists and painful at three hundred.
+
+def list_playlists(
+    session: Session, *, user: User
+) -> list[tuple[Playlist, int, int, list[str | None]]]:
+    """Every playlist in the account, with its **enabled** item count, total duration, and a
+    capped strip of preview thumbnails (one per scene, in play order; `None` where that
+    scene's media has none — a blank tile, not a skipped one, same as the detail page).
+
+    Both the counts and the thumbnails are each fetched in one query across every playlist
+    in the account, not per playlist — N+1 queries for a number (or a thumbnail) is exactly
+    the kind of thing that is invisible at three playlists and painful at three hundred.
     """
     rows = session.exec(
         select(
@@ -120,7 +131,41 @@ def list_playlists(session: Session, *, user: User) -> list[tuple[Playlist, int,
         .group_by(Playlist.id)
         .order_by(Playlist.updated_at.desc())
     ).all()
-    return [(p, int(count), int(total)) for p, count, total in rows]
+
+    playlist_ids = [p.id for p, _, _ in rows]
+    thumb_keys_by_playlist: dict[uuid.UUID, list[str | None]] = {}
+    if playlist_ids:
+        # Every element of every enabled item, ordered so that within one scene its lowest
+        # z_index (first-painted) element comes first, and scenes themselves come in play
+        # order. "First row per item" has no portable SQL expression, so — same reasoning as
+        # `_with_elements` above — it's a dict keyed by item id built in Python from rows
+        # already in the right order, taking each item's first occurrence only.
+        thumb_rows = session.exec(
+            select(PlaylistItem.playlist_id, PlaylistItem.id, Media.thumbnail_key)
+            .join(PlaylistItemElement, PlaylistItemElement.playlist_item_id == PlaylistItem.id)
+            .join(Media, Media.id == PlaylistItemElement.media_id)
+            .where(
+                PlaylistItem.playlist_id.in_(playlist_ids),
+                PlaylistItem.is_enabled.is_(True),
+            )
+            .order_by(PlaylistItem.playlist_id, PlaylistItem.position, PlaylistItemElement.z_index)
+        ).all()
+        seen_items: set[uuid.UUID] = set()
+        for playlist_id, item_id, thumbnail_key in thumb_rows:
+            if item_id in seen_items:
+                continue
+            seen_items.add(item_id)
+            bucket = thumb_keys_by_playlist.setdefault(playlist_id, [])
+            if len(bucket) < MAX_PREVIEW_THUMBNAILS:
+                bucket.append(thumbnail_key)
+
+    def _urls(keys: list[str | None]) -> list[str | None]:
+        return [storage.presign_get(k) if k else None for k in keys]
+
+    return [
+        (p, int(count), int(total), _urls(thumb_keys_by_playlist.get(p.id, [])))
+        for p, count, total in rows
+    ]
 
 
 # A scene's elements, media joined in, ordered for paint (z_index ascending — later draws
