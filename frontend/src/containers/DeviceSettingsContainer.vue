@@ -1,10 +1,15 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
+import IconDoNotTouch from '~icons/material-symbols/do-not-touch'
+import IconPowerSettingsNew from '~icons/material-symbols/power-settings-new'
+import IconSchedule from '~icons/material-symbols/schedule'
+import IconTouchApp from '~icons/material-symbols/touch-app'
 
 import { useDeviceSettings } from '@/hooks/useDeviceSettings'
 import AppAlert from '@/reusables/AppAlert.vue'
 import AppButton from '@/reusables/AppButton.vue'
 import AppCard from '@/reusables/AppCard.vue'
+import AppSwitch from '@/reusables/AppSwitch.vue'
 import { ALL_DAYS, DAY_BITS, WEEKDAYS, WEEKENDS } from '@/types/api'
 
 const props = defineProps<{ deviceId: string }>()
@@ -35,10 +40,10 @@ const SETTINGS: SettingSpec[] = [
     key: 'volume', label: 'Volume', kind: 'slider', min: 0, max: 100, unit: '%',
     description: 'Remote speaker volume.',
   },
-  {
-    key: 'brightness', label: 'Brightness', kind: 'slider', min: 0, max: 100, unit: '%',
-    description: 'Screen backlight level.',
-  },
+  // Brightness is out for now — it silently does nothing on Device Owner hardware today
+  // (writing Settings.System.SCREEN_BRIGHTNESS needs the WRITE_SETTINGS app-op, which Device
+  // Owner status does not auto-grant the way it does for DevicePolicyManager-mediated calls
+  // like lockNow()). Re-add once that's actually fixed on the player side.
   {
     key: 'touchscreen_disabled', label: 'Touchscreen', kind: 'toggle',
     description: "Disable touch input so the screen can't be interacted with directly.",
@@ -53,9 +58,17 @@ const SETTINGS: SettingSpec[] = [
   },
   {
     key: 'power_on', label: 'Power (manual)', kind: 'toggle', onLabel: 'On', offLabel: 'Off',
-    description: 'Direct override, ignoring the schedule above — for testing power control itself.',
+    description: 'Direct override, ignoring the schedule below — for testing power control itself.',
   },
 ]
+
+// power_on and power_schedule render together as one card (see the template) rather than
+// through the generic per-spec loop below — the manual toggle and its schedule are one
+// feature from the person configuring it, not two unrelated settings that happen to both be
+// about power.
+const listedSettings = computed(() => SETTINGS.filter((s) => s.key !== 'power_on' && s.key !== 'power_schedule'))
+const powerOnSpec = SETTINGS.find((s) => s.key === 'power_on')!
+const powerScheduleSpec = SETTINGS.find((s) => s.key === 'power_schedule')!
 
 function defaultFor(spec: SettingSpec): unknown {
   switch (spec.kind) {
@@ -73,9 +86,16 @@ function defaultFor(spec: SettingSpec): unknown {
 const drafts = reactive<Record<string, unknown>>({})
 const justSaved = ref(false)
 
+/** What a control should show before anyone touches it: the CMS's own stored value if one has
+ *  ever been set, else whatever the device itself last reported for this key — so opening
+ *  Settings on a screen nobody has configured yet shows its actual current volume, not a
+ *  misleading 0%. Only falls back to a hardcoded default when neither exists at all. */
 function currentValue(spec: SettingSpec): unknown {
   const stored = value(spec.key)
-  return stored === undefined ? defaultFor(spec) : stored
+  if (stored !== undefined) return stored
+  const reported = reportedValue(spec.key)
+  if (reported !== undefined) return reported
+  return defaultFor(spec)
 }
 
 function draftValue(spec: SettingSpec): unknown {
@@ -105,9 +125,6 @@ function setDraft(spec: SettingSpec, next: unknown) {
 
 function onSlider(spec: SettingSpec, e: Event) {
   setDraft(spec, Number((e.target as HTMLInputElement).value))
-}
-function onToggle(spec: SettingSpec, e: Event) {
-  setDraft(spec, (e.target as HTMLInputElement).checked)
 }
 function onText(spec: SettingSpec, e: Event) {
   setDraft(spec, (e.target as HTMLInputElement).value)
@@ -148,7 +165,7 @@ async function onSaveAll() {
     <p v-if="isLoading" class="text-sm text-ink-muted">Loading…</p>
 
     <ul v-else class="flex flex-col gap-2">
-      <li v-for="spec in SETTINGS" :key="spec.key">
+      <li v-for="spec in listedSettings" :key="spec.key">
         <AppCard>
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div class="min-w-0">
@@ -159,7 +176,7 @@ async function onSaveAll() {
               </p>
             </div>
 
-            <div v-if="spec.kind !== 'power_schedule'" class="flex shrink-0 items-center gap-3">
+            <div class="flex shrink-0 items-center gap-3">
               <template v-if="spec.kind === 'slider'">
                 <input
                   type="range" :min="spec.min" :max="spec.max"
@@ -172,16 +189,20 @@ async function onSaveAll() {
                 </span>
               </template>
 
-              <label v-else-if="spec.kind === 'toggle'" class="flex cursor-pointer items-center gap-2">
-                <input
-                  type="checkbox" class="size-4 accent-ink"
-                  :checked="draftValue(spec) as boolean"
-                  @change="onToggle(spec, $event)"
+              <template v-else-if="spec.kind === 'toggle'">
+                <component
+                  v-if="spec.key === 'touchscreen_disabled'"
+                  :is="draftValue(spec) ? IconDoNotTouch : IconTouchApp"
+                  class="size-4 shrink-0 text-ink-muted"
                 />
                 <span class="text-[13px] text-ink-muted">
                   {{ draftValue(spec) ? (spec.onLabel ?? 'Disabled') : (spec.offLabel ?? 'Enabled') }}
                 </span>
-              </label>
+                <AppSwitch
+                  :model-value="!(draftValue(spec) as boolean)"
+                  @update:model-value="setDraft(spec, !$event)"
+                />
+              </template>
 
               <input
                 v-else-if="spec.kind === 'text'"
@@ -197,63 +218,86 @@ async function onSaveAll() {
                    branch here — everything else on this row is already generic. -->
             </div>
           </div>
+        </AppCard>
+      </li>
 
-          <!-- power_schedule needs more room than a row can give it (days + two times), so
-               it gets a panel below the label instead of the inline control other kinds
-               use. -->
-          <div v-if="spec.kind === 'power_schedule'" class="mt-3 flex flex-col gap-3 border-t border-line pt-3">
-            <label class="flex w-fit cursor-pointer items-center gap-2">
-              <input
-                type="checkbox" class="size-4 accent-ink"
-                :checked="powerDraft(spec).enabled"
-                @change="onPowerScheduleField(spec, { enabled: ($event.target as HTMLInputElement).checked })"
+      <!-- Power: the manual toggle and its schedule are one card, not two — a schedule is
+           just "make the toggle above happen automatically," and living together makes that
+           relationship visible instead of implied by list order. -->
+      <li>
+        <AppCard>
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="min-w-0">
+              <p class="text-sm text-ink">Power</p>
+              <p class="mt-0.5 text-[13px] text-ink-muted">Turn the screen hardware on or off.</p>
+            </div>
+            <div class="flex shrink-0 items-center gap-2">
+              <IconPowerSettingsNew class="size-4 shrink-0 text-ink-muted" />
+              <span class="text-[13px] text-ink-muted">{{ draftValue(powerOnSpec) ? 'On' : 'Off' }}</span>
+              <AppSwitch
+                :model-value="draftValue(powerOnSpec) as boolean"
+                @update:model-value="setDraft(powerOnSpec, $event)"
               />
-              <span class="text-[13px] text-ink-muted">Enabled</span>
-            </label>
-
-            <div class="flex flex-wrap gap-1">
-              <button
-                v-for="d in DAY_BITS"
-                :key="d.bit"
-                type="button"
-                class="rounded-full border-2 px-2.5 py-1 text-[13px] transition-colors duration-200"
-                :class="powerDraft(spec).days_of_week & d.bit
-                  ? 'border-ink bg-ink text-ink-inverse'
-                  : 'border-line-strong text-ink-muted hover:bg-raised'"
-                @click="togglePowerDay(spec, d.bit)"
-              >
-                {{ d.short }}
-              </button>
             </div>
-            <div class="flex gap-2">
-              <button type="button" class="text-[13px] text-ink underline underline-offset-2"
-                      @click="onPowerScheduleField(spec, { days_of_week: WEEKDAYS })">Weekdays</button>
-              <button type="button" class="text-[13px] text-ink underline underline-offset-2"
-                      @click="onPowerScheduleField(spec, { days_of_week: WEEKENDS })">Weekends</button>
-              <button type="button" class="text-[13px] text-ink underline underline-offset-2"
-                      @click="onPowerScheduleField(spec, { days_of_week: ALL_DAYS })">Every day</button>
+          </div>
+
+          <div class="mt-3 flex flex-col gap-3 border-t border-line pt-3">
+            <div class="flex items-center justify-between gap-3">
+              <p class="flex items-center gap-1.5 text-[13px] text-ink-muted">
+                <IconSchedule class="size-4 shrink-0" />
+                Scheduled — turn on and off automatically
+              </p>
+              <AppSwitch
+                :model-value="powerDraft(powerScheduleSpec).enabled"
+                @update:model-value="onPowerScheduleField(powerScheduleSpec, { enabled: $event })"
+              />
             </div>
 
-            <div class="grid max-w-xs grid-cols-2 gap-3">
-              <div class="flex flex-col gap-1.5">
-                <label class="text-[13px] text-ink-muted">Power on</label>
-                <input
-                  type="time" :value="powerDraft(spec).power_on"
-                  class="rounded-lg border border-line-strong bg-canvas px-3 py-2 text-sm
-                         text-ink focus:border-ink focus:outline-none"
-                  @input="onPowerScheduleField(spec, { power_on: ($event.target as HTMLInputElement).value })"
-                />
+            <template v-if="powerDraft(powerScheduleSpec).enabled">
+              <div class="flex flex-wrap gap-1">
+                <button
+                  v-for="d in DAY_BITS"
+                  :key="d.bit"
+                  type="button"
+                  class="rounded-full border-2 px-2.5 py-1 text-[13px] transition-colors duration-200"
+                  :class="powerDraft(powerScheduleSpec).days_of_week & d.bit
+                    ? 'border-ink bg-ink text-ink-inverse'
+                    : 'border-line-strong text-ink-muted hover:bg-raised'"
+                  @click="togglePowerDay(powerScheduleSpec, d.bit)"
+                >
+                  {{ d.short }}
+                </button>
               </div>
-              <div class="flex flex-col gap-1.5">
-                <label class="text-[13px] text-ink-muted">Power off</label>
-                <input
-                  type="time" :value="powerDraft(spec).power_off"
-                  class="rounded-lg border border-line-strong bg-canvas px-3 py-2 text-sm
-                         text-ink focus:border-ink focus:outline-none"
-                  @input="onPowerScheduleField(spec, { power_off: ($event.target as HTMLInputElement).value })"
-                />
+              <div class="flex gap-2">
+                <button type="button" class="text-[13px] text-ink underline underline-offset-2"
+                        @click="onPowerScheduleField(powerScheduleSpec, { days_of_week: WEEKDAYS })">Weekdays</button>
+                <button type="button" class="text-[13px] text-ink underline underline-offset-2"
+                        @click="onPowerScheduleField(powerScheduleSpec, { days_of_week: WEEKENDS })">Weekends</button>
+                <button type="button" class="text-[13px] text-ink underline underline-offset-2"
+                        @click="onPowerScheduleField(powerScheduleSpec, { days_of_week: ALL_DAYS })">Every day</button>
               </div>
-            </div>
+
+              <div class="grid max-w-xs grid-cols-2 gap-3">
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-[13px] text-ink-muted">Power on</label>
+                  <input
+                    type="time" :value="powerDraft(powerScheduleSpec).power_on"
+                    class="rounded-lg border border-line-strong bg-canvas px-3 py-2 text-sm
+                           text-ink focus:border-ink focus:outline-none"
+                    @input="onPowerScheduleField(powerScheduleSpec, { power_on: ($event.target as HTMLInputElement).value })"
+                  />
+                </div>
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-[13px] text-ink-muted">Power off</label>
+                  <input
+                    type="time" :value="powerDraft(powerScheduleSpec).power_off"
+                    class="rounded-lg border border-line-strong bg-canvas px-3 py-2 text-sm
+                           text-ink focus:border-ink focus:outline-none"
+                    @input="onPowerScheduleField(powerScheduleSpec, { power_off: ($event.target as HTMLInputElement).value })"
+                  />
+                </div>
+              </div>
+            </template>
           </div>
         </AppCard>
       </li>

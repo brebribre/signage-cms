@@ -21,10 +21,30 @@ private const val TAG = "FortuSettings"
  */
 object DeviceSettingsApplier {
 
+    /** What this process last actually applied for each field — in memory only, never
+     *  persisted, so a fresh process (a reboot, an app restart) always applies its restored
+     *  settings unconditionally on the first call, exactly as before. What this skips is
+     *  *redundant* re-application within an already-running process: the manifest bundles
+     *  settings in with content (see `device_sync.compute_version`'s docstring), so an
+     *  unrelated change — a new playlist, a different orientation — produces a new manifest
+     *  and would otherwise re-apply every setting every time, even ones that did not change.
+     *  That is more than wasted work: it means a volume nudge made by hand at the screen gets
+     *  silently overwritten back to the CMS's last-known value the next time anything else
+     *  changes, not only when someone actually touches volume. */
+    private var lastAppliedVolume: Int? = null
+    private var lastAppliedBrightness: Int? = null
+    private var lastAppliedPowerOn: Boolean? = null
+
     fun apply(context: Context, settings: ManifestSettings) {
-        settings.volume?.let { applyVolume(context, it) }
-        settings.brightness?.let { applyBrightness(context, it) }
-        settings.powerOn?.let { applyPower(context, it) }
+        settings.volume?.let {
+            if (it != lastAppliedVolume) { applyVolume(context, it); lastAppliedVolume = it }
+        }
+        settings.brightness?.let {
+            if (it != lastAppliedBrightness) { applyBrightness(context, it); lastAppliedBrightness = it }
+        }
+        settings.powerOn?.let {
+            if (it != lastAppliedPowerOn) { applyPower(context, it); lastAppliedPowerOn = it }
+        }
     }
 
     /**
