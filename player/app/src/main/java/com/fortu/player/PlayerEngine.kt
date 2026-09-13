@@ -4,8 +4,9 @@ import android.util.Log
 import com.fortu.player.api.HeartbeatRequest
 import com.fortu.player.api.HeartbeatScreen
 import com.fortu.player.api.Manifest
-import com.fortu.player.api.ManifestItem
+import com.fortu.player.api.ManifestElement
 import com.fortu.player.api.ManifestSettings
+import com.fortu.player.api.ManifestSlot
 import com.fortu.player.api.PlayReport
 import com.fortu.player.api.UnauthorizedException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -66,11 +67,44 @@ sealed interface PlayerState {
         val attempts: Int,
     ) : PlayerState
     data class Playing(
-        val items: List<ManifestItem>,
+        val slots: List<ManifestSlot>,
         val shuffle: Boolean,
         val orientation: String? = null,
-    ) : PlayerState
+    ) : PlayerState {
+        /** Every element across every slot, flattened — what most cache/count logic actually
+         *  wants, since it does not care which slot an element belongs to. */
+        val elements: List<ManifestElement> get() = slots.flatMap { it.elements }
+    }
 }
+
+/** The real playback unit, regardless of which shape the backend actually answered with:
+ *  prefers the real, multi-element [Manifest.slots], and falls back to treating each flat
+ *  [Manifest.items] entry as its own single-element slot when a backend predates `slots`
+ *  entirely (or this manifest genuinely has none). Every slot from here on is multi-element
+ *  capable — nothing downstream needs to know which path built it. */
+private fun Manifest.effectiveSlots(): List<ManifestSlot> {
+    if (slots.isNotEmpty()) return slots
+    return items.map { item ->
+        ManifestSlot(
+            id = item.id,
+            durationSeconds = item.durationSeconds,
+            elements = listOf(
+                ManifestElement(
+                    id = item.id,
+                    mediaId = item.mediaId,
+                    kind = item.kind,
+                    url = item.url,
+                    checksum = item.checksum,
+                    bytes = item.bytes,
+                    fit = item.fit,
+                    hasAudio = item.hasAudio,
+                ),
+            ),
+        )
+    }
+}
+
+private fun MediaStore.isFullyCached(slot: ManifestSlot): Boolean = slot.elements.all { isCached(it) }
 
 
 data class DebugInfo(
@@ -428,10 +462,10 @@ class PlayerEngine(
                 return
             }
 
-        val playable = manifest.items.filter { cache.isCached(it) }
+        val playable = manifest.effectiveSlots().filter { cache.isFullyCached(it) }
         if (playable.isEmpty()) return
 
-        Log.i(TAG, "restored ${playable.size} cached items from disk")
+        Log.i(TAG, "restored ${playable.size} cached slots from disk")
         _state.value = PlayerState.Playing(
             playable,
             manifest.playlist?.shuffle ?: false,
@@ -452,16 +486,18 @@ class PlayerEngine(
         validUntilMillis = parseInstantMillis(manifest.validUntil)
         _settings.value = manifest.settings
         applySettings(manifest.settings)
+
+        val slots = manifest.effectiveSlots()
         _debug.update {
             it.copy(
                 deviceName = manifest.device.name,
                 version = manifest.version,
-                itemCount = manifest.items.size,
+                itemCount = slots.sumOf { slot -> slot.elements.size },
                 schedule = manifest.scheduleName,
             )
         }
 
-        if (manifest.items.isEmpty()) {
+        if (slots.isEmpty()) {
             _state.value = PlayerState.Idle(manifest.device.name, manifest.device.orientation)
             cache.evictExcept(emptyList())
             _debug.update { it.copy(cachedBytes = cache.cachedBytes()) }
@@ -469,8 +505,10 @@ class PlayerEngine(
         }
 
         // Download everything missing BEFORE switching the playlist, so a screen never shows
-        // a gap while a file is still arriving.
-        val missing = manifest.items.filter { !cache.isCached(it) }
+        // a gap while a file is still arriving. Flattened across every slot's elements — a
+        // multi-element slot is not ready until every layer in it is.
+        val allElements = slots.flatMap { it.elements }
+        val missing = allElements.filter { !cache.isCached(it) }
         // Only announce preparing when there is genuinely something to fetch — a routine poll
         // that changes nothing must not flash a progress screen over content that is playing.
         if (missing.isNotEmpty()) {
@@ -480,26 +518,26 @@ class PlayerEngine(
         }
         var fetched = 0
 
-        for (item in manifest.items) {
-            if (!cache.isCached(item)) {
-                Log.i(TAG, "downloading ${item.checksum} (${item.bytes} bytes)")
+        for (element in allElements) {
+            if (!cache.isCached(element)) {
+                Log.i(TAG, "downloading ${element.checksum} (${element.bytes} bytes)")
                 _state.value = PlayerState.Preparing(
                     manifest.device.name, fetched, missing.size,
-                    "${item.kind} · ${item.bytes / 1_048_576} MB",
+                    "${element.kind} · ${element.bytes / 1_048_576} MB",
                 )
                 try {
-                    cache.download(item)
+                    cache.download(element)
                 } catch (e: Exception) {
-                    Log.e(TAG, "download failed for ${item.id}", e)
+                    Log.e(TAG, "download failed for ${element.id}", e)
                     _debug.update { it.copy(lastError = "download: ${e.message}") }
-                    // Keep going: one bad item should not stop the rest of the loop from
-                    // updating. The player skips anything still missing.
+                    // Keep going: one bad element should not stop the rest of the loop from
+                    // updating. The player skips any slot still missing one.
                 }
                 fetched++
             }
         }
 
-        val playable = manifest.items.filter { cache.isCached(it) }
+        val playable = slots.filter { cache.isFullyCached(it) }
         if (playable.isEmpty()) {
             _state.value = PlayerState.Idle(manifest.device.name, manifest.device.orientation)
         } else {
@@ -511,7 +549,7 @@ class PlayerEngine(
         }
 
         // Evict only after the new set is safely on disk.
-        cache.evictExcept(manifest.items.map { it.checksum })
+        cache.evictExcept(allElements.map { it.checksum })
         _debug.update { it.copy(cachedBytes = cache.cachedBytes()) }
     }
 
@@ -603,23 +641,27 @@ class PlayerEngine(
         }
     }
 
-    /** Called by the playback surface each time an item finishes. */
-    fun reportPlay(item: ManifestItem, startedAtMillis: Long, seconds: Int) {
+    /** Called by the playback surface each time a slot finishes — once per element it
+     *  contained, all sharing the same timing, since every element in a slot is on screen for
+     *  exactly the same window. */
+    fun reportPlay(slot: ManifestSlot, startedAtMillis: Long, seconds: Int) {
         synchronized(pendingPlays) {
-            if (pendingPlays.size >= MAX_PENDING_PLAYS) pendingPlays.removeAt(0)
-            pendingPlays.add(
-                PlayReport(
-                    // Null against an older backend that does not send it. The server then
-                    // falls back to whatever filename it can resolve, and the play is still
-                    // recorded rather than dropped.
-                    mediaId = item.mediaId,
-                    // Left blank on purpose: the server resolves the real name from mediaId,
-                    // so the log cannot drift when a file is renamed.
-                    filename = "",
-                    startedAt = java.time.Instant.ofEpochMilli(startedAtMillis).toString(),
-                    seconds = seconds,
+            for (element in slot.elements) {
+                if (pendingPlays.size >= MAX_PENDING_PLAYS) pendingPlays.removeAt(0)
+                pendingPlays.add(
+                    PlayReport(
+                        // Null against an older backend that does not send it. The server then
+                        // falls back to whatever filename it can resolve, and the play is still
+                        // recorded rather than dropped.
+                        mediaId = element.mediaId,
+                        // Left blank on purpose: the server resolves the real name from
+                        // mediaId, so the log cannot drift when a file is renamed.
+                        filename = "",
+                        startedAt = java.time.Instant.ofEpochMilli(startedAtMillis).toString(),
+                        seconds = seconds,
+                    )
                 )
-            )
+            }
         }
     }
 

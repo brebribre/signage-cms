@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  A TextureView-backed PlayerView, not the SurfaceView PlayerView(Context) defaults to.
+
+  SurfaceView punches a hole in the window and composites through a separate hardware overlay
+  outside the normal View hierarchy — it does not reliably respect an AndroidView's Compose
+  bounds or z-order when more than one such surface shares a screen with other content. That
+  is exactly the pooled-video-in-a-multi-element-scene case: a SurfaceView-backed pool member
+  was observed covering the entire screen instead of just its own element's box, hiding
+  whatever else was supposed to render alongside it. TextureView is a plain View that composites
+  through the normal pipeline, at a small performance cost, and is Google's own documented fix
+  for this exact class of overlap/clipping problem.
+-->
+<androidx.media3.ui.PlayerView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/pooled_player_view"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    app:surface_type="texture_view"
+    app:use_controller="false" />

@@ -4,7 +4,8 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.fortu.player.api.ApiClient
-import com.fortu.player.api.ManifestItem
+import com.fortu.player.api.ManifestElement
+import com.fortu.player.api.ManifestSlot
 import com.fortu.player.data.DeviceStore
 import com.fortu.player.data.MediaCache
 import com.fortu.player.kiosk.DeviceSettingsApplier
@@ -52,8 +53,8 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setScreenSize(w: Int, h: Int) = engine.setScreenSize(w, h)
     fun setKioskState(description: String) = engine.setKioskState(description)
-    fun reportPlay(item: ManifestItem, startedAtMillis: Long, seconds: Int) =
-        engine.reportPlay(item, startedAtMillis, seconds)
+    fun reportPlay(slot: ManifestSlot, startedAtMillis: Long, seconds: Int) =
+        engine.reportPlay(slot, startedAtMillis, seconds)
 
     /** Playback failures reach the CMS health page via the next heartbeat, so an unplayable
      *  file is visible as an error rather than only as a gap someone happens to notice. */
@@ -66,7 +67,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     fun checkForUpdateNow() = viewModelScope.launch(Dispatchers.IO) { engine.checkForUpdateNow() }
 
     /** File resolution stays here: it is an Android storage concern, not state-machine logic. */
-    fun localFileFor(item: ManifestItem) = cache.fileFor(item.checksum)
+    fun localFileFor(element: ManifestElement) = cache.fileFor(element.checksum)
 
     /** True once [engine]'s loop has been launched for this ViewModel instance. */
     private var started = false

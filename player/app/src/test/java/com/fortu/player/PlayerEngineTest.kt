@@ -252,7 +252,56 @@ class PlayerEngineTest {
         assertEquals(
             "only the good items play",
             listOf("a", "c"),
-            (state as PlayerState.Playing).items.map { it.checksum },
+            (state as PlayerState.Playing).elements.map { it.checksum },
+        )
+        job.cancelAndJoin()
+    }
+
+    // --- multi-element slots (real `slots`, not the flattened `items`) --------------------
+
+    @Test
+    fun `every element of a multi-element slot downloads before it plays`() = runTest {
+        val store = FakeStore(storedToken = "t")
+        val cache = FakeCache()
+        val api = FakeApi().apply {
+            manifest = manifest(slots = listOf(slot(item("a"), item("b"))))
+        }
+        val e = engine(api = api, store = store, cache = cache)
+        val job = launch { e.run() }
+        advanceTimeBy(1_000)
+
+        assertEquals(setOf("a", "b"), cache.downloaded.toSet())
+        val state = e.state.value
+        assertTrue(state is PlayerState.Playing)
+        assertEquals(1, (state as PlayerState.Playing).slots.size)
+        assertEquals(2, state.slots.single().elements.size)
+        job.cancelAndJoin()
+    }
+
+    @Test
+    fun `a slot is not playable until every one of its elements is cached`() = runTest {
+        // One bad layer must drop the whole scene, not show it missing a piece — a half-drawn
+        // scene is a worse failure than skipping it for one that plays cleanly.
+        val store = FakeStore(storedToken = "t")
+        val cache = FakeCache().apply { downloadThrowsFor = "b" }
+        val api = FakeApi().apply {
+            manifest = manifest(
+                slots = listOf(
+                    slot(item("a"), item("b")), // one element fails — the whole slot drops
+                    slot(item("c")), // unaffected
+                ),
+            )
+        }
+        val e = engine(api = api, store = store, cache = cache)
+        val job = launch { e.run() }
+        advanceTimeBy(1_000)
+
+        val state = e.state.value
+        assertTrue("the unaffected slot should still play, got $state", state is PlayerState.Playing)
+        assertEquals(
+            "only the fully-cached slot survives",
+            listOf("c"),
+            (state as PlayerState.Playing).elements.map { it.checksum },
         )
         job.cancelAndJoin()
     }
@@ -338,8 +387,8 @@ class PlayerEngineTest {
         val job = launch { e.run() }
         advanceTimeBy(1_000)
 
-        e.reportPlay(item("a"), startedAtMillis = 1_000_000, seconds = 10)
-        e.reportPlay(item("b"), startedAtMillis = 1_010_000, seconds = 12)
+        e.reportPlay(slot(item("a")), startedAtMillis = 1_000_000, seconds = 10)
+        e.reportPlay(slot(item("b")), startedAtMillis = 1_010_000, seconds = 12)
         advanceTimeBy(35_000)
 
         val withPlays = api.heartbeats.firstOrNull { it.plays.isNotEmpty() }
@@ -358,7 +407,7 @@ class PlayerEngineTest {
         val job = launch { e.run() }
         advanceTimeBy(1_000)
 
-        e.reportPlay(item("a"), 1_000_000, 10)
+        e.reportPlay(slot(item("a")), 1_000_000, 10)
         advanceTimeBy(35_000)
         advanceTimeBy(35_000)
 
@@ -565,7 +614,7 @@ class PlayerEngineTest {
 
         val state = e.state.value
         assertTrue("a rebooted screen must play, got $state", state is PlayerState.Playing)
-        assertEquals(listOf("a"), (state as PlayerState.Playing).items.map { it.checksum })
+        assertEquals(listOf("a"), (state as PlayerState.Playing).elements.map { it.checksum })
         job.cancelAndJoin()
     }
 
@@ -590,7 +639,7 @@ class PlayerEngineTest {
 
         val state = e.state.value
         assertTrue("must play offline from cache, got $state", state is PlayerState.Playing)
-        assertEquals(2, (state as PlayerState.Playing).items.size)
+        assertEquals(2, (state as PlayerState.Playing).elements.size)
         job.cancelAndJoin()
     }
 

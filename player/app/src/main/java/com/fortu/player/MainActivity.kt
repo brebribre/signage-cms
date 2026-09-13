@@ -130,7 +130,7 @@ class MainActivity : ComponentActivity() {
                     is PlayerState.Trouble ->
                         TroubleScreen(s.deviceName, s.message, s.apiHost, s.attempts)
                     is PlayerState.Playing -> PlaybackSurface(
-                        items = s.items,
+                        slots = s.slots,
                         fileFor = vm::localFileFor,
                         onPlayed = vm::reportPlay,
                         onPlaybackError = vm::reportError,

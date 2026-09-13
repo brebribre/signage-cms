@@ -4,8 +4,10 @@ import com.fortu.player.api.HeartbeatRequest
 import com.fortu.player.api.HeartbeatResponse
 import com.fortu.player.api.Manifest
 import com.fortu.player.api.ManifestDevice
+import com.fortu.player.api.ManifestElement
 import com.fortu.player.api.ManifestItem
 import com.fortu.player.api.ManifestPlaylist
+import com.fortu.player.api.ManifestSlot
 import com.fortu.player.api.PairPollResponse
 import com.fortu.player.api.PairStartResponse
 import com.fortu.player.api.UnauthorizedException
@@ -145,11 +147,11 @@ class FakeCache : MediaStore {
     var downloadThrowsFor: String? = null
     var lastEvictKeep: Collection<String>? = null
 
-    override fun isCached(item: ManifestItem) = item.checksum in cached
-    override fun download(item: ManifestItem) {
-        if (item.checksum == downloadThrowsFor) throw IOException("download failed")
-        downloaded += item.checksum
-        cached += item.checksum
+    override fun isCached(checksum: String, bytes: Long) = checksum in cached
+    override fun download(checksum: String, url: String) {
+        if (checksum == downloadThrowsFor) throw IOException("download failed")
+        downloaded += checksum
+        cached += checksum
     }
     override fun evictExcept(keep: Collection<String>) { lastEvictKeep = keep }
     override fun cachedBytes() = cached.size * 1000L
@@ -173,9 +175,32 @@ fun item(
     fit = fit,
 )
 
+/** Wraps one or more [item]s into the multi-element `ManifestSlot` shape — for tests that need
+ *  to exercise `slots` (rather than the flat `items`) directly, e.g. proof-of-play or the
+ *  multi-element download/cache logic. */
+fun slot(vararg items: ManifestItem, seconds: Int = 10) = ManifestSlot(
+    id = "slot-${items.joinToString("-") { it.checksum }}",
+    durationSeconds = seconds,
+    elements = items.map {
+        ManifestElement(
+            id = it.id,
+            mediaId = it.mediaId,
+            kind = it.kind,
+            url = it.url,
+            checksum = it.checksum,
+            bytes = it.bytes,
+            fit = it.fit,
+            hasAudio = it.hasAudio,
+        )
+    },
+)
+
 fun manifest(
     version: String = "v1",
     items: List<ManifestItem> = emptyList(),
+    /** The real multi-element shape, for tests exercising `slots` directly rather than the
+     *  flat back-compat `items`. Independent of `items` — a test builds one or the other. */
+    slots: List<ManifestSlot> = emptyList(),
     orientation: String = "portrait",
     playlist: ManifestPlaylist? = ManifestPlaylist("pl-1", "Loop", false),
     scheduleName: String? = null,
@@ -183,8 +208,9 @@ fun manifest(
 ) = Manifest(
     version = version,
     device = ManifestDevice(name = "Lobby", orientation = orientation),
-    playlist = if (items.isEmpty() && playlist == null) null else playlist,
+    playlist = if (items.isEmpty() && slots.isEmpty() && playlist == null) null else playlist,
     items = items,
+    slots = slots,
     scheduleName = scheduleName,
     validUntil = validUntil,
 )

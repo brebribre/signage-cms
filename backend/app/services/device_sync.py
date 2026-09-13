@@ -137,6 +137,9 @@ class ManifestElement:
     fit: ItemFit
     has_audio: bool
     rotation_degrees: int
+    crop_x: float | None = None
+    crop_y: float | None = None
+    crop_zoom: float | None = None
 
 
 @dataclass
@@ -221,6 +224,9 @@ def build_manifest(session: Session, device: Device, *, version: str) -> Manifes
                     fit=el.fit,
                     has_audio=el.has_audio,
                     rotation_degrees=el.rotation_degrees,
+                    crop_x=el.crop_x,
+                    crop_y=el.crop_y,
+                    crop_zoom=el.crop_zoom,
                 )
                 for el, media in elements
             ],

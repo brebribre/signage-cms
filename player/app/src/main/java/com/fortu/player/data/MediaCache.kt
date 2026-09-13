@@ -2,7 +2,6 @@ package com.fortu.player.data
 
 import android.content.Context
 import android.util.Log
-import com.fortu.player.api.ManifestItem
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
@@ -23,20 +22,20 @@ class MediaCache(context: Context, private val client: OkHttpClient) : com.fortu
 
     fun fileFor(checksum: String): File = File(dir, safeName(checksum))
 
-    override fun isCached(item: ManifestItem): Boolean {
-        val f = fileFor(item.checksum)
+    override fun isCached(checksum: String, bytes: Long): Boolean {
+        val f = fileFor(checksum)
         // Size check as well as existence: a download interrupted by a power cut leaves a
         // short file behind, and playing that is worse than re-fetching it.
-        return f.exists() && f.length() == item.bytes
+        return f.exists() && f.length() == bytes
     }
 
     @Throws(IOException::class)
-    override fun download(item: ManifestItem) {
-        val target = fileFor(item.checksum)
+    override fun download(checksum: String, url: String) {
+        val target = fileFor(checksum)
         // Write to a temp file and rename only on success, so an interrupted download can
         // never be mistaken for a complete one.
         val tmp = File(target.absolutePath + ".part")
-        val req = Request.Builder().url(item.url).get().build()
+        val req = Request.Builder().url(url).get().build()
         client.newCall(req).execute().use { res ->
             if (!res.isSuccessful) throw IOException("download failed: HTTP ${res.code}")
             tmp.outputStream().use { out -> res.body!!.byteStream().copyTo(out) }

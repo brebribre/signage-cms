@@ -37,6 +37,12 @@ class ManifestElement(BaseModel):
     fit: ItemFit
     has_audio: bool
     rotation_degrees: int
+    # Pan/zoom within the element's box — see PlaylistItemElement. Not applied by any player
+    # build yet (rotation isn't either, until the multi-element rendering work lands), but
+    # sent regardless so the wire shape doesn't need a second migration once it is.
+    crop_x: float | None = None
+    crop_y: float | None = None
+    crop_zoom: float | None = None
 
 
 class ManifestSlot(BaseModel):
@@ -71,6 +77,11 @@ class ManifestResponse(BaseModel):
     playlist: ManifestPlaylist | None
     # Named to match what `Models.kt` actually deserializes — see `ManifestItem`'s docstring.
     items: list[ManifestItem]
+    # The real, multi-element shape — every element of every slot, unflattened. Additive: kept
+    # alongside `items` rather than replacing it, so an already-deployed player build (which
+    # only knows `items` and ignores unknown keys) is completely unaffected by this field's
+    # existence. Only a player new enough to render more than one element per slot reads it.
+    slots: list[ManifestSlot] = Field(default_factory=list)
     # The schedule currently overriding the default, if any.
     schedule_name: str | None = None
     # ISO-8601 UTC. The device re-polls at this moment rather than on its next 30s tick, so a

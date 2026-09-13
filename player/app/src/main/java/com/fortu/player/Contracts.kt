@@ -3,6 +3,7 @@ package com.fortu.player
 import com.fortu.player.api.HeartbeatRequest
 import com.fortu.player.api.HeartbeatResponse
 import com.fortu.player.api.Manifest
+import com.fortu.player.api.ManifestElement
 import com.fortu.player.api.ManifestItem
 import com.fortu.player.api.PairPollResponse
 import com.fortu.player.api.PairStartResponse
@@ -61,12 +62,20 @@ interface TokenStore {
     suspend fun clear()
 }
 
+/** Keyed by checksum/url/bytes alone — both [ManifestItem] (legacy single-element slots) and
+ *  [com.fortu.player.api.ManifestElement] (a slot's individual layers) carry exactly this
+ *  triple, so one cache serves both without either type knowing about the other. */
 interface MediaStore {
-    fun isCached(item: ManifestItem): Boolean
-    fun download(item: ManifestItem)
+    fun isCached(checksum: String, bytes: Long): Boolean
+    fun download(checksum: String, url: String)
     fun evictExcept(keep: Collection<String>)
     fun cachedBytes(): Long
 }
+
+fun MediaStore.isCached(item: ManifestItem): Boolean = isCached(item.checksum, item.bytes)
+fun MediaStore.download(item: ManifestItem) = download(item.checksum, item.url)
+fun MediaStore.isCached(element: ManifestElement): Boolean = isCached(element.checksum, element.bytes)
+fun MediaStore.download(element: ManifestElement) = download(element.checksum, element.url)
 
 /**
  * A low-latency nudge that the manifest may have changed, so the poll loop can skip the rest

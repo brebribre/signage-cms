@@ -56,6 +56,45 @@ data class ManifestItem(
 )
 
 /**
+ * One element within a [ManifestSlot] — the real, unflattened shape (backend
+ * `schemas/device_sync.py`'s `ManifestElement`). Everything [ManifestItem] has, plus where and
+ * how it sits within its slot: multiple elements share one slot's screen space instead of each
+ * getting the whole thing.
+ *
+ * Every field but `id`/`kind`/`url`/`checksum`/`bytes` is defaulted for the same version-skew
+ * reason as [ManifestItem]'s own fields — this type is newer than the backend that might be
+ * answering, and a manifest missing a field must degrade sensibly rather than fail to parse.
+ */
+@Serializable
+data class ManifestElement(
+    val id: String,
+    @SerialName("media_id") val mediaId: String? = null,
+    val kind: String,
+    val url: String,
+    val checksum: String,
+    val bytes: Long,
+    val x: Float = 0f,
+    val y: Float = 0f,
+    val width: Float = 1f,
+    val height: Float = 1f,
+    val fit: String = "contain",
+    @SerialName("has_audio") val hasAudio: Boolean = false,
+    @SerialName("rotation_degrees") val rotationDegrees: Int = 0,
+    @SerialName("crop_x") val cropX: Float? = null,
+    @SerialName("crop_y") val cropY: Float? = null,
+    @SerialName("crop_zoom") val cropZoom: Float? = null,
+)
+
+/** One playable slot — one or more layered [ManifestElement]s, shown together for
+ *  [durationSeconds] before the loop advances. */
+@Serializable
+data class ManifestSlot(
+    val id: String,
+    @SerialName("duration_seconds") val durationSeconds: Int,
+    val elements: List<ManifestElement> = emptyList(),
+)
+
+/**
  * Remotely-configured values from the CMS's device-settings registry (backend
  * `services/device_settings.py`). Typed fields for what this build knows how to apply —
  * `touchscreen_disabled` and `power_schedule` arrive in the same JSON object but have no
@@ -87,6 +126,12 @@ data class Manifest(
     /** null is a valid state — a newly paired screen with nothing assigned yet. */
     val playlist: ManifestPlaylist? = null,
     val items: List<ManifestItem> = emptyList(),
+    /** The real, unflattened shape — one or more layered elements per slot. Rides alongside
+     *  [items] rather than replacing it (see backend `ManifestResponse.slots`'s own docstring):
+     *  an older player simply never reads this field. Empty, not missing, when the backend
+     *  predates it or a slot genuinely has no elements — [PlayerEngine] falls back to treating
+     *  [items] as one-element slots whenever this is empty. */
+    val slots: List<ManifestSlot> = emptyList(),
     /** The schedule currently overriding the default, if any. Shown in the debug overlay so
      *  "why is this playing?" is answerable at the screen. */
     @SerialName("schedule_name") val scheduleName: String? = null,

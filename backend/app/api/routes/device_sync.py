@@ -14,9 +14,11 @@ from app.schemas.device_sync import (
     HeartbeatRequest,
     HeartbeatResponse,
     ManifestDevice,
+    ManifestElement,
     ManifestItem,
     ManifestPlaylist,
     ManifestResponse,
+    ManifestSlot,
     UpdateInfo,
 )
 from app.services import device_sync, operations
@@ -79,6 +81,38 @@ def get_manifest(device: CurrentDevice, session: DbSession, request: Request) ->
                 duration_seconds=slot.duration_seconds,
                 fit=slot.elements[0].fit,
                 has_audio=slot.elements[0].has_audio,
+            )
+            for slot in manifest.slots
+            if slot.elements
+        ],
+        # The real, unflattened shape — see `ManifestResponse.slots`'s own docstring for why
+        # this rides alongside `items` rather than replacing it.
+        slots=[
+            ManifestSlot(
+                id=slot.id,
+                duration_seconds=slot.duration_seconds,
+                elements=[
+                    ManifestElement(
+                        id=el.id,
+                        media_id=el.media_id,
+                        kind=el.kind,
+                        url=el.url,
+                        checksum=el.checksum,
+                        bytes=el.bytes,
+                        z_index=el.z_index,
+                        x=el.x,
+                        y=el.y,
+                        width=el.width,
+                        height=el.height,
+                        fit=el.fit,
+                        has_audio=el.has_audio,
+                        rotation_degrees=el.rotation_degrees,
+                        crop_x=el.crop_x,
+                        crop_y=el.crop_y,
+                        crop_zoom=el.crop_zoom,
+                    )
+                    for el in slot.elements
+                ],
             )
             for slot in manifest.slots
             if slot.elements
