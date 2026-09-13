@@ -132,23 +132,30 @@ fun PlaybackSurface(
         }
     }
 
-    // Sized once per manifest (`slots` is a structurally new list only when content actually
-    // changed — an unchanged poll answers 304 and never reaches here at all) to the most
-    // concurrent videos any single slot needs. A slot needing fewer just leaves the remaining
-    // pool members inactive.
+    // Persists for as long as this composable lives — never rebuilt just because `slots`
+    // changed. It only ever grows, to the most concurrent videos any slot *this composable
+    // has ever seen* needs. Keying this on `slots` instead (as an earlier version did) meant
+    // any playlist swap while already playing — a rule firing, a schedule change — tore down
+    // and rebuilt every pool member from scratch: releasing and recreating an ExoPlayer and
+    // its decoder/surface is expensive enough, synchronously on the main thread during
+    // composition, to visibly freeze the screen. A slot needing fewer than the pool's current
+    // size just leaves the remaining members inactive, exactly as before.
     val context = LocalContext.current
-    val poolSize = remember(slots) {
-        slots.maxOfOrNull { s -> s.elements.count { it.kind == "video" } } ?: 0
-    }
-    val exoPool = remember(slots) {
-        List(poolSize) {
-            ExoPlayer.Builder(context).build().apply {
-                playWhenReady = true
-                volume = 0f
-            }
+    val exoPool = remember { mutableListOf<ExoPlayer>() }
+    var poolSize by remember { mutableIntStateOf(0) }
+    val requiredPoolSize = slots.maxOfOrNull { s -> s.elements.count { it.kind == "video" } } ?: 0
+    LaunchedEffect(requiredPoolSize) {
+        while (exoPool.size < requiredPoolSize) {
+            exoPool.add(
+                ExoPlayer.Builder(context).build().apply {
+                    playWhenReady = true
+                    volume = 0f
+                },
+            )
         }
+        poolSize = exoPool.size
     }
-    DisposableEffect(exoPool) { onDispose { exoPool.forEach { it.release() } } }
+    DisposableEffect(Unit) { onDispose { exoPool.forEach { it.release() } } }
 
     val loop = singleVideo == null
     val videoElementsInSlot = slot.elements.filter { it.kind == "video" }
