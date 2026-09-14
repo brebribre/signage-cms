@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import java.io.File
 
 private const val TAG = "FortuPlayer"
 
@@ -151,6 +152,15 @@ class PlayerEngine(
     /** Same reasoning, the other direction: what volume/brightness actually are right now,
      *  read from the system for the next heartbeat to report. */
     private val currentSettings: () -> Map<String, Int> = { emptyMap() },
+    /** Primes whatever makes the *next* display of this file fast — Coil's memory cache for
+     *  an image (so `AsyncImage` doesn't pay a decode cost the first time it's shown), the OS
+     *  page cache for a video (there is no single "decode once" step for video the way there
+     *  is for a bitmap, so priming the read is most of what separates a cold first play from
+     *  a warm one). Called for everything about to go on screen, right before a changed
+     *  manifest switches over — so the first loop through new content looks like every loop
+     *  after it, not a cold start. A no-op default is harmless: display just decodes/buffers
+     *  on first use, exactly like before this existed. */
+    private val warmMedia: suspend (File, kind: String) -> Unit = { _, _ -> },
     /** Where blocking work runs. Injected so tests can supply the test scheduler's
      *  dispatcher — with a hard-coded `Dispatchers.IO` the download and state-transition work
      *  escapes virtual time entirely and assertions race it. */
@@ -538,6 +548,26 @@ class PlayerEngine(
         }
 
         val playable = slots.filter { cache.isFullyCached(it) }
+
+        // Warm everything that is actually about to go on screen before switching the
+        // playlist over — so the first loop through this (new or changed) content looks like
+        // every loop after it, not a cold start. `distinctBy` skips re-warming the same file
+        // twice when one image or video is reused across several slots. Only updates the
+        // Preparing screen if downloading already put it up; if nothing needed fetching,
+        // whatever was already on screen just keeps looping a little longer instead of
+        // flashing a progress screen over content that is playing fine.
+        val toWarm = playable.flatMap { it.elements }.distinctBy { it.checksum }
+        for (element in toWarm) {
+            if (missing.isNotEmpty()) {
+                _state.value = PlayerState.Preparing(
+                    manifest.device.name, missing.size, missing.size,
+                    "getting ${element.kind} ready",
+                )
+            }
+            runCatching { warmMedia(cache.fileFor(element), element.kind) }
+                .onFailure { Log.w(TAG, "warm-up failed for ${element.id}", it) }
+        }
+
         if (playable.isEmpty()) {
             _state.value = PlayerState.Idle(manifest.device.name, manifest.device.orientation)
         } else {

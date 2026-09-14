@@ -20,7 +20,7 @@ class MediaCache(context: Context, private val client: OkHttpClient) : com.fortu
 
     private fun safeName(checksum: String) = checksum.replace(Regex("[^A-Za-z0-9]"), "_")
 
-    fun fileFor(checksum: String): File = File(dir, safeName(checksum))
+    override fun fileFor(checksum: String): File = File(dir, safeName(checksum))
 
     override fun isCached(checksum: String, bytes: Long): Boolean {
         val f = fileFor(checksum)

@@ -34,6 +34,7 @@ class PlayerEngineTest {
         canSelfUpdate: () -> Boolean = { false },
         installUpdate: (String) -> Boolean = { true },
         push: PushClient = NoopPushClient,
+        warmMedia: suspend (java.io.File, String) -> Unit = { _, _ -> },
     ) = PlayerEngine(
         api = api,
         store = store,
@@ -42,6 +43,7 @@ class PlayerEngineTest {
         apiBaseUrl = "https://api.example.com",
         canSelfUpdate = canSelfUpdate,
         installUpdate = installUpdate,
+        warmMedia = warmMedia,
         // The test scheduler's dispatcher, so everything the engine does stays inside
         // virtual time and assertions never race real threads.
         io = UnconfinedTestDispatcher(testScheduler),
@@ -254,6 +256,43 @@ class PlayerEngineTest {
             listOf("a", "c"),
             (state as PlayerState.Playing).elements.map { it.checksum },
         )
+        job.cancelAndJoin()
+    }
+
+    @Test
+    fun `everything about to play is warmed before the switch, and nothing else is`() = runTest {
+        val store = FakeStore(storedToken = "t")
+        val cache = FakeCache().apply { downloadThrowsFor = "b" }
+        val warmed = mutableListOf<String>()
+        val api = FakeApi().apply {
+            manifest = manifest(items = listOf(item("a"), item("b", kind = "video"), item("c")))
+        }
+        val e = engine(
+            api = api, store = store, cache = cache,
+            warmMedia = { file, kind -> warmed += "$kind:${file.name}" },
+        )
+        val job = launch { e.run() }
+        advanceTimeBy(1_000)
+
+        // "b" failed to download, so its slot never plays and is never warmed either — warming
+        // something that will not be shown would just be wasted work.
+        assertEquals(listOf("image:a", "image:c"), warmed)
+        job.cancelAndJoin()
+    }
+
+    @Test
+    fun `warming a file does not stop playback if it throws`() = runTest {
+        val store = FakeStore(storedToken = "t")
+        val cache = FakeCache()
+        val api = FakeApi().apply { manifest = manifest(items = listOf(item("a"))) }
+        val e = engine(
+            api = api, store = store, cache = cache,
+            warmMedia = { _, _ -> throw java.io.IOException("warm-up failed") },
+        )
+        val job = launch { e.run() }
+        advanceTimeBy(1_000)
+
+        assertTrue(e.state.value is PlayerState.Playing)
         job.cancelAndJoin()
     }
 

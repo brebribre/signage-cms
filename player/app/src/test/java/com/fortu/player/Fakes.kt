@@ -11,6 +11,7 @@ import com.fortu.player.api.ManifestSlot
 import com.fortu.player.api.PairPollResponse
 import com.fortu.player.api.PairStartResponse
 import com.fortu.player.api.UnauthorizedException
+import java.io.File
 import java.io.IOException
 
 /** Test doubles for the three collaborators [PlayerEngine] talks to. */
@@ -155,6 +156,7 @@ class FakeCache : MediaStore {
     }
     override fun evictExcept(keep: Collection<String>) { lastEvictKeep = keep }
     override fun cachedBytes() = cached.size * 1000L
+    override fun fileFor(checksum: String) = File("/fake/$checksum")
 }
 
 // --- builders -----------------------------------------------------------------------------

@@ -3,6 +3,8 @@ package com.fortu.player
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import coil.imageLoader
+import coil.request.ImageRequest
 import com.fortu.player.api.ApiClient
 import com.fortu.player.api.ManifestElement
 import com.fortu.player.api.ManifestSlot
@@ -42,6 +44,23 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         installUpdate = { url -> SelfUpdater.downloadAndInstall(app, api.http, url) },
         applySettings = { settings -> DeviceSettingsApplier.apply(app, settings) },
         currentSettings = { DeviceSettingsApplier.currentSettings(app) },
+        warmMedia = { file, kind ->
+            when (kind) {
+                // Same ImageLoader `AsyncImage` reads from by default (PlaybackSurface never
+                // supplies its own) — this decodes into its memory cache, so the real display
+                // later is a cache hit instead of a fresh decode.
+                "image" -> { app.imageLoader.execute(ImageRequest.Builder(app).data(file).build()); Unit }
+                // No equivalent single "decode once" step for video — reading it primes the
+                // OS's own page cache, which is most of what makes a second read faster than
+                // the first. A bounded buffer: some videos run tens of MB, not worth holding
+                // in memory just to throw away.
+                "video" -> file.inputStream().use { input ->
+                    val buffer = ByteArray(64 * 1024)
+                    while (input.read(buffer) != -1) { /* reading is the point */ }
+                }
+                else -> {}
+            }
+        },
         push = push,
     )
 

@@ -9,6 +9,7 @@ import com.fortu.player.api.PairPollResponse
 import com.fortu.player.api.PairStartResponse
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
+import java.io.File
 
 /**
  * The things the player's state machine talks to, as interfaces.
@@ -70,12 +71,17 @@ interface MediaStore {
     fun download(checksum: String, url: String)
     fun evictExcept(keep: Collection<String>)
     fun cachedBytes(): Long
+    /** The local file a checksum lives (or will live) at — exposed so warm-up work (decoding
+     *  an image, priming the OS page cache for a video) can run without any Android-specific
+     *  API. Callers check [isCached] first; this makes no promise the file exists yet. */
+    fun fileFor(checksum: String): File
 }
 
 fun MediaStore.isCached(item: ManifestItem): Boolean = isCached(item.checksum, item.bytes)
 fun MediaStore.download(item: ManifestItem) = download(item.checksum, item.url)
 fun MediaStore.isCached(element: ManifestElement): Boolean = isCached(element.checksum, element.bytes)
 fun MediaStore.download(element: ManifestElement) = download(element.checksum, element.url)
+fun MediaStore.fileFor(element: ManifestElement): File = fileFor(element.checksum)
 
 /**
  * A low-latency nudge that the manifest may have changed, so the poll loop can skip the rest
