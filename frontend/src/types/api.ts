@@ -337,6 +337,7 @@ export interface CampaignWrite {
 export interface CampaignSummary {
   id: string
   name: string
+  device_ids: string[]
   device_count: number
   rule_count: number
   created_at: string

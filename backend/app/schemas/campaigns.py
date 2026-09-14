@@ -37,6 +37,9 @@ class CampaignWrite(BaseModel):
 class CampaignSummary(BaseModel):
     id: uuid.UUID
     name: str
+    # Which devices, not just how many — lets a device picker say which campaign already
+    # holds a screen without fetching every campaign's detail.
+    device_ids: list[uuid.UUID]
     device_count: int
     rule_count: int
     created_at: datetime
