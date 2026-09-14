@@ -8,8 +8,6 @@ import IconClose from '~icons/material-symbols/close'
 import IconCheck from '~icons/material-symbols/check'
 import IconVisibility from '~icons/material-symbols/visibility'
 import IconVisibilityOff from '~icons/material-symbols/visibility-off'
-import IconPlayArrow from '~icons/material-symbols/play-arrow'
-import IconPause from '~icons/material-symbols/pause'
 import IconArrowBack from '~icons/material-symbols/arrow-back'
 
 import { useDevices } from '@/hooks/useDevices'
@@ -295,24 +293,12 @@ function sceneLabel(item: DraftItem): string {
               />
             </template>
           </div>
-          <AppButton
-            variant="secondary"
-            size="sm"
-            :disabled="!preview.enabled.value.length"
-            @click="preview.toggle()"
-          >
-            <component :is="preview.isPlaying.value ? IconPause : IconPlayArrow" class="size-4" />
-            {{ preview.isPlaying.value ? 'Pause' : 'Preview' }}
-          </AppButton>
         </div>
 
         <ScreenPreview
           :screen-width="screen.width"
           :screen-height="screen.height"
           :elements="preview.current.value?.elements ?? []"
-          :label="preview.current.value
-            ? `${sceneLabel(preview.current.value)} · ${screen.label}`
-            : screen.label"
         />
       </div>
     </template>

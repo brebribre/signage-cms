@@ -31,7 +31,6 @@ const props = withDefaults(
     screenWidth: number
     screenHeight: number
     elements: DraftElement[]
-    label?: string
     maxHeight?: number
   }>(),
   { maxHeight: 420 },
@@ -110,8 +109,13 @@ function mediaStyle(el: DraftElement): CSSProperties {
 </script>
 
 <template>
-  <div class="flex flex-col items-center gap-2">
-    <div class="relative overflow-hidden rounded-md bg-black" :style="frameStyle">
+  <!-- The bezel is an outline, not a border: an outline adds no size, so the screen area keeps
+       its exact aspect ratio. The padding leaves room for it inside whatever holds the preview. -->
+  <div class="flex flex-col items-center p-2.5">
+    <div
+      class="relative overflow-hidden rounded-sm bg-black outline-[10px] outline-solid outline-ink"
+      :style="frameStyle"
+    >
       <div v-for="el in sortedElements" :key="el.key" :style="boxStyle(el)">
         <div :style="wrapperStyle(el)">
           <video
@@ -137,7 +141,5 @@ function mediaStyle(el: DraftElement): CSSProperties {
         Nothing to preview
       </div>
     </div>
-
-    <p class="text-[13px] text-ink-subtle">{{ label }}</p>
   </div>
 </template>
