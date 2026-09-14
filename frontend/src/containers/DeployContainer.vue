@@ -29,10 +29,11 @@ import AppModal from '@/reusables/AppModal.vue'
 import AppSwitch from '@/reusables/AppSwitch.vue'
 import DeviceCard from '@/reusables/DeviceCard.vue'
 import EmptyState from '@/reusables/EmptyState.vue'
+import MaybeModal from '@/reusables/MaybeModal.vue'
 import PageTitle from '@/reusables/PageTitle.vue'
 import PairScreenForm from '@/reusables/PairScreenForm.vue'
 import PlaylistPicker from '@/reusables/PlaylistPicker.vue'
-import StatusDot from '@/reusables/StatusDot.vue'
+import ScreenShape from '@/reusables/ScreenShape.vue'
 import StepIndicator from '@/reusables/StepIndicator.vue'
 import WeekTimeline from '@/reusables/WeekTimeline.vue'
 import { ALL_DAYS, DAY_BITS, WEEKDAYS, WEEKENDS } from '@/types/api'
@@ -316,7 +317,7 @@ async function onSaveEdit() {
     : !selectedIds.value.length
       ? 'Pick at least one screen'
       : !scheduleValid.value
-        ? 'Fix the schedule above'
+        ? 'Adjust the schedule first'
         : null
   if (editError.value) return
   await onSave()
@@ -327,6 +328,45 @@ async function onSaveEdit() {
 }
 
 const confirmingDelete = ref(false)
+// --- Editing: summary cards, each opening its editor in a dialog ---
+
+/** Each dialog works on the live form, with a snapshot taken on open: Apply keeps the changes,
+ *  Cancel (or closing) puts the snapshot back. Nothing reaches the server until Save & Apply. */
+const screensOpen = ref(false)
+const scheduleOpen = ref(false)
+let screensSnapshot: string[] = []
+let scheduleSnapshot = ''
+
+function openScreens() {
+  screensSnapshot = [...selectedIds.value]
+  screensOpen.value = true
+}
+function cancelScreens() {
+  selectedIds.value = screensSnapshot
+  screensOpen.value = false
+}
+
+function openScheduleEditor() {
+  scheduleSnapshot = JSON.stringify({
+    slots: slots.value, fromDate: fromDate.value, untilDate: untilDate.value,
+    fromTime: fromTime.value, untilTime: untilTime.value,
+  })
+  scheduleOpen.value = true
+}
+function cancelSchedule() {
+  const s = JSON.parse(scheduleSnapshot)
+  slots.value = s.slots
+  fromDate.value = s.fromDate
+  untilDate.value = s.untilDate
+  fromTime.value = s.fromTime
+  untilTime.value = s.untilTime
+  scheduleOpen.value = false
+}
+function applySchedule() {
+  attempted.value = true
+  if (scheduleValid.value) scheduleOpen.value = false
+}
+
 async function onDelete() {
   if (await remove()) router.push({ name: 'campaigns' })
   else confirmingDelete.value = false
@@ -368,12 +408,14 @@ interface DeployDraft {
   pendingSlot: string
 }
 
-function startNewPlaylist(slotKey: string) {
+/** Parks everything entered so far before leaving for the Playlists page or editor.
+ *  `pendingSlot` is the row a new playlist should land in — empty when just editing one. */
+function parkDraft(pendingSlot: string) {
   const draft: DeployDraft = {
     step: step.value, furthest: furthest.value, selectedIds: selectedIds.value, slots: slots.value,
     fromDate: fromDate.value, untilDate: untilDate.value, fromTime: fromTime.value, untilTime: untilTime.value,
     campaignName: campaignName.value, attempted: attempted.value, mixedRanges: mixedRanges.value,
-    pendingSlot: slotKey,
+    pendingSlot,
   }
   try {
     sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft))
@@ -381,7 +423,18 @@ function startNewPlaylist(slotKey: string) {
     // Storage blocked (private mode, a locked-down browser): the detour still works, the
     // draft just isn't kept.
   }
+}
+
+function startNewPlaylist(slotKey: string) {
+  parkDraft(slotKey)
   router.push({ name: 'playlists', query: { new: '1', returnTo: route.path } })
+}
+
+/** "Edit playlist" on the schedule card: the real editor, whose Save and return comes back here
+ *  with the form exactly as it was left. */
+function startEditPlaylist(playlistId: string) {
+  parkDraft('')
+  router.push({ name: 'playlist-detail', params: { id: playlistId }, query: { returnTo: route.path } })
 }
 
 /** Always taken out of storage, used or not — a detour someone abandoned must not resurface
@@ -538,14 +591,88 @@ const BOUND_TIME_INPUT =
 
     <template v-else>
       <StepIndicator v-if="!isEdit" :steps="STEPS" :current="step" :reachable="furthest" @select="goTo" />
-      <!-- Editing is one compact page: name, screens and schedule stacked, one Save. -->
-      <div v-if="isEdit" class="sm:max-w-md">
-        <AppInput id="campaign-name" v-model="campaignName" label="Name" required />
-      </div>
+
+      <!-- Editing: three full-width cards — what's there at a glance, each editor one click away,
+           and one Save & Apply at the end. -->
+      <template v-if="isEdit">
+        <AppCard class="flex flex-col gap-4">
+          <div class="flex items-center justify-between gap-3">
+            <h2 class="text-lg">Screens <span class="text-ink-subtle">{{ selectedDevices.length }}</span></h2>
+            <AppButton variant="secondary" size="sm" @click="openScreens">Adjust screens</AppButton>
+          </div>
+          <div v-if="selectedDevices.length" class="flex flex-wrap items-start gap-4">
+            <div v-for="d in selectedDevices.slice(0, 2)" :key="d.id" class="flex w-24 flex-col items-center gap-1.5">
+              <ScreenShape :device="d" :size="56" />
+              <span class="w-full truncate text-center text-[12px] text-ink">{{ d.name || 'Unnamed screen' }}</span>
+            </div>
+            <div v-if="selectedDevices.length > 2" class="flex w-24 flex-col items-center gap-1.5">
+              <span class="flex size-14 items-center justify-center rounded-lg bg-raised text-sm text-ink tabular-nums">
+                +{{ selectedDevices.length - 2 }}
+              </span>
+              <span class="text-[12px] text-ink-muted">more</span>
+            </div>
+          </div>
+          <p v-else class="text-sm text-ink-muted">No screens selected.</p>
+        </AppCard>
+
+        <AppCard class="flex flex-col gap-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <h2 class="text-lg">Schedule <span class="text-[13px] text-ink-muted">· {{ dateSummary }}</span></h2>
+            <AppButton variant="secondary" size="sm" @click="openScheduleEditor">Adjust schedule</AppButton>
+          </div>
+          <WeekTimeline :slots="timelineSlots" />
+          <ul class="flex flex-col divide-y divide-line">
+            <li v-for="s in sortedSlots" :key="s.key" class="flex items-center gap-3 py-2.5">
+              <div class="h-9 w-16 shrink-0 overflow-hidden rounded-md bg-raised">
+                <img
+                  v-if="playlistById.get(s.playlist_id)?.thumbnails[0]"
+                  :src="playlistById.get(s.playlist_id)?.thumbnails[0] ?? ''"
+                  class="size-full object-cover"
+                />
+              </div>
+              <span class="min-w-0 flex-1 truncate text-sm text-ink">
+                {{ playlistById.get(s.playlist_id)?.name ?? 'No playlist' }}
+              </span>
+              <span class="hidden text-[13px] text-ink-muted sm:inline">{{ dayLabel(s.days_of_week) }}</span>
+              <span v-if="s.all_day" class="shrink-0 text-[13px] text-ink">All day</span>
+              <span v-else class="shrink-0 text-[13px] tabular-nums text-ink">
+                {{ s.starts_at }}–{{ s.ends_at }}<span v-if="crossesMidnight(s)" class="text-ink-subtle"> +1</span>
+              </span>
+              <AppButton
+                variant="ghost" size="sm" :disabled="!s.playlist_id"
+                @click="startEditPlaylist(s.playlist_id)"
+              >
+                Edit playlist
+              </AppButton>
+            </li>
+          </ul>
+          <p v-if="!scheduleValid" class="text-[13px] text-danger">This schedule needs adjusting before it can be saved.</p>
+        </AppCard>
+
+        <AppCard class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div class="sm:w-80">
+            <AppInput id="campaign-name" v-model="campaignName" label="Name" required />
+          </div>
+          <div class="flex flex-wrap items-center justify-end gap-3">
+            <span v-if="editError" class="text-[13px] text-danger">{{ editError }}</span>
+            <span v-else-if="saveError" class="text-[13px] text-danger">{{ saveError }}</span>
+            <span v-else-if="justSaved && skippedDeviceIds.length" class="text-[13px] text-danger">
+              Saved, but {{ skippedDeviceIds.length }} screen{{ skippedDeviceIds.length === 1 ? '' : 's' }} skipped
+            </span>
+            <span v-else-if="justSaved" class="text-[13px] text-ink-muted">Saved</span>
+            <AppButton :loading="isSaving" @click="onSaveEdit">
+              <IconCheck class="size-4" />Save &amp; Apply
+            </AppButton>
+          </div>
+        </AppCard>
+      </template>
 
       <!-- 1. Screens -->
-      <section v-if="isEdit || step === 0" class="flex flex-col gap-4">
-        <h2 v-if="isEdit" class="text-lg">Screens</h2>
+      <MaybeModal
+        v-if="isEdit ? screensOpen : step === 0"
+        :as-modal="isEdit" title="Adjust screens" size="xl" @close="cancelScreens"
+      >
+      <section class="flex flex-col gap-4">
         <AppAlert v-if="devicesError" tone="danger">{{ devicesError }}</AppAlert>
         <p v-if="devicesLoading && !devices.length" class="text-sm text-ink-muted">Loading…</p>
 
@@ -570,39 +697,8 @@ const BOUND_TIME_INPUT =
             </div>
           </div>
 
-          <!-- Editing: one line per screen, so the whole page stays short. -->
-          <div v-if="isEdit" class="grid gap-1.5 sm:grid-cols-2">
-            <button
-              v-for="d in orderedDevices"
-              :key="d.id"
-              type="button"
-              class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-colors duration-200
-                     ease-[cubic-bezier(0.4,0,0.2,1)]"
-              :class="[
-                isSelected(d.id) ? 'bg-raised ring-2 ring-ink ring-inset' : 'bg-surface enabled:hover:bg-raised',
-                campaignByDevice.has(d.id) && 'cursor-not-allowed opacity-40',
-              ]"
-              :disabled="campaignByDevice.has(d.id)"
-              :aria-pressed="isSelected(d.id)"
-              @click="toggleDevice(d.id)"
-            >
-              <span
-                class="flex size-4 shrink-0 items-center justify-center rounded-full border-2 transition-colors duration-150"
-                :class="isSelected(d.id) ? 'border-ink bg-ink text-ink-inverse' : 'border-line-strong'"
-              >
-                <IconCheck v-if="isSelected(d.id)" class="size-3" />
-              </span>
-              <span class="min-w-0 flex-1 truncate text-sm text-ink">
-                {{ d.name || 'Unnamed screen' }}<span v-if="d.location" class="text-ink-subtle"> · {{ d.location }}</span>
-              </span>
-              <span v-if="campaignByDevice.has(d.id)" class="max-w-[40%] shrink-0 truncate text-[12px] text-ink-muted">
-                {{ campaignByDevice.get(d.id) }}
-              </span>
-              <StatusDot :last-seen-at="d.last_seen_at" :show-label="false" class="shrink-0" />
-            </button>
-          </div>
-          <!-- Creating: the Devices list's own card, in picker mode — the only difference is selecting. -->
-          <div v-else class="flex flex-col gap-2">
+          <!-- The Devices list's own card, in picker mode — the only difference is selecting. -->
+          <div class="flex flex-col gap-2">
             <DeviceCard
               v-for="d in orderedDevices"
               :key="d.id"
@@ -618,10 +714,18 @@ const BOUND_TIME_INPUT =
           </div>
         </template>
       </section>
+        <div v-if="isEdit" class="mt-4 flex justify-end gap-2 border-t border-line pt-4">
+          <AppButton variant="secondary" size="sm" @click="cancelScreens">Cancel</AppButton>
+          <AppButton size="sm" @click="screensOpen = false">Apply</AppButton>
+        </div>
+      </MaybeModal>
 
       <!-- 2. Schedule -->
-      <section v-if="isEdit || step === 1" class="flex flex-col gap-5">
-        <h2 v-if="isEdit" class="text-lg">Schedule</h2>
+      <MaybeModal
+        v-if="isEdit ? scheduleOpen : step === 1"
+        :as-modal="isEdit" title="Adjust schedule" size="xl" @close="cancelSchedule"
+      >
+      <section class="flex flex-col gap-5">
         <AppAlert v-if="mixedRanges">
           This campaign's rules had different dates — saving applies these to all of them.
         </AppAlert>
@@ -675,7 +779,7 @@ const BOUND_TIME_INPUT =
                   @create="startNewPlaylist(s.key)"
                 />
                 <button
-                  v-if="playlistById.get(s.playlist_id)"
+                  v-if="!isEdit && playlistById.get(s.playlist_id)"
                   type="button"
                   class="flex size-9 shrink-0 items-center justify-center rounded-full text-ink-muted
                          transition-colors duration-150 hover:bg-raised hover:text-ink"
@@ -744,6 +848,11 @@ const BOUND_TIME_INPUT =
           <IconAdd class="size-4" />Add playlist
         </AppButton>
       </section>
+        <div v-if="isEdit" class="mt-4 flex justify-end gap-2 border-t border-line pt-4">
+          <AppButton variant="secondary" size="sm" @click="cancelSchedule">Cancel</AppButton>
+          <AppButton size="sm" @click="applySchedule">Apply</AppButton>
+        </div>
+      </MaybeModal>
 
       <!-- 3. Review (creating only — editing shows everything on one page already) -->
       <section v-if="!isEdit && step === 2" class="flex flex-col gap-8">
@@ -790,23 +899,6 @@ const BOUND_TIME_INPUT =
         </AppAlert>
         <AppAlert v-if="saveError" tone="danger">{{ saveError }}</AppAlert>
       </section>
-
-      <!-- Editing: one Save, kept in reach at the bottom of the page. -->
-      <div
-        v-if="isEdit"
-        class="sticky bottom-0 -mx-4 flex flex-wrap items-center gap-3 border-t border-line bg-canvas px-4 py-4
-               sm:-mx-8 sm:px-8"
-      >
-        <AppButton :loading="isSaving" @click="onSaveEdit">
-          <IconCheck class="size-4" />Save changes
-        </AppButton>
-        <span v-if="editError" class="text-[13px] text-danger">{{ editError }}</span>
-        <span v-else-if="saveError" class="text-[13px] text-danger">{{ saveError }}</span>
-        <span v-else-if="justSaved && skippedDeviceIds.length" class="text-[13px] text-danger">
-          Saved, but {{ skippedDeviceIds.length }} screen{{ skippedDeviceIds.length === 1 ? '' : 's' }} skipped
-        </span>
-        <span v-else-if="justSaved" class="text-[13px] text-ink-muted">Saved</span>
-      </div>
 
       <div v-if="!isEdit" class="flex items-center justify-between border-t border-line pt-6">
         <AppButton v-if="step > 0" variant="ghost" size="sm" @click="step--">

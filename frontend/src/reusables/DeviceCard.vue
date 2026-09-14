@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * One screen as a card: its shape on the left, one fact per row on the right. Shared by the
- * Devices list (clicking opens the screen) and the deploy flow's picker (clicking selects it),
+ * Devices list (clicking opens the screen) and the campaign screen picker (clicking selects it),
  * so a screen looks the same wherever you meet it. Presentational only — the caller handles
  * the click and says what's playing.
  */
@@ -12,8 +12,8 @@ import IconPlayArrow from '~icons/material-symbols/play-arrow'
 import IconSchedule from '~icons/material-symbols/schedule-outline'
 import IconSystemUpdate from '~icons/material-symbols/system-update-alt'
 
-import fortuLogoUrl from '@/assets/fortu-logo.png'
 import { useFormat } from '@/hooks/useFormat'
+import ScreenShape from '@/reusables/ScreenShape.vue'
 import StatusDot from '@/reusables/StatusDot.vue'
 import type { DeviceRead } from '@/types/api'
 
@@ -34,25 +34,6 @@ const props = withDefaults(defineProps<{
 }>(), { via: null, selectable: false, selected: false, disabled: false, note: null, versionLabel: null })
 
 const { relativeTime } = useFormat()
-
-// Every card reserves the same square footprint for its screen mock, so a portrait device never
-// makes its card taller than the landscape ones around it — only what's drawn inside that
-// footprint (see screenBox) changes with orientation, letterboxed to fit.
-const SLOT_PX = 88
-
-/** The rectangle drawn inside the fixed slot: the device's actual resolution when it has
- *  reported one, else a generic ratio for its orientation, scaled to fit within `SLOT_PX` on its
- *  longer side. Clamped at both ends so one very wide or very narrow screen can't collapse to
- *  nothing — this is a shape indicator, not a pixel-accurate preview. */
-function screenBox(d: DeviceRead): { width: number; height: number } {
-  const ratio = d.screen_width && d.screen_height
-    ? d.screen_width / d.screen_height
-    : d.orientation === 'portrait' ? 9 / 16 : 16 / 9
-  const clamped = Math.min(Math.max(ratio, 0.4), 2.4)
-  const width = clamped >= 1 ? SLOT_PX : Math.round(SLOT_PX * clamped)
-  const height = clamped >= 1 ? Math.round(SLOT_PX / clamped) : SLOT_PX
-  return { width: Math.max(width, 36), height: Math.max(height, 36) }
-}
 </script>
 
 <template>
@@ -68,35 +49,7 @@ function screenBox(d: DeviceRead): { width: number; height: number } {
     ]"
   >
     <div class="flex items-center gap-4 sm:gap-6">
-      <!-- A shape, not a pixel-accurate preview: the device's own aspect ratio and orientation,
-           so a row of screens reads at a glance like the wall it maps to. -->
-      <div
-        class="flex shrink-0 items-center justify-center"
-        :style="{ width: `${SLOT_PX}px`, height: `${SLOT_PX}px` }"
-      >
-        <div
-          class="flex items-center justify-center overflow-hidden rounded-sm border-[5px] border-ink bg-canvas px-3 py-2"
-          :style="{ width: `${screenBox(device).width}px`, height: `${screenBox(device).height}px` }"
-        >
-          <!-- The source file is a light wordmark on a transparent ground — invisible on this
-               white screen mock — so it's used as a mask and painted solid black instead. -->
-          <span
-            class="block h-full w-full bg-ink"
-            :style="{
-              maskImage: `url(${fortuLogoUrl})`,
-              WebkitMaskImage: `url(${fortuLogoUrl})`,
-              maskRepeat: 'no-repeat',
-              WebkitMaskRepeat: 'no-repeat',
-              maskPosition: 'center',
-              WebkitMaskPosition: 'center',
-              maskSize: 'contain',
-              WebkitMaskSize: 'contain',
-            }"
-            role="img"
-            aria-label="Fortu logo"
-          />
-        </div>
-      </div>
+      <ScreenShape :device="device" />
 
       <div class="min-w-0 flex-1">
         <div class="flex items-center gap-2">
