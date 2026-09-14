@@ -116,6 +116,7 @@ def resolved_devices(user: CurrentUser, session: DbSession) -> list[DeviceResolu
             playlist_id=resolution.playlist_id,
             schedule_id=resolution.schedule_id,
             schedule_name=resolution.schedule_name,
+            campaign_id=resolution.campaign_id,
             valid_until=resolution.valid_until,
             timezone=str(zone),
             device_local_time=dt.datetime.now(dt.UTC).astimezone(zone),

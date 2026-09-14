@@ -23,6 +23,11 @@ const router = createRouter({
       children: [
         { path: '', redirect: { name: 'media' } },
         {
+          path: 'now',
+          name: 'now',
+          component: () => import('@/containers/NowContainer.vue'),
+        },
+        {
           path: 'media',
           name: 'media',
           component: () => import('@/containers/MediaLibraryContainer.vue'),

@@ -46,6 +46,7 @@ class ResolutionRead(BaseModel):
     playlist_id: uuid.UUID | None
     schedule_id: uuid.UUID | None
     schedule_name: str | None
+    campaign_id: uuid.UUID | None
     valid_until: datetime | None
     timezone: str
     device_local_time: datetime

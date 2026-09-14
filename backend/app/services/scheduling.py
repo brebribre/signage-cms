@@ -28,6 +28,10 @@ class Resolution:
     playlist_id: uuid.UUID | None
     schedule_id: uuid.UUID | None
     schedule_name: str | None
+    #: Which Campaign produced the winning schedule, if any — null both when nothing is
+    #: active and when the winning schedule was created directly (predates Campaigns, or was
+    #: made via the standalone per-device Schedule API rather than a Campaign).
+    campaign_id: uuid.UUID | None
     #: When this answer stops being true — the next boundary of any schedule on this
     #: device. None means nothing is scheduled and the answer never expires on its own.
     valid_until: datetime | None
@@ -163,5 +167,6 @@ def resolve(session: Session, device: Device, now: datetime | None = None) -> Re
         playlist_id=playlist_id,
         schedule_id=winner.id if winner else None,
         schedule_name=winner.name if winner else None,
+        campaign_id=winner.campaign_id if winner else None,
         valid_until=valid_until,
     )

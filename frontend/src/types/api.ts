@@ -204,6 +204,7 @@ export interface DeviceResolutionRead {
   playlist_id: string | null
   schedule_id: string | null
   schedule_name: string | null
+  campaign_id: string | null
   valid_until: string | null
   timezone: string
   device_local_time: string
@@ -285,6 +286,7 @@ export interface ResolutionRead {
   playlist_id: string | null
   schedule_id: string | null
   schedule_name: string | null
+  campaign_id: string | null
   valid_until: string | null
   timezone: string
   device_local_time: string
