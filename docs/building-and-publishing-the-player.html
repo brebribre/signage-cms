@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Building &amp; Publishing the Player &middot; Fortu CMS Docs</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+
+  <div class="shell">
+  <aside class="sidebar">
+    <a class="wordmark" href="/">FORTU <span>DOCS</span></a>
+    <nav class="side-nav">
+      <span class="side-nav-label">Guides</span>
+      <a href="/connecting-a-screen.html">Connecting a Screen</a>
+      <a href="/remote-device-owner.html">Remote Device Owner Setup</a>
+      <a href="/instant-updates.html">Instant Updates</a>
+      <a href="/building-and-publishing-the-player.html" aria-current="page">Building &amp; Publishing the Player</a>
+    </nav>
+  </aside>
+
+  <div class="page">
+
+    <div class="hero">
+      <div class="eyebrow"><b>FORTU</b>&nbsp;CMS &middot; Setup guide</div>
+      <h1>Building &amp; Publishing the Player</h1>
+      <p class="dek">
+        Building a new release of the Android player, uploading it to R2, and rolling it out
+        to screens from the CMS. Three separate steps, on purpose &mdash; uploading a build
+        never installs it anywhere by itself.
+      </p>
+    </div>
+
+    <section>
+      <div class="section-head"><h2>Prerequisites</h2></div>
+      <div class="section-body">
+        <ul class="steps" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px;">
+          <li class="step-body">The Android SDK's <b>build-tools</b>, for <code>aapt2</code> &mdash; used to read the
+            version straight out of the built APK so it can never disagree with what's uploaded.
+            Not required: pass <code>--version</code> explicitly to the publish script instead
+            if you don't have it on your <code>PATH</code>.</li>
+          <li class="step-body">The backend's Python virtualenv, with R2 credentials already in
+            its <code>.env</code> &mdash; the publish script uploads through the same
+            <code>app.infra.storage</code> module the CMS itself uses.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head"><h2>Step 1: Bump the version</h2></div>
+      <div class="section-body">
+        <p class="lede">
+          In <code>player/app/build.gradle.kts</code>, bump both fields in
+          <code>defaultConfig</code>:
+        </p>
+        <pre><code>versionCode = 8        // integer, always higher than the last release
+versionName = "1.0.7"  // what the CMS and the on-device debug overlay show</code></pre>
+        <div class="callout warn">
+          <span class="mark">Emulator testing</span>
+          <p>
+            If you've been testing on an emulator with a throwaway version like
+            <code>1.0.999-emu-test</code> and a <code>-PapiBaseUrl=http://localhost:8001</code>
+            build, put the real values back before doing a real release &mdash; including
+            reverting any temporary <code>android:usesCleartextTraffic="true"</code> added to
+            <code>AndroidManifest.xml</code> for local HTTP testing. A production build should
+            never carry either.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head"><h2>Step 2: Build the release APK</h2></div>
+      <div class="section-body">
+        <p class="lede">From <code>player/</code>:</p>
+        <pre><code>./gradlew clean assembleRelease</code></pre>
+        <p class="lede" style="margin-top: 12px;">
+          No <code>-PapiBaseUrl</code> flag &mdash; that override exists only for pointing a
+          local build at <code>localhost</code> during emulator testing. Left unset, the build
+          bakes in the real production API URL. The signed APK lands at:
+        </p>
+        <pre><code>app/build/outputs/apk/release/app-release.apk</code></pre>
+        <p class="lede" style="margin-top: 12px;">
+          Worth running the unit tests in the same breath, since nothing else in this flow
+          will catch a regression before it reaches a screen:
+        </p>
+        <pre><code>./gradlew testDebugUnitTest</code></pre>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head"><h2>Step 3: Upload to R2</h2></div>
+      <div class="section-body">
+        <p class="lede">From <code>backend/</code>, with the virtualenv active:</p>
+        <pre><code>.venv/bin/python -m scripts.publish_player_apk \
+  ../player/app/build/outputs/apk/release/app-release.apk</code></pre>
+        <p class="lede" style="margin-top: 12px;">
+          The script reads <code>versionName</code> back out of the APK with <code>aapt2</code>
+          and refuses to guess if it can't &mdash; pass it explicitly instead if needed:
+        </p>
+        <pre><code>.venv/bin/python -m scripts.publish_player_apk &lt;apk&gt; --version 1.0.7</code></pre>
+        <div class="callout">
+          <span class="mark">Nothing is live yet</span>
+          <p>
+            This uploads the build to <code>s3://&lt;bucket&gt;/apks/fortu-player-&lt;version&gt;.apk</code>
+            and verifies it landed intact. No screen installs anything as a result &mdash;
+            uploading and publishing are deliberately separate acts, so a build can sit in R2
+            for review before anything runs it.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head"><h2>Step 4: Roll it out</h2></div>
+      <div class="section-body">
+        <p class="lede">
+          Open the CMS as an owner &mdash; <b>Settings &gt; Player updates</b> in the sidebar,
+          or the <b>Updates</b> link in the mobile header. Pick the version you just uploaded
+          and choose <b>Now</b> or a future date and time.
+        </p>
+        <p class="lede" style="margin-top: 12px;">
+          Every screen picks this up on its next heartbeat after that moment &mdash; usually
+          within 30 seconds &mdash; and installs it silently if it's provisioned as Device
+          Owner. A screen that isn't Device Owner can't self-install; see
+          <a href="/remote-device-owner.html">Remote Device Owner Setup</a>.
+        </p>
+        <div class="callout warn">
+          <span class="mark">This is fleet-wide</span>
+          <p>
+            There's no staged or per-device rollout &mdash; scheduling "now" pushes to every
+            live screen at once. For anything riskier than a small fix, verify on the emulator
+            or manually install onto one real device first
+            (<code>adb install -r app-release.apk</code>) before scheduling it for the fleet.
+          </p>
+        </div>
+        <div class="callout">
+          <span class="mark">Rolling back</span>
+          <p>
+            Schedule an older version the same way. The most recently <i>scheduled</i> rollout
+            whose time has already passed is always what's live, so an earlier build scheduled
+            for now simply takes back over &mdash; there's no separate "undo."
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head"><h2>Quick reference</h2></div>
+      <div class="section-body">
+        <pre><code># from player/ — bump versionCode/versionName in build.gradle.kts first
+./gradlew clean assembleRelease testDebugUnitTest
+
+# from backend/
+.venv/bin/python -m scripts.publish_player_apk \
+  ../player/app/build/outputs/apk/release/app-release.apk
+
+# then: CMS as owner → Settings > Player updates →
+# pick the version → Now / schedule</code></pre>
+      </div>
+    </section>
+
+    <footer>
+      <span>Fortu CMS</span>
+      <span>Internal documentation. Share with anyone who ships player releases.</span>
+    </footer>
+
+  </div>
+  </div>
+
+</body>
+</html>
