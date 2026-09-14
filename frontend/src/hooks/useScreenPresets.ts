@@ -66,11 +66,21 @@ export function useScreenPresets(devices?: Ref<DeviceRead[]>) {
     (devices?.value ?? []).filter((d) => d.paired_at && d.screen_width && d.screen_height),
   )
 
+  /** The canvas a device's content is actually laid out on: its reported panel resolution,
+   *  turned to match the orientation set in the CMS. A panel mounted on its side still reports
+   *  landscape pixels, but the player rotates content to portrait — so the preview has to follow
+   *  the orientation, not the raw numbers, or it shows the wrong shape. */
+  function orientedSize(d: DeviceRead): { width: number; height: number } {
+    const long = Math.max(d.screen_width!, d.screen_height!)
+    const short = Math.min(d.screen_width!, d.screen_height!)
+    return d.orientation === 'portrait' ? { width: short, height: long } : { width: long, height: short }
+  }
+
   const deviceOptions = computed(() =>
-    availableDevices.value.map((d) => ({
-      id: `${DEVICE_PREFIX}${d.id}`,
-      label: `${d.name} · ${d.screen_width}×${d.screen_height}`,
-    })),
+    availableDevices.value.map((d) => {
+      const { width, height } = orientedSize(d)
+      return { id: `${DEVICE_PREFIX}${d.id}`, label: `${d.name} · ${width}×${height}` }
+    }),
   )
 
   const screen = computed(() => {
@@ -85,11 +95,8 @@ export function useScreenPresets(devices?: Ref<DeviceRead[]>) {
       const id = presetId.value.slice(DEVICE_PREFIX.length)
       const device = availableDevices.value.find((d) => d.id === id)
       if (device) {
-        return {
-          width: device.screen_width!,
-          height: device.screen_height!,
-          label: `${device.name} · ${device.screen_width}×${device.screen_height}`,
-        }
+        const { width, height } = orientedSize(device)
+        return { width, height, label: `${device.name} · ${width}×${height}` }
       }
       // The remembered device is gone (unpaired, another account) — fall through to presets
       // rather than showing a stale/blank screen.
