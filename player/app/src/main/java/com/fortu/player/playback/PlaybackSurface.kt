@@ -17,6 +17,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -56,9 +57,12 @@ private fun contentScaleFor(fit: String): ContentScale = when (fit) {
     else -> ContentScale.Fit
 }
 
-/** Cap for a video whose slot has no explicit duration. Long enough for any realistic signage
- *  clip, short enough that a hung decoder cannot hold a screen black for an entire shift. */
-private const val DEFAULT_VIDEO_CAP_SECONDS = 600
+/** Cap for a video whose slot has no explicit duration. Playback is always from an
+ *  already-downloaded local file — there is no network buffering to allow for — so the only
+ *  reason this should ever fire is a decoder that failed to report end-of-stream, a real
+ *  device-specific bug seen on some hardware. Kept short enough that a wedged screen recovers
+ *  within a minute and a half, not an entire shift. */
+private const val DEFAULT_VIDEO_CAP_SECONDS = 90
 
 /** Slack over the slot duration before the watchdog fires, so ordinary buffering on bad venue
  *  wifi is not mistaken for a stall. */
@@ -143,7 +147,10 @@ fun PlaybackSurface(
     // composition, to visibly freeze the screen. A slot needing fewer than the pool's current
     // size just leaves the remaining members inactive, exactly as before.
     val context = LocalContext.current
-    val exoPool = remember { mutableListOf<ExoPlayer>() }
+    // A SnapshotStateList, not a plain list: replacePoolMember (below) swaps one element in
+    // place on a decoder-stall recovery, and that swap needs to be observed by whatever reads
+    // this pool the same way growing it already is.
+    val exoPool = remember { mutableStateListOf<ExoPlayer>() }
     var poolSize by remember { mutableIntStateOf(0) }
     val requiredPoolSize = slots.maxOfOrNull { s -> s.elements.count { it.kind == "video" } } ?: 0
     LaunchedEffect(requiredPoolSize) {
@@ -158,6 +165,31 @@ fun PlaybackSurface(
         poolSize = exoPool.size
     }
     DisposableEffect(Unit) { onDispose { exoPool.forEach { it.release() } } }
+
+    /**
+     * Recovery for a decoder that never reported end-of-stream (the watchdog's one real
+     * purpose — see [DEFAULT_VIDEO_CAP_SECONDS]). Advancing the slot alone was not enough:
+     * doing that reuses this same pool member for the *next* video too, via the ordinary
+     * stop()-then-prepare() its own effect already does on every transition — but if the
+     * decoder itself, not just the stream's EOS signal, is what is wedged, that stop()/prepare()
+     * cycle on the same instance may not actually recover it, and the next video gets stuck
+     * the same way. A brand new ExoPlayer sidesteps that entirely.
+     *
+     * Deliberately does not release() the outgoing instance here. It is always called
+     * alongside finishOnce() advancing the slot, which changes this pool member's `file` too —
+     * that composable's own DisposableEffect is about to tear down and will call stop() on the
+     * outgoing instance via its own closure, exactly as it does on every ordinary transition.
+     * Calling release() here as well would race that teardown, and a released ExoPlayer throws
+     * if anything still calls into it. The abandoned instance's decoder is already freed by its
+     * own stop(); only its idle internal thread leaks until the process restarts — an
+     * acceptable trade against ever risking a call into an already-released player.
+     */
+    fun replacePoolMember(poolIndex: Int) {
+        exoPool[poolIndex] = ExoPlayer.Builder(context).build().apply {
+            playWhenReady = true
+            volume = 0f
+        }
+    }
 
     val loop = singleVideo == null
     val videoElementsInSlot = slot.elements.filter { it.kind == "video" }
@@ -196,6 +228,7 @@ fun PlaybackSurface(
                             loop = loop,
                             onEnded = if (!loop) ::advance else ({}),
                             onError = onPlaybackError,
+                            onStalled = { replacePoolMember(poolIndex) },
                         )
                     }
                 }
@@ -285,13 +318,26 @@ private fun PooledVideoSurface(
     loop: Boolean,
     onEnded: () -> Unit,
     onError: (String) -> Unit,
+    /** Called once, right before [onEnded], only when the watchdog below fires — a decoder
+     *  that never reported end-of-stream, not an ordinary transition. Lets the caller retire
+     *  this pool member's ExoPlayer instance instead of reusing a possibly-wedged one for the
+     *  next video. */
+    onStalled: () -> Unit = {},
 ) {
     val active = element != null && file != null
 
     // Guarantees exactly one advance per slot however playback ends — naturally, by error, or
     // by the watchdog below. Without it a video that errors *and* times out would skip two
     // slots. Meaningless (and harmless) whenever `loop` is true: nothing here calls it then.
-    var finished by remember(file?.absolutePath) { mutableStateOf(false) }
+    //
+    // `exo` is in this key for the same reason it is on the effects below: a stall-recovery
+    // replacement can land on the same file (a single-video playlist is the extreme case, but
+    // any short cycle can do it), and without `exo` here this flag would stay stuck `true`
+    // from the watchdog that just fired — silently swallowing the *next* video's legitimate
+    // end-of-stream signal, including from the fresh, correctly-working replacement player.
+    // Confirmed live: the replacement decoder played its video through to a clean natural stop
+    // and nothing advanced, because this flag never reset.
+    var finished by remember(exo, file?.absolutePath) { mutableStateOf(false) }
     fun finishOnce(reason: String?) {
         if (finished) return
         finished = true
@@ -299,7 +345,13 @@ private fun PooledVideoSurface(
         onEnded()
     }
 
-    DisposableEffect(file?.absolutePath, active, loop) {
+    // `exo` is in this key for exactly one reason: a stall-recovery replacement (see
+    // replacePoolMember). Ordinarily this pool member's ExoPlayer instance never changes for
+    // the life of the app, so adding it here changes nothing about normal playback — but
+    // without it, a single-video playlist (or any advance that happens to land back on the
+    // same file) would never re-run this block after a replacement, since `file` alone would
+    // be unchanged: the fresh instance would sit there with no media ever prepared on it.
+    DisposableEffect(exo, file?.absolutePath, active, loop) {
         if (active) {
             exo.repeatMode = if (loop) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
             exo.setMediaItem(MediaItem.fromUri(file!!.toURI().toString()))
@@ -340,11 +392,12 @@ private fun PooledVideoSurface(
      * looping video (any multi-element slot) has no "should have finished by now" instant —
      * the slot's own duration timer is the only clock that matters there.
      */
-    LaunchedEffect(file?.absolutePath, active, loop) {
+    LaunchedEffect(exo, file?.absolutePath, active, loop) {
         if (!active || loop) return@LaunchedEffect
         delay(DEFAULT_VIDEO_CAP_SECONDS * 1000L + STALL_GRACE_MILLIS)
         if (!finished) {
-            Log.w("FortuPlayer", "video did not finish within ${DEFAULT_VIDEO_CAP_SECONDS}s — advancing")
+            Log.w("FortuPlayer", "video did not finish within ${DEFAULT_VIDEO_CAP_SECONDS}s — advancing and retiring its decoder")
+            onStalled()
             finishOnce("${file?.name}: did not finish in time")
         }
     }
@@ -359,6 +412,12 @@ private fun PooledVideoSurface(
             }
         },
         update = {
+            // Cheap to repeat every recomposition — PlayerView no-ops if it's already the
+            // current player. The one time it isn't a no-op is exactly the case `factory`
+            // alone can't handle: a stall-recovery replacement swaps this pool member's
+            // ExoPlayer instance without this View ever being recreated, and factory only
+            // runs once at creation.
+            it.player = exo
             it.resizeMode = resizeModeFor(element?.fit ?: "contain")
             it.visibility = if (active) View.VISIBLE else View.INVISIBLE
             // Only meaningful while this pool member is active; an inactive one's exo.volume
