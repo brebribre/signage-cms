@@ -56,9 +56,10 @@ const router = createRouter({
           component: () => import('@/containers/PlaylistEditorContainer.vue'),
         },
         {
+          // Health's figures live on Now; kept as a redirect so old links still land.
           path: 'health',
           name: 'health',
-          component: () => import('@/containers/FleetHealthContainer.vue'),
+          redirect: { name: 'now' },
         },
         {
           path: 'campaigns',

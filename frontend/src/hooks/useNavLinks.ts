@@ -1,20 +1,47 @@
-/** The app's primary page links — shared between the desktop sidebar and the mobile bottom
- *  bar so the two can never drift apart. Owner-only pages (Users, Player updates) and the
- *  external Documentation link stay in SidebarContainer.vue alone: there's no room for them
- *  in a phone-width bottom bar, and they're secondary to day-to-day use anyway. */
-export function useNavLinks() {
-  const primary = [
-    // Temporary: the redesign's proposed replacement for Devices+Health (UX_REDESIGN_PLAN.md
-    // §3), added alongside them rather than in place of them so it can be compared directly
-    // in the running app before either old page is removed. Remove Devices and/or Health from
-    // this list once that comparison is done — see the plan's §8 phasing.
-    { name: 'now', label: 'Now' },
-    { name: 'media', label: 'Media' },
-    { name: 'playlists', label: 'Playlists' },
-    { name: 'campaigns', label: 'Campaigns' },
-    { name: 'devices', label: 'Devices' },
-    { name: 'health', label: 'Health' },
-  ] as const
+import type { Component } from 'vue'
+import IconCampaign from '~icons/material-symbols/campaign-outline'
+import IconMonitoring from '~icons/material-symbols/monitoring'
+import IconPhotoLibrary from '~icons/material-symbols/photo-library-outline'
+import IconPlaylistPlay from '~icons/material-symbols/playlist-play'
+import IconTv from '~icons/material-symbols/tv-outline'
 
-  return { primary }
+export interface NavLink {
+  name: string
+  label: string
+  icon: Component
+}
+
+export interface NavSection {
+  /** null for the ungrouped links at the very top. */
+  title: string | null
+  links: NavLink[]
+}
+
+/** The app's primary page links — shared between the desktop sidebar (which shows the section
+ *  titles) and the mobile bottom bar (which flattens them) so the two can never drift apart.
+ *  Owner-only pages (Users, Player updates) and the external Documentation link stay in
+ *  SidebarContainer.vue alone: there's no room for them in a phone-width bottom bar, and they're
+ *  secondary to day-to-day use anyway. */
+export function useNavLinks() {
+  const sections: NavSection[] = [
+    { title: null, links: [{ name: 'now', label: 'Now', icon: IconMonitoring }] },
+    {
+      title: 'Content',
+      links: [
+        { name: 'media', label: 'Media', icon: IconPhotoLibrary },
+        { name: 'playlists', label: 'Playlists', icon: IconPlaylistPlay },
+      ],
+    },
+    {
+      title: 'Deploy',
+      links: [
+        { name: 'campaigns', label: 'Campaigns', icon: IconCampaign },
+        { name: 'devices', label: 'Devices', icon: IconTv },
+      ],
+    },
+  ]
+
+  const primary = sections.flatMap((s) => s.links)
+
+  return { sections, primary }
 }
