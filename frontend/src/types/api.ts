@@ -302,6 +302,10 @@ export interface CampaignRuleWrite {
   starts_at: string
   ends_at: string
   priority?: number
+  /** Both inclusive, both optional and independent — null/omitted means unbounded on that
+   *  side, so an ordinary rule with no date range needs neither. */
+  start_date?: string | null
+  end_date?: string | null
 }
 
 export interface CampaignRuleRead {
@@ -311,6 +315,8 @@ export interface CampaignRuleRead {
   starts_at: string
   ends_at: string
   priority: number
+  start_date: string | null
+  end_date: string | null
 }
 
 export interface CampaignWrite {

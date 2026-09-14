@@ -21,6 +21,7 @@ def _rule_inputs(body: CampaignWrite) -> list[CampaignRuleInput]:
         CampaignRuleInput(
             playlist_id=r.playlist_id, name=r.name, days_of_week=r.days_of_week,
             starts_at=r.starts_at, ends_at=r.ends_at, priority=r.priority,
+            start_date=r.start_date, end_date=r.end_date,
         )
         for r in body.rules
     ]
@@ -35,6 +36,7 @@ def _read(session: DbSession, campaign) -> CampaignRead:
             CampaignRuleRead(
                 playlist_id=r.playlist_id, name=r.name, days_of_week=r.days_of_week,
                 starts_at=r.starts_at, ends_at=r.ends_at, priority=r.priority,
+                start_date=r.start_date, end_date=r.end_date,
             )
             for r in campaign_service.rules_for(session, campaign_id=campaign.id)
         ],

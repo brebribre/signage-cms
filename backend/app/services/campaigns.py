@@ -5,7 +5,7 @@ exact mirror of its current device list and rules.
 """
 
 import uuid
-from datetime import time
+from datetime import date, time
 
 from sqlmodel import Session, delete, select
 
@@ -39,6 +39,7 @@ class CampaignRuleInput:
     def __init__(
         self, *, playlist_id: uuid.UUID, name: str, days_of_week: int,
         starts_at: time, ends_at: time, priority: int,
+        start_date: date | None = None, end_date: date | None = None,
     ) -> None:
         self.playlist_id = playlist_id
         self.name = name
@@ -46,6 +47,8 @@ class CampaignRuleInput:
         self.starts_at = starts_at
         self.ends_at = ends_at
         self.priority = priority
+        self.start_date = start_date
+        self.end_date = end_date
 
 
 def _reachable_device_ids(session: Session, *, user: User, device_ids: list[uuid.UUID]) -> set[uuid.UUID]:
@@ -77,6 +80,8 @@ def _write_schedules(
             raise InvalidCampaign("that playlist is not available in this account")
         if rule.starts_at == rule.ends_at:
             raise InvalidCampaign("start and end must differ — use 00:00–23:59 for a whole day")
+        if rule.start_date is not None and rule.end_date is not None and rule.end_date < rule.start_date:
+            raise InvalidCampaign("end date can't be before the start date")
 
     for device_id in device_ids:
         for rule in rules:
@@ -90,6 +95,8 @@ def _write_schedules(
                 starts_at=rule.starts_at,
                 ends_at=rule.ends_at,
                 priority=rule.priority,
+                start_date=rule.start_date,
+                end_date=rule.end_date,
             ))
 
 
@@ -147,7 +154,10 @@ def rules_for(session: Session, *, campaign_id: uuid.UUID) -> list[Schedule]:
     seen: set[tuple] = set()
     rules: list[Schedule] = []
     for row in rows:
-        key = (row.playlist_id, row.name, row.days_of_week, row.starts_at, row.ends_at, row.priority)
+        key = (
+            row.playlist_id, row.name, row.days_of_week, row.starts_at, row.ends_at,
+            row.priority, row.start_date, row.end_date,
+        )
         if key in seen:
             continue
         seen.add(key)

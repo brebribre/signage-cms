@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, time
+from datetime import date, datetime, time
 
 from pydantic import BaseModel, Field
 
@@ -16,6 +16,10 @@ class CampaignRuleWrite(BaseModel):
     starts_at: time = time(0, 0)
     ends_at: time = time(23, 59)
     priority: int = Field(default=0, ge=0, le=MAX_PRIORITY)
+    # Both optional and independent — a rule with neither runs on its days/time window
+    # indefinitely, same as before this field existed.
+    start_date: date | None = None
+    end_date: date | None = None
 
 
 class CampaignRuleRead(CampaignRuleWrite):

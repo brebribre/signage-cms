@@ -45,26 +45,45 @@ def device_zone(device: Device) -> ZoneInfo:
         return ZoneInfo("UTC")
 
 
+def _in_date_range(schedule: Schedule, day: date) -> bool:
+    """Whether `day` falls within the schedule's optional calendar-date bounds, both inclusive.
+    A null bound is unbounded on that side — the common case, an ordinary recurring schedule
+    with no date range at all, always passes."""
+    if schedule.start_date is not None and day < schedule.start_date:
+        return False
+    if schedule.end_date is not None and day > schedule.end_date:
+        return False
+    return True
+
+
 def _covers(schedule: Schedule, local: datetime) -> bool:
     """Whether a schedule's window is open at this local wall-clock moment.
 
     Handles windows that cross midnight (22:00–02:00), where `ends_at <= starts_at`. In that
     case the window belongs to the day it *starts* on, so 01:00 on Tuesday is inside Monday's
-    22:00–02:00 window — which is what anyone writing "22:00 to 02:00 on Monday" means.
+    22:00–02:00 window — which is what anyone writing "22:00 to 02:00 on Monday" means. The
+    optional date range is checked against that same "belongs to" day, not `local.date()`
+    directly — a range ending on Monday must still cover the 01:00 stretch that spilled into
+    Tuesday, and one starting Tuesday must not claim Monday night's leftovers.
     """
     t = local.time()
     weekday = local.weekday()  # Monday = 0, matching the bitmask
 
     if schedule.starts_at < schedule.ends_at:
         # Ordinary same-day window.
-        return bool(schedule.days_of_week & (1 << weekday)) and schedule.starts_at <= t < schedule.ends_at
+        return (
+            _in_date_range(schedule, local.date())
+            and bool(schedule.days_of_week & (1 << weekday))
+            and schedule.starts_at <= t < schedule.ends_at
+        )
 
     # Crosses midnight: either late on the start day, or early on the following day.
     if t >= schedule.starts_at:
-        return bool(schedule.days_of_week & (1 << weekday))
+        return _in_date_range(schedule, local.date()) and bool(schedule.days_of_week & (1 << weekday))
     if t < schedule.ends_at:
-        previous = (weekday - 1) % 7
-        return bool(schedule.days_of_week & (1 << previous))
+        previous_day = local.date() - timedelta(days=1)
+        previous_weekday = (weekday - 1) % 7
+        return _in_date_range(schedule, previous_day) and bool(schedule.days_of_week & (1 << previous_weekday))
     return False
 
 
@@ -83,16 +102,34 @@ def _boundaries(schedules: list[Schedule], zone: ZoneInfo, now_local: datetime) 
 
     Both edges of every window on every upcoming day. Cheap — a handful of schedules over
     eight days — and far more robust than trying to reason about which edge matters next.
+
+    A date range contributes two more kinds of boundary beyond its daily window: the date range
+    is skipped for days it doesn't cover at all (a schedule that expired last week must not go
+    on manufacturing phantom future edges), and the instant the range itself opens or closes —
+    midnight of `start_date`, and midnight the day after `end_date` — is added directly, since
+    neither is a `starts_at`/`ends_at` edge on any single day and would otherwise go unreported,
+    leaving `valid_until` claiming an answer holds longer than a range boundary actually allows.
     """
     out: list[datetime] = []
     start_day = now_local.date()
     for offset in range(LOOKAHEAD_DAYS):
         day = start_day + timedelta(days=offset)
         for s in schedules:
+            if not _in_date_range(s, day):
+                continue
             for edge in (s.starts_at, s.ends_at):
                 moment = datetime.combine(day, edge, tzinfo=zone)
                 if moment > now_local:
                     out.append(moment)
+    for s in schedules:
+        if s.start_date is not None:
+            moment = datetime.combine(s.start_date, time.min, tzinfo=zone)
+            if moment > now_local:
+                out.append(moment)
+        if s.end_date is not None:
+            moment = datetime.combine(s.end_date + timedelta(days=1), time.min, tzinfo=zone)
+            if moment > now_local:
+                out.append(moment)
     return sorted(out)
 
 

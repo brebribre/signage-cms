@@ -1,7 +1,7 @@
 import uuid
-from datetime import datetime, time
+from datetime import date, datetime, time
 
-from sqlalchemy import Column, ForeignKey, Time
+from sqlalchemy import Column, Date, ForeignKey, Time
 from sqlmodel import Field, SQLModel
 
 from app.models.base import tz_column, utcnow
@@ -59,6 +59,16 @@ class Schedule(SQLModel, table=True):
     # offset here would freeze it against daylight saving.
     starts_at: time = Field(sa_column=Column(Time(timezone=False), nullable=False))
     ends_at: time = Field(sa_column=Column(Time(timezone=False), nullable=False))
+
+    # Calendar-date bounds, both inclusive, both optional and independent of each other — a
+    # campaign that should only run "from Sep 1 to Oct 15" without changing its daily window
+    # or day-of-week pattern. Null on either end means unbounded in that direction, so an
+    # ordinary recurring schedule (the overwhelming common case) is unaffected: both stay null
+    # and every date check in scheduling.py short-circuits true. Dates, not datetimes, for the
+    # same reason `starts_at`/`ends_at` are timezone-naive — evaluated against the device's own
+    # local calendar date, not a fixed instant.
+    start_date: date | None = Field(default=None, sa_column=Column(Date(), nullable=True))
+    end_date: date | None = Field(default=None, sa_column=Column(Date(), nullable=True))
 
     # Higher wins when windows overlap. Ties break toward the later `starts_at`, on the
     # reasoning that a window starting later is the more specific one.

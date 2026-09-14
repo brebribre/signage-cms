@@ -30,8 +30,13 @@ const { items: playlists } = usePlaylists()
 const name = ref('')
 const deviceIds = ref<string[]>([])
 /** Local, HH:MM local-rule shape — converted to the API's HH:MM:SS on save. Editing rebuilds
- *  this from the loaded campaign, same as every other detail form here. */
-type LocalRule = { playlist_id: string; name: string; days_of_week: number; starts_at: string; ends_at: string; priority: number }
+ *  this from the loaded campaign, same as every other detail form here. `start_date`/`end_date`
+ *  use the empty string as "unset", matching a bare `<input type="date">`'s own empty value —
+ *  converted to null only at save time. */
+type LocalRule = {
+  playlist_id: string; name: string; days_of_week: number; starts_at: string; ends_at: string
+  priority: number; start_date: string; end_date: string
+}
 const rules = ref<LocalRule[]>([])
 
 watch(campaign, (c) => {
@@ -41,8 +46,23 @@ watch(campaign, (c) => {
   rules.value = c.rules.map((r) => ({
     playlist_id: r.playlist_id, name: r.name, days_of_week: r.days_of_week,
     starts_at: r.starts_at.slice(0, 5), ends_at: r.ends_at.slice(0, 5), priority: r.priority,
+    start_date: r.start_date ?? '', end_date: r.end_date ?? '',
   }))
 }, { immediate: true })
+
+/** Parses a plain `YYYY-MM-DD` as a local calendar date, not a UTC instant — `new Date(iso)`
+ *  would parse it as UTC midnight and then a browser west of UTC would display the day
+ *  before, which is wrong for a date that has no time-of-day or timezone meaning at all. */
+function formatDate(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number)
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
+}
+function dateRangeLabel(r: LocalRule): string {
+  if (r.start_date && r.end_date) return `${formatDate(r.start_date)} – ${formatDate(r.end_date)}`
+  if (r.start_date) return `from ${formatDate(r.start_date)}`
+  if (r.end_date) return `until ${formatDate(r.end_date)}`
+  return ''
+}
 
 function toggleDevice(deviceId: string) {
   const at = deviceIds.value.indexOf(deviceId)
@@ -71,12 +91,14 @@ const crossesMidnight = (r: LocalRule) => r.ends_at <= r.starts_at
 const editingIndex = ref<number | null>(null)
 const ruleForm = reactive<LocalRule>({
   playlist_id: '', name: '', days_of_week: WEEKDAYS, starts_at: '09:00', ends_at: '17:00', priority: 0,
+  start_date: '', end_date: '',
 })
 
 function openAddRule() {
   editingIndex.value = null
   Object.assign(ruleForm, {
     playlist_id: '', name: '', days_of_week: WEEKDAYS, starts_at: '09:00', ends_at: '17:00', priority: 0,
+    start_date: '', end_date: '',
   })
 }
 function openEditRule(index: number) {
@@ -97,6 +119,11 @@ function removeRule(index: number) {
   rules.value.splice(index, 1)
 }
 const ruleAdding = ref(false)
+// Unlike a midnight-crossing time window (a valid, deliberate state), an end date before the
+// start date has no sensible interpretation — blocked outright rather than just hinted at.
+const dateRangeInvalid = computed(
+  () => !!ruleForm.start_date && !!ruleForm.end_date && ruleForm.end_date < ruleForm.start_date
+)
 
 const canSave = computed(
   () => name.value.trim().length > 0 && deviceIds.value.length > 0 && rules.value.length > 0
@@ -113,6 +140,8 @@ async function onSave() {
       starts_at: `${r.starts_at}:00`,
       ends_at: `${r.ends_at}:00`,
       priority: r.priority,
+      start_date: r.start_date || null,
+      end_date: r.end_date || null,
     })),
   }
   const savedId = await save(body)
@@ -225,6 +254,9 @@ async function onDelete() {
                     <span v-if="crossesMidnight(r)" class="text-ink-subtle">(next day)</span>
                     · plays {{ playlistName(r.playlist_id) }}
                     <span v-if="r.priority"> · priority {{ r.priority }}</span>
+                    <span v-if="r.start_date || r.end_date" class="text-ink-subtle">
+                      · {{ dateRangeLabel(r) }}
+                    </span>
                   </p>
                 </div>
                 <AppButton variant="ghost" size="sm" @click.stop="removeRule(i)">Remove</AppButton>
@@ -306,6 +338,24 @@ async function onDelete() {
           This window runs through midnight into the next day.
         </p>
 
+        <div class="flex flex-col gap-1.5">
+          <label class="text-[13px] text-ink-muted">Date range (optional)</label>
+          <div class="grid grid-cols-2 gap-3">
+            <input v-model="ruleForm.start_date" type="date"
+                   class="rounded-lg border border-line-strong bg-canvas px-3 py-2 text-sm
+                          text-ink focus:border-ink focus:outline-none" />
+            <input v-model="ruleForm.end_date" type="date"
+                   class="rounded-lg border border-line-strong bg-canvas px-3 py-2 text-sm
+                          text-ink focus:border-ink focus:outline-none" />
+          </div>
+          <p class="text-[13px] text-ink-subtle">
+            Leave blank to run on this schedule indefinitely. Both ends are inclusive.
+          </p>
+          <p v-if="dateRangeInvalid" class="text-[13px] text-danger">
+            End date can't be before the start date.
+          </p>
+        </div>
+
         <AppInput
           id="rule-priority"
           v-model="ruleForm.priority as unknown as string"
@@ -318,7 +368,7 @@ async function onDelete() {
           <AppButton variant="secondary" size="sm" type="button" @click="ruleAdding = false">
             Cancel
           </AppButton>
-          <AppButton size="sm" type="submit" :disabled="!ruleForm.playlist_id">
+          <AppButton size="sm" type="submit" :disabled="!ruleForm.playlist_id || dateRangeInvalid">
             {{ editingIndex === null ? 'Add rule' : 'Save rule' }}
           </AppButton>
         </div>
