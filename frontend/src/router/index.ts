@@ -31,6 +31,9 @@ const router = createRouter({
           path: 'deploy',
           name: 'deploy',
           component: () => import('@/containers/DeployContainer.vue'),
+          // Same component as campaign-detail — keyed by path so moving between creating and
+          // editing (or between two campaigns) remounts it instead of carrying state across.
+          meta: { keyByPath: true },
         },
         {
           path: 'media',
@@ -63,14 +66,16 @@ const router = createRouter({
           component: () => import('@/containers/CampaignListContainer.vue'),
         },
         {
+          // Creating a campaign *is* the deploy flow — kept as a redirect so old links still land.
           path: 'campaigns/new',
           name: 'campaign-new',
-          component: () => import('@/containers/CampaignDetailContainer.vue'),
+          redirect: { name: 'deploy' },
         },
         {
           path: 'campaigns/:id',
           name: 'campaign-detail',
-          component: () => import('@/containers/CampaignDetailContainer.vue'),
+          component: () => import('@/containers/DeployContainer.vue'),
+          meta: { keyByPath: true },
         },
         {
           path: 'devices',

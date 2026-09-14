@@ -21,12 +21,7 @@ const { date } = useFormat()
       :subtitle="`${items.length} campaign${items.length === 1 ? '' : 's'}`"
     >
       <template #actions>
-        <div class="flex gap-2">
-          <AppButton variant="secondary" size="sm" @click="router.push({ name: 'campaign-new' })">
-            New campaign
-          </AppButton>
-          <AppButton size="sm" @click="router.push({ name: 'deploy' })">Deploy</AppButton>
-        </div>
+        <AppButton size="sm" @click="router.push({ name: 'deploy' })">New campaign</AppButton>
       </template>
     </PageTitle>
 
@@ -40,9 +35,7 @@ const { date } = useFormat()
                     every screen you pick — the only place playlist assignment happens."
     >
       <template #actions>
-        <AppButton size="sm" @click="router.push({ name: 'campaign-new' })">
-          New campaign
-        </AppButton>
+        <AppButton size="sm" @click="router.push({ name: 'deploy' })">New campaign</AppButton>
       </template>
     </EmptyState>
 

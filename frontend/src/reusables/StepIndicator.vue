@@ -1,10 +1,15 @@
 <script setup lang="ts">
-/** O────O────O. Completed steps are clickable, so going back never loses what was entered;
- *  steps ahead are not — each one depends on the one before it being valid. */
+/** O────O────O. Every step up to [reachable] is clickable — completed ones always, and steps
+ *  ahead once they've been reached (or all of them, when editing something already complete).
+ *  Whether jumping ahead is actually allowed is the caller's call: it gets `select` and decides. */
 import IconCheck from '~icons/material-symbols/check'
 
-defineProps<{ steps: string[]; current: number }>()
+const props = withDefaults(defineProps<{ steps: string[]; current: number; reachable?: number }>(), {
+  reachable: -1,
+})
 const emit = defineEmits<{ select: [index: number] }>()
+
+const canSelect = (i: number) => i !== props.current && (i < props.current || i <= props.reachable)
 </script>
 
 <template>
@@ -20,11 +25,13 @@ const emit = defineEmits<{ select: [index: number] }>()
         class="relative flex size-8 shrink-0 items-center justify-center rounded-full border-2 text-[13px]
                transition-colors duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]"
         :class="[
-          i < current && 'cursor-pointer border-ink bg-ink text-ink-inverse hover:border-ink-muted hover:bg-ink-muted',
-          i === current && 'cursor-default border-ink bg-canvas text-ink',
-          i > current && 'cursor-default border-line-strong bg-canvas text-ink-subtle',
+          i < current && 'border-ink bg-ink text-ink-inverse hover:border-ink-muted hover:bg-ink-muted',
+          i === current && 'border-ink bg-canvas text-ink',
+          i > current && 'border-line-strong bg-canvas text-ink-subtle',
+          i > current && canSelect(i) && 'hover:border-ink hover:text-ink',
+          canSelect(i) ? 'cursor-pointer' : 'cursor-default',
         ]"
-        :disabled="i >= current"
+        :disabled="!canSelect(i)"
         :aria-current="i === current ? 'step' : undefined"
         @click="emit('select', i)"
       >
