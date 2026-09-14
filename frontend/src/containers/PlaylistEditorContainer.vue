@@ -182,7 +182,6 @@ function sceneLabel(item: DraftItem): string {
           />
           Shuffle
         </label>
-        <AddMediaMenu @use-existing="picking = true" @create-custom="startCreateCustom" />
       </div>
 
       <!-- The media list comes first — it's what you're here to work on. Reference device,
@@ -191,11 +190,7 @@ function sceneLabel(item: DraftItem): string {
         v-if="!draft.length"
         title="This playlist is empty"
         description="Add media to build the loop. Items play top to bottom."
-      >
-        <template #actions>
-          <AddMediaMenu @use-existing="picking = true" @create-custom="startCreateCustom" />
-        </template>
-      </EmptyState>
+      />
 
       <ul v-else class="flex flex-col gap-2">
         <li
@@ -252,6 +247,9 @@ function sceneLabel(item: DraftItem): string {
           </AppButton>
         </li>
       </ul>
+
+      <!-- One big Add media at the end of the list, where the next item would go. -->
+      <AddMediaMenu variant="block" @use-existing="picking = true" @create-custom="startCreateCustom" />
 
       <!-- Reference device + preview. What every "Placement" edit above is aimed at, and
            the last check before Save. -->

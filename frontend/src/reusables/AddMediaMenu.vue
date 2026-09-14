@@ -8,9 +8,15 @@ import IconPhotoLibraryOutline from '~icons/material-symbols/photo-library-outli
 
 import AppButton from '@/reusables/AppButton.vue'
 
-withDefaults(defineProps<{ label?: string; size?: 'sm' | 'md' }>(), {
+withDefaults(defineProps<{
+  label?: string
+  size?: 'sm' | 'md'
+  /** `block`: a big full-width button, for the end of a list rather than a toolbar. */
+  variant?: 'pill' | 'block'
+}>(), {
   label: 'Add media',
   size: 'sm',
+  variant: 'pill',
 })
 const emit = defineEmits<{ 'use-existing': []; 'create-custom': [] }>()
 
@@ -40,15 +46,27 @@ function pick(kind: 'existing' | 'custom') {
 </script>
 
 <template>
-  <div ref="root" class="relative inline-block">
-    <AppButton variant="secondary" :size="size" @click="open = !open">
+  <div ref="root" class="relative" :class="variant === 'block' ? 'block w-full' : 'inline-block'">
+    <button
+      v-if="variant === 'block'"
+      type="button"
+      class="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-line-strong
+             bg-surface py-5 text-sm text-ink transition-colors duration-200 hover:border-ink hover:bg-raised"
+      :aria-expanded="open"
+      @click="open = !open"
+    >
+      <IconAddPhotoAlternateOutline class="size-5" />
+      {{ label }}
+    </button>
+    <AppButton v-else variant="secondary" :size="size" @click="open = !open">
       <IconAddPhotoAlternateOutline class="size-4" />
       {{ label }}
     </AppButton>
 
     <div
       v-if="open"
-      class="absolute right-0 z-10 mt-2 w-52 overflow-hidden rounded-xl border border-line bg-canvas p-1"
+      class="absolute z-10 mt-2 w-52 overflow-hidden rounded-xl border border-line bg-canvas p-1"
+      :class="variant === 'block' ? 'left-1/2 -translate-x-1/2' : 'right-0'"
     >
       <button
         type="button"
