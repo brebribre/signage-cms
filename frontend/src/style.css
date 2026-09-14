@@ -80,6 +80,16 @@ input, textarea, select, button {
   font-family: inherit;
 }
 
+/* iOS Safari zooms the whole page in when a field under 16px gets focus. On touch screens the
+   fields are 16px instead, so it has no reason to — rather than `maximum-scale=1` in the
+   viewport meta, which would also take away pinch-zoom. Unlayered on purpose: it has to win
+   over utilities like `text-sm` without touching every input. Desktop is unaffected. */
+@media (hover: none) and (pointer: coarse) {
+  input, textarea, select {
+    font-size: 16px;
+  }
+}
+
 *, *::before, *::after {
   touch-action: manipulation;
 }
