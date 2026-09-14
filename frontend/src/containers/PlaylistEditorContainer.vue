@@ -23,7 +23,6 @@ import AppModal from '@/reusables/AppModal.vue'
 import DurationInput from '@/reusables/DurationInput.vue'
 import SceneEditor from '@/reusables/SceneEditor.vue'
 import ScreenPreview from '@/reusables/ScreenPreview.vue'
-import EmptyState from '@/reusables/EmptyState.vue'
 import PageTitle from '@/reusables/PageTitle.vue'
 import type { DraftElement, DraftItem } from '@/hooks/usePlaylistEditor'
 import { returnLabel, safeReturnPath } from '@/utils/returnTo'
@@ -186,13 +185,10 @@ function sceneLabel(item: DraftItem): string {
 
       <!-- The media list comes first — it's what you're here to work on. Reference device,
            preview and Save follow, in that order, as the steps that come after placing items. -->
-      <EmptyState
-        v-if="!draft.length"
-        title="This playlist is empty"
-        description="Add media to build the loop. Items play top to bottom."
-      />
-
-      <ul v-else class="flex flex-col gap-2">
+      <!-- Items and Add media share one column, so the button sits exactly as far below the last
+           item as the items sit from each other. An empty playlist is just the button. -->
+      <div class="flex flex-col gap-2">
+      <ul v-if="draft.length" class="flex flex-col gap-2">
         <li
           v-for="(row, index) in draft"
           :key="row.key"
@@ -250,6 +246,7 @@ function sceneLabel(item: DraftItem): string {
 
       <!-- One big Add media at the end of the list, where the next item would go. -->
       <AddMediaMenu variant="block" @use-existing="picking = true" @create-custom="startCreateCustom" />
+      </div>
 
       <!-- Reference device + preview. What every "Placement" edit above is aimed at, and
            the last check before Save. -->
