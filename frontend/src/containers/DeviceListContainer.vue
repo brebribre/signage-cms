@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { useDevices } from '@/hooks/useDevices'
+import { useNowPlaying } from '@/hooks/useNowPlaying'
 import { usePlaylists } from '@/hooks/usePlaylists'
 import AppAlert from '@/reusables/AppAlert.vue'
 import AppButton from '@/reusables/AppButton.vue'
@@ -11,11 +12,12 @@ import DeviceCard from '@/reusables/DeviceCard.vue'
 import EmptyState from '@/reusables/EmptyState.vue'
 import PageTitle from '@/reusables/PageTitle.vue'
 import PairScreenForm from '@/reusables/PairScreenForm.vue'
-import type { ClaimBody, DeviceRead } from '@/types/api'
+import type { ClaimBody } from '@/types/api'
 
 const router = useRouter()
 const { items, resolved, isLoading, isSaving, error, claimError, connecting, claim } = useDevices()
 const { items: playlists } = usePlaylists()
+const { nowPlaying } = useNowPlaying(resolved, playlists)
 
 const pairing = ref(false)
 
@@ -27,20 +29,6 @@ async function onClaim(body: ClaimBody) {
   if (!claimError.value) {
     await new Promise((r) => setTimeout(r, 900))
     pairing.value = false
-  }
-}
-
-const playlistName = (playlistId: string) => playlists.value.find((p) => p.id === playlistId)?.name ?? '—'
-
-/** What a card shows for "currently playing" — resolved server-side from this device's
- *  campaigns, same as the manifest a screen actually gets. Assigning playlists happens only
- *  in Campaigns; this is read-only. */
-function nowPlaying(d: DeviceRead): { text: string; via: string | null } {
-  const r = resolved.value.get(d.id)
-  if (!r || !r.playlist_id) return { text: 'No playlist', via: null }
-  return {
-    text: playlistName(r.playlist_id),
-    via: r.schedule_name ? `via “${r.schedule_name}”` : null,
   }
 }
 </script>
@@ -74,8 +62,8 @@ function nowPlaying(d: DeviceRead): { text: string; via: string | null } {
         v-for="d in items"
         :key="d.id"
         :device="d"
-        :playing="nowPlaying(d).text"
-        :via="nowPlaying(d).via"
+        :playing="nowPlaying(d.id).text"
+        :via="nowPlaying(d.id).via"
         @click="router.push({ name: 'device-detail', params: { id: d.id } })"
       />
     </div>

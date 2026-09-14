@@ -78,13 +78,17 @@ class Device(SQLModel, table=True):
     last_seen_at: datetime | None = Field(default=None, sa_column=tz_column(nullable=True))
 
     # A one-off override of the fleet-wide rollout, for exactly this screen — set from the
-    # Devices page rather than Player Updates, whose scope is deliberately every screen at
-    # once. Checked ahead of the active PlayerRollout in services/device_sync.py::
-    # available_update, so it wins even if the fleet is on a different (older or newer)
-    # version. Cleared automatically the moment the device reports back running it — see
-    # record_heartbeat — so this is a one-shot instruction, never a standing pin that could
-    # silently fight every future fleet rollout for this one screen.
+    # Devices page or Software updates' "choose screens", rather than a fleet rollout, whose
+    # scope is deliberately every screen at once. Checked ahead of the active PlayerRollout in
+    # services/device_sync.py::available_update, so it wins even if the fleet is on a different
+    # (older or newer) version. Cleared automatically the moment the device reports back
+    # running it — see record_heartbeat — so this is a one-shot instruction, never a standing
+    # pin that could silently fight every future fleet rollout for this one screen.
     forced_update_version: str | None = Field(default=None)
+    # When that pinned update may start — None means on the screen's next check-in. A future
+    # time holds it back until then (the screen keeps following the fleet meanwhile), so one
+    # screen's update can be scheduled the same way a fleet rollout can. Cleared with the pin.
+    forced_update_at: datetime | None = Field(default=None, sa_column=tz_column(nullable=True))
 
     created_at: datetime = Field(default_factory=utcnow, sa_column=tz_column(nullable=False))
 

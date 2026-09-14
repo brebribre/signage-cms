@@ -21,6 +21,8 @@ class DeviceRead(BaseModel):
     # A single-device update pinned from the Devices page, independent of the fleet rollout —
     # None means nothing is pending. Cleared automatically once the screen reports running it.
     forced_update_version: str | None
+    # When that pinned update may start; None means on the screen's next check-in.
+    forced_update_at: datetime | None = None
 
 
 class PairStartResponse(BaseModel):
@@ -71,6 +73,8 @@ class DeviceUpdate(BaseModel):
 
 class DeviceUpdateVersionWrite(BaseModel):
     version: str = Field(min_length=1, max_length=32)
+    # None installs on the next check-in; a future instant holds the update until then.
+    scheduled_at: datetime | None = None
 
 
 class ProbeResponse(BaseModel):

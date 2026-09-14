@@ -257,7 +257,9 @@ def update(
     return device
 
 
-def set_forced_update(session: Session, *, device: Device, version: str) -> Device:
+def set_forced_update(
+    session: Session, *, device: Device, version: str, scheduled_at: datetime | None = None,
+) -> Device:
     """Pin one screen to a specific build, independent of whatever the fleet rollout says —
     for trying a release on a single device before rolling it out everywhere, or nudging a
     straggler that missed a fleet-wide rollout, without touching any other screen.
@@ -268,6 +270,8 @@ def set_forced_update(session: Session, *, device: Device, version: str) -> Devi
         raise UnknownRelease(version)
 
     device.forced_update_version = release.version
+    # None = next check-in. A time in the past behaves the same; a future one waits.
+    device.forced_update_at = scheduled_at
     session.add(device)
     session.commit()
     session.refresh(device)
@@ -287,6 +291,7 @@ def clear_forced_update(session: Session, *, device: Device) -> Device:
     `device_sync.record_heartbeat`, which clears this the moment the screen confirms it), a
     later call here would be a no-op anyway — there is nothing left pending to cancel."""
     device.forced_update_version = None
+    device.forced_update_at = None
     session.add(device)
     session.commit()
     session.refresh(device)

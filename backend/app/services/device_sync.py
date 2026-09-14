@@ -281,7 +281,12 @@ def available_update(session: Session, device: Device) -> AvailableUpdate | None
     # fleet isn't (or is no longer) on — it exists specifically so one screen can be moved
     # independently of everyone else. Falls through to the fleet rollout below if the pinned
     # release has since vanished from R2, rather than leaving the screen stuck on nothing.
-    if device.forced_update_version and device.forced_update_version != device.app_version:
+    # A pin scheduled for later waits — until then the screen follows the fleet like any other.
+    if (
+        device.forced_update_version
+        and device.forced_update_version != device.app_version
+        and (device.forced_update_at is None or device.forced_update_at <= utcnow())
+    ):
         release = player_releases.find_release(device.forced_update_version)
         if release is not None:
             settings = get_settings()
@@ -327,6 +332,7 @@ def record_heartbeat(
         # fighting every rollout after this one forever.
         if device.forced_update_version and device.forced_update_version == app_version:
             device.forced_update_version = None
+            device.forced_update_at = None
     if screen_width is not None:
         device.screen_width = screen_width
     if screen_height is not None:

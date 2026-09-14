@@ -19,6 +19,7 @@ import PlaylistComposeContainer from '@/containers/PlaylistComposeContainer.vue'
 import { useCampaignDetail } from '@/hooks/useCampaignDetail'
 import { useCampaigns } from '@/hooks/useCampaigns'
 import { useDevices } from '@/hooks/useDevices'
+import { useNowPlaying } from '@/hooks/useNowPlaying'
 import { usePlaylists } from '@/hooks/usePlaylists'
 import AppAlert from '@/reusables/AppAlert.vue'
 import AppButton from '@/reusables/AppButton.vue'
@@ -63,16 +64,6 @@ const {
   isSaving: claiming, claimError, connecting, claim,
 } = useDevices()
 
-/** Same "currently playing" line the Devices list shows, so a screen's card reads identically
- *  in both places. */
-function nowPlaying(deviceId: string): { text: string; via: string | null } {
-  const r = resolved.value.get(deviceId)
-  if (!r?.playlist_id) return { text: 'No playlist', via: null }
-  return {
-    text: playlistById.value.get(r.playlist_id)?.name ?? '—',
-    via: r.schedule_name ? `via “${r.schedule_name}”` : null,
-  }
-}
 
 const { items: campaigns } = useCampaigns()
 /** Screens already in *another* campaign aren't offered: two campaigns on one screen resolve by
@@ -129,6 +120,8 @@ async function onClaim(body: ClaimBody) {
 
 const { items: playlists, refresh: refreshPlaylists } = usePlaylists()
 const playlistById = computed(() => new Map(playlists.value.map((p) => [p.id, p])))
+/** Same "currently playing" line the Devices list shows, so a screen's card reads identically. */
+const { nowPlaying } = useNowPlaying(resolved, playlists)
 
 interface Slot extends TimeWindow {
   key: string

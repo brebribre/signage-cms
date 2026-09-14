@@ -14,13 +14,8 @@ import AppLogo from '@/reusables/AppLogo.vue'
 const route = useRoute()
 const router = useRouter()
 const { user, account, isOwner, logout } = useAuth()
-const { sections } = useNavLinks()
-
-/** Owner-only, grouped under one collapsible Settings row rather than two more top-level links. */
-const SETTINGS = [
-  { name: 'settings-users', label: 'Users' },
-  { name: 'settings-updates', label: 'Player updates' },
-] as const
+// Settings is owner-only, grouped under one collapsible row rather than more top-level links.
+const { sections, settings } = useNavLinks()
 
 const inSettings = computed(() => String(route.name ?? '').startsWith('settings-'))
 // Starts open when landing on a settings page, so the current page is never hidden.
@@ -73,7 +68,7 @@ const LINK =
           />
         </button>
         <ul v-if="settingsOpen" class="mt-0.5 ml-[19px] flex flex-col gap-0.5 border-l border-line pl-2">
-          <li v-for="link in SETTINGS" :key="link.name">
+          <li v-for="link in settings.links" :key="link.name">
             <router-link
               :to="{ name: link.name }"
               class="block rounded-lg px-2.5 py-1.5 text-sm text-ink-muted transition-colors duration-150

@@ -1,6 +1,7 @@
 import { onMounted, ref } from 'vue'
 
 import { ApiError } from '@/api/request'
+import { useDeviceApi } from '@/api/useDeviceApi'
 import { usePlayerRolloutApi } from '@/api/usePlayerRolloutApi'
 import type { PlayerReleaseRead, PlayerRolloutRead } from '@/types/api'
 
@@ -8,6 +9,7 @@ import type { PlayerReleaseRead, PlayerRolloutRead } from '@/types/api'
  *  the route itself is gated the same way Users is. */
 export function usePlayerRollouts() {
   const api = usePlayerRolloutApi()
+  const deviceApi = useDeviceApi()
 
   const releases = ref<PlayerReleaseRead[]>([])
   const rollouts = ref<PlayerRolloutRead[]>([])
@@ -23,7 +25,7 @@ export function usePlayerRollouts() {
       releases.value = r
       rollouts.value = ro
     } catch (e) {
-      error.value = e instanceof ApiError ? e.message : 'Could not load player updates'
+      error.value = e instanceof ApiError ? e.message : 'Could not load software updates'
     } finally {
       isLoading.value = false
     }
@@ -60,7 +62,38 @@ export function usePlayerRollouts() {
     }
   }
 
+  /** A release onto chosen screens only, rather than the whole fleet — each one pinned to it,
+   *  now or from `scheduledAt`. A pin wins over the fleet rollout for that screen (see backend
+   *  device_sync.available_update). One request per screen, fired together; returns whether
+   *  every one took. */
+  async function pinDevices(version: string, deviceIds: string[], scheduledAt: string | null): Promise<boolean> {
+    isSaving.value = true
+    error.value = null
+    const results = await Promise.allSettled(
+      deviceIds.map((id) => deviceApi.setForcedUpdate(id, { version, scheduled_at: scheduledAt })),
+    )
+    const failed = results.filter((r) => r.status === 'rejected').length
+    if (failed) error.value = `${failed} of ${deviceIds.length} screens couldn't be updated`
+    isSaving.value = false
+    return failed === 0
+  }
+
+  /** Drops a pending pin, so the screen follows the fleet rollout again. */
+  async function cancelPin(deviceId: string): Promise<boolean> {
+    isSaving.value = true
+    error.value = null
+    try {
+      await deviceApi.cancelForcedUpdate(deviceId)
+      return true
+    } catch (e) {
+      error.value = e instanceof ApiError ? e.message : 'Could not cancel this update'
+      return false
+    } finally {
+      isSaving.value = false
+    }
+  }
+
   onMounted(refresh)
 
-  return { releases, rollouts, isLoading, isSaving, error, refresh, schedule, cancel }
+  return { releases, rollouts, isLoading, isSaving, error, refresh, schedule, cancel, pinDevices, cancelPin }
 }

@@ -183,6 +183,8 @@ export interface DeviceRead {
   /** A single-device update pinned independent of the fleet rollout — null means nothing is
    *  pending. Cleared automatically once the screen reports running it. Owner-only to set. */
   forced_update_version: string | null
+  /** When that pinned update takes effect — null means on the screen's next check-in. */
+  forced_update_at: string | null
 }
 
 export interface ClaimBody {
@@ -203,6 +205,8 @@ export interface DeviceUpdateBody {
 
 export interface DeviceUpdateVersionBody {
   version: string
+  /** Omit (or null) to install on the next check-in; a future instant holds it until then. */
+  scheduled_at?: string | null
 }
 
 /** What a device is playing right now — the read-only counterpart to Campaign. */

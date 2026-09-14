@@ -269,10 +269,10 @@ async function onDelete() {
         </div>
 
         <div v-if="isOwner" class="mt-2 border-t border-line pt-6">
-          <h2 class="text-sm text-ink">Player update</h2>
+          <h2 class="text-sm text-ink">Software update</h2>
           <p class="mt-0.5 text-[13px] text-ink-muted">
             Push a specific build to just this screen, independent of the fleet rollout in
-            Settings &gt; Player updates.
+            Settings &gt; Software updates.
           </p>
 
           <AppCard class="mt-3">

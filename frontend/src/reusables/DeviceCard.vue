@@ -10,6 +10,7 @@ import IconLocation from '~icons/material-symbols/location-on-outline'
 import IconLock from '~icons/material-symbols/lock-outline'
 import IconPlayArrow from '~icons/material-symbols/play-arrow'
 import IconSchedule from '~icons/material-symbols/schedule-outline'
+import IconSystemUpdate from '~icons/material-symbols/system-update-alt'
 
 import fortuLogoUrl from '@/assets/fortu-logo.png'
 import { useFormat } from '@/hooks/useFormat'
@@ -27,7 +28,10 @@ const props = withDefaults(defineProps<{
   disabled?: boolean
   /** Why a disabled card can't be picked, shown as its own row. */
   note?: string | null
-}>(), { via: null, selectable: false, selected: false, disabled: false, note: null })
+  /** The app version this screen runs (and any update pending on it) — shown only where it
+   *  matters, i.e. when picking screens for a software update. */
+  versionLabel?: string | null
+}>(), { via: null, selectable: false, selected: false, disabled: false, note: null, versionLabel: null })
 
 const { relativeTime } = useFormat()
 
@@ -123,6 +127,10 @@ function screenBox(d: DeviceRead): { width: number; height: number } {
           <li class="flex items-center gap-2 py-1.5" title="Last seen">
             <IconSchedule class="size-4 shrink-0 text-ink-subtle" aria-label="Last seen" />
             <span class="text-ink">{{ relativeTime(device.last_seen_at) }}</span>
+          </li>
+          <li v-if="versionLabel" class="flex items-center gap-2 py-1.5" title="App version">
+            <IconSystemUpdate class="size-4 shrink-0 text-ink-subtle" aria-label="App version" />
+            <span class="min-w-0 truncate text-ink tabular-nums">{{ versionLabel }}</span>
           </li>
           <li v-if="note" class="flex items-center gap-2 py-1.5">
             <IconLock class="size-4 shrink-0 text-ink-subtle" aria-hidden="true" />

@@ -166,7 +166,9 @@ def set_device_update(
     kept consistent with that existing, deliberate boundary rather than loosened as a side
     effect of adding this. See services/devices.py::set_forced_update."""
     try:
-        updated = device_service.set_forced_update(session, device=device, version=body.version)
+        updated = device_service.set_forced_update(
+            session, device=device, version=body.version, scheduled_at=body.scheduled_at,
+        )
     except UnknownRelease:
         raise HTTPException(
             status.HTTP_404_NOT_FOUND, "That version hasn't been uploaded to R2"
