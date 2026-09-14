@@ -18,6 +18,9 @@ class DeviceRead(BaseModel):
     app_version: str | None
     last_seen_at: datetime | None
     paired_at: datetime | None
+    # A single-device update pinned from the Devices page, independent of the fleet rollout —
+    # None means nothing is pending. Cleared automatically once the screen reports running it.
+    forced_update_version: str | None
 
 
 class PairStartResponse(BaseModel):
@@ -64,6 +67,10 @@ class DeviceUpdate(BaseModel):
     # Explicit, because `playlist_id: null` is indistinguishable from "not supplied" in a
     # PATCH body — without this there is no way to say "play nothing".
     clear_playlist: bool = False
+
+
+class DeviceUpdateVersionWrite(BaseModel):
+    version: str = Field(min_length=1, max_length=32)
 
 
 class ProbeResponse(BaseModel):

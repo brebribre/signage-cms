@@ -4,6 +4,7 @@ import type {
   DeviceRead,
   DeviceResolutionRead,
   DeviceUpdateBody,
+  DeviceUpdateVersionBody,
   PairStartResponse,
   ProbeResponse,
 } from '@/types/api'
@@ -30,6 +31,12 @@ export function useDeviceApi() {
     /** Asks the screen to check in right now. Returns a baseline to watch — see
      *  useDeviceDetail.ts's probe(), which does the actual watching. */
     probe: (id: string) => request<ProbeResponse>('POST', `/devices/${id}/probe`),
+    /** Pins this one screen to a specific build, independent of the fleet rollout. Owner-only,
+     *  same as the rest of player build management. */
+    setForcedUpdate: (id: string, body: DeviceUpdateVersionBody) =>
+      request<DeviceRead>('POST', `/devices/${id}/update`, body),
+    /** Cancels a pending single-device update before the screen has picked it up. */
+    cancelForcedUpdate: (id: string) => request<DeviceRead>('DELETE', `/devices/${id}/update`),
     remove: (id: string) => request<void>('DELETE', `/devices/${id}`),
   }
 }

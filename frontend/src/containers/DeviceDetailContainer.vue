@@ -2,9 +2,11 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import { usePlayerRolloutApi } from '@/api/usePlayerRolloutApi'
 import DeviceActivityContainer from '@/containers/DeviceActivityContainer.vue'
 import DeviceNowPlayingContainer from '@/containers/DeviceNowPlayingContainer.vue'
 import DeviceSettingsContainer from '@/containers/DeviceSettingsContainer.vue'
+import { useAuth } from '@/hooks/useAuth'
 import { useDeviceDetail } from '@/hooks/useDeviceDetail'
 import { useFormat } from '@/hooks/useFormat'
 import AppAlert from '@/reusables/AppAlert.vue'
@@ -15,7 +17,7 @@ import AppModal from '@/reusables/AppModal.vue'
 import AppTabs from '@/reusables/AppTabs.vue'
 import PageTitle from '@/reusables/PageTitle.vue'
 import StatusDot from '@/reusables/StatusDot.vue'
-import type { DeviceOrientation } from '@/types/api'
+import type { DeviceOrientation, PlayerReleaseRead } from '@/types/api'
 
 const route = useRoute()
 const router = useRouter()
@@ -23,9 +25,35 @@ const id = String(route.params.id)
 
 const {
   device, isLoading, isSaving, error, saveError, saveSucceeded, freshPairing, probeState,
-  save, unpair, remove, probe,
+  save, unpair, remove, probe, setForcedUpdate, cancelForcedUpdate,
 } = useDeviceDetail(id)
 const { dimensions, relativeTime, date } = useFormat()
+const { isOwner } = useAuth()
+
+// Single-device updates are owner-only, same as the rest of player build management — see
+// backend/app/api/routes/devices.py's set_device_update. Releases are only fetched for an
+// owner: the endpoint would 403 for anyone else, and there's nothing useful to show without it.
+const releaseApi = usePlayerRolloutApi()
+const releases = ref<PlayerReleaseRead[]>([])
+if (isOwner.value) {
+  releaseApi.releases().then((r) => { releases.value = r }).catch(() => {})
+}
+
+const pickedVersion = ref('')
+const confirmingUpdate = ref(false)
+const confirmingCancelUpdate = ref(false)
+
+async function onSetUpdate() {
+  if (!pickedVersion.value) return
+  if (await setForcedUpdate(pickedVersion.value)) {
+    confirmingUpdate.value = false
+    pickedVersion.value = ''
+  }
+}
+
+async function onCancelUpdate() {
+  if (await cancelForcedUpdate()) confirmingCancelUpdate.value = false
+}
 
 const confirmingUnpair = ref(false)
 const confirmingDelete = ref(false)
@@ -240,6 +268,48 @@ async function onDelete() {
           </span>
         </div>
 
+        <div v-if="isOwner" class="mt-2 border-t border-line pt-6">
+          <h2 class="text-sm text-ink">Player update</h2>
+          <p class="mt-0.5 text-[13px] text-ink-muted">
+            Push a specific build to just this screen, independent of the fleet rollout in
+            Settings &gt; Player updates.
+          </p>
+
+          <AppCard class="mt-3">
+            <template v-if="device.forced_update_version">
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <p class="text-sm text-ink">
+                  Update pending: {{ device.forced_update_version }}
+                  <span class="text-ink-subtle">— installs on its next check-in</span>
+                </p>
+                <AppButton variant="ghost" size="sm" @click="confirmingCancelUpdate = true">
+                  Cancel
+                </AppButton>
+              </div>
+            </template>
+            <template v-else>
+              <div class="flex flex-wrap items-center gap-3">
+                <select
+                  v-model="pickedVersion"
+                  class="rounded-lg border border-line-strong bg-canvas px-3 py-2 text-sm
+                         text-ink focus:border-ink focus:outline-none"
+                >
+                  <option value="" disabled>Choose a version</option>
+                  <option v-for="r in releases" :key="r.version" :value="r.version">
+                    {{ r.version }}{{ r.is_current ? ' (current fleet build)' : '' }}
+                  </option>
+                </select>
+                <AppButton size="sm" :disabled="!pickedVersion" @click="confirmingUpdate = true">
+                  Update this screen
+                </AppButton>
+              </div>
+              <p v-if="!releases.length" class="mt-2 text-[13px] text-ink-subtle">
+                No builds uploaded yet — publish one with publish_player_apk.py first.
+              </p>
+            </template>
+          </AppCard>
+        </div>
+
         <div class="mt-2 border-t border-line pt-6">
           <DeviceNowPlayingContainer :device-id="device.id" />
         </div>
@@ -286,6 +356,37 @@ async function onDelete() {
       <div class="mt-4 flex justify-end gap-2">
         <AppButton variant="secondary" size="sm" @click="confirmingDelete = false">Cancel</AppButton>
         <AppButton variant="danger" size="sm" @click="onDelete">Delete</AppButton>
+      </div>
+    </AppModal>
+
+    <AppModal v-if="confirmingUpdate" title="Update this screen?" @close="confirmingUpdate = false">
+      <p class="text-sm text-ink-muted">
+        {{ device?.name }} will install <b>{{ pickedVersion }}</b> on its next check-in —
+        usually within 30 seconds — regardless of what the rest of the fleet is running.
+      </p>
+      <div class="mt-4 flex justify-end gap-2">
+        <AppButton variant="secondary" size="sm" @click="confirmingUpdate = false">Cancel</AppButton>
+        <AppButton size="sm" :loading="isSaving" @click="onSetUpdate">Update</AppButton>
+      </div>
+    </AppModal>
+
+    <AppModal
+      v-if="confirmingCancelUpdate"
+      title="Cancel this update?"
+      @close="confirmingCancelUpdate = false"
+    >
+      <p class="text-sm text-ink-muted">
+        {{ device?.name }} will not install {{ device?.forced_update_version }}. It stays on
+        whatever it's currently running until the fleet rollout — or a new single-device
+        update — says otherwise.
+      </p>
+      <div class="mt-4 flex justify-end gap-2">
+        <AppButton variant="secondary" size="sm" @click="confirmingCancelUpdate = false">
+          Keep it
+        </AppButton>
+        <AppButton variant="danger" size="sm" :loading="isSaving" @click="onCancelUpdate">
+          Cancel update
+        </AppButton>
       </div>
     </AppModal>
   </div>

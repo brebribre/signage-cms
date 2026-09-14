@@ -180,6 +180,9 @@ export interface DeviceRead {
   app_version: string | null
   last_seen_at: string | null
   paired_at: string | null
+  /** A single-device update pinned independent of the fleet rollout — null means nothing is
+   *  pending. Cleared automatically once the screen reports running it. Owner-only to set. */
+  forced_update_version: string | null
 }
 
 export interface ClaimBody {
@@ -196,6 +199,10 @@ export interface DeviceUpdateBody {
   playlist_id?: string | null
   /** Explicit, because `playlist_id: null` is indistinguishable from "not sent". */
   clear_playlist?: boolean
+}
+
+export interface DeviceUpdateVersionBody {
+  version: string
 }
 
 /** What a device is playing right now — the read-only counterpart to Campaign. */

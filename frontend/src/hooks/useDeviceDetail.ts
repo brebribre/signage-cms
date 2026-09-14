@@ -68,6 +68,17 @@ export function useDeviceDetail(id: string) {
     return ok
   }
 
+  /** Pins this one screen to a specific build, independent of the fleet rollout. Reuses the
+   *  same `saveError`/`isSaving` pair as `save` — this is just another kind of change to the
+   *  device row, not a separate flow with its own loading state. */
+  async function setForcedUpdate(version: string): Promise<boolean> {
+    return run(() => api.setForcedUpdate(id, { version }))
+  }
+
+  async function cancelForcedUpdate(): Promise<boolean> {
+    return run(() => api.cancelForcedUpdate(id))
+  }
+
   async function unpair(): Promise<boolean> {
     isSaving.value = true
     saveError.value = null
@@ -127,6 +138,6 @@ export function useDeviceDetail(id: string) {
 
   return {
     device, isLoading, isSaving, error, saveError, saveSucceeded, freshPairing, probeState,
-    refresh, save, unpair, remove, probe,
+    refresh, save, unpair, remove, probe, setForcedUpdate, cancelForcedUpdate,
   }
 }

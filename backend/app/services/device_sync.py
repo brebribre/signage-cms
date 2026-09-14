@@ -20,6 +20,7 @@ from app.models.base import utcnow
 from app.infra import storage
 from app.services import device_settings
 from app.services import media as media_service
+from app.services import player_releases
 from app.services import player_rollouts
 from app.services import scheduling
 
@@ -265,13 +266,27 @@ def available_update(session: Session, device: Device) -> AvailableUpdate | None
     Returns None when nothing has ever been rolled out, which is the default — an account
     with no `player_rollouts` row cannot accidentally push anything.
     """
+    # A device that has never reported its version gets nothing either way: without knowing
+    # what it is running we cannot tell whether an update is needed, and pushing blind risks
+    # an install loop on every heartbeat.
+    if not device.app_version:
+        return None
+
+    # A per-device forced update wins over the fleet rollout entirely, even onto a version the
+    # fleet isn't (or is no longer) on — it exists specifically so one screen can be moved
+    # independently of everyone else. Falls through to the fleet rollout below if the pinned
+    # release has since vanished from R2, rather than leaving the screen stuck on nothing.
+    if device.forced_update_version and device.forced_update_version != device.app_version:
+        release = player_releases.find_release(device.forced_update_version)
+        if release is not None:
+            settings = get_settings()
+            return AvailableUpdate(
+                version=release.version,
+                url=storage.presign_get(release.key, settings.device_presign_ttl_seconds),
+            )
+
     rollout = player_rollouts.active_rollout(session)
     if rollout is None:
-        return None
-    # A device that has never reported its version gets nothing: without knowing what it is
-    # running we cannot tell whether an update is needed, and pushing blind risks an install
-    # loop on every heartbeat.
-    if not device.app_version:
         return None
     if device.app_version == rollout.version:
         return None
@@ -301,6 +316,12 @@ def record_heartbeat(
     device.last_seen_at = utcnow()
     if app_version is not None:
         device.app_version = app_version
+        # A one-shot pin, not a standing one — see Device.forced_update_version. Once the
+        # screen confirms it's actually running the version that was pushed to it alone, it
+        # goes back to following the fleet rollout like everything else, rather than silently
+        # fighting every rollout after this one forever.
+        if device.forced_update_version and device.forced_update_version == app_version:
+            device.forced_update_version = None
     if screen_width is not None:
         device.screen_width = screen_width
     if screen_height is not None:

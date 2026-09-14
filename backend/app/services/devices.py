@@ -26,8 +26,9 @@ from app.models import (
     UserRole,
 )
 from app.models.base import utcnow
-from app.services import device_sync
+from app.services import device_sync, player_releases
 from app.services.errors import DomainError
+from app.services.player_rollouts import UnknownRelease
 
 logger = logging.getLogger(__name__)
 
@@ -253,6 +254,42 @@ def update(
         device_id=device.id,
         version=device_sync.compute_version(session, device),
     )
+    return device
+
+
+def set_forced_update(session: Session, *, device: Device, version: str) -> Device:
+    """Pin one screen to a specific build, independent of whatever the fleet rollout says —
+    for trying a release on a single device before rolling it out everywhere, or nudging a
+    straggler that missed a fleet-wide rollout, without touching any other screen.
+    See `Device.forced_update_version` and `services/device_sync.py::available_update`, which
+    is what actually acts on this."""
+    release = player_releases.find_release(version)
+    if release is None:
+        raise UnknownRelease(version)
+
+    device.forced_update_version = release.version
+    session.add(device)
+    session.commit()
+    session.refresh(device)
+
+    # Same nudge every other device-affecting change gets — wakes the poll loop early instead
+    # of leaving it up to 30s away, so the very next heartbeat (which is what actually offers
+    # the update to the screen) happens right away.
+    mqtt.notify_manifest_changed(
+        device_id=device.id,
+        version=device_sync.compute_version(session, device),
+    )
+    return device
+
+
+def clear_forced_update(session: Session, *, device: Device) -> Device:
+    """Cancel a single-device update before the screen has picked it up. Once it has (see
+    `device_sync.record_heartbeat`, which clears this the moment the screen confirms it), a
+    later call here would be a no-op anyway — there is nothing left pending to cancel."""
+    device.forced_update_version = None
+    session.add(device)
+    session.commit()
+    session.refresh(device)
     return device
 
 

@@ -2,13 +2,14 @@ import uuid
 
 from fastapi import APIRouter, HTTPException, status
 
-from app.api.deps import CurrentUser, DbSession, DeviceForUser
+from app.api.deps import CurrentUser, DbSession, DeviceForUser, RequireOwner
 from app.config import get_settings
 from app.schemas.devices import (
     ClaimRequest,
     DeviceRead,
     DeviceResolutionRead,
     DeviceUpdate,
+    DeviceUpdateVersionWrite,
     PairPollResponse,
     PairStartResponse,
     ProbeResponse,
@@ -21,6 +22,7 @@ from app.services.devices import (
     PairingNotFound,
     TooManyClaimAttempts,
 )
+from app.services.player_rollouts import UnknownRelease
 
 router = APIRouter(tags=["devices"])
 
@@ -151,6 +153,32 @@ def update_device(
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_ENTITY, f"Unknown timezone: {exc}"
         ) from None
+    return _read(updated)
+
+
+@router.post("/devices/{device_id}/update", response_model=DeviceRead)
+def set_device_update(
+    body: DeviceUpdateVersionWrite, device: DeviceForUser, user: RequireOwner, session: DbSession
+) -> DeviceRead:
+    """Pin this one screen to a specific build, independent of the fleet rollout — for trying
+    a release on a single device first, or nudging a straggler, without touching anyone else.
+    Owner-only, same as the rest of player build management (routes/player_rollouts.py) —
+    kept consistent with that existing, deliberate boundary rather than loosened as a side
+    effect of adding this. See services/devices.py::set_forced_update."""
+    try:
+        updated = device_service.set_forced_update(session, device=device, version=body.version)
+    except UnknownRelease:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, "That version hasn't been uploaded to R2"
+        ) from None
+    return _read(updated)
+
+
+@router.delete("/devices/{device_id}/update", response_model=DeviceRead)
+def cancel_device_update(device: DeviceForUser, user: RequireOwner, session: DbSession) -> DeviceRead:
+    """Cancel a single-device update before the screen has picked it up. Owner-only, same
+    reasoning as set_device_update above."""
+    updated = device_service.clear_forced_update(session, device=device)
     return _read(updated)
 
 
