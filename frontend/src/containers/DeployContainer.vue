@@ -32,6 +32,7 @@ import EmptyState from '@/reusables/EmptyState.vue'
 import PageTitle from '@/reusables/PageTitle.vue'
 import PairScreenForm from '@/reusables/PairScreenForm.vue'
 import PlaylistPicker from '@/reusables/PlaylistPicker.vue'
+import StatusDot from '@/reusables/StatusDot.vue'
 import StepIndicator from '@/reusables/StepIndicator.vue'
 import WeekTimeline from '@/reusables/WeekTimeline.vue'
 import { ALL_DAYS, DAY_BITS, WEEKDAYS, WEEKENDS } from '@/types/api'
@@ -303,6 +304,28 @@ async function onSave() {
   })
 }
 
+/** Editing is one page rather than three steps, so its Save checks everything the steps would
+ *  have — and says what's missing instead of just refusing. Saving keeps you on the page. */
+const editError = ref<string | null>(null)
+const justSaved = ref(false)
+async function onSaveEdit() {
+  attempted.value = true
+  justSaved.value = false
+  editError.value = !campaignName.value.trim()
+    ? 'Give it a name'
+    : !selectedIds.value.length
+      ? 'Pick at least one screen'
+      : !scheduleValid.value
+        ? 'Fix the schedule above'
+        : null
+  if (editError.value) return
+  await onSave()
+  if (savedId.value && !saveError.value) {
+    justSaved.value = true
+    setTimeout(() => { justSaved.value = false }, 2500)
+  }
+}
+
 const confirmingDelete = ref(false)
 async function onDelete() {
   if (await remove()) router.push({ name: 'campaigns' })
@@ -470,7 +493,7 @@ const BOUND_TIME_INPUT =
         <IconArrowBack class="size-4" />Campaigns
       </AppButton>
       <PageTitle :title="isEdit ? (campaign?.name || 'Campaign') : 'Deploy'">
-        <template v-if="isEdit && campaign && !savedId" #actions>
+        <template v-if="isEdit && campaign" #actions>
           <AppButton variant="danger" size="sm" @click="confirmingDelete = true">Delete</AppButton>
         </template>
       </PageTitle>
@@ -480,7 +503,7 @@ const BOUND_TIME_INPUT =
     <AppAlert v-else-if="campaignError" tone="danger">{{ campaignError }}</AppAlert>
 
     <!-- Done -->
-    <div v-else-if="savedId" class="flex flex-col items-center gap-4 rounded-xl bg-surface px-6 py-16 text-center">
+    <div v-else-if="savedId && !isEdit" class="flex flex-col items-center gap-4 rounded-xl bg-surface px-6 py-16 text-center">
       <span class="flex size-14 items-center justify-center rounded-full bg-ink text-ink-inverse">
         <IconCheck class="size-7" />
       </span>
@@ -514,10 +537,15 @@ const BOUND_TIME_INPUT =
     </div>
 
     <template v-else>
-      <StepIndicator :steps="STEPS" :current="step" :reachable="furthest" @select="goTo" />
+      <StepIndicator v-if="!isEdit" :steps="STEPS" :current="step" :reachable="furthest" @select="goTo" />
+      <!-- Editing is one compact page: name, screens and schedule stacked, one Save. -->
+      <div v-if="isEdit" class="sm:max-w-md">
+        <AppInput id="campaign-name" v-model="campaignName" label="Name" required />
+      </div>
 
       <!-- 1. Screens -->
-      <section v-if="step === 0" class="flex flex-col gap-4">
+      <section v-if="isEdit || step === 0" class="flex flex-col gap-4">
+        <h2 v-if="isEdit" class="text-lg">Screens</h2>
         <AppAlert v-if="devicesError" tone="danger">{{ devicesError }}</AppAlert>
         <p v-if="devicesLoading && !devices.length" class="text-sm text-ink-muted">Loading…</p>
 
@@ -542,8 +570,39 @@ const BOUND_TIME_INPUT =
             </div>
           </div>
 
-          <!-- The Devices list's own card, in picker mode — the only difference is selecting. -->
-          <div class="flex flex-col gap-2">
+          <!-- Editing: one line per screen, so the whole page stays short. -->
+          <div v-if="isEdit" class="grid gap-1.5 sm:grid-cols-2">
+            <button
+              v-for="d in orderedDevices"
+              :key="d.id"
+              type="button"
+              class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-colors duration-200
+                     ease-[cubic-bezier(0.4,0,0.2,1)]"
+              :class="[
+                isSelected(d.id) ? 'bg-raised ring-2 ring-ink ring-inset' : 'bg-surface enabled:hover:bg-raised',
+                campaignByDevice.has(d.id) && 'cursor-not-allowed opacity-40',
+              ]"
+              :disabled="campaignByDevice.has(d.id)"
+              :aria-pressed="isSelected(d.id)"
+              @click="toggleDevice(d.id)"
+            >
+              <span
+                class="flex size-4 shrink-0 items-center justify-center rounded-full border-2 transition-colors duration-150"
+                :class="isSelected(d.id) ? 'border-ink bg-ink text-ink-inverse' : 'border-line-strong'"
+              >
+                <IconCheck v-if="isSelected(d.id)" class="size-3" />
+              </span>
+              <span class="min-w-0 flex-1 truncate text-sm text-ink">
+                {{ d.name || 'Unnamed screen' }}<span v-if="d.location" class="text-ink-subtle"> · {{ d.location }}</span>
+              </span>
+              <span v-if="campaignByDevice.has(d.id)" class="max-w-[40%] shrink-0 truncate text-[12px] text-ink-muted">
+                {{ campaignByDevice.get(d.id) }}
+              </span>
+              <StatusDot :last-seen-at="d.last_seen_at" :show-label="false" class="shrink-0" />
+            </button>
+          </div>
+          <!-- Creating: the Devices list's own card, in picker mode — the only difference is selecting. -->
+          <div v-else class="flex flex-col gap-2">
             <DeviceCard
               v-for="d in orderedDevices"
               :key="d.id"
@@ -561,7 +620,8 @@ const BOUND_TIME_INPUT =
       </section>
 
       <!-- 2. Schedule -->
-      <section v-else-if="step === 1" class="flex flex-col gap-5">
+      <section v-if="isEdit || step === 1" class="flex flex-col gap-5">
+        <h2 v-if="isEdit" class="text-lg">Schedule</h2>
         <AppAlert v-if="mixedRanges">
           This campaign's rules had different dates — saving applies these to all of them.
         </AppAlert>
@@ -685,8 +745,8 @@ const BOUND_TIME_INPUT =
         </AppButton>
       </section>
 
-      <!-- 3. Review -->
-      <section v-else class="flex flex-col gap-8">
+      <!-- 3. Review (creating only — editing shows everything on one page already) -->
+      <section v-if="!isEdit && step === 2" class="flex flex-col gap-8">
         <div class="sm:max-w-md">
           <AppInput id="deploy-name" v-model="campaignName" label="Name" required />
         </div>
@@ -731,7 +791,24 @@ const BOUND_TIME_INPUT =
         <AppAlert v-if="saveError" tone="danger">{{ saveError }}</AppAlert>
       </section>
 
-      <div class="flex items-center justify-between border-t border-line pt-6">
+      <!-- Editing: one Save, kept in reach at the bottom of the page. -->
+      <div
+        v-if="isEdit"
+        class="sticky bottom-0 -mx-4 flex flex-wrap items-center gap-3 border-t border-line bg-canvas px-4 py-4
+               sm:-mx-8 sm:px-8"
+      >
+        <AppButton :loading="isSaving" @click="onSaveEdit">
+          <IconCheck class="size-4" />Save changes
+        </AppButton>
+        <span v-if="editError" class="text-[13px] text-danger">{{ editError }}</span>
+        <span v-else-if="saveError" class="text-[13px] text-danger">{{ saveError }}</span>
+        <span v-else-if="justSaved && skippedDeviceIds.length" class="text-[13px] text-danger">
+          Saved, but {{ skippedDeviceIds.length }} screen{{ skippedDeviceIds.length === 1 ? '' : 's' }} skipped
+        </span>
+        <span v-else-if="justSaved" class="text-[13px] text-ink-muted">Saved</span>
+      </div>
+
+      <div v-if="!isEdit" class="flex items-center justify-between border-t border-line pt-6">
         <AppButton v-if="step > 0" variant="ghost" size="sm" @click="step--">
           <IconArrowBack class="size-4" />Back
         </AppButton>
