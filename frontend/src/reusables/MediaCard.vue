@@ -14,7 +14,7 @@ defineProps<{
 
 <template>
   <div
-    class="relative aspect-video w-full cursor-pointer overflow-hidden bg-raised transition-opacity
+    class="relative aspect-square w-full cursor-pointer overflow-hidden bg-raised transition-opacity
            duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] hover:opacity-85"
     :title="filename"
   >
