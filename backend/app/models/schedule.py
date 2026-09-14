@@ -69,6 +69,11 @@ class Schedule(SQLModel, table=True):
     # local calendar date, not a fixed instant.
     start_date: date | None = Field(default=None, sa_column=Column(Date(), nullable=True))
     end_date: date | None = Field(default=None, sa_column=Column(Date(), nullable=True))
+    # Optional time of day on each bound, same device-local wall clock: "from Sep 1 14:00 until
+    # Oct 15 18:00". Each only means something alongside its date. Null keeps the bound where
+    # it always was — midnight for the start, through the end of the day for the end.
+    start_time: time | None = Field(default=None, sa_column=Column(Time(timezone=False), nullable=True))
+    end_time: time | None = Field(default=None, sa_column=Column(Time(timezone=False), nullable=True))
 
     # Higher wins when windows overlap. Ties break toward the later `starts_at`, on the
     # reasoning that a window starting later is the more specific one.

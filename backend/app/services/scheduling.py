@@ -60,6 +60,22 @@ def _in_date_range(schedule: Schedule, day: date) -> bool:
     return True
 
 
+def _within_bound_times(schedule: Schedule, local: datetime) -> bool:
+    """The optional time of day on the date bounds, checked against the actual moment rather
+    than the window's "belongs to" day. `_in_date_range` still decides which days are in; this
+    only trims the first and last of them — "from Sep 1 14:00" must not play Sep 1's 09:00
+    window, and "until Oct 15 18:00" must cut a window still open at 18:00, including one that
+    crossed midnight. A null time leaves its bound exactly as `_in_date_range` has it."""
+    wall = local.replace(tzinfo=None)
+    if schedule.start_date is not None and schedule.start_time is not None:
+        if wall < datetime.combine(schedule.start_date, schedule.start_time):
+            return False
+    if schedule.end_date is not None and schedule.end_time is not None:
+        if wall >= datetime.combine(schedule.end_date, schedule.end_time):
+            return False
+    return True
+
+
 def _covers(schedule: Schedule, local: datetime) -> bool:
     """Whether a schedule's window is open at this local wall-clock moment.
 
@@ -70,6 +86,9 @@ def _covers(schedule: Schedule, local: datetime) -> bool:
     directly — a range ending on Monday must still cover the 01:00 stretch that spilled into
     Tuesday, and one starting Tuesday must not claim Monday night's leftovers.
     """
+    if not _within_bound_times(schedule, local):
+        return False
+
     t = local.time()
     weekday = local.weekday()  # Monday = 0, matching the bitmask
 
@@ -126,12 +145,17 @@ def _boundaries(schedules: list[Schedule], zone: ZoneInfo, now_local: datetime) 
                 if moment > now_local:
                     out.append(moment)
     for s in schedules:
+        # With a bound time, the range opens/closes at that moment instead of at midnight.
         if s.start_date is not None:
-            moment = datetime.combine(s.start_date, time.min, tzinfo=zone)
+            moment = datetime.combine(s.start_date, s.start_time or time.min, tzinfo=zone)
             if moment > now_local:
                 out.append(moment)
         if s.end_date is not None:
-            moment = datetime.combine(s.end_date + timedelta(days=1), time.min, tzinfo=zone)
+            moment = (
+                datetime.combine(s.end_date, s.end_time, tzinfo=zone)
+                if s.end_time is not None
+                else datetime.combine(s.end_date + timedelta(days=1), time.min, tzinfo=zone)
+            )
             if moment > now_local:
                 out.append(moment)
     return sorted(out)

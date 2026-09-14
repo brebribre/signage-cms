@@ -137,6 +137,9 @@ function newSlot(starts_at: string, ends_at: string): Slot {
 const slots = ref<Slot[]>([newSlot('09:00', '17:00')])
 const fromDate = ref('')
 const untilDate = ref('')
+/** Optional, and only sent alongside its date — a time with no date has nothing to narrow. */
+const fromTime = ref('')
+const untilTime = ref('')
 /** Missing-playlist errors wait for a Next attempt — a fresh row isn't a mistake yet. Clashes
  *  and bad times show immediately, since those are something just typed. */
 const attempted = ref(false)
@@ -167,9 +170,18 @@ const shownError = (i: number) =>
   slotErrors.value[i] ?? (attempted.value && !slots.value[i].playlist_id ? 'Pick a playlist' : null)
 
 const today = localIsoDate(new Date())
+/** `YYYY-MM-DDTHH:MM` sorts as text, so bounds compare without parsing. A missing time is the
+ *  start (00:00) or the end (24:00) of that day — the same way the backend reads a bare date. */
+const bound = (date: string, time: string, fallback: string) => `${date}T${time || fallback}`
+function nowStamp(): string {
+  const d = new Date()
+  return `${localIsoDate(d)}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
 const dateError = computed(() => {
-  if (fromDate.value && untilDate.value && untilDate.value < fromDate.value) return "Can't end before it starts"
-  if (untilDate.value && untilDate.value < today) return 'Already ended'
+  const start = fromDate.value ? bound(fromDate.value, fromTime.value, '00:00') : ''
+  const end = untilDate.value ? bound(untilDate.value, untilTime.value, '24:00') : ''
+  if (start && end && end <= start) return "Can't end before it starts"
+  if (end && end <= nowStamp()) return 'Already ended'
   return null
 })
 
@@ -228,10 +240,13 @@ function formatDate(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number)
   return new Date(y, m - 1, d).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
 }
+const withTime = (date: string, time: string) => (time ? `${formatDate(date)}, ${time}` : formatDate(date))
 const dateSummary = computed(() => {
-  if (fromDate.value && untilDate.value) return `${formatDate(fromDate.value)} – ${formatDate(untilDate.value)}`
-  if (fromDate.value) return `From ${formatDate(fromDate.value)}`
-  if (untilDate.value) return `Until ${formatDate(untilDate.value)}`
+  const from = fromDate.value ? withTime(fromDate.value, fromTime.value) : ''
+  const until = untilDate.value ? withTime(untilDate.value, untilTime.value) : ''
+  if (from && until) return `${from} – ${until}`
+  if (from) return `From ${from}`
+  if (until) return `Until ${until}`
   return 'Ongoing'
 })
 function dayLabel(mask: number): string {
@@ -254,6 +269,8 @@ async function onDeploy() {
         ends_at: `${w.ends_at}:00`,
         start_date: fromDate.value || null,
         end_date: untilDate.value || null,
+        start_time: fromDate.value && fromTime.value ? `${fromTime.value}:00` : null,
+        end_time: untilDate.value && untilTime.value ? `${untilTime.value}:00` : null,
       }
     }),
   })
@@ -282,6 +299,9 @@ const TIME_INPUT =
 const DATE_INPUT =
   'h-10 w-full min-w-0 appearance-none rounded-lg border bg-canvas px-3 text-sm text-ink ' +
   'focus:border-ink focus:outline-none [&::-webkit-date-and-time-value]:text-left'
+const BOUND_TIME_INPUT =
+  'h-10 w-full min-w-0 appearance-none rounded-lg border bg-canvas px-2 text-center text-sm tabular-nums text-ink ' +
+  'transition-opacity duration-200 focus:border-ink focus:outline-none disabled:cursor-not-allowed disabled:opacity-40'
 </script>
 
 <template>
@@ -380,18 +400,33 @@ const DATE_INPUT =
       <!-- 2. Schedule -->
       <section v-else-if="step === 1" class="flex flex-col gap-5">
         <div class="flex flex-col gap-1.5">
-          <div class="grid grid-cols-2 gap-3 sm:max-w-md">
-            <label class="flex min-w-0 flex-col gap-1.5">
+          <div class="grid gap-3 sm:max-w-2xl sm:grid-cols-2">
+            <div class="flex min-w-0 flex-col gap-1.5">
               <span class="text-[13px] text-ink-muted">From</span>
-              <input v-model="fromDate" type="date" :class="[DATE_INPUT, dateError ? 'border-danger' : 'border-line-strong']" />
-            </label>
-            <label class="flex min-w-0 flex-col gap-1.5">
+              <div class="grid grid-cols-[minmax(0,1fr)_6.5rem] gap-2">
+                <input
+                  v-model="fromDate" type="date" aria-label="From date"
+                  :class="[DATE_INPUT, dateError ? 'border-danger' : 'border-line-strong']"
+                />
+                <input
+                  v-model="fromTime" type="time" aria-label="From time" :disabled="!fromDate"
+                  :class="[BOUND_TIME_INPUT, dateError ? 'border-danger' : 'border-line-strong']"
+                />
+              </div>
+            </div>
+            <div class="flex min-w-0 flex-col gap-1.5">
               <span class="text-[13px] text-ink-muted">Until</span>
-              <input
-                v-model="untilDate" type="date" :min="fromDate || today"
-                :class="[DATE_INPUT, dateError ? 'border-danger' : 'border-line-strong']"
-              />
-            </label>
+              <div class="grid grid-cols-[minmax(0,1fr)_6.5rem] gap-2">
+                <input
+                  v-model="untilDate" type="date" aria-label="Until date" :min="fromDate || today"
+                  :class="[DATE_INPUT, dateError ? 'border-danger' : 'border-line-strong']"
+                />
+                <input
+                  v-model="untilTime" type="time" aria-label="Until time" :disabled="!untilDate"
+                  :class="[BOUND_TIME_INPUT, dateError ? 'border-danger' : 'border-line-strong']"
+                />
+              </div>
+            </div>
           </div>
           <p v-if="dateError" class="text-[13px] text-danger">{{ dateError }}</p>
         </div>

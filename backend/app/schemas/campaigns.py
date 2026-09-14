@@ -20,6 +20,9 @@ class CampaignRuleWrite(BaseModel):
     # indefinitely, same as before this field existed.
     start_date: date | None = None
     end_date: date | None = None
+    # Optional time of day on each date bound, device-local. Each requires its date.
+    start_time: time | None = None
+    end_time: time | None = None
 
 
 class CampaignRuleRead(CampaignRuleWrite):

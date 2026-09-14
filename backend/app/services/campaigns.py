@@ -5,7 +5,7 @@ exact mirror of its current device list and rules.
 """
 
 import uuid
-from datetime import date, time
+from datetime import date, datetime, time
 
 from sqlmodel import Session, delete, select
 
@@ -40,6 +40,7 @@ class CampaignRuleInput:
         self, *, playlist_id: uuid.UUID, name: str, days_of_week: int,
         starts_at: time, ends_at: time, priority: int,
         start_date: date | None = None, end_date: date | None = None,
+        start_time: time | None = None, end_time: time | None = None,
     ) -> None:
         self.playlist_id = playlist_id
         self.name = name
@@ -49,6 +50,8 @@ class CampaignRuleInput:
         self.priority = priority
         self.start_date = start_date
         self.end_date = end_date
+        self.start_time = start_time
+        self.end_time = end_time
 
 
 def _reachable_device_ids(session: Session, *, user: User, device_ids: list[uuid.UUID]) -> set[uuid.UUID]:
@@ -82,6 +85,16 @@ def _write_schedules(
             raise InvalidCampaign("start and end must differ — use 00:00–23:59 for a whole day")
         if rule.start_date is not None and rule.end_date is not None and rule.end_date < rule.start_date:
             raise InvalidCampaign("end date can't be before the start date")
+        if rule.start_time is not None and rule.start_date is None:
+            raise InvalidCampaign("a start time needs a start date")
+        if rule.end_time is not None and rule.end_date is None:
+            raise InvalidCampaign("an end time needs an end date")
+        if (
+            rule.start_date is not None and rule.end_date is not None
+            and datetime.combine(rule.end_date, rule.end_time or time.max)
+            <= datetime.combine(rule.start_date, rule.start_time or time.min)
+        ):
+            raise InvalidCampaign("the end has to be after the start")
 
     for device_id in device_ids:
         for rule in rules:
@@ -97,6 +110,8 @@ def _write_schedules(
                 priority=rule.priority,
                 start_date=rule.start_date,
                 end_date=rule.end_date,
+                start_time=rule.start_time,
+                end_time=rule.end_time,
             ))
 
 
@@ -156,7 +171,7 @@ def rules_for(session: Session, *, campaign_id: uuid.UUID) -> list[Schedule]:
     for row in rows:
         key = (
             row.playlist_id, row.name, row.days_of_week, row.starts_at, row.ends_at,
-            row.priority, row.start_date, row.end_date,
+            row.priority, row.start_date, row.end_date, row.start_time, row.end_time,
         )
         if key in seen:
             continue

@@ -35,7 +35,7 @@ const deviceIds = ref<string[]>([])
  *  converted to null only at save time. */
 type LocalRule = {
   playlist_id: string; name: string; days_of_week: number; starts_at: string; ends_at: string
-  priority: number; start_date: string; end_date: string
+  priority: number; start_date: string; end_date: string; start_time: string; end_time: string
 }
 const rules = ref<LocalRule[]>([])
 
@@ -47,6 +47,7 @@ watch(campaign, (c) => {
     playlist_id: r.playlist_id, name: r.name, days_of_week: r.days_of_week,
     starts_at: r.starts_at.slice(0, 5), ends_at: r.ends_at.slice(0, 5), priority: r.priority,
     start_date: r.start_date ?? '', end_date: r.end_date ?? '',
+    start_time: r.start_time?.slice(0, 5) ?? '', end_time: r.end_time?.slice(0, 5) ?? '',
   }))
 }, { immediate: true })
 
@@ -57,10 +58,13 @@ function formatDate(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number)
   return new Date(y, m - 1, d).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
 }
+function withTime(date: string, time: string): string {
+  return time ? `${formatDate(date)} ${time}` : formatDate(date)
+}
 function dateRangeLabel(r: LocalRule): string {
-  if (r.start_date && r.end_date) return `${formatDate(r.start_date)} – ${formatDate(r.end_date)}`
-  if (r.start_date) return `from ${formatDate(r.start_date)}`
-  if (r.end_date) return `until ${formatDate(r.end_date)}`
+  if (r.start_date && r.end_date) return `${withTime(r.start_date, r.start_time)} – ${withTime(r.end_date, r.end_time)}`
+  if (r.start_date) return `from ${withTime(r.start_date, r.start_time)}`
+  if (r.end_date) return `until ${withTime(r.end_date, r.end_time)}`
   return ''
 }
 
@@ -91,7 +95,7 @@ const crossesMidnight = (r: LocalRule) => r.ends_at <= r.starts_at
 const editingIndex = ref<number | null>(null)
 const ruleForm = reactive<LocalRule>({
   playlist_id: '', name: '', days_of_week: WEEKDAYS, starts_at: '09:00', ends_at: '17:00', priority: 0,
-  start_date: '', end_date: '',
+  start_date: '', end_date: '', start_time: '', end_time: '',
 })
 
 /** The rule form's own live preview — same thumbnail strip PlaylistListContainer shows, so
@@ -102,7 +106,7 @@ function openAddRule() {
   editingIndex.value = null
   Object.assign(ruleForm, {
     playlist_id: '', name: '', days_of_week: WEEKDAYS, starts_at: '09:00', ends_at: '17:00', priority: 0,
-    start_date: '', end_date: '',
+    start_date: '', end_date: '', start_time: '', end_time: '',
   })
 }
 function openEditRule(index: number) {
@@ -126,7 +130,9 @@ const ruleAdding = ref(false)
 // Unlike a midnight-crossing time window (a valid, deliberate state), an end date before the
 // start date has no sensible interpretation — blocked outright rather than just hinted at.
 const dateRangeInvalid = computed(
-  () => !!ruleForm.start_date && !!ruleForm.end_date && ruleForm.end_date < ruleForm.start_date
+  () => !!ruleForm.start_date && !!ruleForm.end_date &&
+    // `YYYY-MM-DDTHH:MM` sorts as text; a missing time is the start/end of that day.
+    `${ruleForm.end_date}T${ruleForm.end_time || '24:00'}` <= `${ruleForm.start_date}T${ruleForm.start_time || '00:00'}`
 )
 
 const canSave = computed(
@@ -146,6 +152,8 @@ async function onSave() {
       priority: r.priority,
       start_date: r.start_date || null,
       end_date: r.end_date || null,
+      start_time: r.start_date && r.start_time ? `${r.start_time}:00` : null,
+      end_time: r.end_date && r.end_time ? `${r.end_time}:00` : null,
     })),
   }
   const savedId = await save(body)
@@ -367,11 +375,19 @@ async function onDelete() {
                    class="rounded-lg border border-line-strong bg-canvas px-3 py-2 text-sm
                           text-ink focus:border-ink focus:outline-none" />
           </div>
+          <div class="grid grid-cols-2 gap-3">
+            <input v-model="ruleForm.start_time" type="time" aria-label="Start time" :disabled="!ruleForm.start_date"
+                   class="rounded-lg border border-line-strong bg-canvas px-3 py-2 text-sm text-ink
+                          focus:border-ink focus:outline-none disabled:opacity-40" />
+            <input v-model="ruleForm.end_time" type="time" aria-label="End time" :disabled="!ruleForm.end_date"
+                   class="rounded-lg border border-line-strong bg-canvas px-3 py-2 text-sm text-ink
+                          focus:border-ink focus:outline-none disabled:opacity-40" />
+          </div>
           <p class="text-[13px] text-ink-subtle">
             Leave blank to run on this schedule indefinitely. Both ends are inclusive.
           </p>
           <p v-if="dateRangeInvalid" class="text-[13px] text-danger">
-            End date can't be before the start date.
+            The end has to be after the start.
           </p>
         </div>
 

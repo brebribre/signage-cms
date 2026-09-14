@@ -315,6 +315,9 @@ export interface CampaignRuleWrite {
    *  side, so an ordinary rule with no date range needs neither. */
   start_date?: string | null
   end_date?: string | null
+  /** `HH:MM:SS`, device-local, narrowing the first/last day. Each requires its date. */
+  start_time?: string | null
+  end_time?: string | null
 }
 
 export interface CampaignRuleRead {
@@ -326,6 +329,8 @@ export interface CampaignRuleRead {
   priority: number
   start_date: string | null
   end_date: string | null
+  start_time: string | null
+  end_time: string | null
 }
 
 export interface CampaignWrite {
