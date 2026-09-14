@@ -13,6 +13,7 @@ import IconArrowBack from '~icons/material-symbols/arrow-back'
 import IconArrowForward from '~icons/material-symbols/arrow-forward'
 import IconCheck from '~icons/material-symbols/check'
 import IconClose from '~icons/material-symbols/close'
+import IconEdit from '~icons/material-symbols/edit-outline'
 import IconRocket from '~icons/material-symbols/rocket-launch-outline'
 
 import PlaylistComposeContainer from '@/containers/PlaylistComposeContainer.vue'
@@ -545,7 +546,7 @@ const BOUND_TIME_INPUT =
       <AppButton v-if="isEdit" variant="ghost" size="sm" class="self-start" @click="router.push({ name: 'campaigns' })">
         <IconArrowBack class="size-4" />Campaigns
       </AppButton>
-      <PageTitle :title="isEdit ? (campaign?.name || 'Campaign') : 'Deploy'">
+      <PageTitle :title="isEdit ? 'Edit Campaign' : 'Deploy'">
         <template v-if="isEdit && campaign" #actions>
           <AppButton variant="danger" size="sm" @click="confirmingDelete = true">Delete</AppButton>
         </template>
@@ -595,6 +596,10 @@ const BOUND_TIME_INPUT =
       <!-- Editing: three full-width cards — what's there at a glance, each editor one click away,
            and one Save & Apply at the end. -->
       <template v-if="isEdit">
+        <div class="sm:max-w-md">
+          <AppInput id="campaign-name" v-model="campaignName" label="Name" required />
+        </div>
+
         <AppCard class="flex flex-col gap-4">
           <div class="flex items-center justify-between gap-3">
             <h2 class="text-lg">Screens <span class="text-ink-subtle">{{ selectedDevices.length }}</span></h2>
@@ -642,29 +647,24 @@ const BOUND_TIME_INPUT =
                 variant="ghost" size="sm" :disabled="!s.playlist_id"
                 @click="startEditPlaylist(s.playlist_id)"
               >
-                Edit playlist
+                <IconEdit class="size-4" />Edit
               </AppButton>
             </li>
           </ul>
           <p v-if="!scheduleValid" class="text-[13px] text-danger">This schedule needs adjusting before it can be saved.</p>
         </AppCard>
 
-        <AppCard class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div class="sm:w-80">
-            <AppInput id="campaign-name" v-model="campaignName" label="Name" required />
-          </div>
-          <div class="flex flex-wrap items-center justify-end gap-3">
-            <span v-if="editError" class="text-[13px] text-danger">{{ editError }}</span>
-            <span v-else-if="saveError" class="text-[13px] text-danger">{{ saveError }}</span>
-            <span v-else-if="justSaved && skippedDeviceIds.length" class="text-[13px] text-danger">
-              Saved, but {{ skippedDeviceIds.length }} screen{{ skippedDeviceIds.length === 1 ? '' : 's' }} skipped
-            </span>
-            <span v-else-if="justSaved" class="text-[13px] text-ink-muted">Saved</span>
-            <AppButton :loading="isSaving" @click="onSaveEdit">
-              <IconCheck class="size-4" />Save &amp; Apply
-            </AppButton>
-          </div>
-        </AppCard>
+        <div class="flex flex-wrap items-center justify-end gap-3">
+          <span v-if="editError" class="text-[13px] text-danger">{{ editError }}</span>
+          <span v-else-if="saveError" class="text-[13px] text-danger">{{ saveError }}</span>
+          <span v-else-if="justSaved && skippedDeviceIds.length" class="text-[13px] text-danger">
+            Saved, but {{ skippedDeviceIds.length }} screen{{ skippedDeviceIds.length === 1 ? '' : 's' }} skipped
+          </span>
+          <span v-else-if="justSaved" class="text-[13px] text-ink-muted">Saved</span>
+          <AppButton :loading="isSaving" @click="onSaveEdit">
+            <IconCheck class="size-4" />Save &amp; Apply
+          </AppButton>
+        </div>
       </template>
 
       <!-- 1. Screens -->
