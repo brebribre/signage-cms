@@ -193,7 +193,7 @@ function sceneLabel(item: DraftItem): string {
           v-for="(row, index) in draft"
           :key="row.key"
           draggable="true"
-          class="flex cursor-pointer items-center gap-3 rounded-xl bg-surface p-3
+          class="flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-2 rounded-xl bg-surface p-3
                  transition-colors duration-200"
           :class="[
             !row.isEnabled && 'opacity-50',
@@ -207,40 +207,46 @@ function sceneLabel(item: DraftItem): string {
           @dragend="dragFrom = null"
           @click="preview.select(row)"
         >
-          <IconDragIndicator class="size-4 shrink-0 cursor-grab select-none text-ink-subtle" aria-hidden="true" />
-          <span class="w-5 shrink-0 text-[13px] text-ink-subtle">{{ index + 1 }}</span>
+          <!-- Phones: the item takes the first line and its controls wrap below, icon-only;
+               wider screens: everything on one line, as before. -->
+          <div class="flex min-w-0 basis-full items-center gap-3 sm:flex-1 sm:basis-0">
+            <IconDragIndicator class="size-4 shrink-0 cursor-grab select-none text-ink-subtle" aria-hidden="true" />
+            <span class="w-5 shrink-0 text-[13px] text-ink-subtle">{{ index + 1 }}</span>
 
-          <div class="h-11 w-20 shrink-0 overflow-hidden rounded-md bg-raised">
-            <img
-              v-if="row.elements[0]?.thumbnailUrl"
-              :src="row.elements[0].thumbnailUrl"
-              :alt="sceneLabel(row)"
-              class="size-full object-cover"
-            />
+            <div class="h-11 w-20 shrink-0 overflow-hidden rounded-md bg-raised">
+              <img
+                v-if="row.elements[0]?.thumbnailUrl"
+                :src="row.elements[0].thumbnailUrl"
+                :alt="sceneLabel(row)"
+                class="size-full object-cover"
+              />
+            </div>
+
+            <div class="min-w-0 flex-1">
+              <p class="truncate text-sm text-ink">{{ sceneLabel(row) }}</p>
+              <p class="text-[13px] text-ink-subtle">
+                {{ row.elements.length }} element{{ row.elements.length === 1 ? '' : 's' }}
+              </p>
+            </div>
           </div>
 
-          <div class="min-w-0 flex-1">
-            <p class="truncate text-sm text-ink">{{ sceneLabel(row) }}</p>
-            <p class="text-[13px] text-ink-subtle">
-              {{ row.elements.length }} element{{ row.elements.length === 1 ? '' : 's' }}
-            </p>
+          <div class="ml-auto flex shrink-0 items-center gap-1">
+            <DurationInput v-model="row.durationSeconds" />
+
+            <AppButton variant="ghost" size="sm" @click.stop="startEditScene(row)">
+              <IconEditSquareOutline class="size-4" />
+              <span class="max-sm:sr-only">Edit scene</span>
+            </AppButton>
+
+            <AppButton variant="ghost" size="sm" @click="row.isEnabled = !row.isEnabled">
+              <component :is="row.isEnabled ? IconVisibilityOff : IconVisibility" class="size-4" />
+              <span class="max-sm:sr-only">{{ row.isEnabled ? 'Disable' : 'Enable' }}</span>
+            </AppButton>
+            <AppButton variant="ghost" size="sm" @click="removeAt(index)">
+              <IconClose class="size-4" />
+              <span class="max-sm:sr-only">Remove</span>
+            </AppButton>
           </div>
-
-          <DurationInput v-model="row.durationSeconds" />
-
-          <AppButton variant="ghost" size="sm" @click.stop="startEditScene(row)">
-            <IconEditSquareOutline class="size-4" />
-            Edit scene
-          </AppButton>
-
-          <AppButton variant="ghost" size="sm" @click="row.isEnabled = !row.isEnabled">
-            <component :is="row.isEnabled ? IconVisibilityOff : IconVisibility" class="size-4" />
-            {{ row.isEnabled ? 'Disable' : 'Enable' }}
-          </AppButton>
-          <AppButton variant="ghost" size="sm" @click="removeAt(index)">
-            <IconClose class="size-4" />
-            Remove
-          </AppButton>
         </li>
       </ul>
 
