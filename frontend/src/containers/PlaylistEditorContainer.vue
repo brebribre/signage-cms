@@ -28,6 +28,7 @@ import ScreenPreview from '@/reusables/ScreenPreview.vue'
 import EmptyState from '@/reusables/EmptyState.vue'
 import PageTitle from '@/reusables/PageTitle.vue'
 import type { DraftElement, DraftItem } from '@/hooks/usePlaylistEditor'
+import { returnLabel, safeReturnPath } from '@/utils/returnTo'
 
 const route = useRoute()
 const router = useRouter()
@@ -75,9 +76,27 @@ function onDragEnter(to: number) {
   dragFrom.value = to
 }
 
+/** Set when this playlist was opened from the deploy flow's "New playlist" — Save then takes
+ *  people straight back there with this playlist picked. See DeployContainer's detour. */
+const returnTo = safeReturnPath(route.query.returnTo)
+
+function backToReturn() {
+  if (returnTo) router.push({ path: returnTo, query: { returned: '1' } })
+}
+
+async function saveAndReturn() {
+  // Nothing added yet still counts: an empty playlist can be picked now and filled in later.
+  if (isDirty.value && !(await save())) return
+  if (returnTo) router.push({ path: returnTo, query: { playlist: id } })
+}
+
 async function onDelete() {
-  if (await remove()) router.push({ name: 'playlists' })
-  else confirmingDelete.value = false
+  if (!(await remove())) {
+    confirmingDelete.value = false
+    return
+  }
+  if (returnTo) backToReturn()
+  else router.push({ name: 'playlists' })
 }
 
 function startEditScene(row: DraftItem) {
@@ -111,7 +130,11 @@ function sceneLabel(item: DraftItem): string {
 
 <template>
   <div class="flex flex-col gap-6">
-    <AppButton variant="ghost" size="sm" class="self-start" @click="router.push({ name: 'playlists' })">
+    <AppButton v-if="returnTo" variant="ghost" size="sm" class="self-start" @click="backToReturn">
+      <IconArrowBack class="size-4" />
+      {{ returnLabel(returnTo) }}
+    </AppButton>
+    <AppButton v-else variant="ghost" size="sm" class="self-start" @click="router.push({ name: 'playlists' })">
       <IconArrowBack class="size-4" />
       Playlists
     </AppButton>
@@ -132,7 +155,11 @@ function sceneLabel(item: DraftItem): string {
             </AppButton>
             <!-- Explicitly saved, never autosaved: rearranging a live playlist must not push
                  half-finished states onto a wall of screens. -->
-            <AppButton size="sm" :disabled="!isDirty" :loading="isSaving" @click="save">
+            <AppButton v-if="returnTo" size="sm" :loading="isSaving" @click="saveAndReturn">
+              <IconCheck v-if="!isSaving" class="size-4" />
+              Save and return
+            </AppButton>
+            <AppButton v-else size="sm" :disabled="!isDirty" :loading="isSaving" @click="save">
               <IconCheck v-if="!isSaving" class="size-4" />
               {{ isDirty ? 'Save' : 'Saved' }}
             </AppButton>

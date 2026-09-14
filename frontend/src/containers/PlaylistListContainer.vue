@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
+import IconArrowBack from '~icons/material-symbols/arrow-back'
 
 import { useFormat } from '@/hooks/useFormat'
 import { usePlaylists } from '@/hooks/usePlaylists'
@@ -11,26 +12,43 @@ import AppInput from '@/reusables/AppInput.vue'
 import AppModal from '@/reusables/AppModal.vue'
 import EmptyState from '@/reusables/EmptyState.vue'
 import PageTitle from '@/reusables/PageTitle.vue'
+import { returnLabel, safeReturnPath } from '@/utils/returnTo'
 
+const route = useRoute()
 const router = useRouter()
 const { items, isLoading, isCreating, error, create } = usePlaylists()
 const { duration, date } = useFormat()
 
-const adding = ref(false)
+/** Set when the deploy flow sent someone here to make a playlist — carried into the editor, so
+ *  its Save brings them straight back with the new playlist picked. */
+const returnTo = safeReturnPath(route.query.returnTo)
+
+const adding = ref(route.query.new === '1')
 const newName = ref('')
+// Opened once; a reload shouldn't keep reopening the dialog.
+if (route.query.new) router.replace({ query: { ...route.query, new: undefined } })
 
 async function onCreate() {
   const id = await create(newName.value)
   if (id) {
     adding.value = false
     newName.value = ''
-    router.push({ name: 'playlist-detail', params: { id } })
+    router.push({ name: 'playlist-detail', params: { id }, query: returnTo ? { returnTo } : {} })
   }
 }
 </script>
 
 <template>
   <div class="flex flex-col gap-6">
+    <AppButton
+      v-if="returnTo"
+      variant="ghost" size="sm" class="self-start"
+      @click="router.push({ path: returnTo, query: { returned: '1' } })"
+    >
+      <IconArrowBack class="size-4" />
+      {{ returnLabel(returnTo) }}
+    </AppButton>
+
     <PageTitle title="Playlists" :subtitle="`${items.length} playlist${items.length === 1 ? '' : 's'}`">
       <template #actions>
         <AppButton size="sm" @click="adding = true">New playlist</AppButton>

@@ -322,7 +322,85 @@ async function onDelete() {
  *  When a loaded campaign's rules disagree, the first rule's range is shown and saving applies
  *  it to all of them — said out loud rather than done silently. */
 const mixedRanges = ref(false)
+/** True once the form holds real state — from a restored draft or the loaded campaign — so the
+ *  campaign never overwrites what someone was in the middle of. */
 let hydrated = false
+
+// --- Detour: making a playlist on the Playlists page, then coming back ---
+
+/**
+ * "New playlist" sends people to the real Playlists page and editor rather than a cut-down
+ * modal. Everything entered so far is parked in this tab's sessionStorage on the way out and
+ * restored on the way back — with the new playlist dropped into the row that asked for it. The
+ * Playlists page and editor bring people back here with `?playlist=<id>` after saving, or
+ * `?returned=1` if they back out.
+ */
+const DRAFT_KEY = `deploy-draft:${route.path}`
+
+interface DeployDraft {
+  step: number
+  furthest: number
+  selectedIds: string[]
+  slots: Slot[]
+  fromDate: string
+  untilDate: string
+  fromTime: string
+  untilTime: string
+  campaignName: string
+  attempted: boolean
+  mixedRanges: boolean
+  pendingSlot: string
+}
+
+function startNewPlaylist(slotKey: string) {
+  const draft: DeployDraft = {
+    step: step.value, furthest: furthest.value, selectedIds: selectedIds.value, slots: slots.value,
+    fromDate: fromDate.value, untilDate: untilDate.value, fromTime: fromTime.value, untilTime: untilTime.value,
+    campaignName: campaignName.value, attempted: attempted.value, mixedRanges: mixedRanges.value,
+    pendingSlot: slotKey,
+  }
+  try {
+    sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft))
+  } catch {
+    // Storage blocked (private mode, a locked-down browser): the detour still works, the
+    // draft just isn't kept.
+  }
+  router.push({ name: 'playlists', query: { new: '1', returnTo: route.path } })
+}
+
+/** Always taken out of storage, used or not — a detour someone abandoned must not resurface
+ *  the next time they happen to open this page. */
+function takeDraft(): DeployDraft | null {
+  try {
+    const raw = sessionStorage.getItem(DRAFT_KEY)
+    sessionStorage.removeItem(DRAFT_KEY)
+    return raw ? (JSON.parse(raw) as DeployDraft) : null
+  } catch {
+    return null
+  }
+}
+
+const returning = 'playlist' in route.query || 'returned' in route.query
+const restored = takeDraft()
+if (returning && restored) {
+  hydrated = true
+  step.value = restored.step
+  furthest.value = restored.furthest
+  selectedIds.value = restored.selectedIds
+  slots.value = restored.slots
+  fromDate.value = restored.fromDate
+  untilDate.value = restored.untilDate
+  fromTime.value = restored.fromTime
+  untilTime.value = restored.untilTime
+  campaignName.value = restored.campaignName
+  attempted.value = restored.attempted
+  mixedRanges.value = restored.mixedRanges
+  const created = typeof route.query.playlist === 'string' ? route.query.playlist : null
+  const slot = slots.value.find((s) => s.key === restored.pendingSlot)
+  if (created && slot) slot.playlist_id = created
+}
+// Drop the return marker so a reload doesn't try to restore a draft that's already gone.
+if (returning) router.replace({ path: route.path })
 
 watch(campaign, (c) => {
   // Once only: saving writes the result back into `campaign`, which must not reset the form.
@@ -541,7 +619,7 @@ const BOUND_TIME_INPUT =
                   class="min-w-0 flex-1"
                   :playlists="playlists"
                   :invalid="attempted && !s.playlist_id"
-                  @create="composing = { slotKey: s.key, playlist: null }"
+                  @create="startNewPlaylist(s.key)"
                 />
                 <button
                   v-if="playlistById.get(s.playlist_id)"
