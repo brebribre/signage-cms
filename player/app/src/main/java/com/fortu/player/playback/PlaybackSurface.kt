@@ -3,6 +3,8 @@ package com.fortu.player.playback
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -211,13 +213,30 @@ fun PlaybackSurface(
                     RotatedContent(element.rotationDegrees) {
                         when (element.kind) {
                             "image" -> {
-                                AsyncImage(
-                                    model = fileFor(element),
-                                    contentDescription = null,
-                                    contentScale = contentScaleFor(element.fit),
-                                    modifier = Modifier.fillMaxSize(),
-                                    onError = { Log.e("FortuPlayer", "image failed to load: ${element.id}", it.result.throwable) },
-                                )
+                                // A plain File model resets Coil's painter to empty the instant
+                                // it changes, even on a cache hit — the request still resolves
+                                // through a coroutine dispatch, so there is a real frame or two
+                                // with nothing drawn in this Box, showing the black background
+                                // behind it. Coil's own ImageRequest.crossfade() was tried first
+                                // and measured to have no visible effect here — Compose's own
+                                // Crossfade, keyed on the file, is used instead: it keeps the
+                                // *previous* composable (still showing its last decoded frame)
+                                // on screen, fading it into the new one, independent of
+                                // whatever Coil's internal transition plumbing does or doesn't
+                                // do for a Compose target.
+                                Crossfade(
+                                    targetState = fileFor(element),
+                                    animationSpec = tween(300),
+                                    label = "image-crossfade",
+                                ) { file ->
+                                    AsyncImage(
+                                        model = file,
+                                        contentDescription = null,
+                                        contentScale = contentScaleFor(element.fit),
+                                        modifier = Modifier.fillMaxSize(),
+                                        onError = { Log.e("FortuPlayer", "image failed to load: ${element.id}", it.result.throwable) },
+                                    )
+                                }
                             }
                             // A kind this build predates (an iframe/website element authored
                             // by a newer CMS) — nothing to render, but not a crash, and every
