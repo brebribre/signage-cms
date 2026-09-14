@@ -9,12 +9,12 @@ import { usePlaylists } from '@/hooks/usePlaylists'
 import AppAlert from '@/reusables/AppAlert.vue'
 import AppButton from '@/reusables/AppButton.vue'
 import AppCard from '@/reusables/AppCard.vue'
-import AppInput from '@/reusables/AppInput.vue'
 import AppModal from '@/reusables/AppModal.vue'
 import EmptyState from '@/reusables/EmptyState.vue'
 import PageTitle from '@/reusables/PageTitle.vue'
+import PairScreenForm from '@/reusables/PairScreenForm.vue'
 import StatusDot from '@/reusables/StatusDot.vue'
-import type { DeviceRead } from '@/types/api'
+import type { ClaimBody, DeviceRead } from '@/types/api'
 
 const router = useRouter()
 const { items, resolved, isLoading, isSaving, error, claimError, connecting, claim } = useDevices()
@@ -22,17 +22,15 @@ const { items: playlists } = usePlaylists()
 const { relativeTime } = useFormat()
 
 const pairing = ref(false)
-const form = ref({ pairing_code: '', name: '', location: '' })
 
-async function onClaim() {
-  const ok = await claim({ ...form.value })
+async function onClaim(body: ClaimBody) {
+  const ok = await claim(body)
   if (!ok) return
   // Held briefly so "connected" is actually seen — closing the instant the promise resolves
   // throws away the one piece of feedback that says the screen really started.
   if (!claimError.value) {
     await new Promise((r) => setTimeout(r, 900))
     pairing.value = false
-    form.value = { pairing_code: '', name: '', location: '' }
   }
 }
 
@@ -158,56 +156,10 @@ function nowPlaying(d: DeviceRead): { text: string; via: string | null } {
     </div>
 
     <AppModal v-if="pairing" title="Add a screen" @close="pairing = false">
-      <form class="flex flex-col gap-3" @submit.prevent="onClaim">
-        <p class="text-[13px] text-ink-muted">
-          Type the code shown on the screen. Codes expire after 15 minutes.
-        </p>
-        <AppInput
-          id="pair-code"
-          v-model="form.pairing_code"
-          label="Pairing code"
-          placeholder="ABCDEF"
-          required
-          hint="Not case-sensitive"
-        />
-        <AppInput id="pair-name" v-model="form.name" label="Name" placeholder="Lobby" required />
-        <AppInput
-          id="pair-location"
-          v-model="form.location"
-          label="Location"
-          placeholder="Ground floor"
-        />
-        <AppAlert v-if="claimError" tone="danger">{{ claimError }}</AppAlert>
-
-        <!-- The handshake, shown as it happens. The claim returns instantly but the screen
-             only learns about it on its next poll, so "created" alone sends people away from
-             a screen that has not started yet. -->
-        <div
-          v-if="isSaving && connecting"
-          class="flex items-center gap-2 rounded-lg bg-surface px-3 py-2 text-[13px] text-ink-muted"
-        >
-          <span
-            class="size-2 shrink-0 animate-pulse rounded-full bg-ink"
-            aria-hidden="true"
-          />
-          Waiting for {{ connecting.name }} to connect…
-        </div>
-        <div
-          v-else-if="connecting?.connected"
-          class="rounded-lg bg-surface px-3 py-2 text-[13px] text-ink"
-        >
-          {{ connecting.name }} connected.
-        </div>
-
-        <div class="mt-1 flex justify-end gap-2">
-          <AppButton variant="secondary" size="sm" type="button" @click="pairing = false">
-            Cancel
-          </AppButton>
-          <AppButton size="sm" type="submit" :loading="isSaving">
-            {{ isSaving && connecting ? 'Connecting…' : 'Add screen' }}
-          </AppButton>
-        </div>
-      </form>
+      <PairScreenForm
+        :is-saving="isSaving" :claim-error="claimError" :connecting="connecting"
+        @submit="onClaim" @cancel="pairing = false"
+      />
     </AppModal>
   </div>
 </template>

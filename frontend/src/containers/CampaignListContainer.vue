@@ -21,9 +21,12 @@ const { date } = useFormat()
       :subtitle="`${items.length} campaign${items.length === 1 ? '' : 's'}`"
     >
       <template #actions>
-        <AppButton size="sm" @click="router.push({ name: 'campaign-new' })">
-          New campaign
-        </AppButton>
+        <div class="flex gap-2">
+          <AppButton variant="secondary" size="sm" @click="router.push({ name: 'campaign-new' })">
+            New campaign
+          </AppButton>
+          <AppButton size="sm" @click="router.push({ name: 'deploy' })">Deploy</AppButton>
+        </div>
       </template>
     </PageTitle>
 

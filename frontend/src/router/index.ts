@@ -28,6 +28,11 @@ const router = createRouter({
           component: () => import('@/containers/NowContainer.vue'),
         },
         {
+          path: 'deploy',
+          name: 'deploy',
+          component: () => import('@/containers/DeployContainer.vue'),
+        },
+        {
           path: 'media',
           name: 'media',
           component: () => import('@/containers/MediaLibraryContainer.vue'),

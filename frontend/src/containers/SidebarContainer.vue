@@ -21,6 +21,8 @@ async function onLogout() {
   <nav class="flex flex-col border-r border-line bg-canvas px-3 py-5">
     <AppLogo class="mb-6 px-2" />
 
+    <AppButton size="sm" block class="mb-4" @click="router.push({ name: 'deploy' })">Deploy</AppButton>
+
     <ul class="flex flex-col gap-0.5">
       <li v-for="link in LINKS" :key="link.name">
         <router-link
