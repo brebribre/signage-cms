@@ -94,6 +94,10 @@ const ruleForm = reactive<LocalRule>({
   start_date: '', end_date: '',
 })
 
+/** The rule form's own live preview — same thumbnail strip PlaylistListContainer shows, so
+ *  picking a playlist by name alone isn't a guess at what's actually in it. */
+const selectedPlaylist = computed(() => playlists.value.find((p) => p.id === ruleForm.playlist_id) ?? null)
+
 function openAddRule() {
   editingIndex.value = null
   Object.assign(ruleForm, {
@@ -290,6 +294,21 @@ async function onDelete() {
             <option value="" disabled>Choose a playlist</option>
             <option v-for="p in playlists" :key="p.id" :value="p.id">{{ p.name }}</option>
           </select>
+          <div
+            v-if="selectedPlaylist"
+            class="mt-1 flex gap-1.5 overflow-x-auto"
+          >
+            <template v-if="selectedPlaylist.thumbnails.length">
+              <div
+                v-for="(url, i) in selectedPlaylist.thumbnails"
+                :key="i"
+                class="size-14 shrink-0 overflow-hidden rounded-lg bg-raised"
+              >
+                <img v-if="url" :src="url" class="size-full object-cover" loading="lazy" />
+              </div>
+            </template>
+            <p v-else class="text-[13px] text-ink-subtle">This playlist is empty.</p>
+          </div>
         </div>
 
         <AppInput id="rule-name" v-model="ruleForm.name" label="Name" placeholder="Breakfast menu" />
