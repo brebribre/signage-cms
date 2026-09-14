@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
 
-import { useFormat } from '@/hooks/useFormat'
 import { useMedia } from '@/hooks/useMedia'
 import { useMediaUpload } from '@/hooks/useMediaUpload'
 import AppAlert from '@/reusables/AppAlert.vue'
@@ -16,15 +15,7 @@ import ProgressBar from '@/reusables/ProgressBar.vue'
 const router = useRouter()
 const { visible, counts, filter, isLoading, error, prepend } = useMedia()
 const { jobs, active, isUploading, add, dismiss, clearFinished } = useMediaUpload(prepend)
-const { bytes, duration, dimensions } = useFormat()
-
 const ACCEPT = 'image/jpeg,image/png,image/webp,image/gif,video/mp4'
-
-function metaFor(m: { kind: string; size_bytes: number; width: number | null; height: number | null; duration_seconds: number | null }) {
-  return m.kind === 'video'
-    ? `${duration(m.duration_seconds)} · ${bytes(m.size_bytes)}`
-    : `${dimensions(m.width, m.height)} · ${bytes(m.size_bytes)}`
-}
 
 const STATUS_LABEL: Record<string, string> = {
   queued: 'Waiting',
@@ -93,14 +84,13 @@ const STATUS_LABEL: Record<string, string> = {
         : 'Drop a file above to add it to the library.'"
     />
 
-    <div v-else class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div v-else class="grid grid-cols-2 gap-0.5 sm:grid-cols-3 lg:grid-cols-4">
       <MediaCard
         v-for="m in visible"
         :key="m.id"
         :filename="m.filename"
         :kind="m.kind"
         :thumbnail-url="m.thumbnail_url"
-        :meta="metaFor(m)"
         @click="router.push({ name: 'media-detail', params: { id: m.id } })"
       />
     </div>
