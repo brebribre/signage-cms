@@ -36,7 +36,7 @@ function onPick(e: Event) {
     <p v-if="hint" class="mt-1 text-[13px] text-ink-subtle">{{ hint }}</p>
     <button
       type="button"
-      class="mt-3 rounded-full border-2 border-ink px-4 py-1.5 text-[13px] text-ink
+      class="mt-3 rounded-full border border-ink px-4 py-1.5 text-[13px] text-ink
              transition-colors duration-200 hover:bg-raised"
       @click="input?.click()"
     >

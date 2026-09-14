@@ -29,6 +29,20 @@ const activeRollout = computed(() => rollouts.value.find((r) => r.is_active) ?? 
 /** Screens with an update of their own still waiting to install — otherwise invisible from here. */
 const pendingPins = computed(() => devices.value.filter((d) => d.forced_update_version))
 
+/** How many screens report running each version — what's actually out there, rather than what
+ *  the fleet rollout says should be. A screen that has never reported a version isn't counted. */
+const screensByVersion = computed(() => {
+  const counts = new Map<string, number>()
+  for (const d of devices.value) {
+    if (d.app_version) counts.set(d.app_version, (counts.get(d.app_version) ?? 0) + 1)
+  }
+  return counts
+})
+function screensOn(version: string): string {
+  const n = screensByVersion.value.get(version) ?? 0
+  return n ? `${n} screen${n === 1 ? '' : 's'}` : 'No screens'
+}
+
 const isFuture = (iso: string | null) => !!iso && new Date(iso).getTime() > Date.now()
 const isUpcoming = (r: PlayerRolloutRead) => !r.is_active && isFuture(r.scheduled_at)
 
@@ -123,7 +137,7 @@ async function onCancelPin() {
   }
 }
 
-const PILL = 'rounded-full border-2 px-3 py-1 text-[13px] transition-colors duration-200'
+const PILL = 'rounded-full border px-3 py-1 text-[13px] transition-colors duration-200'
 const pillClass = (on: boolean) => (on ? 'border-ink bg-ink text-ink-inverse' : 'border-line-strong text-ink-muted hover:bg-raised')
 const LIST = 'divide-y divide-line overflow-hidden rounded-xl bg-surface'
 const ROW = 'flex items-center gap-3 px-4 py-2.5'
@@ -153,8 +167,11 @@ const ROW = 'flex items-center gap-3 px-4 py-2.5'
         <ul v-else :class="LIST">
           <li v-for="r in releases" :key="r.version" :class="ROW">
             <span class="w-14 shrink-0 text-sm tabular-nums text-ink">{{ r.version }}</span>
-            <span class="w-12 shrink-0">
-              <span v-if="r.is_current" class="rounded-full bg-ink px-2 py-0.5 text-[11px] text-ink-inverse">Live</span>
+            <span
+              class="w-24 shrink-0 text-[13px] tabular-nums"
+              :class="screensByVersion.get(r.version) ? 'text-ink' : 'text-ink-subtle'"
+            >
+              {{ screensOn(r.version) }}
             </span>
             <span class="min-w-0 flex-1 truncate text-[13px] text-ink-muted">
               {{ date(r.uploaded_at) }} · {{ bytes(r.size_bytes) }}

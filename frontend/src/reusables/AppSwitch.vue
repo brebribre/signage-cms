@@ -15,14 +15,14 @@ const model = defineModel<boolean>({ default: false })
     role="switch"
     :aria-checked="model"
     :disabled="disabled"
-    class="relative h-7 w-12 shrink-0 rounded-full border-2 transition-colors duration-200
+    class="relative h-7 w-12 shrink-0 rounded-full border transition-colors duration-200
            focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink
            disabled:opacity-40 disabled:pointer-events-none"
     :class="model ? 'border-ink bg-ink' : 'border-line-strong bg-canvas'"
     @click="model = !model"
   >
     <span
-      class="absolute top-0.5 left-0.5 size-5 rounded-full transition-transform duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]"
+      class="absolute top-[3px] left-[3px] size-5 rounded-full transition-transform duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]"
       :class="model ? 'translate-x-5 bg-canvas' : 'translate-x-0 bg-ink'"
     />
   </button>

@@ -4,7 +4,7 @@
   Fortu CMS design tokens.
 
   Taken from fortu.co.id rather than invented: Helvetica Neue, headings at weight 500 with
-  -0.025em tracking at every size, pill buttons carrying a 2px border, and no shadows
+  -0.025em tracking at every size, pill buttons carrying a 1px border, and no shadows
   anywhere. Light mode only — there is no dark palette and no runtime theming, so
   `color-scheme: light` is declared and native controls follow it.
 

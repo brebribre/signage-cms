@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Every variant is the same pill silhouette carrying a 2px border, as on fortu.co.id.
+ * Every variant is the same pill silhouette carrying a 1px border, as on fortu.co.id.
  * That is what lets a solid and an outline button sit side by side without one appearing
  * to shift — the border is present in both, only its colour changes.
  *
@@ -35,7 +35,7 @@ const SIZES = {
   <button
     :type="type"
     :disabled="disabled || loading"
-    class="inline-flex items-center justify-center gap-2 rounded-full border-2 font-normal
+    class="inline-flex items-center justify-center gap-2 rounded-full border font-normal
            transition-colors duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]
            focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink
            disabled:opacity-40 disabled:pointer-events-none"

@@ -333,7 +333,7 @@ const reportedMismatch = computed(() => {
                   v-for="d in DAY_BITS"
                   :key="d.bit"
                   type="button"
-                  class="rounded-full border-2 px-2.5 py-1 text-[13px] transition-colors duration-200"
+                  class="rounded-full border px-2.5 py-1 text-[13px] transition-colors duration-200"
                   :class="powerDraft(powerScheduleSpec).days_of_week & d.bit
                     ? 'border-ink bg-ink text-ink-inverse'
                     : 'border-line-strong text-ink-muted hover:bg-raised'"
