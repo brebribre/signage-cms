@@ -1,18 +1,27 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
+import type { Ref } from 'vue'
 import { useRouter } from 'vue-router'
+import IconPhotoLibrary from '~icons/material-symbols/photo-library-outline'
+import IconPlaylistPlay from '~icons/material-symbols/playlist-play'
+import IconTv from '~icons/material-symbols/tv-outline'
 
 import { useDevices } from '@/hooks/useDevices'
 import { useFleetHealth } from '@/hooks/useFleetHealth'
 import { useFormat } from '@/hooks/useFormat'
+import { useMedia } from '@/hooks/useMedia'
 import { useNowPlaying } from '@/hooks/useNowPlaying'
 import { usePlaylists } from '@/hooks/usePlaylists'
 import AppAlert from '@/reusables/AppAlert.vue'
 import AppCard from '@/reusables/AppCard.vue'
+import AppModal from '@/reusables/AppModal.vue'
 import DeviceCard from '@/reusables/DeviceCard.vue'
 import EmptyState from '@/reusables/EmptyState.vue'
 import FilterChip from '@/reusables/FilterChip.vue'
+import OnboardingCard from '@/reusables/OnboardingCard.vue'
 import PageTitle from '@/reusables/PageTitle.vue'
+import PairScreenForm from '@/reusables/PairScreenForm.vue'
+import type { ClaimBody } from '@/types/api'
 
 /**
  * Overview: the fleet at a glance — summary figures, filters, and every screen as the same card
@@ -20,9 +29,42 @@ import PageTitle from '@/reusables/PageTitle.vue'
  * UX_REDESIGN_PLAN.md §3 for where this page came from.
  */
 const router = useRouter()
-const { items: devices, resolved, isLoading: devicesLoading, error: devicesError } = useDevices()
+const {
+  items: devices, resolved, isLoading: devicesLoading, error: devicesError,
+  isSaving: claiming, claimError, connecting, claim,
+} = useDevices()
 const { devices: health, storage, offline, withErrors, isLoading: healthLoading } = useFleetHealth()
-const { items: playlists } = usePlaylists()
+const { items: playlists, isLoading: playlistsLoading, error: playlistsError } = usePlaylists()
+const { items: media, isLoading: mediaLoading, error: mediaError } = useMedia()
+
+// --- First steps: a big prompt for whatever the account doesn't have yet ---
+
+/** True once a list has finished its first load without failing — so a prompt never flashes
+ *  before the data arrives, and a failed load isn't mistaken for "you have none". */
+function loadedOk(loading: Ref<boolean>, error: Ref<string | null>) {
+  const ok = ref(false)
+  watch(loading, (now, before) => {
+    if (before && !now) ok.value = !error.value
+  })
+  return ok
+}
+const devicesReady = loadedOk(devicesLoading, devicesError)
+const mediaReady = loadedOk(mediaLoading, mediaError)
+const playlistsReady = loadedOk(playlistsLoading, playlistsError)
+
+const needsScreen = computed(() => devicesReady.value && !devices.value.length)
+const needsMedia = computed(() => mediaReady.value && !media.value.length)
+const needsPlaylist = computed(() => playlistsReady.value && !playlists.value.length)
+
+const pairing = ref(false)
+async function onClaim(body: ClaimBody) {
+  if (!(await claim(body))) return
+  // Held briefly so "connected" is actually seen before the dialog closes.
+  if (!claimError.value) {
+    await new Promise((r) => setTimeout(r, 900))
+    pairing.value = false
+  }
+}
 const { nowPlaying } = useNowPlaying(resolved, playlists)
 const { bytes } = useFormat()
 
@@ -67,6 +109,33 @@ function quotaPercent(used: number, quota: number | null): number | null {
     <PageTitle title="Overview" subtitle="What every screen is playing, right now, and why." />
 
     <AppAlert v-if="devicesError" tone="danger">{{ devicesError }}</AppAlert>
+
+    <div v-if="needsScreen || needsMedia || needsPlaylist" class="flex flex-col gap-3">
+      <OnboardingCard
+        v-if="needsScreen"
+        :icon="IconTv"
+        title="Connect your first screen"
+        description="Power on a screen and type the code it shows."
+        action="Add screen"
+        @action="pairing = true"
+      />
+      <OnboardingCard
+        v-if="needsMedia"
+        :icon="IconPhotoLibrary"
+        title="Upload your first media"
+        description="Images and videos to put on your screens."
+        action="Upload media"
+        @action="router.push({ name: 'media' })"
+      />
+      <OnboardingCard
+        v-if="needsPlaylist"
+        :icon="IconPlaylistPlay"
+        title="Create your first playlist"
+        description="Arrange media into a loop a screen can play."
+        action="New playlist"
+        @action="router.push({ name: 'playlists', query: { new: '1' } })"
+      />
+    </div>
 
     <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
       <AppCard>
@@ -132,5 +201,12 @@ function quotaPercent(used: number, quota: number | null): number | null {
         @click="router.push({ name: 'device-detail', params: { id: r.device.id } })"
       />
     </div>
+
+    <AppModal v-if="pairing" title="Add a screen" @close="pairing = false">
+      <PairScreenForm
+        :is-saving="claiming" :claim-error="claimError" :connecting="connecting"
+        @submit="onClaim" @cancel="pairing = false"
+      />
+    </AppModal>
   </div>
 </template>
