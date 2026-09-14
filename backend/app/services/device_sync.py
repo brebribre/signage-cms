@@ -175,6 +175,9 @@ class Manifest:
     #: the same registry later (services/device_settings.py). A key absent here means "use the
     #: player's own default," not "set to nothing."
     settings: dict = field(default_factory=dict)
+    #: The screen's timezone — validated, so a bad name reaches the player as UTC, the same
+    #: fallback scheduling.device_zone uses. The player evaluates its power schedule on it.
+    device_timezone: str = "UTC"
 
 
 def build_manifest(session: Session, device: Device, *, version: str) -> Manifest:
@@ -192,6 +195,7 @@ def build_manifest(session: Session, device: Device, *, version: str) -> Manifes
             version=version,
             device_name=device.name,
             device_orientation=device.orientation.value,
+            device_timezone=scheduling.device_zone(device).key,
             playlist=None,
             slots=[],
             schedule_name=resolution.schedule_name,
@@ -238,6 +242,7 @@ def build_manifest(session: Session, device: Device, *, version: str) -> Manifes
         version=version,
         device_name=device.name,
         device_orientation=device.orientation.value,
+        device_timezone=scheduling.device_zone(device).key,
         playlist=ManifestPlaylist(id=playlist.id, name=playlist.name, shuffle=playlist.shuffle)
         if playlist
         else None,

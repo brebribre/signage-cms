@@ -240,6 +240,23 @@ export interface DeviceSettingRead {
   reported_at: string | null
 }
 
+/** A screen's power, resolved from its schedule and any manual override — see backend
+ *  services/power.py. */
+export interface PowerStatusRead {
+  state: 'on' | 'off'
+  /** override: a manual "turn on/off now"; schedule: the weekly window; default: neither. */
+  source: 'override' | 'schedule' | 'default'
+  /** When `state` ends on its own, ISO-8601 in the device's timezone (with offset). */
+  until: string | null
+  schedule_enabled: boolean
+  timezone: string
+  device_local_time: string
+  /** What the screen itself last reported — null before a player that reports power has
+   *  heartbeated. */
+  reported_state: 'on' | 'off' | null
+  reported_at: string | null
+}
+
 /** Returned by unpair — the screen's new pairing code, same shape as a fresh boot. */
 export interface PairStartResponse {
   device_id: string

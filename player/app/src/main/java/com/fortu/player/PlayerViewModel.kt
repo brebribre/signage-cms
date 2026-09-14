@@ -44,6 +44,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         installUpdate = { url -> SelfUpdater.downloadAndInstall(app, api.http, url) },
         applySettings = { settings -> DeviceSettingsApplier.apply(app, settings) },
         currentSettings = { DeviceSettingsApplier.currentSettings(app) },
+        applyPower = { on -> DeviceSettingsApplier.applyPower(app, on) },
         warmMedia = { file, kind ->
             when (kind) {
                 // Same ImageLoader `AsyncImage` reads from by default (PlaybackSurface never

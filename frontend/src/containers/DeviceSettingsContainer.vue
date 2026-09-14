@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
 import IconDoNotTouch from '~icons/material-symbols/do-not-touch'
+import IconPause from '~icons/material-symbols/pause'
 import IconPowerSettingsNew from '~icons/material-symbols/power-settings-new'
 import IconSchedule from '~icons/material-symbols/schedule'
 import IconTouchApp from '~icons/material-symbols/touch-app'
 
+import { useDevicePower } from '@/hooks/useDevicePower'
 import { useDeviceSettings } from '@/hooks/useDeviceSettings'
+import { useFormat } from '@/hooks/useFormat'
 import AppAlert from '@/reusables/AppAlert.vue'
 import AppButton from '@/reusables/AppButton.vue'
 import AppCard from '@/reusables/AppCard.vue'
@@ -15,6 +18,9 @@ import { ALL_DAYS, DAY_BITS, WEEKDAYS, WEEKENDS } from '@/types/api'
 const props = defineProps<{ deviceId: string }>()
 
 const { isLoading, isSaving, error, value, reportedValue, setMany } = useDeviceSettings(props.deviceId)
+const { status: power, isActing: powerActing, error: powerError, refresh: refreshPower, override, resume } =
+  useDevicePower(props.deviceId)
+const { relativeTime } = useFormat()
 
 interface PowerScheduleValue {
   enabled: boolean
@@ -53,21 +59,15 @@ const SETTINGS: SettingSpec[] = [
     description: 'Required on the device to exit the player app.',
   },
   {
-    key: 'power_schedule', label: 'Power on/off', kind: 'power_schedule',
-    description: 'Turn the screen hardware on and off automatically, on its own days and times.',
-  },
-  {
-    key: 'power_on', label: 'Power (manual)', kind: 'toggle', onLabel: 'On', offLabel: 'Off',
-    description: 'Direct override, ignoring the schedule below — for testing power control itself.',
+    key: 'power_schedule', label: 'Power schedule', kind: 'power_schedule',
+    description: 'Turn the screen on and off automatically, on its own days and times.',
   },
 ]
 
-// power_on and power_schedule render together as one card (see the template) rather than
-// through the generic per-spec loop below — the manual toggle and its schedule are one
-// feature from the person configuring it, not two unrelated settings that happen to both be
-// about power.
-const listedSettings = computed(() => SETTINGS.filter((s) => s.key !== 'power_on' && s.key !== 'power_schedule'))
-const powerOnSpec = SETTINGS.find((s) => s.key === 'power_on')!
+// The schedule renders inside the Power card (see the template) rather than through the
+// generic per-spec loop — it and the on/off actions are one feature to whoever is configuring
+// it, not two unrelated settings that happen to both be about power.
+const listedSettings = computed(() => SETTINGS.filter((s) => s.key !== 'power_schedule'))
 const powerScheduleSpec = SETTINGS.find((s) => s.key === 'power_schedule')!
 
 function defaultFor(spec: SettingSpec): unknown {
@@ -82,7 +82,7 @@ function defaultFor(spec: SettingSpec): unknown {
 
 // Staged the same way every other device-affecting control in this app is: nothing reaches
 // the screen until "Save changes" is clicked, keyed by setting so rows don't interfere with
-// each other.
+// each other. The power on/off actions are the exception — see useDevicePower.
 const drafts = reactive<Record<string, unknown>>({})
 const justSaved = ref(false)
 
@@ -92,9 +92,9 @@ const justSaved = ref(false)
  *  misleading 0%. Only falls back to a hardcoded default when neither exists at all. */
 function currentValue(spec: SettingSpec): unknown {
   const stored = value(spec.key)
-  if (stored !== undefined) return stored
+  if (stored !== undefined && stored !== null) return stored
   const reported = reportedValue(spec.key)
-  if (reported !== undefined) return reported
+  if (reported !== undefined && reported !== null) return reported
   return defaultFor(spec)
 }
 
@@ -154,7 +154,51 @@ async function onSaveAll() {
   }
   justSaved.value = failedKeys.length === 0
   if (justSaved.value) setTimeout(() => { justSaved.value = false }, 2500)
+  // A schedule change can change what power should be right now.
+  if (dirty.some((s) => s.key === 'power_schedule')) await refreshPower()
 }
+
+// --- Power -------------------------------------------------------------------------------
+
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
+
+/** "22:00", "tomorrow 08:00" or "Mon 08:00" — read straight off the device-local ISO strings
+ *  the API returns, so it's the screen's wall clock, never the browser's. */
+function whenLabel(iso: string): string {
+  if (!power.value) return iso
+  const time = iso.slice(11, 16)
+  const day = iso.slice(0, 10)
+  const today = power.value.device_local_time.slice(0, 10)
+  if (day === today) return time
+  const [y, m, d] = day.split('-').map(Number)
+  const [ty, tm, td] = today.split('-').map(Number)
+  const diff = Math.round((Date.UTC(y, m - 1, d) - Date.UTC(ty, tm - 1, td)) / 86_400_000)
+  if (diff === 1) return `tomorrow ${time}`
+  const weekday = new Date(Date.UTC(y, m - 1, d)).toLocaleDateString(undefined, { weekday: 'short', timeZone: 'UTC' })
+  return `${weekday} ${time}`
+}
+
+const powerLine = computed(() => {
+  const p = power.value
+  if (!p) return ''
+  const state = cap(p.state)
+  if (p.source === 'schedule') {
+    return p.until ? `${state} · by schedule · ${p.state === 'on' ? 'off' : 'on'} at ${whenLabel(p.until)}` : `${state} · by schedule`
+  }
+  if (p.source === 'override' && p.schedule_enabled) return `${state} · turned ${p.state} manually`
+  return state
+})
+
+/** True while a manual change is holding the schedule back — the one state that needs to be
+ *  loud, because it's the one where the screen isn't doing what its schedule says. */
+const schedulePaused = computed(() => power.value?.source === 'override' && power.value.schedule_enabled)
+
+/** Only worth showing when the screen disagrees with what it should be — agreement is the
+ *  normal case and needs no words. */
+const reportedMismatch = computed(() => {
+  const p = power.value
+  return !!p?.reported_state && p.reported_state !== p.state
+})
 </script>
 
 <template>
@@ -221,31 +265,61 @@ async function onSaveAll() {
         </AppCard>
       </li>
 
-      <!-- Power: the manual toggle and its schedule are one card, not two — a schedule is
-           just "make the toggle above happen automatically," and living together makes that
-           relationship visible instead of implied by list order. -->
+      <!-- Power: what the screen is doing and why, the one action that changes it now, and the
+           schedule that normally runs it — one card. With a schedule, the on/off switch
+           becomes a "turn off/on now" action that ends by itself at the next scheduled change,
+           so the two can never silently disagree. -->
       <li>
         <AppCard>
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div class="min-w-0">
-              <p class="text-sm text-ink">Power</p>
-              <p class="mt-0.5 text-[13px] text-ink-muted">Turn the screen hardware on or off.</p>
+              <p class="flex items-center gap-1.5 text-sm text-ink">
+                <IconPowerSettingsNew class="size-4 shrink-0 text-ink-muted" />
+                Power
+              </p>
+              <p v-if="power" class="mt-0.5 text-[13px] text-ink-muted">{{ powerLine }}</p>
+              <p v-if="power && reportedMismatch" class="mt-0.5 text-[13px] text-danger">
+                Screen reports {{ power.reported_state }} · {{ relativeTime(power.reported_at) }}
+              </p>
             </div>
-            <div class="flex shrink-0 items-center gap-2">
-              <IconPowerSettingsNew class="size-4 shrink-0 text-ink-muted" />
-              <span class="text-[13px] text-ink-muted">{{ draftValue(powerOnSpec) ? 'On' : 'Off' }}</span>
+
+            <template v-if="power">
+              <AppButton
+                v-if="power.schedule_enabled"
+                variant="secondary" size="sm" :loading="powerActing"
+                @click="override(power.state === 'on' ? 'off' : 'on')"
+              >
+                Turn {{ power.state === 'on' ? 'off' : 'on' }} now
+              </AppButton>
               <AppSwitch
-                :model-value="draftValue(powerOnSpec) as boolean"
-                @update:model-value="setDraft(powerOnSpec, $event)"
+                v-else
+                :model-value="power.state === 'on'"
+                :disabled="powerActing"
+                @update:model-value="override($event ? 'on' : 'off')"
               />
-            </div>
+            </template>
           </div>
+
+          <div
+            v-if="schedulePaused && power?.until"
+            class="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-raised px-3 py-2"
+          >
+            <span class="flex items-center gap-1.5 text-[13px] text-ink-muted">
+              <IconPause class="size-4 shrink-0" />
+              Schedule paused until {{ whenLabel(power.until) }}
+            </span>
+            <AppButton variant="secondary" size="sm" :disabled="powerActing" @click="resume">
+              Resume schedule
+            </AppButton>
+          </div>
+
+          <AppAlert v-if="powerError" tone="danger" class="mt-3">{{ powerError }}</AppAlert>
 
           <div class="mt-3 flex flex-col gap-3 border-t border-line pt-3">
             <div class="flex items-center justify-between gap-3">
               <p class="flex items-center gap-1.5 text-[13px] text-ink-muted">
                 <IconSchedule class="size-4 shrink-0" />
-                Scheduled — turn on and off automatically
+                Schedule
               </p>
               <AppSwitch
                 :model-value="powerDraft(powerScheduleSpec).enabled"
@@ -279,7 +353,7 @@ async function onSaveAll() {
 
               <div class="grid max-w-xs grid-cols-2 gap-3">
                 <div class="flex flex-col gap-1.5">
-                  <label class="text-[13px] text-ink-muted">Power on</label>
+                  <label class="text-[13px] text-ink-muted">On</label>
                   <input
                     type="time" :value="powerDraft(powerScheduleSpec).power_on"
                     class="rounded-lg border border-line-strong bg-canvas px-3 py-2 text-sm
@@ -288,7 +362,7 @@ async function onSaveAll() {
                   />
                 </div>
                 <div class="flex flex-col gap-1.5">
-                  <label class="text-[13px] text-ink-muted">Power off</label>
+                  <label class="text-[13px] text-ink-muted">Off</label>
                   <input
                     type="time" :value="powerDraft(powerScheduleSpec).power_off"
                     class="rounded-lg border border-line-strong bg-canvas px-3 py-2 text-sm

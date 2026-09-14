@@ -27,7 +27,14 @@ data class PairPollResponse(
 )
 
 @Serializable
-data class ManifestDevice(val name: String, val orientation: String)
+data class ManifestDevice(
+    val name: String,
+    val orientation: String,
+    /** IANA name the CMS schedules this screen in — the power schedule is evaluated on it.
+     *  Defaulted for version skew: an older backend sends none, and the screen falls back to
+     *  its own system timezone. */
+    val timezone: String? = null,
+)
 
 @Serializable
 data class ManifestPlaylist(val id: String, val name: String, val shuffle: Boolean)
@@ -94,13 +101,30 @@ data class ManifestSlot(
     val elements: List<ManifestElement> = emptyList(),
 )
 
+/** The screen's weekly power window — same day bitmask (bit 0 = Monday) and `HH:MM` local
+ *  times as the CMS stores. See `power/PowerPlan.kt` for how it's evaluated. */
+@Serializable
+data class PowerSchedule(
+    val enabled: Boolean = false,
+    @SerialName("days_of_week") val daysOfWeek: Int = 0b1111111,
+    @SerialName("power_on") val powerOn: String = "08:00",
+    @SerialName("power_off") val powerOff: String = "22:00",
+)
+
+/** "Turn on/off now" from the CMS. [until] is an ISO-8601 UTC instant, or null for no end —
+ *  which only counts while there is no schedule. See `power/PowerPlan.kt`. */
+@Serializable
+data class PowerOverride(
+    val state: String,
+    val until: String? = null,
+)
+
 /**
  * Remotely-configured values from the CMS's device-settings registry (backend
  * `services/device_settings.py`). Typed fields for what this build knows how to apply —
- * `touchscreen_disabled` and `power_schedule` arrive in the same JSON object but have no
- * field here yet, so `ignoreUnknownKeys` on the shared [kotlinx.serialization.json.Json]
- * instance just drops them; they cost nothing to add later, the same way every field below
- * did.
+ * `touchscreen_disabled` arrives in the same JSON object but has no field here yet, so
+ * `ignoreUnknownKeys` on the shared [kotlinx.serialization.json.Json] instance just drops it;
+ * it costs nothing to add later, the same way every field below did.
  */
 @Serializable
 data class ManifestSettings(
@@ -113,10 +137,10 @@ data class ManifestSettings(
      *  PIN is configured, and exit is unguarded. Compared in `MainActivity`, never applied
      *  as a system side effect like the two above. */
     @SerialName("app_password") val appPassword: String? = null,
-    /** A direct, unscheduled override of the screen's power state — see
-     *  `kiosk/DeviceSettingsApplier.applyPower`. Independent of `power_schedule`, which this
-     *  build does not apply at all yet. */
-    @SerialName("power_on") val powerOn: Boolean? = null,
+    /** Power is decided on the screen from these two together — see `power/PowerPlan.kt`.
+     *  (The older `power_on` manual switch is retired; the CMS no longer sends it.) */
+    @SerialName("power_schedule") val powerSchedule: PowerSchedule? = null,
+    @SerialName("power_override") val powerOverride: PowerOverride? = null,
 )
 
 @Serializable
@@ -166,12 +190,11 @@ data class HeartbeatRequest(
     /** Batched since the last heartbeat. An item can be shorter than the heartbeat interval,
      *  so reporting only what is on screen right now would miss most of the loop. */
     val plays: List<PlayReport> = emptyList(),
-    /** What settings.volume/brightness actually are right now, read straight from the
-     *  system (`DeviceSettingsApplier.currentSettings`) — distinct from [ManifestSettings],
-     *  which is what the CMS wants them to be. `Int`-only for now, matching the two settings
-     *  that are genuine system side effects; a future non-numeric reportable setting would
-     *  need this typed more generally. */
-    @SerialName("reported_settings") val reportedSettings: Map<String, Int>? = null,
+    /** What the screen's settings actually are right now, read straight from the system
+     *  (`DeviceSettingsApplier.currentSettings`) — distinct from [ManifestSettings], which is
+     *  what the CMS wants them to be. Primitives of any kind: volume/brightness are numbers,
+     *  `power_state` is "on"/"off". */
+    @SerialName("reported_settings") val reportedSettings: Map<String, kotlinx.serialization.json.JsonPrimitive>? = null,
 )
 
 @Serializable

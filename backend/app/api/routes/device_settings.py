@@ -1,8 +1,14 @@
 from fastapi import APIRouter, HTTPException, status
 
 from app.api.deps import DbSession, DeviceForUser
-from app.schemas.device_settings import DeviceSettingRead, DeviceSettingWrite
+from app.schemas.device_settings import (
+    DeviceSettingRead,
+    DeviceSettingWrite,
+    PowerOverrideWrite,
+    PowerStatusRead,
+)
 from app.services import device_settings as device_settings_service
+from app.services import power as power_service
 from app.services.device_settings import InvalidSetting, UnknownSetting
 
 router = APIRouter(tags=["device-settings"])
@@ -32,3 +38,23 @@ def set_device_setting(
     except InvalidSetting as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from None
     return _read(row)
+
+
+@router.get("/devices/{device_id}/power", response_model=PowerStatusRead)
+def get_power(device: DeviceForUser, session: DbSession) -> PowerStatusRead:
+    return PowerStatusRead(**power_service.status(session, device=device))
+
+
+@router.put("/devices/{device_id}/power/override", response_model=PowerStatusRead)
+def override_power(body: PowerOverrideWrite, device: DeviceForUser, session: DbSession) -> PowerStatusRead:
+    """"Turn on/off now" — applied immediately, not staged with the rest of Settings. With a
+    schedule on, it ends by itself at the schedule's next change."""
+    power_service.set_override(session, device=device, state=body.state)
+    return PowerStatusRead(**power_service.status(session, device=device))
+
+
+@router.delete("/devices/{device_id}/power/override", response_model=PowerStatusRead)
+def resume_power(device: DeviceForUser, session: DbSession) -> PowerStatusRead:
+    """"Resume schedule" — drops any override so the schedule (or the default) decides again."""
+    power_service.clear_override(session, device=device)
+    return PowerStatusRead(**power_service.status(session, device=device))

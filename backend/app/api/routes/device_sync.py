@@ -65,7 +65,11 @@ def get_manifest(device: CurrentDevice, session: DbSession, request: Request) ->
     manifest = device_sync.build_manifest(session, device, version=version)
     body = ManifestResponse(
         version=manifest.version,
-        device=ManifestDevice(name=manifest.device_name, orientation=manifest.device_orientation),
+        device=ManifestDevice(
+            name=manifest.device_name,
+            orientation=manifest.device_orientation,
+            timezone=manifest.device_timezone,
+        ),
         playlist=ManifestPlaylist(**manifest.playlist.__dict__) if manifest.playlist else None,
         # Flattened to the one-element-per-slot shape the player actually deserializes — see
         # `ManifestItem`'s docstring. A slot with no elements has nothing to play and is

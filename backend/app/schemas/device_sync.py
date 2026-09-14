@@ -10,6 +10,9 @@ from app.models import DeviceOrientation, ItemFit, MediaKind
 class ManifestDevice(BaseModel):
     name: str
     orientation: DeviceOrientation
+    # IANA name the screen's schedules are expressed in — the player evaluates its power
+    # schedule on it. An older player ignores the key.
+    timezone: str = "UTC"
 
 
 class ManifestPlaylist(BaseModel):

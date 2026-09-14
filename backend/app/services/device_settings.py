@@ -13,6 +13,7 @@ manifest/version/MQTT path had to change to support this; only `compute_version`
 import re
 import uuid
 from collections.abc import Callable
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlmodel import Session, select
@@ -47,12 +48,32 @@ def _validate_touchscreen_disabled(value: Any) -> bool:
     return value
 
 
-def _validate_power_on(value: Any) -> bool:
-    """A direct, unscheduled override — set the screen's power state right now, independent
-    of `power_schedule`. Exists mainly to test the underlying power control in isolation from
-    the day/time logic layered on top of it."""
-    if not isinstance(value, bool):
-        raise InvalidSetting("power_on must be true or false")
+def _validate_power_override(value: Any) -> dict | None:
+    """A temporary manual power state over `power_schedule` — see services/power.py for how the
+    two combine. Null clears it ("resume schedule"). `until` is an ISO-8601 instant, normalized
+    to UTC, or null for no end (which only counts while there is no schedule)."""
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise InvalidSetting("power override must be an object")
+    state = value.get("state")
+    until = value.get("until")
+    if state not in ("on", "off"):
+        raise InvalidSetting("power override: 'state' must be 'on' or 'off'")
+    if until is not None:
+        try:
+            parsed = datetime.fromisoformat(until.replace("Z", "+00:00")) if isinstance(until, str) else None
+        except ValueError:
+            parsed = None
+        if parsed is None or parsed.tzinfo is None:
+            raise InvalidSetting("power override: 'until' must be an ISO-8601 instant with a timezone")
+        until = parsed.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return {"state": state, "until": until}
+
+
+def _validate_power_state(value: Any) -> str:
+    if value not in ("on", "off"):
+        raise InvalidSetting("power_state must be 'on' or 'off'")
     return value
 
 
@@ -102,7 +123,13 @@ VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "touchscreen_disabled": _validate_touchscreen_disabled,
     "app_password": _validate_app_password,
     "power_schedule": _validate_power_schedule,
-    "power_on": _validate_power_on,
+    "power_override": _validate_power_override,
+}
+
+# Keys a device may *report* but the CMS never sets — what the screen actually is, not what it
+# should be. Separate from VALIDATORS so the settings PUT route can't write them.
+REPORTED_ONLY: dict[str, Callable[[Any], Any]] = {
+    "power_state": _validate_power_state,
 }
 
 
@@ -127,7 +154,9 @@ def as_dict(session: Session, *, device_id: uuid.UUID) -> dict[str, Any]:
         .where(DeviceSetting.device_id == device_id)
         .order_by(DeviceSetting.key)
     ).all()
-    return {row.key: row.value for row in rows if row.value is not None}
+    # Only keys still in the registry: a row left over from a retired key (the old `power_on`
+    # manual switch) must stop reaching screens rather than be applied forever.
+    return {row.key: row.value for row in rows if row.value is not None and row.key in VALIDATORS}
 
 
 def set_setting(session: Session, *, device: Device, key: str, value: Any) -> DeviceSetting:
@@ -161,7 +190,7 @@ def record_reported(session: Session, *, device: Device, reported: dict[str, Any
     change or wake the device right back up over what it just said.
     """
     for key, raw_value in reported.items():
-        validator = VALIDATORS.get(key)
+        validator = VALIDATORS.get(key) or REPORTED_ONLY.get(key)
         if validator is None:
             continue
         try:

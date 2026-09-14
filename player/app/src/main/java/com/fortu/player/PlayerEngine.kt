@@ -9,16 +9,21 @@ import com.fortu.player.api.ManifestSettings
 import com.fortu.player.api.ManifestSlot
 import com.fortu.player.api.PlayReport
 import com.fortu.player.api.UnauthorizedException
+import com.fortu.player.power.PowerPlan
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.serialization.json.JsonPrimitive
 import java.io.File
+import java.time.ZoneId
 
 private const val TAG = "FortuPlayer"
 
@@ -151,7 +156,12 @@ class PlayerEngine(
     private val applySettings: (ManifestSettings) -> Unit = {},
     /** Same reasoning, the other direction: what volume/brightness actually are right now,
      *  read from the system for the next heartbeat to report. */
-    private val currentSettings: () -> Map<String, Int> = { emptyMap() },
+    private val currentSettings: () -> Map<String, JsonPrimitive> = { emptyMap() },
+    /** Sleeps or wakes the screen (`DeviceSettingsApplier.applyPower`). Called only when the
+     *  power decision changes — see [evaluatePower]. */
+    private val applyPower: (Boolean) -> Unit = {},
+    /** Wall clock, injectable so the power schedule can be driven to a chosen moment in tests. */
+    private val clock: () -> Long = System::currentTimeMillis,
     /** Primes whatever makes the *next* display of this file fast — Coil's memory cache for
      *  an image (so `AsyncImage` doesn't pay a decode cost the first time it's shown), the OS
      *  page cache for a video (there is no single "decode once" step for video the way there
@@ -211,7 +221,10 @@ class PlayerEngine(
         _debug.update { it.copy(kiosk = description) }
     }
 
-    suspend fun run() {
+    suspend fun run() = coroutineScope {
+        // Alongside the sync loop, not inside it: a scheduled power change has to happen on
+        // time even when polling is failing or the network is gone entirely.
+        launch { runPowerLoop() }
         runForever()
     }
 
@@ -446,6 +459,52 @@ class PlayerEngine(
         }
     }
 
+    /** The screen's timezone per the CMS — the power schedule is evaluated on it. */
+    @Volatile private var deviceTimezone: String? = null
+
+    /** What [applyPower] was last called with, so a decision is applied once per change rather
+     *  than on every check — a screen woken by hand during scheduled off hours stays on until
+     *  the next change instead of being put straight back to sleep. Null in a fresh process, so
+     *  the first decision after a reboot always applies. */
+    private var lastAppliedPower: Boolean? = null
+
+    private fun adoptSettings(manifest: Manifest) {
+        deviceTimezone = manifest.device.timezone
+        _settings.value = manifest.settings
+        applySettings(manifest.settings)
+        // Straight away, not on the next power check: a "Turn off now" should land with the
+        // manifest that carries it.
+        evaluatePower()
+    }
+
+    private suspend fun runPowerLoop() {
+        while (true) delay(evaluatePower())
+    }
+
+    /**
+     * Applies the current power decision (`power/PowerPlan.kt`) if it differs from what was last
+     * applied, and returns how long to wait before checking again — the next known change if
+     * that's sooner than the regular check, so a scheduled switch lands on the minute.
+     */
+    @Synchronized
+    internal fun evaluatePower(): Long {
+        val settings = _settings.value
+        val zone = deviceTimezone?.let { runCatching { ZoneId.of(it) }.getOrNull() } ?: ZoneId.systemDefault()
+        val now = clock()
+        val decision = PowerPlan.decide(settings.powerSchedule, settings.powerOverride, now, zone)
+        if (decision != null && decision.on != lastAppliedPower) {
+            Log.i(TAG, "power ${if (decision.on) "on" else "off"} (${decision.source})")
+            runCatching { applyPower(decision.on) }.onFailure { Log.w(TAG, "power apply failed", it) }
+            lastAppliedPower = decision.on
+        }
+        val untilChange = decision?.nextChangeMillis?.let { it - now }
+        return when {
+            untilChange == null -> POWER_CHECK_MILLIS
+            untilChange <= 0 -> MIN_POLL_MILLIS
+            else -> minOf(untilChange, POWER_CHECK_MILLIS)
+        }
+    }
+
     private fun parseInstantMillis(iso: String?): Long? = try {
         if (iso == null) null
         else java.time.Instant.parse(iso.replace("+00:00", "Z")).toEpochMilli()
@@ -488,14 +547,12 @@ class PlayerEngine(
         // Re-applied on the disk-restore path too, not just after a live poll: a screen
         // rebooting must come back at its configured volume/brightness immediately, not sit
         // at system defaults until the first network round trip lands.
-        _settings.value = manifest.settings
-        applySettings(manifest.settings)
+        adoptSettings(manifest)
     }
 
     private suspend fun applyManifest(manifest: Manifest) = withContext(io) {
         validUntilMillis = parseInstantMillis(manifest.validUntil)
-        _settings.value = manifest.settings
-        applySettings(manifest.settings)
+        adoptSettings(manifest)
 
         val slots = manifest.effectiveSlots()
         _debug.update {
@@ -709,6 +766,9 @@ class PlayerEngine(
 
         /** Never poll faster than this, whatever a boundary says. */
         const val MIN_POLL_MILLIS = 2_000L
+        /** How often power is re-checked when no change is due sooner — also the most a
+         *  missed or skewed wake-up can leave a screen in the wrong state. */
+        const val POWER_CHECK_MILLIS = 30_000L
 
         /** How long a failed self-update backs off before retrying the *same* version — long
          *  enough that a persistent failure (bad wifi, a bad build) doesn't re-download the
