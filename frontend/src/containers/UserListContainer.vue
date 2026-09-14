@@ -1,15 +1,14 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import IconSearch from '~icons/material-symbols/search'
 
 import { useAuth } from '@/hooks/useAuth'
 import { useFormat } from '@/hooks/useFormat'
 import { useUsers } from '@/hooks/useUsers'
 import AppAlert from '@/reusables/AppAlert.vue'
 import AppButton from '@/reusables/AppButton.vue'
-import AppCard from '@/reusables/AppCard.vue'
 import AppInput from '@/reusables/AppInput.vue'
 import AppModal from '@/reusables/AppModal.vue'
-import EmptyState from '@/reusables/EmptyState.vue'
 import PageTitle from '@/reusables/PageTitle.vue'
 import type { AccountUserRead } from '@/types/api'
 
@@ -27,8 +26,15 @@ const form = ref({ username: '', display_name: '', password: '', device_ids: [] 
 const grantSelection = ref<string[]>([])
 const newPassword = ref('')
 
-const managers = computed(() => users.value.filter((u) => u.role === 'manager'))
-const owners = computed(() => users.value.filter((u) => u.role === 'owner'))
+const query = ref('')
+
+/** Owners first, then subaccounts; each filtered by name, username or email. */
+const rows = computed(() => {
+  const q = query.value.trim().toLowerCase()
+  return [...users.value]
+    .sort((a, b) => (a.role === b.role ? a.display_name.localeCompare(b.display_name) : a.role === 'owner' ? -1 : 1))
+    .filter((u) => !q || [u.display_name, u.username, u.email ?? ''].some((v) => v.toLowerCase().includes(q)))
+})
 
 function toggle(list: string[], id: string) {
   const at = list.indexOf(id)
@@ -75,64 +81,90 @@ function reach(u: AccountUserRead): string {
 
 <template>
   <div class="flex flex-col gap-6">
-    <PageTitle title="Users" subtitle="Owners reach every screen. Managers reach only what you grant.">
+    <PageTitle title="User Management">
       <template #actions>
-        <AppButton size="sm" @click="adding = true">Add user</AppButton>
+        <AppButton size="sm" @click="adding = true">Create subaccount</AppButton>
       </template>
     </PageTitle>
 
     <AppAlert v-if="error" tone="danger">{{ error }}</AppAlert>
     <AppAlert v-if="formError" tone="danger">{{ formError }}</AppAlert>
+
+    <label class="relative block sm:max-w-sm">
+      <IconSearch class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-subtle" />
+      <input
+        v-model="query"
+        type="search"
+        placeholder="Search users"
+        aria-label="Search users"
+        class="h-9 w-full rounded-lg border border-line-strong bg-canvas pr-3 pl-9 text-sm text-ink
+               placeholder:text-ink-subtle focus:border-ink focus:outline-none"
+      />
+    </label>
+
     <p v-if="isLoading" class="text-sm text-ink-muted">Loading…</p>
 
-    <template v-else>
-      <div v-if="owners.length" class="flex flex-col gap-2">
-        <p class="text-[13px] text-ink-muted">Owners</p>
-        <AppCard v-for="u in owners" :key="u.id">
-          <div class="flex items-center justify-between gap-4">
-            <div class="min-w-0">
-              <p class="truncate text-sm text-ink">
+    <div v-else class="overflow-x-auto rounded-xl border border-line">
+      <table class="w-full min-w-[720px] text-left text-sm">
+        <thead class="bg-surface text-[12px] text-ink-muted">
+          <tr>
+            <th class="px-4 py-2.5 font-normal">Name</th>
+            <th class="px-4 py-2.5 font-normal">Role</th>
+            <th class="px-4 py-2.5 font-normal">Screens</th>
+            <th class="px-4 py-2.5 font-normal">Status</th>
+            <th class="px-4 py-2.5 font-normal">Created</th>
+            <th class="px-4 py-2.5"><span class="sr-only">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-line">
+          <tr v-for="u in rows" :key="u.id" :class="!u.is_active && 'text-ink-muted'">
+            <td class="px-4 py-2.5">
+              <p class="truncate text-ink" :class="!u.is_active && 'opacity-60'">
                 {{ u.display_name }}
-                <span class="text-ink-subtle">@{{ u.username }}</span>
                 <span v-if="u.id === me?.id" class="text-ink-subtle"> · you</span>
               </p>
-              <p class="text-[13px] text-ink-muted">All screens · since {{ date(u.created_at) }}</p>
-            </div>
-          </div>
-        </AppCard>
-      </div>
+              <p class="truncate text-[12px] text-ink-subtle">@{{ u.username }}</p>
+            </td>
+            <td class="px-4 py-2.5">{{ u.role === 'owner' ? 'Owner' : 'Subaccount' }}</td>
+            <td class="px-4 py-2.5">
+              <button
+                v-if="u.role !== 'owner'"
+                type="button"
+                class="text-ink underline decoration-line-strong underline-offset-2 hover:decoration-ink"
+                @click="openGrants(u)"
+              >
+                {{ reach(u) }}
+              </button>
+              <span v-else>{{ reach(u) }}</span>
+            </td>
+            <td class="px-4 py-2.5">
+              <span class="inline-flex items-center gap-1.5">
+                <span class="size-1.5 rounded-full" :class="u.is_active ? 'bg-emerald-600' : 'bg-ink-subtle'" />
+                {{ u.is_active ? 'Active' : 'Deactivated' }}
+              </span>
+            </td>
+            <td class="px-4 py-2.5 whitespace-nowrap text-ink-muted">{{ date(u.created_at) }}</td>
+            <td class="px-4 py-2.5">
+              <div v-if="u.role !== 'owner'" class="flex justify-end gap-1">
+                <AppButton variant="ghost" size="sm" @click="settingPassword = u">Password</AppButton>
+                <AppButton variant="ghost" size="sm" :loading="isSaving" @click="setActive(u.id, !u.is_active)">
+                  {{ u.is_active ? 'Deactivate' : 'Reactivate' }}
+                </AppButton>
+                <AppButton variant="danger" size="sm" @click="confirmingDelete = u">Delete</AppButton>
+              </div>
+            </td>
+          </tr>
+          <tr v-if="!rows.length">
+            <td colspan="6" class="px-4 py-8 text-center text-ink-muted">
+              {{ query ? 'No users match your search.' : 'No users yet.' }}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
-      <div class="flex flex-col gap-2">
-        <p class="text-[13px] text-ink-muted">Managers</p>
-        <EmptyState
-          v-if="!managers.length"
-          title="No managers yet"
-          description="Add someone and grant them a subset of your screens."
-        />
-        <AppCard v-for="u in managers" :key="u.id">
-          <div class="flex flex-wrap items-center justify-between gap-3">
-            <div class="min-w-0" :class="!u.is_active && 'opacity-50'">
-              <p class="truncate text-sm text-ink">
-                {{ u.display_name }} <span class="text-ink-subtle">@{{ u.username }}</span>
-                <span v-if="!u.is_active" class="text-ink-subtle"> · deactivated</span>
-              </p>
-              <p class="text-[13px] text-ink-muted">{{ reach(u) }} · since {{ date(u.created_at) }}</p>
-            </div>
-            <div class="flex shrink-0 flex-wrap items-center gap-1">
-              <AppButton variant="ghost" size="sm" @click="openGrants(u)">Screens</AppButton>
-              <AppButton variant="ghost" size="sm" @click="settingPassword = u">Password</AppButton>
-              <AppButton variant="ghost" size="sm" :loading="isSaving" @click="setActive(u.id, !u.is_active)">
-                {{ u.is_active ? 'Deactivate' : 'Reactivate' }}
-              </AppButton>
-              <AppButton variant="danger" size="sm" @click="confirmingDelete = u">Delete</AppButton>
-            </div>
-          </div>
-        </AppCard>
-      </div>
-    </template>
-
-    <!-- Add -->
-    <AppModal v-if="adding" title="Add a manager" @close="adding = false">
+    <!-- Create -->
+    <AppModal v-if="adding" title="Create subaccount" @close="adding = false">
       <form class="flex flex-col gap-3" @submit.prevent="onCreate">
         <AppInput id="u-username" v-model="form.username" label="Username" required
                   hint="They sign in with this — no email needed" />
@@ -154,7 +186,7 @@ function reach(u: AccountUserRead): string {
           </ul>
         </div>
         <p v-else class="text-[13px] text-ink-subtle">
-          No screens registered yet — you can grant access once devices are paired.
+          No screens yet — you can grant access once devices are paired.
         </p>
         <div class="mt-1 flex justify-end gap-2">
           <AppButton variant="secondary" size="sm" type="button" @click="adding = false">Cancel</AppButton>
@@ -166,9 +198,7 @@ function reach(u: AccountUserRead): string {
     <!-- Grants -->
     <AppModal v-if="editingGrants" :title="`Screens for ${editingGrants.display_name}`"
               @close="editingGrants = null">
-      <p v-if="!devices.length" class="text-sm text-ink-muted">
-        No screens registered yet.
-      </p>
+      <p v-if="!devices.length" class="text-sm text-ink-muted">No screens yet.</p>
       <ul v-else class="max-h-64 overflow-y-auto">
         <li v-for="d in devices" :key="d.id">
           <label class="flex cursor-pointer items-center gap-2 rounded-lg p-1.5 hover:bg-surface">

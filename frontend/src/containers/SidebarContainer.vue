@@ -27,7 +27,7 @@ async function onLogout() {
 }
 
 const LINK =
-  'flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm text-ink-muted transition-colors duration-150 ' +
+  'flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm text-ink transition-colors duration-150 ' +
   'hover:bg-surface hover:text-ink'
 </script>
 
@@ -40,11 +40,11 @@ const LINK =
 
     <div class="flex-1 overflow-y-auto px-3 py-3">
       <template v-for="section in sections" :key="section.title ?? 'top'">
-        <p v-if="section.title" class="px-2.5 pt-5 pb-1.5 text-[12px] text-ink-subtle">{{ section.title }}</p>
+        <p v-if="section.title" class="px-2.5 pt-5 pb-1.5 text-[12px] text-ink-muted">{{ section.title }}</p>
         <ul class="flex flex-col gap-0.5">
           <li v-for="link in section.links" :key="link.name">
             <router-link :to="{ name: link.name }" :class="LINK" active-class="bg-raised text-ink">
-              <component :is="link.icon" class="size-[18px] shrink-0" />
+              <component :is="link.icon" class="size-[18px] shrink-0 text-ink-muted" />
               {{ link.label }}
             </router-link>
           </li>
@@ -52,7 +52,7 @@ const LINK =
       </template>
 
       <template v-if="isOwner">
-        <p class="px-2.5 pt-5 pb-1.5 text-[12px] text-ink-subtle">Account</p>
+        <p class="px-2.5 pt-5 pb-1.5 text-[12px] text-ink-muted">Account</p>
         <button
           type="button"
           class="w-full text-left"
@@ -60,7 +60,7 @@ const LINK =
           :aria-expanded="settingsOpen"
           @click="settingsOpen = !settingsOpen"
         >
-          <IconSettings class="size-[18px] shrink-0" />
+          <IconSettings class="size-[18px] shrink-0 text-ink-muted" />
           <span class="flex-1">Settings</span>
           <IconChevronRight
             class="size-4 shrink-0 text-ink-subtle transition-transform duration-200"
@@ -71,7 +71,7 @@ const LINK =
           <li v-for="link in settings.links" :key="link.name">
             <router-link
               :to="{ name: link.name }"
-              class="block rounded-lg px-2.5 py-1.5 text-sm text-ink-muted transition-colors duration-150
+              class="block rounded-lg px-2.5 py-1.5 text-sm text-ink transition-colors duration-150
                      hover:bg-surface hover:text-ink"
               active-class="bg-raised text-ink"
             >
@@ -89,7 +89,7 @@ const LINK =
         rel="noopener noreferrer"
         :class="LINK"
       >
-        <IconMenuBook class="size-[18px] shrink-0" />
+        <IconMenuBook class="size-[18px] shrink-0 text-ink-muted" />
         <span class="flex-1">Documentation</span>
         <IconOpenInNew class="size-3.5 shrink-0 text-ink-subtle" aria-hidden="true" />
       </a>

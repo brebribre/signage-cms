@@ -79,7 +79,7 @@ function quotaPercent(used: number, quota: number | null): number | null {
 
 <template>
   <div class="flex flex-col gap-6">
-    <PageTitle title="Now" subtitle="What every screen is playing, right now, and why." />
+    <PageTitle title="Overview" subtitle="What every screen is playing, right now, and why." />
 
     <AppAlert v-if="devicesError" tone="danger">{{ devicesError }}</AppAlert>
 

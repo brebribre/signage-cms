@@ -30,7 +30,7 @@ export interface NavSection {
  *  owner-only; callers gate it. The external Documentation link stays in SidebarContainer. */
 export function useNavLinks() {
   const sections: NavSection[] = [
-    { title: null, icon: null, links: [{ name: 'now', label: 'Now', icon: IconMonitoring }] },
+    { title: null, icon: null, links: [{ name: 'now', label: 'Overview', icon: IconMonitoring }] },
     {
       title: 'Content',
       icon: IconFolderOpen,
@@ -53,7 +53,7 @@ export function useNavLinks() {
     title: 'Settings',
     icon: IconSettings,
     links: [
-      { name: 'settings-users', label: 'Users', icon: IconGroup },
+      { name: 'settings-users', label: 'User Management', icon: IconGroup },
       { name: 'settings-updates', label: 'Software updates', icon: IconSystemUpdate },
     ],
   }
