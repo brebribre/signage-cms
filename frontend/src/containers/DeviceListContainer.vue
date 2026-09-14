@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import IconLocation from '~icons/material-symbols/location-on-outline'
+import IconPlayArrow from '~icons/material-symbols/play-arrow'
+import IconSchedule from '~icons/material-symbols/schedule-outline'
 
 import fortuLogoUrl from '@/assets/fortu-logo.png'
 import { useDevices } from '@/hooks/useDevices'
@@ -99,57 +102,66 @@ function nowPlaying(d: DeviceRead): { text: string; via: string | null } {
         interactive
         @click="router.push({ name: 'device-detail', params: { id: d.id } })"
       >
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <div class="flex min-w-0 items-center gap-4">
-            <!-- A shape, not a pixel-accurate preview: the device's own aspect ratio and
-                 orientation, so a row of screens reads at a glance like the wall it maps to.
-                 The outer slot is a fixed square so every row stays the same height; the
-                 bordered rectangle inside it is what actually changes shape. -->
+        <!-- The screen on the left, everything known about it on the right — one fact per
+             row, so nothing competes for the same line. -->
+        <div class="flex items-center gap-4 sm:gap-6">
+          <!-- A shape, not a pixel-accurate preview: the device's own aspect ratio and
+               orientation, so a row of screens reads at a glance like the wall it maps to.
+               The outer slot is a fixed square so every row stays the same height; the
+               bordered rectangle inside it is what actually changes shape. -->
+          <div
+            class="flex shrink-0 items-center justify-center"
+            :style="{ width: `${SLOT_PX}px`, height: `${SLOT_PX}px` }"
+          >
             <div
-              class="flex shrink-0 items-center justify-center"
-              :style="{ width: `${SLOT_PX}px`, height: `${SLOT_PX}px` }"
+              class="flex items-center justify-center overflow-hidden rounded-sm
+                     border-[5px] border-ink bg-canvas px-3 py-2"
+              :style="{ width: `${screenBox(d).width}px`, height: `${screenBox(d).height}px` }"
             >
-              <div
-                class="flex items-center justify-center overflow-hidden rounded-sm
-                       border-[5px] border-ink bg-canvas px-3 py-2"
-                :style="{ width: `${screenBox(d).width}px`, height: `${screenBox(d).height}px` }"
-              >
-                <!-- The source file is a light wordmark on a transparent ground — invisible
-                     on this white screen mock — so it's used as a mask and painted solid
-                     black instead of drawn as-is. -->
-                <span
-                  class="block h-full w-full bg-ink"
-                  :style="{
-                    maskImage: `url(${fortuLogoUrl})`,
-                    WebkitMaskImage: `url(${fortuLogoUrl})`,
-                    maskRepeat: 'no-repeat',
-                    WebkitMaskRepeat: 'no-repeat',
-                    maskPosition: 'center',
-                    WebkitMaskPosition: 'center',
-                    maskSize: 'contain',
-                    WebkitMaskSize: 'contain',
-                  }"
-                  role="img"
-                  aria-label="Fortu logo"
-                />
-              </div>
-            </div>
-            <div class="min-w-0">
-              <p class="truncate text-base text-ink">{{ d.name || 'Unnamed screen' }}</p>
-              <p class="mt-0.5 text-[13px] text-ink-muted">
-                <span v-if="d.location">{{ d.location }} · </span>
-                {{ d.orientation }} · last seen {{ relativeTime(d.last_seen_at) }}
-              </p>
+              <!-- The source file is a light wordmark on a transparent ground — invisible
+                   on this white screen mock — so it's used as a mask and painted solid
+                   black instead of drawn as-is. -->
+              <span
+                class="block h-full w-full bg-ink"
+                :style="{
+                  maskImage: `url(${fortuLogoUrl})`,
+                  WebkitMaskImage: `url(${fortuLogoUrl})`,
+                  maskRepeat: 'no-repeat',
+                  WebkitMaskRepeat: 'no-repeat',
+                  maskPosition: 'center',
+                  WebkitMaskPosition: 'center',
+                  maskSize: 'contain',
+                  WebkitMaskSize: 'contain',
+                }"
+                role="img"
+                aria-label="Fortu logo"
+              />
             </div>
           </div>
 
-          <div class="flex shrink-0 items-center gap-3">
-            <!-- Read-only: what this screen plays is decided in Campaigns, not here. -->
-            <div class="text-right">
-              <p class="text-[13px] text-ink">{{ nowPlaying(d).text }}</p>
-              <p v-if="nowPlaying(d).via" class="text-[13px] text-ink-subtle">{{ nowPlaying(d).via }}</p>
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2">
+              <p class="min-w-0 truncate text-base text-ink">{{ d.name || 'Unnamed screen' }}</p>
+              <StatusDot :last-seen-at="d.last_seen_at" :show-label="false" class="shrink-0" />
             </div>
-            <StatusDot :last-seen-at="d.last_seen_at" />
+            <!-- One fact per row, each marked by an icon rather than a label. -->
+            <ul class="mt-1.5 divide-y divide-line text-[13px] sm:max-w-md">
+              <!-- Read-only: what this screen plays is decided in Campaigns, not here. -->
+              <li class="flex items-center gap-2 py-1.5" title="Playing">
+                <IconPlayArrow class="size-4 shrink-0 text-ink-subtle" aria-label="Playing" />
+                <span class="min-w-0 truncate text-ink">
+                  {{ nowPlaying(d).text }}<span v-if="nowPlaying(d).via" class="text-ink-subtle"> {{ nowPlaying(d).via }}</span>
+                </span>
+              </li>
+              <li v-if="d.location" class="flex items-center gap-2 py-1.5" title="Location">
+                <IconLocation class="size-4 shrink-0 text-ink-subtle" aria-label="Location" />
+                <span class="min-w-0 truncate text-ink">{{ d.location }}</span>
+              </li>
+              <li class="flex items-center gap-2 py-1.5" title="Last seen">
+                <IconSchedule class="size-4 shrink-0 text-ink-subtle" aria-label="Last seen" />
+                <span class="text-ink">{{ relativeTime(d.last_seen_at) }}</span>
+              </li>
+            </ul>
           </div>
         </div>
       </AppCard>

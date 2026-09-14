@@ -5,8 +5,13 @@ import { computed } from 'vue'
  * A screen's liveness, from when it last heartbeat. Thresholds match the device's own
  * poll cadence (Phase 10, 30s) with headroom for one or two missed beats before amber,
  * and enough more before grey that a screen rebooting doesn't flicker red.
+ *
+ * `showLabel: false` renders the dot alone — for when it sits beside a name and the words
+ * would only crowd it. The state stays available as hover text and to screen readers.
  */
-const props = defineProps<{ lastSeenAt: string | null }>()
+const props = withDefaults(defineProps<{ lastSeenAt: string | null; showLabel?: boolean }>(), {
+  showLabel: true,
+})
 
 const state = computed<'live' | 'stale' | 'offline'>(() => {
   if (!props.lastSeenAt) return 'offline'
@@ -29,8 +34,13 @@ const LABEL = { live: 'Online', stale: 'Slow to respond', offline: 'Offline' } a
 </script>
 
 <template>
-  <span class="inline-flex items-center gap-1.5" :title="LABEL[state]">
+  <span
+    class="inline-flex items-center gap-1.5"
+    :title="LABEL[state]"
+    :role="showLabel ? undefined : 'img'"
+    :aria-label="showLabel ? undefined : LABEL[state]"
+  >
     <span class="size-2 shrink-0 rounded-full" :class="CLASSES[state]" aria-hidden="true" />
-    <span class="text-[13px] text-ink-muted">{{ LABEL[state] }}</span>
+    <span v-if="showLabel" class="text-[13px] text-ink-muted">{{ LABEL[state] }}</span>
   </span>
 </template>
