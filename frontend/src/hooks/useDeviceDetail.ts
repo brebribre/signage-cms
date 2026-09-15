@@ -2,7 +2,7 @@ import { onMounted, ref } from 'vue'
 
 import { ApiError } from '@/api/request'
 import { useDeviceApi } from '@/api/useDeviceApi'
-import type { DeviceRead, DeviceUpdateBody, PairStartResponse } from '@/types/api'
+import type { DeviceRead, DeviceUpdateBody } from '@/types/api'
 
 export function useDeviceDetail(id: string) {
   const api = useDeviceApi()
@@ -15,9 +15,6 @@ export function useDeviceDetail(id: string) {
   /** True for a couple of seconds right after a save lands — long enough for the checkmark
    *  to register as "this just happened", not so long it looks stuck. */
   const saveSucceeded = ref(false)
-  /** Set once unpair succeeds — the modal shows this instead of closing, since the whole
-   *  point is to read the new code off the screen (or off here, until it re-displays it). */
-  const freshPairing = ref<PairStartResponse | null>(null)
 
   /** `silent` skips the loading flag — used while polling during a probe, where flashing
    *  the whole page to "Loading…" every couple of seconds would be worse than the thing
@@ -79,21 +76,6 @@ export function useDeviceDetail(id: string) {
     return run(() => api.cancelForcedUpdate(id))
   }
 
-  async function unpair(): Promise<boolean> {
-    isSaving.value = true
-    saveError.value = null
-    try {
-      freshPairing.value = await api.unpair(id)
-      await refresh()
-      return true
-    } catch (e) {
-      saveError.value = e instanceof ApiError ? e.message : 'Could not unpair'
-      return false
-    } finally {
-      isSaving.value = false
-    }
-  }
-
   async function remove(): Promise<boolean> {
     try {
       await api.remove(id)
@@ -137,7 +119,7 @@ export function useDeviceDetail(id: string) {
   onMounted(refresh)
 
   return {
-    device, isLoading, isSaving, error, saveError, saveSucceeded, freshPairing, probeState,
-    refresh, save, unpair, remove, probe, setForcedUpdate, cancelForcedUpdate,
+    device, isLoading, isSaving, error, saveError, saveSucceeded, probeState,
+    refresh, save, remove, probe, setForcedUpdate, cancelForcedUpdate,
   }
 }

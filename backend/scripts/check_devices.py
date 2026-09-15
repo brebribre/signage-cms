@@ -170,20 +170,9 @@ def main() -> None:
     check("the claiming manager sees their own new screen",
           any(d["name"] == "Cafe" for d in m.get("/devices").json()))
 
-    print("\nunpair")
-    r = o.post(f"/devices/{device_id}/unpair")
-    check("unpair returns a fresh pairing code", r.status_code == 200 and len(r.json()["pairing_code"]) == 6)
-    with Session(engine) as s:
-        row = s.get(Device, uuid.UUID(device_id))
-        check("the old token no longer works", row.token_hash != device_service.hash_token(token))
-        check("the row and its playlist survive", row.playlist_id == playlist_id)
-        check("the name survives", row.name == "Lobby screen")
-    try:
-        with Session(engine) as s:
-            device_service.authenticate(s, bearer=token)
-        check("the revoked token is rejected", False, "still authenticates")
-    except device_service.DeviceNotFound:
-        check("the revoked token is rejected", True)
+    print("\nunpair is gone — delete is the only way to take a screen off an account")
+    check("the unpair route no longer exists",
+          o.post(f"/devices/{device_id}/unpair").status_code in (404, 405))
 
     print("\nexpiry")
     p3 = device.post("/devices/pair").json()
@@ -218,6 +207,12 @@ def main() -> None:
     print("\ndelete")
     check("deleting a screen returns 204", o.delete(f"/devices/{device_id}").status_code == 204)
     check("...and it is gone", o.get(f"/devices/{device_id}").status_code == 404)
+    try:
+        with Session(engine) as s:
+            device_service.authenticate(s, bearer=token)
+        check("its token is rejected", False, "still authenticates")
+    except device_service.DeviceNotFound:
+        check("its token is rejected", True)
 
     cleanup()
     print()

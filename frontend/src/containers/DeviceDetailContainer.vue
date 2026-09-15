@@ -24,8 +24,8 @@ const router = useRouter()
 const id = String(route.params.id)
 
 const {
-  device, isLoading, isSaving, error, saveError, saveSucceeded, freshPairing, probeState,
-  save, unpair, remove, probe, setForcedUpdate, cancelForcedUpdate,
+  device, isLoading, isSaving, error, saveError, saveSucceeded, probeState,
+  save, remove, probe, setForcedUpdate, cancelForcedUpdate,
 } = useDeviceDetail(id)
 const { dimensions, relativeTime, date } = useFormat()
 const { isOwner } = useAuth()
@@ -55,7 +55,6 @@ async function onCancelUpdate() {
   if (await cancelForcedUpdate()) confirmingCancelUpdate.value = false
 }
 
-const confirmingUnpair = ref(false)
 const confirmingDelete = ref(false)
 
 const TABS = [
@@ -134,12 +133,6 @@ async function onSave() {
   })
 }
 
-async function onUnpair() {
-  await unpair()
-  // Left open on purpose: freshPairing now holds the new code, and that is what the modal
-  // shows next — closing here would throw away the one thing this action was for.
-}
-
 async function onDelete() {
   if (await remove()) router.push({ name: 'devices' })
   else confirmingDelete.value = false
@@ -158,12 +151,7 @@ async function onDelete() {
     <template v-else-if="device">
       <PageTitle :title="device.name || 'Unnamed screen'">
         <template #actions>
-          <div class="flex items-center gap-2">
-            <AppButton variant="secondary" size="sm" @click="confirmingUnpair = true">
-              Unpair
-            </AppButton>
-            <AppButton variant="danger" size="sm" @click="confirmingDelete = true">Delete</AppButton>
-          </div>
+          <AppButton variant="danger" size="sm" @click="confirmingDelete = true">Delete</AppButton>
         </template>
       </PageTitle>
 
@@ -323,29 +311,6 @@ async function onDelete() {
         <DeviceActivityContainer :device-id="device.id" />
       </template>
     </template>
-
-    <AppModal v-if="confirmingUnpair" title="Unpair this screen?" @close="confirmingUnpair = false">
-      <template v-if="!freshPairing">
-        <p class="text-sm text-ink-muted">
-          The screen's current token stops working immediately and it falls back to showing a
-          pairing code. Its name, location and playlist are kept — re-pairing does not mean
-          setting it up again.
-        </p>
-        <div class="mt-4 flex justify-end gap-2">
-          <AppButton variant="secondary" size="sm" @click="confirmingUnpair = false">Cancel</AppButton>
-          <AppButton variant="danger" size="sm" :loading="isSaving" @click="onUnpair">Unpair</AppButton>
-        </div>
-      </template>
-      <template v-else>
-        <p class="text-sm text-ink-muted">
-          Unpaired. The screen will show this same code once it notices — claim it again with:
-        </p>
-        <p class="mt-2 text-center text-2xl tracking-widest text-ink">{{ freshPairing.pairing_code }}</p>
-        <div class="mt-4 flex justify-end">
-          <AppButton size="sm" @click="confirmingUnpair = false">Done</AppButton>
-        </div>
-      </template>
-    </AppModal>
 
     <AppModal v-if="confirmingDelete" title="Delete this screen?" @close="confirmingDelete = false">
       <p class="text-sm text-ink-muted">

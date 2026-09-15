@@ -184,23 +184,6 @@ def cancel_device_update(device: DeviceForUser, user: RequireOwner, session: DbS
     return _read(updated)
 
 
-@router.post("/devices/{device_id}/unpair", response_model=PairStartResponse)
-def unpair_device(device: DeviceForUser, session: DbSession) -> PairStartResponse:
-    """Revoke the token and put the screen back on a pairing code.
-
-    Keeps the row, its name and its playlist, so re-pairing the same hardware is not a
-    fresh setup.
-    """
-    updated = device_service.unpair(session, device=device)
-    return PairStartResponse(
-        device_id=updated.id,
-        pairing_code=updated.pairing_code,
-        poll_token=updated.poll_token,
-        expires_at=updated.pairing_expires_at,
-        poll_seconds=5,
-    )
-
-
 @router.post("/devices/{device_id}/probe", response_model=ProbeResponse)
 def probe_device(device: DeviceForUser, session: DbSession) -> ProbeResponse:
     """Ask a screen to check in right now — see services/devices.py::probe. The frontend

@@ -4,9 +4,9 @@ import { ApiError } from '@/api/request'
 import { useDeviceSettingsApi } from '@/api/useDeviceSettingsApi'
 import type { PowerStatusRead } from '@/types/api'
 
-/** A screen's resolved power state, and the two immediate actions on it: "turn on/off now"
- *  and "resume schedule". Unlike the rest of Settings these aren't staged — they're commands
- *  someone expects to happen now. */
+/** A screen's resolved power state, and the two actions on it: "turn on/off now" and "resume
+ *  schedule". Settings stages these like everything else and calls them on "Save changes";
+ *  each resolves to whether it worked. */
 export function useDevicePower(deviceId: string) {
   const api = useDeviceSettingsApi()
 
@@ -22,13 +22,15 @@ export function useDevicePower(deviceId: string) {
     }
   }
 
-  async function act(call: () => Promise<PowerStatusRead>) {
+  async function act(call: () => Promise<PowerStatusRead>): Promise<boolean> {
     isActing.value = true
     error.value = null
     try {
       status.value = await call()
+      return true
     } catch (e) {
       error.value = e instanceof ApiError ? e.message : 'Could not change power'
+      return false
     } finally {
       isActing.value = false
     }

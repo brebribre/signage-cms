@@ -98,7 +98,7 @@ export function useScreenPresets(devices?: Ref<DeviceRead[]>) {
         const { width, height } = orientedSize(device)
         return { width, height, label: `${device.name} · ${width}×${height}` }
       }
-      // The remembered device is gone (unpaired, another account) — fall through to presets
+      // The remembered device is gone (deleted, another account) — fall through to presets
       // rather than showing a stale/blank screen.
     }
     const preset = SCREEN_PRESETS.find((p) => p.id === presetId.value) ?? SCREEN_PRESETS[0]

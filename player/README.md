@@ -325,8 +325,9 @@ The pairing screen is also the app's error state. An unpaired, revoked, or rejec
 always lands back on a visible code rather than a black screen — **a screen showing a code can
 be diagnosed from across the room; a black one cannot.**
 
-If a screen was removed or unpaired in the CMS, its token stops working and it shows a fresh
-pairing code on its own. Nothing needs to be done to the hardware.
+If a screen was deleted in the CMS, its token stops working and it shows a fresh pairing code on
+its own, with its PIN, touch lock and power settings cleared. Nothing needs to be done to the
+hardware.
 
 ---
 
@@ -358,4 +359,4 @@ pairing code on its own. Nothing needs to be done to the hardware.
 The device token is stored unencrypted on purpose. It is a bearer credential on hardware you
 physically control: `androidx.security-crypto` is deprecated, anyone with root and the device in
 hand wins anyway, and the controls that actually matter are Device Owner mode plus
-`POST /devices/{id}/unpair`, which revokes it centrally. Encrypting it locally would be theatre.
+`DELETE /devices/{id}`, which revokes it centrally. Encrypting it locally would be theatre.

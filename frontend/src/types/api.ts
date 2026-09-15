@@ -261,15 +261,6 @@ export interface PowerStatusRead {
   reported_at: string | null
 }
 
-/** Returned by unpair — the screen's new pairing code, same shape as a fresh boot. */
-export interface PairStartResponse {
-  device_id: string
-  pairing_code: string
-  poll_token: string
-  expires_at: string
-  poll_seconds: number
-}
-
 // --- Users (owner only) ---
 
 export interface AccountUserRead {

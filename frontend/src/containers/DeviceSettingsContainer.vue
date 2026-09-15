@@ -116,7 +116,7 @@ function isDirty(spec: SettingSpec): boolean {
 }
 
 const dirtySpecs = computed(() => SETTINGS.filter(isDirty))
-const anyDirty = computed(() => dirtySpecs.value.length > 0)
+const anyDirty = computed(() => dirtySpecs.value.length > 0 || powerAction.value !== null)
 
 function setDraft(spec: SettingSpec, next: unknown) {
   drafts[spec.key] = next
@@ -148,17 +148,62 @@ function reportedCaption(spec: SettingSpec): string | undefined {
 
 async function onSaveAll() {
   const dirty = dirtySpecs.value
-  const failedKeys = await setMany(dirty.map((spec) => ({ key: spec.key, value: drafts[spec.key] })))
-  for (const spec of dirty) {
-    if (!failedKeys.includes(spec.key)) delete drafts[spec.key]
+  let ok = true
+  if (dirty.length) {
+    const failedKeys = await setMany(dirty.map((spec) => ({ key: spec.key, value: drafts[spec.key] })))
+    for (const spec of dirty) {
+      if (!failedKeys.includes(spec.key)) delete drafts[spec.key]
+    }
+    ok = failedKeys.length === 0
   }
-  justSaved.value = failedKeys.length === 0
-  if (justSaved.value) setTimeout(() => { justSaved.value = false }, 2500)
-  // A schedule change can change what power should be right now.
-  if (dirty.some((s) => s.key === 'power_schedule')) await refreshPower()
+  // After the schedule, never before: an override made with a schedule on ends at that
+  // schedule's next change, so it has to be worked out against the one just saved.
+  const action = powerAction.value
+  if (action) {
+    const done = action === 'resume' ? await resume() : await override(action)
+    if (done) powerAction.value = null
+    ok = ok && done
+  } else if (dirty.some((s) => s.key === 'power_schedule')) {
+    // A schedule change can change what power should be right now.
+    await refreshPower()
+  }
+  justSaved.value = ok
+  if (ok) setTimeout(() => { justSaved.value = false }, 2500)
 }
 
 // --- Power -------------------------------------------------------------------------------
+
+/** Staged like every other row: nothing reaches the screen until "Save changes". */
+type PowerAction = 'on' | 'off' | 'resume'
+const powerAction = ref<PowerAction | null>(null)
+
+/** What "Turn … now" switches to — the opposite of what the screen should be doing. */
+const nowTarget = computed<'on' | 'off'>(() => (power.value?.state === 'on' ? 'off' : 'on'))
+
+const switchOn = computed(() =>
+  powerAction.value === 'on' || powerAction.value === 'off'
+    ? powerAction.value === 'on'
+    : power.value?.state === 'on',
+)
+
+function stagePower(action: PowerAction) {
+  // Pressing a staged action again takes it back.
+  powerAction.value = powerAction.value === action ? null : action
+  justSaved.value = false
+}
+
+function onPowerSwitch(on: boolean) {
+  const target = on ? 'on' : 'off'
+  // Flipping back to what the screen already is leaves nothing to send.
+  powerAction.value = target === power.value?.state ? null : target
+  justSaved.value = false
+}
+
+const stagedPowerLine = computed(() => {
+  if (powerAction.value === 'resume') return 'Schedule resumes on save'
+  if (powerAction.value) return `Turns ${powerAction.value} on save`
+  return ''
+})
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 
@@ -278,24 +323,27 @@ const reportedMismatch = computed(() => {
                 Power
               </p>
               <p v-if="power" class="mt-0.5 text-[13px] text-ink-muted">{{ powerLine }}</p>
+              <p v-if="stagedPowerLine" class="mt-0.5 text-[13px] text-ink-subtle">{{ stagedPowerLine }}</p>
               <p v-if="power && reportedMismatch" class="mt-0.5 text-[13px] text-danger">
                 Screen reports {{ power.reported_state }} · {{ relativeTime(power.reported_at) }}
               </p>
             </div>
 
+            <!-- Follows the schedule as drafted, so the control matches what Save will send. -->
             <template v-if="power">
               <AppButton
-                v-if="power.schedule_enabled"
-                variant="secondary" size="sm" :loading="powerActing"
-                @click="override(power.state === 'on' ? 'off' : 'on')"
+                v-if="powerDraft(powerScheduleSpec).enabled"
+                :variant="powerAction === nowTarget ? 'primary' : 'secondary'" size="sm"
+                :disabled="powerActing"
+                @click="stagePower(nowTarget)"
               >
-                Turn {{ power.state === 'on' ? 'off' : 'on' }} now
+                Turn {{ nowTarget }} now
               </AppButton>
               <AppSwitch
                 v-else
-                :model-value="power.state === 'on'"
+                :model-value="switchOn"
                 :disabled="powerActing"
-                @update:model-value="override($event ? 'on' : 'off')"
+                @update:model-value="onPowerSwitch"
               />
             </template>
           </div>
@@ -308,7 +356,11 @@ const reportedMismatch = computed(() => {
               <IconPause class="size-4 shrink-0" />
               Schedule paused until {{ whenLabel(power.until) }}
             </span>
-            <AppButton variant="secondary" size="sm" :disabled="powerActing" @click="resume">
+            <AppButton
+              :variant="powerAction === 'resume' ? 'primary' : 'secondary'" size="sm"
+              :disabled="powerActing"
+              @click="stagePower('resume')"
+            >
               Resume schedule
             </AppButton>
           </div>
@@ -380,10 +432,10 @@ const reportedMismatch = computed(() => {
     <!-- One save for every setting, staged above: matches DeviceDetailContainer's own
          "Manage" tab rather than a per-row send. -->
     <div v-if="!isLoading" class="flex items-center gap-3">
-      <AppButton :disabled="!anyDirty" :loading="isSaving" @click="onSaveAll">
+      <AppButton :disabled="!anyDirty" :loading="isSaving || powerActing" @click="onSaveAll">
         Save changes
       </AppButton>
-      <span v-if="anyDirty && !isSaving" class="text-[13px] text-ink-subtle">
+      <span v-if="anyDirty && !isSaving && !powerActing" class="text-[13px] text-ink-subtle">
         Not sent to the screen yet
       </span>
       <span

@@ -322,24 +322,6 @@ def probe(session: Session, *, device: Device) -> ProbeResult:
     return ProbeResult(probed_at=utcnow(), previous_last_seen_at=previous)
 
 
-def unpair(session: Session, *, device: Device) -> Device:
-    """Revoke the token and send the screen back to showing a pairing code.
-
-    The fix for a stolen or re-sited device: the row, its name and its playlist assignment
-    survive, so re-pairing the same hardware does not mean setting it up again.
-    """
-    settings = get_settings()
-    device.token_hash = None
-    device.paired_at = None
-    device.pairing_code = _new_code(session)
-    device.poll_token = secrets.token_urlsafe(32)
-    device.pairing_expires_at = utcnow() + timedelta(seconds=settings.pairing_code_ttl_seconds)
-    session.add(device)
-    session.commit()
-    session.refresh(device)
-    return device
-
-
 def remove(session: Session, *, device: Device) -> None:
     session.exec(delete(DeviceAccess).where(DeviceAccess.device_id == device.id))
     session.exec(delete(Device).where(Device.id == device.id))
