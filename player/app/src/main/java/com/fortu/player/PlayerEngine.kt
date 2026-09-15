@@ -260,6 +260,7 @@ class PlayerEngine(
                     Log.w(TAG, "token rejected repeatedly — clearing and re-pairing")
                     store.clear()
                     push.disconnect()
+                    forgetAccountSettings()
                     unauthorizedStreak = 0
                     consecutiveFailures = 0
                     _state.value = PlayerState.Starting
@@ -467,6 +468,25 @@ class PlayerEngine(
      *  the next change instead of being put straight back to sleep. Null in a fresh process, so
      *  the first decision after a reboot always applies. */
     private var lastAppliedPower: Boolean? = null
+
+    /**
+     * A screen that has lost its account — deleted or unpaired in the CMS — must stop acting on
+     * that account's settings: no exit PIN, touch unlocked, no power schedule or override, and
+     * awake. Storage is already wiped by `store.clear()`; this clears what the running process
+     * still holds, which would otherwise keep the old PIN, touch lock and power plan alive until
+     * the app restarts. Pairing again delivers whatever settings the screen should have from then
+     * on.
+     */
+    private fun forgetAccountSettings() {
+        _settings.value = ManifestSettings()
+        deviceTimezone = null
+        synchronized(this) {
+            if (lastAppliedPower == false) {
+                runCatching { applyPower(true) }.onFailure { Log.w(TAG, "wake after reset failed", it) }
+            }
+            lastAppliedPower = null
+        }
+    }
 
     private fun adoptSettings(manifest: Manifest) {
         deviceTimezone = manifest.device.timezone

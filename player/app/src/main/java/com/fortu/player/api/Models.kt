@@ -121,10 +121,9 @@ data class PowerOverride(
 
 /**
  * Remotely-configured values from the CMS's device-settings registry (backend
- * `services/device_settings.py`). Typed fields for what this build knows how to apply —
- * `touchscreen_disabled` arrives in the same JSON object but has no field here yet, so
- * `ignoreUnknownKeys` on the shared [kotlinx.serialization.json.Json] instance just drops it;
- * it costs nothing to add later, the same way every field below did.
+ * `services/device_settings.py`). Typed fields for what this build knows how to apply; any key
+ * a newer CMS adds is dropped by `ignoreUnknownKeys` on the shared
+ * [kotlinx.serialization.json.Json] instance until a field is added here.
  */
 @Serializable
 data class ManifestSettings(
@@ -137,6 +136,10 @@ data class ManifestSettings(
      *  PIN is configured, and exit is unguarded. Compared in `MainActivity`, never applied
      *  as a system side effect like the two above. */
     @SerialName("app_password") val appPassword: String? = null,
+    /** True swallows every touch on the player, the exit gesture included — see
+     *  `MainActivity.dispatchTouchEvent`. Null (never set) means touch works. The way back is
+     *  the CMS toggle, or a keyboard's Menu key for the debug overlay. */
+    @SerialName("touchscreen_disabled") val touchscreenDisabled: Boolean? = null,
     /** Power is decided on the screen from these two together — see `power/PowerPlan.kt`.
      *  (The older `power_on` manual switch is retired; the CMS no longer sends it.) */
     @SerialName("power_schedule") val powerSchedule: PowerSchedule? = null,

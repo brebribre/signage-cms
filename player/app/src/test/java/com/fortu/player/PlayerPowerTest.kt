@@ -97,6 +97,42 @@ class PlayerPowerTest {
     }
 
     @Test
+    fun `a deleted screen forgets its PIN, touch lock and power plan, and wakes up`() = runTest {
+        val applied = mutableListOf<Boolean>()
+        val store = FakeStore(storedToken = "t")
+        val api = FakeApi().apply {
+            // Turned off manually with no schedule, touch locked, and exit behind a PIN.
+            manifest = withPower(
+                "v1",
+                ManifestSettings(appPassword = "1234", touchscreenDisabled = true, powerOverride = PowerOverride("off")),
+            )
+            pollsBeforeClaim = 99 // once reset, stay on the pairing screen
+        }
+        val e = PlayerEngine(
+            api = api, store = store, cache = FakeCache(),
+            appVersion = "1.0.0", apiBaseUrl = "https://api.example.com",
+            applyPower = { applied += it },
+            clock = { at(10) + testScheduler.currentTime },
+            io = UnconfinedTestDispatcher(testScheduler),
+        )
+        val job = launch { e.run() }
+        advanceTimeBy(1_000)
+        assertEquals("1234", e.settings.value.appPassword)
+        assertEquals(true, e.settings.value.touchscreenDisabled)
+        assertEquals(listOf(false), applied)
+
+        // Deleted in the CMS: the server now rejects this screen's credential.
+        repeat(5) { api.manifestFailures += unauthorized() }
+        advanceTimeBy(60_000)
+
+        assertTrue("the credential must be cleared", store.clearCount >= 1)
+        assertEquals("no PIN left guarding exit", null, e.settings.value.appPassword)
+        assertEquals("touch unlocked", null, e.settings.value.touchscreenDisabled)
+        assertEquals("woken up, once", listOf(false, true), applied)
+        job.cancelAndJoin()
+    }
+
+    @Test
     fun `a screen with no power configured is never touched`() = runTest {
         val applied = mutableListOf<Boolean>()
         val api = FakeApi().apply { manifest = withPower("v1", ManifestSettings()) }

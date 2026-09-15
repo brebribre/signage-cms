@@ -12,9 +12,8 @@ private const val TAG = "FortuSettings"
 
 /**
  * Applies the [ManifestSettings] fields that are genuine system side effects — volume,
- * brightness, and power. `app_password` is read-only state compared by the exit-PIN dialog in
- * `MainActivity`, and `touchscreen_disabled` isn't applied by this build at all (see `Models.kt`'s
- * `ManifestSettings` doc).
+ * brightness, and power. `app_password` and `touchscreen_disabled` are read-only state that
+ * `MainActivity` acts on directly (the exit-PIN dialog, and swallowing touches).
  *
  * Power is the odd one out: *what* it should be is decided over time by `PlayerEngine` from the
  * schedule and override (`power/PowerPlan.kt`), not read off the manifest once — so it isn't in

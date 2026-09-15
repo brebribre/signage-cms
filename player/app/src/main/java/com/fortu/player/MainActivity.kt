@@ -4,6 +4,8 @@ import android.os.Build
 import android.content.pm.ActivityInfo
 import android.os.Bundle
 import android.util.Log
+import android.view.KeyEvent
+import android.view.MotionEvent
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -37,6 +39,30 @@ import kotlinx.coroutines.delay
 class MainActivity : ComponentActivity() {
     private val vm: PlayerViewModel by viewModels()
 
+    /** Activity-level rather than inside setContent, so the Menu key can open it too. */
+    private var showDebug by mutableStateOf(false)
+
+    /**
+     * The CMS's touchscreen lock: every touch on this window is dropped before any view or
+     * composable sees it — playback, the long-press debug gesture, all of it. Only touches are
+     * affected. System edge gestures never reach an app window anyway; in lock task mode they're
+     * already blocked (see KioskPolicy), and the lock can't reach them either way.
+     */
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        if (vm.settings.value.touchscreenDisabled == true) return true
+        return super.dispatchTouchEvent(ev)
+    }
+
+    /** Menu on a USB keyboard or remote opens the debug overlay. That is the local way out
+     *  when touch is locked: Tab to "Exit kiosk", Enter, type the PIN. */
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (event.keyCode == KeyEvent.KEYCODE_MENU) {
+            if (event.action == KeyEvent.ACTION_UP) showDebug = !showDebug
+            return true
+        }
+        return super.dispatchKeyEvent(event)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -63,7 +89,6 @@ class MainActivity : ComponentActivity() {
             val state by vm.state.collectAsState()
             val debug by vm.debug.collectAsState()
             val settings by vm.settings.collectAsState()
-            var showDebug by remember { mutableStateOf(false) }
             var showExitPin by remember { mutableStateOf(false) }
             var exitPinError by remember { mutableStateOf(false) }
             var appliedOrientation by remember { mutableStateOf<String?>(null) }
@@ -105,6 +130,15 @@ class MainActivity : ComponentActivity() {
                         }
                         if (locked) runCatching { startLockTask() }
                         appliedOrientation = orientation
+                    }
+                }
+
+                // A lock landing while someone is at the screen closes what they had open by
+                // touch. The PIN dialog is its own window, so dispatchTouchEvent can't reach it.
+                LaunchedEffect(settings.touchscreenDisabled) {
+                    if (settings.touchscreenDisabled == true) {
+                        showExitPin = false
+                        showDebug = false
                     }
                 }
 
