@@ -370,7 +370,7 @@ async function onSaveEdit() {
     : !selectedIds.value.length
       ? 'Pick at least one screen'
       : !scheduleValid.value
-        ? (mode.value === 'playlist' ? 'Pick a playlist' : 'Adjust the schedule first')
+        ? (mode.value === 'playlist' ? 'Pick a playlist' : 'Fix the schedule first')
         : null
   if (editError.value) return
   await onSave()
@@ -381,14 +381,13 @@ async function onSaveEdit() {
 }
 
 const confirmingDelete = ref(false)
-// --- Editing: summary cards, each opening its editor in a dialog ---
+// --- Editing: screens open in a dialog; content is edited right on the page ---
 
-/** Each dialog works on the live form, with a snapshot taken on open: Apply keeps the changes,
- *  Cancel (or closing) puts the snapshot back. Nothing reaches the server until Save & Apply. */
+/** The screens dialog works on the live form, with a snapshot taken on open: Apply keeps the
+ *  changes, Cancel (or closing) puts the snapshot back. Nothing reaches the server until Save &
+ *  Apply. */
 const screensOpen = ref(false)
-const scheduleOpen = ref(false)
 let screensSnapshot: string[] = []
-let scheduleSnapshot = ''
 
 function openScreens() {
   screensSnapshot = [...selectedIds.value]
@@ -399,28 +398,6 @@ function cancelScreens() {
   screensOpen.value = false
 }
 
-function openScheduleEditor() {
-  scheduleSnapshot = JSON.stringify({
-    slots: slots.value, fromDate: fromDate.value, untilDate: untilDate.value,
-    fromTime: fromTime.value, untilTime: untilTime.value, mode: mode.value, playlistId: playlistId.value,
-  })
-  scheduleOpen.value = true
-}
-function cancelSchedule() {
-  const s = JSON.parse(scheduleSnapshot)
-  slots.value = s.slots
-  fromDate.value = s.fromDate
-  untilDate.value = s.untilDate
-  fromTime.value = s.fromTime
-  untilTime.value = s.untilTime
-  mode.value = s.mode
-  playlistId.value = s.playlistId
-  scheduleOpen.value = false
-}
-function applySchedule() {
-  attempted.value = true
-  if (scheduleValid.value) scheduleOpen.value = false
-}
 
 async function onDelete() {
   if (await remove()) router.push({ name: 'campaigns' })
@@ -666,8 +643,8 @@ const BOUND_TIME_INPUT =
     <template v-else>
       <StepIndicator v-if="!isEdit" :steps="STEPS" :current="step" :reachable="furthest" @select="goTo" />
 
-      <!-- Editing: three full-width cards — what's there at a glance, each editor one click away,
-           and one Save & Apply at the end. -->
+      <!-- Editing: name, a screens card whose editor is one click away, then the content editor
+           itself (below) and one Save & Apply at the end. -->
       <template v-if="isEdit">
         <div class="sm:max-w-md">
           <AppInput id="campaign-name" v-model="campaignName" label="Name" required />
@@ -692,73 +669,6 @@ const BOUND_TIME_INPUT =
           </div>
           <p v-else class="text-sm text-ink-muted">No screens selected.</p>
         </AppCard>
-
-        <AppCard class="flex flex-col gap-4">
-          <div class="flex flex-wrap items-center justify-between gap-3">
-            <h2 v-if="mode === 'playlist'" class="text-lg">Playlist</h2>
-            <h2 v-else class="text-lg">Schedule <span class="text-[13px] text-ink-muted">· {{ dateSummary }}</span></h2>
-            <AppButton variant="secondary" size="sm" @click="openScheduleEditor">
-              {{ mode === 'playlist' ? 'Adjust playlist' : 'Adjust schedule' }}
-            </AppButton>
-          </div>
-          <div v-if="mode === 'playlist'" class="flex items-center gap-3">
-            <div class="h-9 w-16 shrink-0 overflow-hidden rounded-md bg-raised">
-              <img
-                v-if="playlistById.get(playlistId)?.thumbnails[0]"
-                :src="playlistById.get(playlistId)?.thumbnails[0] ?? ''"
-                class="size-full object-cover"
-              />
-            </div>
-            <span class="min-w-0 flex-1 truncate text-sm text-ink">
-              {{ playlistById.get(playlistId)?.name ?? 'No playlist' }}
-            </span>
-            <span class="shrink-0 text-[13px] text-ink-muted">All the time</span>
-            <AppButton variant="ghost" size="sm" :disabled="!playlistId" @click="startEditPlaylist(playlistId)">
-              <IconEdit class="size-4" />Edit
-            </AppButton>
-          </div>
-          <WeekTimeline v-if="mode === 'schedule'" :slots="timelineSlots" />
-          <ul v-if="mode === 'schedule'" class="flex flex-col divide-y divide-line">
-            <li v-for="s in sortedSlots" :key="s.key" class="flex items-center gap-3 py-2.5">
-              <div class="h-9 w-16 shrink-0 overflow-hidden rounded-md bg-raised">
-                <img
-                  v-if="playlistById.get(s.playlist_id)?.thumbnails[0]"
-                  :src="playlistById.get(s.playlist_id)?.thumbnails[0] ?? ''"
-                  class="size-full object-cover"
-                />
-              </div>
-              <span class="min-w-0 flex-1 truncate text-sm text-ink">
-                {{ playlistById.get(s.playlist_id)?.name ?? 'No playlist' }}
-              </span>
-              <span class="hidden text-[13px] text-ink-muted sm:inline">{{ dayLabel(s.days_of_week) }}</span>
-              <span v-if="s.all_day" class="shrink-0 text-[13px] text-ink">All day</span>
-              <span v-else class="shrink-0 text-[13px] tabular-nums text-ink">
-                {{ s.starts_at }}–{{ s.ends_at }}<span v-if="crossesMidnight(s)" class="text-ink-subtle"> +1</span>
-              </span>
-              <AppButton
-                variant="ghost" size="sm" :disabled="!s.playlist_id"
-                @click="startEditPlaylist(s.playlist_id)"
-              >
-                <IconEdit class="size-4" />Edit
-              </AppButton>
-            </li>
-          </ul>
-          <p v-if="!scheduleValid" class="text-[13px] text-danger">
-            {{ mode === 'playlist' ? 'Pick a playlist before saving.' : 'This schedule needs adjusting before it can be saved.' }}
-          </p>
-        </AppCard>
-
-        <div class="flex flex-wrap items-center justify-end gap-3">
-          <span v-if="editError" class="text-[13px] text-danger">{{ editError }}</span>
-          <span v-else-if="saveError" class="text-[13px] text-danger">{{ saveError }}</span>
-          <span v-else-if="justSaved && skippedDeviceIds.length" class="text-[13px] text-danger">
-            Saved, but {{ skippedDeviceIds.length }} screen{{ skippedDeviceIds.length === 1 ? '' : 's' }} skipped
-          </span>
-          <span v-else-if="justSaved" class="text-[13px] text-ink-muted">Saved</span>
-          <AppButton :loading="isSaving" @click="onSaveEdit">
-            <IconCheck class="size-4" />Save &amp; Apply
-          </AppButton>
-        </div>
       </template>
 
       <!-- 1. Screens -->
@@ -814,12 +724,10 @@ const BOUND_TIME_INPUT =
         </div>
       </MaybeModal>
 
-      <!-- 2. Schedule -->
-      <MaybeModal
-        v-if="isEdit ? scheduleOpen : step === 1"
-        :as-modal="isEdit" title="Adjust content" size="xl" @close="cancelSchedule"
-      >
-      <section class="flex flex-col gap-5">
+      <!-- 2. Content. Editing shows it right on the page, titled Playlist rather than tucked into
+           a dialog: changing what plays is the quick edit, and a schedule needs the room. -->
+      <section v-if="isEdit || step === 1" class="flex flex-col gap-5">
+        <h2 v-if="isEdit" class="text-lg">Playlist</h2>
         <div
           class="inline-flex self-start rounded-full border border-line-strong p-0.5"
           role="radiogroup" aria-label="What plays"
@@ -858,6 +766,9 @@ const BOUND_TIME_INPUT =
             >
               <IconAddPhoto class="size-5" />
             </button>
+            <AppButton v-if="isEdit && playlistId" variant="ghost" size="sm" @click="startEditPlaylist(playlistId)">
+              <IconEdit class="size-4" />Edit
+            </AppButton>
           </div>
           <p class="mt-2 text-[13px] text-ink-muted">Plays all day, every day.</p>
           <p v-if="attempted && !playlistId" class="mt-1 text-[13px] text-danger">Pick a playlist</p>
@@ -927,6 +838,9 @@ const BOUND_TIME_INPUT =
                 >
                   <IconAddPhoto class="size-5" />
                 </button>
+                <AppButton v-if="isEdit && s.playlist_id" variant="ghost" size="sm" @click="startEditPlaylist(s.playlist_id)">
+                  <IconEdit class="size-4" />Edit
+                </AppButton>
                 <button
                   v-if="slots.length > 1"
                   type="button"
@@ -987,11 +901,18 @@ const BOUND_TIME_INPUT =
         </AppButton>
         </template>
       </section>
-        <div v-if="isEdit" class="mt-4 flex justify-end gap-2 border-t border-line pt-4">
-          <AppButton variant="secondary" size="sm" @click="cancelSchedule">Cancel</AppButton>
-          <AppButton size="sm" @click="applySchedule">Apply</AppButton>
-        </div>
-      </MaybeModal>
+
+      <div v-if="isEdit" class="flex flex-wrap items-center justify-end gap-3 border-t border-line pt-6">
+        <span v-if="editError" class="text-[13px] text-danger">{{ editError }}</span>
+        <span v-else-if="saveError" class="text-[13px] text-danger">{{ saveError }}</span>
+        <span v-else-if="justSaved && skippedDeviceIds.length" class="text-[13px] text-danger">
+          Saved, but {{ skippedDeviceIds.length }} screen{{ skippedDeviceIds.length === 1 ? '' : 's' }} skipped
+        </span>
+        <span v-else-if="justSaved" class="text-[13px] text-ink-muted">Saved</span>
+        <AppButton :loading="isSaving" @click="onSaveEdit">
+          <IconCheck class="size-4" />Save &amp; Apply
+        </AppButton>
+      </div>
 
       <!-- 3. Review (creating only — editing shows everything on one page already) -->
       <section v-if="!isEdit && step === 2" class="flex flex-col gap-8">
