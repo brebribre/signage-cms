@@ -1,9 +1,12 @@
 <script setup lang="ts">
 /**
- * Creating and editing a campaign: screens → schedule → review, saved as one `CampaignWrite`.
- * `/deploy` creates; `/campaigns/:id` loads that campaign into the same three steps. Every rule
- * shares one date range, and rules on one campaign may not overlap, so what the timeline shows
- * is exactly what plays: each window its playlist, everything else asleep.
+ * Creating and editing a campaign: screens → content → review, saved as one `CampaignWrite`.
+ * `/deploy` creates; `/campaigns/:id` loads that campaign into the same three steps.
+ *
+ * Content is one of two modes. Playlist: one playlist, all the time. Schedule: windows that
+ * share one date range and may not overlap, so what the timeline shows is exactly what plays —
+ * each window its playlist, everything else asleep. Both save as ordinary rules; playlist mode
+ * is a single every-day, all-day rule with no dates, which is how a campaign reopens in it.
  */
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -54,7 +57,7 @@ const {
   isSaving, isDeleting, saveError, skippedDeviceIds, save, remove,
 } = useCampaignDetail(campaignId)
 
-const STEPS = ['Screens', 'Schedule', 'Review']
+const STEPS = ['Screens', 'Content', 'Review']
 const step = ref(0)
 /** The furthest step reached — every step up to it stays clickable. Editing starts with all of
  *  them reachable, since a saved campaign is already complete. */
@@ -164,6 +167,32 @@ function newSlot(starts_at: string, ends_at: string): Slot {
 }
 
 const slots = ref<Slot[]>([newSlot('09:00', '17:00')])
+
+type Mode = 'playlist' | 'schedule'
+const MODES = [
+  { value: 'playlist', label: 'Playlist' },
+  { value: 'schedule', label: 'Schedule' },
+] as const
+const mode = ref<Mode>('playlist')
+/** Playlist mode's one playlist. Kept apart from the schedule's slots, so flipping between the
+ *  modes never throws away what was set up in the other. */
+const playlistId = ref('')
+/** Name and priority of a loaded playlist-mode rule, carried through untouched like a slot's. */
+const playlistMeta = ref({ name: '', priority: 0 })
+/** The row a new playlist lands in when it was asked for from playlist mode. */
+const PLAYLIST_SLOT = 'playlist'
+
+function setMode(next: Mode) {
+  if (next === mode.value) return
+  // Carry the playlist across instead of asking for it twice.
+  if (next === 'schedule' && playlistId.value && slots.value[0] && !slots.value.some((s) => s.playlist_id)) {
+    slots.value[0].playlist_id = playlistId.value
+  }
+  if (next === 'playlist' && !playlistId.value) {
+    playlistId.value = slots.value.find((s) => s.playlist_id)?.playlist_id ?? ''
+  }
+  mode.value = next
+}
 const fromDate = ref('')
 const untilDate = ref('')
 /** Optional, and only sent alongside its date — a time with no date has nothing to narrow. */
@@ -214,11 +243,12 @@ const dateError = computed(() => {
   return null
 })
 
-const scheduleValid = computed(
-  () =>
-    slots.value.length > 0 &&
-    !dateError.value &&
-    slots.value.every((s, i) => s.playlist_id && !slotErrors.value[i]),
+const scheduleValid = computed(() =>
+  mode.value === 'playlist'
+    ? !!playlistId.value
+    : slots.value.length > 0 &&
+      !dateError.value &&
+      slots.value.every((s, i) => s.playlist_id && !slotErrors.value[i]),
 )
 
 /** Same playlist, same tone — wherever it appears on the timeline. */
@@ -246,6 +276,7 @@ const timelineSlots = computed<TimelineSlot[]>(() =>
 const composing = ref<{ slotKey: string; playlist: PlaylistSummary | null } | null>(null)
 async function onComposed(id: string) {
   await refreshPlaylists()
+  if (composing.value?.slotKey === PLAYLIST_SLOT) playlistId.value = id
   const slot = slots.value.find((s) => s.key === composing.value?.slotKey)
   if (slot) slot.playlist_id = id
   composing.value = null
@@ -259,7 +290,10 @@ const savedId = ref<string | null>(null)
 const selectedDevices = computed(() => devices.value.filter((d) => isSelected(d.id)))
 /** A screen with its own default playlist falls back to that — not to asleep — wherever no
  *  rule covers. Worth saying, because the timeline can't show it. */
-const devicesWithDefault = computed(() => selectedDevices.value.filter((d) => d.playlist_id))
+const devicesWithDefault = computed(() =>
+  mode.value === 'schedule' ? selectedDevices.value.filter((d) => d.playlist_id) : [],
+)
+const playlistCount = computed(() => (mode.value === 'playlist' ? 1 : toneByPlaylist.value.size))
 const sortedSlots = computed(() =>
   [...slots.value].sort((a, b) => effective(a).starts_at.localeCompare(effective(b).starts_at)),
 )
@@ -284,11 +318,22 @@ function dayLabel(mask: number): string {
   return DAY_BITS.filter((d) => mask & d.bit).map((d) => d.short).join(', ')
 }
 
-async function onSave() {
-  savedId.value = await save({
-    name: campaignName.value.trim(),
-    device_ids: selectedIds.value,
-    rules: slots.value.map((s) => {
+function rulesToSave() {
+  if (mode.value === 'playlist') {
+    return [{
+      playlist_id: playlistId.value,
+      name: playlistMeta.value.name,
+      priority: playlistMeta.value.priority,
+      days_of_week: ALL_DAYS,
+      starts_at: `${ALL_DAY.starts_at}:00`,
+      ends_at: `${ALL_DAY.ends_at}:00`,
+      start_date: null,
+      end_date: null,
+      start_time: null,
+      end_time: null,
+    }]
+  }
+  return slots.value.map((s) => {
       const w = effective(s)
       return {
         playlist_id: s.playlist_id,
@@ -302,7 +347,14 @@ async function onSave() {
         start_time: fromDate.value && fromTime.value ? `${fromTime.value}:00` : null,
         end_time: untilDate.value && untilTime.value ? `${untilTime.value}:00` : null,
       }
-    }),
+    })
+}
+
+async function onSave() {
+  savedId.value = await save({
+    name: campaignName.value.trim(),
+    device_ids: selectedIds.value,
+    rules: rulesToSave(),
   })
 }
 
@@ -318,7 +370,7 @@ async function onSaveEdit() {
     : !selectedIds.value.length
       ? 'Pick at least one screen'
       : !scheduleValid.value
-        ? 'Adjust the schedule first'
+        ? (mode.value === 'playlist' ? 'Pick a playlist' : 'Adjust the schedule first')
         : null
   if (editError.value) return
   await onSave()
@@ -350,7 +402,7 @@ function cancelScreens() {
 function openScheduleEditor() {
   scheduleSnapshot = JSON.stringify({
     slots: slots.value, fromDate: fromDate.value, untilDate: untilDate.value,
-    fromTime: fromTime.value, untilTime: untilTime.value,
+    fromTime: fromTime.value, untilTime: untilTime.value, mode: mode.value, playlistId: playlistId.value,
   })
   scheduleOpen.value = true
 }
@@ -361,6 +413,8 @@ function cancelSchedule() {
   untilDate.value = s.untilDate
   fromTime.value = s.fromTime
   untilTime.value = s.untilTime
+  mode.value = s.mode
+  playlistId.value = s.playlistId
   scheduleOpen.value = false
 }
 function applySchedule() {
@@ -407,6 +461,9 @@ interface DeployDraft {
   attempted: boolean
   mixedRanges: boolean
   pendingSlot: string
+  /** Optional: a draft parked by a build from before playlist mode has neither. */
+  mode?: Mode
+  playlistId?: string
 }
 
 /** Parks everything entered so far before leaving for the Playlists page or editor.
@@ -416,7 +473,7 @@ function parkDraft(pendingSlot: string) {
     step: step.value, furthest: furthest.value, selectedIds: selectedIds.value, slots: slots.value,
     fromDate: fromDate.value, untilDate: untilDate.value, fromTime: fromTime.value, untilTime: untilTime.value,
     campaignName: campaignName.value, attempted: attempted.value, mixedRanges: mixedRanges.value,
-    pendingSlot,
+    pendingSlot, mode: mode.value, playlistId: playlistId.value,
   }
   try {
     sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft))
@@ -465,7 +522,10 @@ if (returning && restored) {
   campaignName.value = restored.campaignName
   attempted.value = restored.attempted
   mixedRanges.value = restored.mixedRanges
+  mode.value = restored.mode ?? 'schedule'
+  playlistId.value = restored.playlistId ?? ''
   const created = typeof route.query.playlist === 'string' ? route.query.playlist : null
+  if (created && restored.pendingSlot === PLAYLIST_SLOT) playlistId.value = created
   const slot = slots.value.find((s) => s.key === restored.pendingSlot)
   if (created && slot) slot.playlist_id = created
 }
@@ -497,6 +557,19 @@ watch(campaign, (c) => {
   untilTime.value = first.end_time?.slice(0, 5) ?? ''
   const range = (r: CampaignRuleRead) => [r.start_date, r.end_date, r.start_time, r.end_time].join('|')
   mixedRanges.value = c.rules.some((r) => range(r) !== range(first))
+
+  // One every-day, all-day rule with no dates is exactly what playlist mode saves.
+  const alwaysOn =
+    c.rules.length === 1 &&
+    first.days_of_week === ALL_DAYS &&
+    first.starts_at.slice(0, 5) === ALL_DAY.starts_at &&
+    first.ends_at.slice(0, 5) === ALL_DAY.ends_at &&
+    !first.start_date && !first.end_date
+  mode.value = alwaysOn ? 'playlist' : 'schedule'
+  if (alwaysOn) {
+    playlistId.value = first.playlist_id
+    playlistMeta.value = { name: first.name, priority: first.priority }
+  }
 }, { immediate: true })
 
 // --- Navigation ---
@@ -565,7 +638,7 @@ const BOUND_TIME_INPUT =
         <h2 class="text-2xl">{{ isEdit ? 'Saved' : 'Deployed' }}</h2>
         <p class="mt-1 text-sm text-ink-muted">
           {{ selectedIds.length - skippedDeviceIds.length }} screen{{ selectedIds.length - skippedDeviceIds.length === 1 ? '' : 's' }}
-          · {{ toneByPlaylist.size }} playlist{{ toneByPlaylist.size === 1 ? '' : 's' }}
+          · {{ playlistCount }} playlist{{ playlistCount === 1 ? '' : 's' }}
         </p>
       </div>
       <AppAlert v-if="skippedDeviceIds.length" tone="danger">
@@ -622,11 +695,30 @@ const BOUND_TIME_INPUT =
 
         <AppCard class="flex flex-col gap-4">
           <div class="flex flex-wrap items-center justify-between gap-3">
-            <h2 class="text-lg">Schedule <span class="text-[13px] text-ink-muted">· {{ dateSummary }}</span></h2>
-            <AppButton variant="secondary" size="sm" @click="openScheduleEditor">Adjust schedule</AppButton>
+            <h2 v-if="mode === 'playlist'" class="text-lg">Playlist</h2>
+            <h2 v-else class="text-lg">Schedule <span class="text-[13px] text-ink-muted">· {{ dateSummary }}</span></h2>
+            <AppButton variant="secondary" size="sm" @click="openScheduleEditor">
+              {{ mode === 'playlist' ? 'Adjust playlist' : 'Adjust schedule' }}
+            </AppButton>
           </div>
-          <WeekTimeline :slots="timelineSlots" />
-          <ul class="flex flex-col divide-y divide-line">
+          <div v-if="mode === 'playlist'" class="flex items-center gap-3">
+            <div class="h-9 w-16 shrink-0 overflow-hidden rounded-md bg-raised">
+              <img
+                v-if="playlistById.get(playlistId)?.thumbnails[0]"
+                :src="playlistById.get(playlistId)?.thumbnails[0] ?? ''"
+                class="size-full object-cover"
+              />
+            </div>
+            <span class="min-w-0 flex-1 truncate text-sm text-ink">
+              {{ playlistById.get(playlistId)?.name ?? 'No playlist' }}
+            </span>
+            <span class="shrink-0 text-[13px] text-ink-muted">All the time</span>
+            <AppButton variant="ghost" size="sm" :disabled="!playlistId" @click="startEditPlaylist(playlistId)">
+              <IconEdit class="size-4" />Edit
+            </AppButton>
+          </div>
+          <WeekTimeline v-if="mode === 'schedule'" :slots="timelineSlots" />
+          <ul v-if="mode === 'schedule'" class="flex flex-col divide-y divide-line">
             <li v-for="s in sortedSlots" :key="s.key" class="flex items-center gap-3 py-2.5">
               <div class="h-9 w-16 shrink-0 overflow-hidden rounded-md bg-raised">
                 <img
@@ -651,7 +743,9 @@ const BOUND_TIME_INPUT =
               </AppButton>
             </li>
           </ul>
-          <p v-if="!scheduleValid" class="text-[13px] text-danger">This schedule needs adjusting before it can be saved.</p>
+          <p v-if="!scheduleValid" class="text-[13px] text-danger">
+            {{ mode === 'playlist' ? 'Pick a playlist before saving.' : 'This schedule needs adjusting before it can be saved.' }}
+          </p>
         </AppCard>
 
         <div class="flex flex-wrap items-center justify-end gap-3">
@@ -723,9 +817,53 @@ const BOUND_TIME_INPUT =
       <!-- 2. Schedule -->
       <MaybeModal
         v-if="isEdit ? scheduleOpen : step === 1"
-        :as-modal="isEdit" title="Adjust schedule" size="xl" @close="cancelSchedule"
+        :as-modal="isEdit" title="Adjust content" size="xl" @close="cancelSchedule"
       >
       <section class="flex flex-col gap-5">
+        <div
+          class="inline-flex self-start rounded-full border border-line-strong p-0.5"
+          role="radiogroup" aria-label="What plays"
+        >
+          <button
+            v-for="m in MODES"
+            :key="m.value"
+            type="button"
+            role="radio"
+            :aria-checked="mode === m.value"
+            class="rounded-full px-4 py-1.5 text-[13px] transition-colors duration-150"
+            :class="mode === m.value ? 'bg-ink text-ink-inverse' : 'text-ink-muted hover:text-ink'"
+            @click="setMode(m.value)"
+          >
+            {{ m.label }}
+          </button>
+        </div>
+
+        <AppCard v-if="mode === 'playlist'">
+          <div class="flex items-center gap-2">
+            <PlaylistPicker
+              v-model="playlistId"
+              class="min-w-0 flex-1"
+              :playlists="playlists"
+              :invalid="attempted && !playlistId"
+              @create="startNewPlaylist(PLAYLIST_SLOT)"
+            />
+            <button
+              v-if="!isEdit && playlistById.get(playlistId)"
+              type="button"
+              class="flex size-9 shrink-0 items-center justify-center rounded-full text-ink-muted
+                     transition-colors duration-150 hover:bg-raised hover:text-ink"
+              title="Add media"
+              aria-label="Add media"
+              @click="composing = { slotKey: PLAYLIST_SLOT, playlist: playlistById.get(playlistId) ?? null }"
+            >
+              <IconAddPhoto class="size-5" />
+            </button>
+          </div>
+          <p class="mt-2 text-[13px] text-ink-muted">Plays all day, every day.</p>
+          <p v-if="attempted && !playlistId" class="mt-1 text-[13px] text-danger">Pick a playlist</p>
+        </AppCard>
+
+        <template v-else>
         <AppAlert v-if="mixedRanges">
           This campaign's rules had different dates — saving applies these to all of them.
         </AppAlert>
@@ -847,6 +985,7 @@ const BOUND_TIME_INPUT =
         <AppButton variant="secondary" size="sm" class="self-start" @click="addSlot">
           <IconAdd class="size-4" />Add playlist
         </AppButton>
+        </template>
       </section>
         <div v-if="isEdit" class="mt-4 flex justify-end gap-2 border-t border-line pt-4">
           <AppButton variant="secondary" size="sm" @click="cancelSchedule">Cancel</AppButton>
@@ -869,7 +1008,22 @@ const BOUND_TIME_INPUT =
           </div>
         </div>
 
-        <div class="flex flex-col gap-3">
+        <div v-if="mode === 'playlist'" class="flex flex-col gap-3">
+          <h2 class="text-lg">Playlist</h2>
+          <div class="flex items-center gap-3 rounded-xl bg-surface px-4 py-3">
+            <div class="h-9 w-16 shrink-0 overflow-hidden rounded-md bg-raised">
+              <img
+                v-if="playlistById.get(playlistId)?.thumbnails[0]"
+                :src="playlistById.get(playlistId)?.thumbnails[0] ?? ''"
+                class="size-full object-cover"
+              />
+            </div>
+            <span class="min-w-0 flex-1 truncate text-sm text-ink">{{ playlistById.get(playlistId)?.name }}</span>
+            <span class="shrink-0 text-[13px] text-ink-muted">All the time</span>
+          </div>
+        </div>
+
+        <div v-else class="flex flex-col gap-3">
           <div class="flex items-baseline justify-between gap-4">
             <h2 class="text-lg">Schedule</h2>
             <span class="text-[13px] text-ink-muted">{{ dateSummary }}</span>

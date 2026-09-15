@@ -168,6 +168,17 @@ def main() -> None:
         check("03:00 is outside", scheduling.resolve(s, dev, at("2026-09-08 03:00")).playlist_id == default_pl)
         check("21:59 is outside", scheduling.resolve(s, dev, at("2026-09-07 21:59")).playlist_id == default_pl)
 
+    print("\nan all-day window (00:00–23:59) has no gap before midnight")
+    # Not saved: it would cover every later check. _covers is the window test resolve() uses.
+    def window(starts: time, ends: time) -> Schedule:
+        return Schedule(account_id=uuid.uuid4(), device_id=uuid.uuid4(), playlist_id=uuid.uuid4(),
+                        starts_at=starts, ends_at=ends)
+    all_day = window(time(0, 0), time(23, 59))
+    check("23:59:30 is still inside", scheduling._covers(all_day, at("2026-09-07 23:59").replace(second=30)))
+    check("00:00 the next day is inside", scheduling._covers(all_day, at("2026-09-08 00:00")))
+    check("an ordinary end is still exclusive",
+          not scheduling._covers(window(time(7, 0), time(11, 0)), at("2026-09-07 11:00")))
+
     print("\noverlapping windows resolve by priority")
     r = cms.post(f"/devices/{device_id}/schedules", json={
         "playlist_id": str(promo_pl), "name": "Promo",

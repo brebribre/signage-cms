@@ -20,6 +20,9 @@ from app.models import Device, Schedule
 # nothing is found inside it, nothing will change on its own.
 LOOKAHEAD_DAYS = 8
 
+# The last minute a window can name. An end time of exactly this covers through midnight.
+END_OF_DAY = time(23, 59)
+
 
 @dataclass
 class Resolution:
@@ -93,11 +96,14 @@ def _covers(schedule: Schedule, local: datetime) -> bool:
     weekday = local.weekday()  # Monday = 0, matching the bitmask
 
     if schedule.starts_at < schedule.ends_at:
-        # Ordinary same-day window.
+        # Ordinary same-day window. There is no 24:00, so an end of 23:59 is how "through the end
+        # of the day" is spelled — it covers that last minute too, instead of leaving an all-day
+        # window with a one-minute gap every night.
         return (
             _in_date_range(schedule, local.date())
             and bool(schedule.days_of_week & (1 << weekday))
-            and schedule.starts_at <= t < schedule.ends_at
+            and schedule.starts_at <= t
+            and (t < schedule.ends_at or schedule.ends_at == END_OF_DAY)
         )
 
     # Crosses midnight: either late on the start day, or early on the following day.
