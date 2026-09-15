@@ -21,6 +21,7 @@ import AppAlert from '@/reusables/AppAlert.vue'
 import AppButton from '@/reusables/AppButton.vue'
 import AppModal from '@/reusables/AppModal.vue'
 import DurationInput from '@/reusables/DurationInput.vue'
+import OverflowMenu from '@/reusables/OverflowMenu.vue'
 import SceneEditor from '@/reusables/SceneEditor.vue'
 import ScreenPreview from '@/reusables/ScreenPreview.vue'
 import PageTitle from '@/reusables/PageTitle.vue'
@@ -94,6 +95,33 @@ async function onDelete() {
   }
   if (returnTo) backToReturn()
   else router.push({ name: 'playlists' })
+}
+
+/**
+ * Touch reordering. HTML5 drag-and-drop never fires for a finger, so on touch screens the handle
+ * drives it with pointer events instead: the row under the finger is found by position, and the
+ * list reorders the moment the finger crosses into it — the same behaviour as the desktop drag,
+ * through the same `onDragEnter`. The handle is `touch-none` so the page doesn't scroll instead.
+ */
+function onHandlePointerDown(e: PointerEvent, index: number) {
+  if (e.pointerType === 'mouse') return
+  e.preventDefault()
+  dragFrom.value = index
+  // Keeps move/up events coming to the handle even when the finger slides off it. Best-effort:
+  // the drag still works without it, so a browser refusing capture mustn't abort the drag.
+  try {
+    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+  } catch {
+    /* no capture — events still arrive while the finger is over the list */
+  }
+}
+function onHandlePointerMove(e: PointerEvent) {
+  if (e.pointerType === 'mouse' || dragFrom.value === null) return
+  const row = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>('li[data-row-index]')
+  if (row) onDragEnter(Number(row.dataset.rowIndex))
+}
+function endTouchDrag(e: PointerEvent) {
+  if (e.pointerType !== 'mouse') dragFrom.value = null
 }
 
 function startEditScene(row: DraftItem) {
@@ -193,8 +221,8 @@ function sceneLabel(item: DraftItem): string {
           v-for="(row, index) in draft"
           :key="row.key"
           draggable="true"
-          class="flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-2 rounded-xl bg-surface p-3
-                 transition-colors duration-200"
+          :data-row-index="index"
+          class="flex cursor-pointer items-center gap-3 rounded-xl bg-surface p-3 transition-colors duration-200"
           :class="[
             !row.isEnabled && 'opacity-50',
             dragFrom === index && 'bg-raised',
@@ -207,13 +235,24 @@ function sceneLabel(item: DraftItem): string {
           @dragend="dragFrom = null"
           @click="preview.select(row)"
         >
-          <!-- Phones: the item takes the first line and its controls wrap below, icon-only;
-               wider screens: everything on one line, as before. -->
-          <div class="flex min-w-0 basis-full items-center gap-3 sm:flex-1 sm:basis-0">
-            <IconDragIndicator class="size-4 shrink-0 cursor-grab select-none text-ink-subtle" aria-hidden="true" />
-            <span class="w-5 shrink-0 text-[13px] text-ink-subtle">{{ index + 1 }}</span>
+          <div class="flex min-w-0 flex-1 items-center gap-3">
+            <!-- The drag handle. Desktop drags the whole row natively; on touch the handle itself
+                 drives the reorder (see onHandlePointerDown). -->
+            <button
+              type="button"
+              class="-ml-1 flex size-8 shrink-0 cursor-grab touch-none items-center justify-center rounded-md
+                     text-ink-subtle select-none"
+              aria-label="Drag to reorder"
+              @click.stop
+              @pointerdown="onHandlePointerDown($event, index)"
+              @pointermove="onHandlePointerMove"
+              @pointerup="endTouchDrag"
+              @pointercancel="endTouchDrag"
+            >
+              <IconDragIndicator class="size-4" aria-hidden="true" />
+            </button>
 
-            <div class="h-11 w-20 shrink-0 overflow-hidden rounded-md bg-raised">
+            <div class="size-12 shrink-0 overflow-hidden rounded-md bg-raised">
               <img
                 v-if="row.elements[0]?.thumbnailUrl"
                 :src="row.elements[0].thumbnailUrl"
@@ -222,30 +261,55 @@ function sceneLabel(item: DraftItem): string {
               />
             </div>
 
-            <div class="min-w-0 flex-1">
-              <p class="truncate text-sm text-ink">{{ sceneLabel(row) }}</p>
-              <p class="text-[13px] text-ink-subtle">
-                {{ row.elements.length }} element{{ row.elements.length === 1 ? '' : 's' }}
-              </p>
-            </div>
+            <p class="min-w-0 flex-1 truncate text-[13px] text-ink-subtle">
+              {{ row.elements.length }} element{{ row.elements.length === 1 ? '' : 's' }}
+            </p>
           </div>
 
-          <div class="ml-auto flex shrink-0 items-center gap-1">
+          <div class="flex shrink-0 items-center gap-1">
             <DurationInput v-model="row.durationSeconds" />
 
-            <AppButton variant="ghost" size="sm" @click.stop="startEditScene(row)">
-              <IconEditSquareOutline class="size-4" />
-              <span class="max-sm:sr-only">Edit scene</span>
-            </AppButton>
+            <!-- Wider screens: each action as its own button. -->
+            <div class="hidden items-center gap-1 sm:flex">
+              <AppButton variant="ghost" size="sm" @click.stop="startEditScene(row)">
+                <IconEditSquareOutline class="size-4" />
+                Edit scene
+              </AppButton>
+              <AppButton variant="ghost" size="sm" @click.stop="row.isEnabled = !row.isEnabled">
+                <component :is="row.isEnabled ? IconVisibilityOff : IconVisibility" class="size-4" />
+                {{ row.isEnabled ? 'Disable' : 'Enable' }}
+              </AppButton>
+              <AppButton variant="ghost" size="sm" @click.stop="removeAt(index)">
+                <IconClose class="size-4" />
+                Remove
+              </AppButton>
+            </div>
 
-            <AppButton variant="ghost" size="sm" @click="row.isEnabled = !row.isEnabled">
-              <component :is="row.isEnabled ? IconVisibilityOff : IconVisibility" class="size-4" />
-              <span class="max-sm:sr-only">{{ row.isEnabled ? 'Disable' : 'Enable' }}</span>
-            </AppButton>
-            <AppButton variant="ghost" size="sm" @click="removeAt(index)">
-              <IconClose class="size-4" />
-              <span class="max-sm:sr-only">Remove</span>
-            </AppButton>
+            <!-- Phones: the same three actions behind one ⋮ menu. -->
+            <OverflowMenu v-slot="{ close }" class="sm:hidden" label="Item actions">
+              <button
+                type="button" role="menuitem"
+                class="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-ink hover:bg-surface"
+                @click="close(); startEditScene(row)"
+              >
+                <IconEditSquareOutline class="size-4 shrink-0 text-ink-muted" />Edit scene
+              </button>
+              <button
+                type="button" role="menuitem"
+                class="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-ink hover:bg-surface"
+                @click="close(); row.isEnabled = !row.isEnabled"
+              >
+                <component :is="row.isEnabled ? IconVisibilityOff : IconVisibility" class="size-4 shrink-0 text-ink-muted" />
+                {{ row.isEnabled ? 'Disable' : 'Enable' }}
+              </button>
+              <button
+                type="button" role="menuitem"
+                class="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-danger hover:bg-surface"
+                @click="close(); removeAt(index)"
+              >
+                <IconClose class="size-4 shrink-0" />Remove
+              </button>
+            </OverflowMenu>
           </div>
         </li>
       </ul>
