@@ -9,11 +9,9 @@ const emit = defineEmits<{ close: [] }>()
 </script>
 
 <template>
+  <!-- AppModal scrolls a tall editor itself; its ModalActions row stays pinned at the bottom. -->
   <AppModal v-if="asModal" :title="title" :size="size" @close="emit('close')">
-    <!-- A tall editor must scroll inside the dialog, not push its buttons off-screen. -->
-    <div class="-mr-2 max-h-[72vh] overflow-y-auto pr-2">
-      <slot />
-    </div>
+    <slot />
   </AppModal>
   <slot v-else />
 </template>

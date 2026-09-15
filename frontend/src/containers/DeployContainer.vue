@@ -34,6 +34,7 @@ import AppSwitch from '@/reusables/AppSwitch.vue'
 import DeviceCard from '@/reusables/DeviceCard.vue'
 import EmptyState from '@/reusables/EmptyState.vue'
 import MaybeModal from '@/reusables/MaybeModal.vue'
+import ModalActions from '@/reusables/ModalActions.vue'
 import PageTitle from '@/reusables/PageTitle.vue'
 import PairScreenForm from '@/reusables/PairScreenForm.vue'
 import PlaylistPicker from '@/reusables/PlaylistPicker.vue'
@@ -718,10 +719,10 @@ const BOUND_TIME_INPUT =
           </div>
         </template>
       </section>
-        <div v-if="isEdit" class="mt-4 flex justify-end gap-2 border-t border-line pt-4">
+        <ModalActions v-if="isEdit">
           <AppButton variant="secondary" size="sm" @click="cancelScreens">Cancel</AppButton>
           <AppButton size="sm" @click="screensOpen = false">Apply</AppButton>
-        </div>
+        </ModalActions>
       </MaybeModal>
 
       <!-- 2. Content. Editing shows it right on the page, titled Playlist rather than tucked into
@@ -1006,10 +1007,10 @@ const BOUND_TIME_INPUT =
 
     <AppModal v-if="confirmingDelete" title="Delete this campaign?" @close="confirmingDelete = false">
       <p class="text-sm text-ink-muted">Its screens go back to their defaults for the times it covered.</p>
-      <div class="mt-4 flex justify-end gap-2">
+      <ModalActions>
         <AppButton variant="secondary" size="sm" @click="confirmingDelete = false">Cancel</AppButton>
         <AppButton variant="danger" size="sm" :loading="isDeleting" @click="onDelete">Delete</AppButton>
-      </div>
+      </ModalActions>
     </AppModal>
   </div>
 </template>

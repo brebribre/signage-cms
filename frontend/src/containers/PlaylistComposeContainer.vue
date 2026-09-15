@@ -14,6 +14,7 @@ import AppButton from '@/reusables/AppButton.vue'
 import AppInput from '@/reusables/AppInput.vue'
 import AppModal from '@/reusables/AppModal.vue'
 import DropZone from '@/reusables/DropZone.vue'
+import ModalActions from '@/reusables/ModalActions.vue'
 import ProgressBar from '@/reusables/ProgressBar.vue'
 import type { PlaylistSummary } from '@/types/api'
 
@@ -97,14 +98,14 @@ async function onSave() {
 
       <AppAlert v-if="error" tone="danger">{{ error }}</AppAlert>
 
-      <div class="flex items-center justify-end gap-2">
+      <ModalActions>
         <span v-if="picked.length" class="mr-auto text-[13px] text-ink-muted">{{ picked.length }} selected</span>
         <AppButton variant="secondary" size="sm" type="button" @click="emit('close')">Cancel</AppButton>
         <AppButton size="sm" type="submit" :disabled="!canSave" :loading="isSaving">
           <IconCheck class="size-4" />
           {{ playlist ? 'Add' : 'Create' }}
         </AppButton>
-      </div>
+      </ModalActions>
     </form>
   </AppModal>
 </template>

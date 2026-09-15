@@ -20,6 +20,7 @@ import AddMediaMenu from '@/reusables/AddMediaMenu.vue'
 import AppAlert from '@/reusables/AppAlert.vue'
 import AppButton from '@/reusables/AppButton.vue'
 import AppModal from '@/reusables/AppModal.vue'
+import ModalActions from '@/reusables/ModalActions.vue'
 import DurationInput from '@/reusables/DurationInput.vue'
 import OverflowMenu from '@/reusables/OverflowMenu.vue'
 import SceneEditor from '@/reusables/SceneEditor.vue'
@@ -390,23 +391,23 @@ function sceneLabel(item: DraftItem): string {
           </label>
         </li>
       </ul>
-      <div class="mt-4 flex justify-end gap-2">
+      <ModalActions>
         <AppButton variant="secondary" size="sm" @click="picking = false">Cancel</AppButton>
         <AppButton size="sm" :disabled="!picked.size" @click="confirmPick">
           <IconCheck class="size-4" />
           Add {{ picked.size || '' }}
         </AppButton>
-      </div>
+      </ModalActions>
     </AppModal>
 
     <AppModal v-if="confirmingDelete" title="Delete this playlist?" @close="confirmingDelete = false">
       <p class="text-sm text-ink-muted">
         {{ playlist?.name }} will be removed. The media it contains is not affected.
       </p>
-      <div class="mt-4 flex justify-end gap-2">
+      <ModalActions>
         <AppButton variant="secondary" size="sm" @click="confirmingDelete = false">Cancel</AppButton>
         <AppButton variant="danger" size="sm" @click="onDelete">Delete</AppButton>
-      </div>
+      </ModalActions>
     </AppModal>
 
     <!-- The scene canvas is a full page, not a modal: it needs the room, and it's the same

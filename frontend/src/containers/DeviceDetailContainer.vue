@@ -14,6 +14,7 @@ import AppButton from '@/reusables/AppButton.vue'
 import AppCard from '@/reusables/AppCard.vue'
 import AppInput from '@/reusables/AppInput.vue'
 import AppModal from '@/reusables/AppModal.vue'
+import ModalActions from '@/reusables/ModalActions.vue'
 import AppTabs from '@/reusables/AppTabs.vue'
 import PageTitle from '@/reusables/PageTitle.vue'
 import StatusDot from '@/reusables/StatusDot.vue'
@@ -318,10 +319,10 @@ async function onDelete() {
         its token stops working and it starts pairing again on its own — read the new code off
         the screen to add it back.
       </p>
-      <div class="mt-4 flex justify-end gap-2">
+      <ModalActions>
         <AppButton variant="secondary" size="sm" @click="confirmingDelete = false">Cancel</AppButton>
         <AppButton variant="danger" size="sm" @click="onDelete">Delete</AppButton>
-      </div>
+      </ModalActions>
     </AppModal>
 
     <AppModal v-if="confirmingUpdate" title="Update this screen?" @close="confirmingUpdate = false">
@@ -329,10 +330,10 @@ async function onDelete() {
         {{ device?.name }} will install <b>{{ pickedVersion }}</b> on its next check-in —
         usually within 30 seconds — regardless of what the rest of the fleet is running.
       </p>
-      <div class="mt-4 flex justify-end gap-2">
+      <ModalActions>
         <AppButton variant="secondary" size="sm" @click="confirmingUpdate = false">Cancel</AppButton>
         <AppButton size="sm" :loading="isSaving" @click="onSetUpdate">Update</AppButton>
-      </div>
+      </ModalActions>
     </AppModal>
 
     <AppModal
@@ -345,14 +346,14 @@ async function onDelete() {
         whatever it's currently running until the fleet rollout — or a new single-device
         update — says otherwise.
       </p>
-      <div class="mt-4 flex justify-end gap-2">
+      <ModalActions>
         <AppButton variant="secondary" size="sm" @click="confirmingCancelUpdate = false">
           Keep it
         </AppButton>
         <AppButton variant="danger" size="sm" :loading="isSaving" @click="onCancelUpdate">
           Cancel update
         </AppButton>
-      </div>
+      </ModalActions>
     </AppModal>
   </div>
 </template>

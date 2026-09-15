@@ -8,6 +8,7 @@ import AppAlert from '@/reusables/AppAlert.vue'
 import AppButton from '@/reusables/AppButton.vue'
 import AppInput from '@/reusables/AppInput.vue'
 import ConnectAnimation from '@/reusables/ConnectAnimation.vue'
+import ModalActions from '@/reusables/ModalActions.vue'
 import type { ClaimBody } from '@/types/api'
 
 const props = defineProps<{
@@ -68,11 +69,11 @@ const handshake = computed<'connecting' | 'connected' | 'failed' | null>(() => {
 
     <AppAlert v-if="claimError" tone="danger">{{ claimError }}</AppAlert>
 
-    <div class="mt-1 flex justify-end gap-2">
+    <ModalActions>
       <AppButton variant="secondary" size="sm" type="button" @click="emit('cancel')">Cancel</AppButton>
       <AppButton size="sm" type="submit" :loading="isSaving">
         {{ isSaving && connecting ? 'Connecting…' : 'Add screen' }}
       </AppButton>
-    </div>
+    </ModalActions>
   </form>
 </template>

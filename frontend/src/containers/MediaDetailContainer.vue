@@ -7,6 +7,7 @@ import { useMediaDetail } from '@/hooks/useMediaDetail'
 import AppAlert from '@/reusables/AppAlert.vue'
 import AppButton from '@/reusables/AppButton.vue'
 import AppModal from '@/reusables/AppModal.vue'
+import ModalActions from '@/reusables/ModalActions.vue'
 import PageTitle from '@/reusables/PageTitle.vue'
 
 const route = useRoute()
@@ -90,12 +91,12 @@ async function onDelete() {
         {{ media?.filename }} will be removed from the library and from storage. This cannot be
         undone.
       </p>
-      <div class="mt-4 flex justify-end gap-2">
+      <ModalActions>
         <AppButton variant="secondary" size="sm" @click="confirming = false">Cancel</AppButton>
         <AppButton variant="danger" size="sm" :loading="isDeleting" @click="onDelete">
           Delete
         </AppButton>
-      </div>
+      </ModalActions>
     </AppModal>
   </div>
 </template>

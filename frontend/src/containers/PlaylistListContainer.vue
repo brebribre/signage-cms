@@ -11,6 +11,7 @@ import AppCard from '@/reusables/AppCard.vue'
 import AppInput from '@/reusables/AppInput.vue'
 import AppModal from '@/reusables/AppModal.vue'
 import EmptyState from '@/reusables/EmptyState.vue'
+import ModalActions from '@/reusables/ModalActions.vue'
 import PageTitle from '@/reusables/PageTitle.vue'
 import { returnLabel, safeReturnPath } from '@/utils/returnTo'
 
@@ -102,14 +103,14 @@ async function onCreate() {
     <AppModal v-if="adding" title="New playlist" @close="adding = false">
       <form @submit.prevent="onCreate">
         <AppInput id="playlist-name" v-model="newName" label="Name" required />
-        <div class="mt-4 flex justify-end gap-2">
+        <ModalActions>
           <AppButton variant="secondary" size="sm" type="button" @click="adding = false">
             Cancel
           </AppButton>
           <AppButton size="sm" type="submit" :loading="isCreating" :disabled="!newName.trim()">
             Create
           </AppButton>
-        </div>
+        </ModalActions>
       </form>
     </AppModal>
   </div>

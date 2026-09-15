@@ -54,6 +54,21 @@
   --ease-fortu: cubic-bezier(0.4, 0, 0.2, 1);
   --duration-quick: 150ms;
   --duration-soft: 200ms;
+
+  /* A dialog on a phone rises from the bottom edge like the iOS keyboard, over a fading scrim.
+     The sheet uses iOS's own decelerating curve rather than --ease-fortu: it should settle, not
+     glide. */
+  --animate-sheet-up: sheet-up 320ms cubic-bezier(0.32, 0.72, 0, 1);
+  --animate-fade-in: fade-in var(--duration-soft) var(--ease-fortu);
+
+  @keyframes sheet-up {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
 }
 
 :root {

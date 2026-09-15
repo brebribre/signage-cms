@@ -9,6 +9,7 @@ import AppAlert from '@/reusables/AppAlert.vue'
 import AppButton from '@/reusables/AppButton.vue'
 import AppInput from '@/reusables/AppInput.vue'
 import AppModal from '@/reusables/AppModal.vue'
+import ModalActions from '@/reusables/ModalActions.vue'
 import PageTitle from '@/reusables/PageTitle.vue'
 import type { AccountUserRead } from '@/types/api'
 
@@ -188,10 +189,10 @@ function reach(u: AccountUserRead): string {
         <p v-else class="text-[13px] text-ink-subtle">
           No screens yet — you can grant access once devices are paired.
         </p>
-        <div class="mt-1 flex justify-end gap-2">
+        <ModalActions>
           <AppButton variant="secondary" size="sm" type="button" @click="adding = false">Cancel</AppButton>
           <AppButton size="sm" type="submit" :loading="isSaving">Create</AppButton>
-        </div>
+        </ModalActions>
       </form>
     </AppModal>
 
@@ -209,10 +210,10 @@ function reach(u: AccountUserRead): string {
           </label>
         </li>
       </ul>
-      <div class="mt-4 flex justify-end gap-2">
+      <ModalActions>
         <AppButton variant="secondary" size="sm" @click="editingGrants = null">Cancel</AppButton>
         <AppButton size="sm" :loading="isSaving" @click="saveGrants">Save</AppButton>
-      </div>
+      </ModalActions>
     </AppModal>
 
     <!-- Password -->
@@ -222,12 +223,12 @@ function reach(u: AccountUserRead): string {
         There is no email reset — you set the password and pass it on.
       </p>
       <AppInput id="u-newpw" v-model="newPassword" label="Password" type="password" required />
-      <div class="mt-4 flex justify-end gap-2">
+      <ModalActions>
         <AppButton variant="secondary" size="sm" @click="settingPassword = null">Cancel</AppButton>
         <AppButton size="sm" :loading="isSaving" :disabled="newPassword.length < 8" @click="savePassword">
           Set password
         </AppButton>
-      </div>
+      </ModalActions>
     </AppModal>
 
     <!-- Delete -->
@@ -236,10 +237,10 @@ function reach(u: AccountUserRead): string {
         {{ confirmingDelete.display_name }} will lose access immediately. Media and playlists they
         created are kept.
       </p>
-      <div class="mt-4 flex justify-end gap-2">
+      <ModalActions>
         <AppButton variant="secondary" size="sm" @click="confirmingDelete = null">Cancel</AppButton>
         <AppButton variant="danger" size="sm" :loading="isSaving" @click="onDelete">Delete</AppButton>
-      </div>
+      </ModalActions>
     </AppModal>
   </div>
 </template>

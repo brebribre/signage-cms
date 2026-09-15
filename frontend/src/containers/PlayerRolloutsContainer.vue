@@ -16,6 +16,7 @@ import AppButton from '@/reusables/AppButton.vue'
 import AppModal from '@/reusables/AppModal.vue'
 import DeviceCard from '@/reusables/DeviceCard.vue'
 import EmptyState from '@/reusables/EmptyState.vue'
+import ModalActions from '@/reusables/ModalActions.vue'
 import PageTitle from '@/reusables/PageTitle.vue'
 import type { DeviceRead, PlayerReleaseRead, PlayerRolloutRead } from '@/types/api'
 
@@ -267,10 +268,10 @@ const ROW = 'flex items-center gap-3 px-4 py-2.5'
 
         <AppAlert v-if="scheduleError || error" tone="danger">{{ scheduleError || error }}</AppAlert>
 
-        <div class="flex justify-end gap-2">
+        <ModalActions>
           <AppButton variant="secondary" size="sm" type="button" @click="scheduling = null">Cancel</AppButton>
           <AppButton size="sm" type="submit" :loading="isSaving">{{ confirmLabel }}</AppButton>
-        </div>
+        </ModalActions>
       </form>
     </AppModal>
 
@@ -278,20 +279,20 @@ const ROW = 'flex items-center gap-3 px-4 py-2.5'
       <p class="text-sm text-ink-muted">
         {{ confirmingCancel.version }} won't take over at {{ dateTime(confirmingCancel.scheduled_at) }}.
       </p>
-      <div class="mt-4 flex justify-end gap-2">
+      <ModalActions>
         <AppButton variant="secondary" size="sm" @click="confirmingCancel = null">Keep it</AppButton>
         <AppButton variant="danger" size="sm" :loading="isSaving" @click="onCancel">Cancel rollout</AppButton>
-      </div>
+      </ModalActions>
     </AppModal>
 
     <AppModal v-if="confirmingPin" title="Cancel this update?" @close="confirmingPin = null">
       <p class="text-sm text-ink-muted">
         {{ confirmingPin.name }} won't install {{ confirmingPin.forced_update_version }} and follows the fleet again.
       </p>
-      <div class="mt-4 flex justify-end gap-2">
+      <ModalActions>
         <AppButton variant="secondary" size="sm" @click="confirmingPin = null">Keep it</AppButton>
         <AppButton variant="danger" size="sm" :loading="isSaving" @click="onCancelPin">Cancel update</AppButton>
-      </div>
+      </ModalActions>
     </AppModal>
   </div>
 </template>
