@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
+import IconPlayArrow from '~icons/material-symbols/play-arrow'
+import IconTv from '~icons/material-symbols/tv-outline'
 
 import { useCampaigns } from '@/hooks/useCampaigns'
 import { useFormat } from '@/hooks/useFormat'
@@ -49,11 +51,25 @@ const { date } = useFormat()
         <div class="flex items-center justify-between gap-4">
           <div class="min-w-0">
             <p class="truncate text-base text-ink">{{ c.name }}</p>
-            <p class="mt-0.5 text-[13px] text-ink-muted">
-              {{ c.device_count }} screen{{ c.device_count === 1 ? '' : 's' }} ·
-              {{ c.rule_count }} rule{{ c.rule_count === 1 ? '' : 's' }} ·
-              updated {{ date(c.updated_at) }}
-            </p>
+            <div class="mt-1 flex items-center gap-4 text-[13px] text-ink-muted">
+              <span
+                class="flex items-center gap-1 tabular-nums"
+                :title="`${c.device_count} screen${c.device_count === 1 ? '' : 's'}`"
+              >
+                <IconTv class="size-4 shrink-0" aria-hidden="true" />
+                {{ c.device_count }}
+                <span class="sr-only">screen{{ c.device_count === 1 ? '' : 's' }}</span>
+              </span>
+              <span
+                class="flex items-center gap-1 tabular-nums"
+                :title="`${c.playlist_count} playlist${c.playlist_count === 1 ? '' : 's'}`"
+              >
+                <IconPlayArrow class="size-4 shrink-0" aria-hidden="true" />
+                {{ c.playlist_count }}
+                <span class="sr-only">playlist{{ c.playlist_count === 1 ? '' : 's' }}</span>
+              </span>
+              <span class="text-ink-subtle">Updated {{ date(c.updated_at) }}</span>
+            </div>
           </div>
           <span class="shrink-0 text-ink-subtle" aria-hidden="true">›</span>
         </div>

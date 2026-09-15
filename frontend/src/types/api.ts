@@ -357,6 +357,8 @@ export interface CampaignSummary {
   device_ids: string[]
   device_count: number
   rule_count: number
+  /** Distinct playlists across the rules. */
+  playlist_count: number
   created_at: string
   updated_at: string
 }

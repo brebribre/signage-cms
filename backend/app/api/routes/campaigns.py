@@ -49,12 +49,14 @@ def _read(session: DbSession, campaign) -> CampaignRead:
 
 def _summarize(session: DbSession, campaign) -> CampaignSummary:
     device_ids = campaign_service.device_ids_for(session, campaign_id=campaign.id)
+    rules = campaign_service.rules_for(session, campaign_id=campaign.id)
     return CampaignSummary(
         id=campaign.id,
         name=campaign.name,
         device_ids=device_ids,
         device_count=len(device_ids),
-        rule_count=len(campaign_service.rules_for(session, campaign_id=campaign.id)),
+        rule_count=len(rules),
+        playlist_count=len({r.playlist_id for r in rules}),
         created_at=campaign.created_at,
         updated_at=campaign.updated_at,
     )

@@ -45,6 +45,8 @@ class CampaignSummary(BaseModel):
     device_ids: list[uuid.UUID]
     device_count: int
     rule_count: int
+    # Distinct playlists across the rules — a schedule can use one playlist in several windows.
+    playlist_count: int
     created_at: datetime
     updated_at: datetime
 
