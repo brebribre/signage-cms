@@ -85,6 +85,9 @@ private fun resizeModeFor(fit: String): Int = when (fit) {
  *
  * **Advance policy**: a slot that is exactly one video keeps the original behavior exactly —
  * the natural end of the video (or the watchdog cap) advances the loop, whichever comes first.
+ * The exception is a playlist of exactly one slot, which has nothing to advance *to*: its video
+ * repeats instead of stopping on its last frame, and its duration only decides how often the
+ * play is reported.
  * Anything else — a picture, or a slot with more than one element regardless of kind — advances
  * on a plain timer set to the slot's own `durationSeconds`, the same way a picture always has.
  * A video inside a multi-element slot loops on its own rather than trying to end the slot; with
@@ -131,11 +134,32 @@ fun PlaybackSurface(
     // when there is only ever one thing that could signal "done."
     val singleVideo = slot.elements.singleOrNull()?.takeIf { it.kind == "video" }
 
+    /** A one-slot playlist: the loop has nowhere to advance, so "the slot ended" is meaningless
+     *  — what is on screen stays on screen. It still has to be *reported* as playing, and a
+     *  video still has to keep playing rather than stop dead on its last frame. */
+    val onlySlot = slots.size == 1
+
+    /** Records the play without changing what is on screen — the one-slot counterpart of
+     *  [advance], which cannot be used there: advancing to the same slot re-keys nothing, so the
+     *  timer below would never run again and the play would be counted exactly once, forever. */
+    fun report() {
+        val now = System.currentTimeMillis()
+        onPlayed(slot, startedAt, ((now - startedAt) / 1000).toInt())
+        startedAt = now
+    }
+
     // A plain duration timer for everything else — pictures (as always), an empty slot (should
     // not happen, but must not hang forever if it does), and any multi-element slot (new):
     // with more than one thing on screen, the CMS-authored duration is the only unambiguous
     // "this slot is over" signal.
-    if (singleVideo == null) {
+    if (onlySlot) {
+        LaunchedEffect(slot.id) {
+            while (true) {
+                delay(slot.durationSeconds * 1000L)
+                report()
+            }
+        }
+    } else if (singleVideo == null) {
         LaunchedEffect(slot.id, index) {
             delay(slot.durationSeconds * 1000L)
             advance()
@@ -195,7 +219,10 @@ fun PlaybackSurface(
         }
     }
 
-    val loop = singleVideo == null
+    // A lone video repeats: with no next slot, ending playback would freeze the screen on its
+    // last frame until the playlist changed. Looping also means nothing calls onEnded for it,
+    // which is exactly right — the report timer above owns proof-of-play in that case.
+    val loop = singleVideo == null || onlySlot
     val videoElementsInSlot = slot.elements.filter { it.kind == "video" }
     // Paint order matches the backend's own z-index ordering, which `slot.elements` already
     // arrives sorted by — later in the list paints on top. Explicit zIndex (not source order)
