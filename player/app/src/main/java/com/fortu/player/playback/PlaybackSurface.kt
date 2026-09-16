@@ -13,11 +13,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateListOf
@@ -29,8 +31,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
@@ -68,9 +73,35 @@ private fun contentScaleFor(fit: String): ContentScale = when (fit) {
  *  within a minute and a half, not an entire shift. */
 private const val DEFAULT_VIDEO_CAP_SECONDS = 90
 
+/**
+ * The CSS width every website element is laid out at, before being scaled into its box.
+ *
+ * Sites choose a layout from the viewport width, so this is what decides whether a screen shows
+ * the desktop design or the phone one. 1280 is the smallest width that reliably lands on desktop
+ * breakpoints (Bootstrap's `xl`, Tailwind's `xl`, and the common 1200px container all fit), while
+ * staying small enough that text is still legible once it is scaled into a half- or quarter-width
+ * element rather than the whole screen.
+ */
+private val DESKTOP_CSS_WIDTH = 1280.dp
+
 /** Slack over the slot duration before the watchdog fires, so ordinary buffering on bad venue
  *  wifi is not mistaken for a stall. */
 private const val STALL_GRACE_MILLIS = 5_000L
+
+/**
+ * Whether this element covers its whole frame on its own — the case a SurfaceView can take,
+ * because nothing else shares the screen with it. Compared with a tolerance: these arrive as
+ * JSON floats, and a box authored by dragging is never exactly 1.0. A rotated element is
+ * excluded: rotation draws through a graphics layer, which a SurfaceView does not follow.
+ */
+private fun ManifestElement.isFullBleed(): Boolean {
+    val slack = 0.001f
+    return kotlin.math.abs(x) < slack &&
+        kotlin.math.abs(y) < slack &&
+        kotlin.math.abs(width - 1f) < slack &&
+        kotlin.math.abs(height - 1f) < slack &&
+        rotationDegrees == 0
+}
 
 private fun resizeModeFor(fit: String): Int = when (fit) {
     "cover" -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
@@ -223,6 +254,26 @@ fun PlaybackSurface(
     // last frame until the playlist changed. Looping also means nothing calls onEnded for it,
     // which is exactly right — the report timer above owns proof-of-play in that case.
     val loop = singleVideo == null || onlySlot
+
+    /**
+     * Which kind of video surface this playlist gets.
+     *
+     * A SurfaceView keeps a 4K video at 4K — the display composites it directly — while a
+     * TextureView draws every frame through the app's window, capping it at the window's
+     * resolution. The TextureView is only needed where a video shares its frame with other
+     * elements (see pooled_player_view.xml's own note), so it is reserved for playlists that
+     * actually contain such a scene.
+     *
+     * Decided across the whole playlist rather than per slot, deliberately: the surface cannot
+     * change without rebuilding the player view, and rebuilding one mid-loop is exactly the
+     * "decoder runs, first frame never paints" bug the pool exists to avoid. A playlist that
+     * mixes full-bleed videos with multi-element scenes keeps the TextureView throughout.
+     */
+    val useSurfaceView = slots.all { s ->
+        val videos = s.elements.filter { it.kind == "video" }
+        videos.isEmpty() || (s.elements.size == 1 && videos.single().isFullBleed())
+    }
+
     val videoElementsInSlot = slot.elements.filter { it.kind == "video" }
     // Paint order matches the backend's own z-index ordering, which `slot.elements` already
     // arrives sorted by — later in the list paints on top. Explicit zIndex (not source order)
@@ -260,6 +311,7 @@ fun PlaybackSurface(
                             onEnded = if (!loop) ::advance else ({}),
                             onError = onPlaybackError,
                             onStalled = { replacePoolMember(poolIndex) },
+                            useSurfaceView = useSurfaceView,
                         )
                     }
                 }
@@ -323,38 +375,107 @@ fun PlaybackSurface(
  * the whole app at once (`MainActivity.dispatchTouchEvent`) — and kiosk mode means even a link
  * that opens a new page cannot leave the player.
  */
+/**
+ * A signage panel is a big screen, so a site must lay out as it would in a desktop browser
+ * window that size. Two things force the phone layout otherwise, and both have to go:
+ *
+ * The **user agent**: Android's WebView announces itself as a mobile browser ("Android …
+ * Mobile", plus the "wv" WebView marker), and responsive sites serve their phone layout on the
+ * strength of that alone, whatever the width. Rewritten to the same Chrome, on a desktop OS —
+ * derived from the device's own string rather than hard-coded, so the Chrome version stays
+ * honest as the system WebView updates.
+ *
+ * The **viewport**: `width=device-width` resolves to the WebView's width in *density-independent*
+ * units, so a full-screen element on a 1080p panel reports ~960 CSS pixels and lands on tablet
+ * breakpoints. The view is therefore laid out at the element's real width in pixels — 1920 CSS
+ * pixels for a full-screen element on that panel — and scaled back down by the display density,
+ * which renders it at native resolution rather than upscaling a small layout. It is the same
+ * composition `ScreenPreview.vue` makes in the CMS, so the preview and the panel agree.
+ */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 private fun WebsiteElement(url: String) {
-    AndroidView(
-        modifier = Modifier.fillMaxSize(),
-        factory = { ctx ->
-            WebView(ctx).apply {
-                setBackgroundColor(android.graphics.Color.BLACK)
-                settings.javaScriptEnabled = true
-                settings.domStorageEnabled = true
-                settings.mediaPlaybackRequiresUserGesture = false
-                // Desktop layout at the element's real size, like a browser window that big.
-                settings.useWideViewPort = true
-                settings.loadWithOverviewMode = true
-                // Redirects, links and in-page navigation stay in this view instead of
-                // handing off to a browser — there isn't one to hand off to on a kiosk screen.
-                webViewClient = WebViewClient()
-                tag = url
-                loadUrl(url)
-            }
-        },
-        // Only a changed address reloads; comparing against view.url would reload after every
-        // redirect.
-        update = { view ->
-            if (view.tag != url) {
-                view.tag = url
-                view.loadUrl(url)
-            }
-        },
-        onRelease = { it.destroy() },
-    )
+    val density = LocalDensity.current.density
+    BoxWithConstraints(Modifier.fillMaxSize().clipToBounds()) {
+        // The page is laid out at a desktop width and then scaled to fit this element exactly.
+        //
+        // A CSS pixel is a *device* pixel divided by the page's devicePixelRatio, which is the
+        // display density — NOT a dp. So a view of DESKTOP_CSS_WIDTH dp yields a viewport of
+        // (that / density) CSS pixels, which is how an earlier attempt produced a 1120-pixel
+        // viewport on a density-2 screen instead of the intended width. Dividing by the density
+        // here is what makes the viewport come out at DESKTOP_CSS_WIDTH exactly.
+        val viewWidth = DESKTOP_CSS_WIDTH / density
+        val scale = maxWidth / viewWidth
+        AndroidView(
+            modifier = Modifier
+                // requiredSize, not size: the view has to be allowed to exceed this box's
+                // constraints, because laying the page out at a desktop width is the entire
+                // point — `size()` would be clamped back to the box and the scale below would
+                // then shrink the page a second time.
+                .requiredSize(viewWidth, maxHeight / scale)
+                .graphicsLayer(
+                    scaleX = scale,
+                    scaleY = scale,
+                    transformOrigin = TransformOrigin(0f, 0f),
+                ),
+            factory = { ctx ->
+                WebView(ctx).apply {
+                    setBackgroundColor(android.graphics.Color.BLACK)
+                    settings.javaScriptEnabled = true
+                    settings.domStorageEnabled = true
+                    settings.mediaPlaybackRequiresUserGesture = false
+                    settings.useWideViewPort = true
+                    // NOT loadWithOverviewMode: that zooms a page out to fit the viewport, which
+                    // is the opposite of what is wanted here — the view is already exactly as
+                    // wide as the layout, so the page must render 1:1 inside it rather than
+                    // shrinking itself again.
+                    setInitialScale(100)
+                    settings.userAgentString = desktopUserAgent(settings.userAgentString)
+                    // Redirects, links and in-page navigation stay in this view instead of
+                    // handing off to a browser — there isn't one to hand off to on a kiosk screen.
+                    // The log line on load is the only way to see, from a screen you cannot
+                    // attach a debugger to, which layout a site actually chose and why.
+                    webViewClient = object : WebViewClient() {
+                        override fun onPageFinished(view: WebView, finishedUrl: String) {
+                            view.evaluateJavascript(
+                                "JSON.stringify({css:window.innerWidth,dpr:window.devicePixelRatio," +
+                                    "doc:document.documentElement.clientWidth})",
+                            ) { measured ->
+                                Log.i(
+                                    "FortuWeb",
+                                    "laid out $measured in a ${view.width}x${view.height}px view",
+                                )
+                            }
+                        }
+                    }
+                    tag = url
+                    loadUrl(url)
+                }
+            },
+            // Only a changed address reloads; comparing against view.url would reload after every
+            // redirect.
+            update = { view ->
+                if (view.tag != url) {
+                    view.tag = url
+                    view.loadUrl(url)
+                }
+            },
+            onRelease = { it.destroy() },
+        )
+    }
 }
+
+/**
+ * The WebView's own user agent, with everything that says "phone" taken out: the Android
+ * platform token becomes a desktop one, and the "Mobile" and WebView ("wv") markers go. Keeping
+ * the rest means the Chrome version stays whatever the device actually ships.
+ */
+internal fun desktopUserAgent(current: String): String =
+    current
+        .replace(Regex("""Linux; Android [^;)]*(; [^)]*)?"""), "X11; Linux x86_64")
+        .replace("; wv", "")
+        .replace(" Mobile Safari", " Safari")
+        .replace(Regex(""" Mobile(?= )"""), "")
 
 /** Measures [content] at its pre-rotation aspect (swapped for 90°/270°) and rotates it to fill
  *  this box exactly — the Compose equivalent of `cropMath.ts`'s `rotationStyle`, since Compose
@@ -396,6 +517,9 @@ private fun PooledVideoSurface(
      *  this pool member's ExoPlayer instance instead of reusing a possibly-wedged one for the
      *  next video. */
     onStalled: () -> Unit = {},
+    /** See [PlaybackSurface]'s own `useSurfaceView`: direct-to-display for a full-bleed video,
+     *  composited through the window when a scene layers other elements over it. */
+    useSurfaceView: Boolean = false,
 ) {
     val active = element != null && file != null
 
@@ -475,28 +599,33 @@ private fun PooledVideoSurface(
         }
     }
 
-    AndroidView(
-        factory = { ctx ->
-            // Inflated, not `PlayerView(ctx)` directly — see pooled_player_view.xml for why
-            // this needs to force TextureView over the default SurfaceView.
-            (LayoutInflater.from(ctx).inflate(R.layout.pooled_player_view, null) as PlayerView).apply {
-                setBackgroundColor(android.graphics.Color.BLACK)
-                player = exo
-            }
-        },
-        update = {
-            // Cheap to repeat every recomposition — PlayerView no-ops if it's already the
-            // current player. The one time it isn't a no-op is exactly the case `factory`
-            // alone can't handle: a stall-recovery replacement swaps this pool member's
-            // ExoPlayer instance without this View ever being recreated, and factory only
-            // runs once at creation.
-            it.player = exo
-            it.resizeMode = resizeModeFor(element?.fit ?: "contain")
-            it.visibility = if (active) View.VISIBLE else View.INVISIBLE
-            // Only meaningful while this pool member is active; an inactive one's exo.volume
-            // would otherwise leak into whatever plays on it next.
-            if (active) exo.volume = if (element?.hasAudio == true) 1f else 0f
-        },
-        modifier = Modifier.fillMaxSize(),
-    )
+    // Keyed on the surface type: changing it means a different View entirely, so the old one
+    // has to go. Only a new manifest can flip it, never an ordinary slot transition.
+    key(useSurfaceView) {
+        AndroidView(
+            factory = { ctx ->
+                // Inflated, not `PlayerView(ctx)` directly — the surface type is an XML attribute.
+                val layout =
+                    if (useSurfaceView) R.layout.pooled_player_view_surface else R.layout.pooled_player_view
+                (LayoutInflater.from(ctx).inflate(layout, null) as PlayerView).apply {
+                    setBackgroundColor(android.graphics.Color.BLACK)
+                    player = exo
+                }
+            },
+            update = {
+                // Cheap to repeat every recomposition — PlayerView no-ops if it's already the
+                // current player. The one time it isn't a no-op is exactly the case `factory`
+                // alone can't handle: a stall-recovery replacement swaps this pool member's
+                // ExoPlayer instance without this View ever being recreated, and factory only
+                // runs once at creation.
+                it.player = exo
+                it.resizeMode = resizeModeFor(element?.fit ?: "contain")
+                it.visibility = if (active) View.VISIBLE else View.INVISIBLE
+                // Only meaningful while this pool member is active; an inactive one's exo.volume
+                // would otherwise leak into whatever plays on it next.
+                if (active) exo.volume = if (element?.hasAudio == true) 1f else 0f
+            },
+            modifier = Modifier.fillMaxSize(),
+        )
+    }
 }

@@ -49,13 +49,41 @@ const MIME = {
 function serveStatic(req, res) {
   const urlPath = decodeURIComponent(req.url.split('?')[0])
   let filePath = join(DIST, urlPath)
-  // SPA fallback — the same behaviour `serve -s` gave: an unknown path is a client-side
-  // route, not a missing file, so it gets index.html and Vue Router takes over from there.
-  if (!filePath.startsWith(DIST) || !existsSync(filePath) || statSync(filePath).isDirectory()) {
+  const missing =
+    !filePath.startsWith(DIST) || !existsSync(filePath) || statSync(filePath).isDirectory()
+
+  if (missing) {
+    // A missing *file* is a missing file. Handing back index.html for it is what turned the
+    // ordinary "tab was open across a deploy" case into a baffling browser error: the tab asks
+    // for the previous build's hashed chunk, gets HTML, and reports "Expected a
+    // JavaScript-or-Wasm module script". A plain 404 is both honest and something the app can
+    // recognise and recover from by reloading — see main.ts.
+    if (extname(urlPath)) {
+      res.writeHead(404, {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'no-store',
+      })
+      res.end('Not found')
+      return
+    }
+    // SPA fallback — the same behaviour `serve -s` gave: a path with no extension is a
+    // client-side route, not a file, so it gets index.html and Vue Router takes over.
     filePath = join(DIST, 'index.html')
   }
+
   const ext = extname(filePath)
-  res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' })
+  const isIndex = filePath === join(DIST, 'index.html')
+  res.writeHead(200, {
+    'Content-Type': MIME[ext] || 'application/octet-stream',
+    // index.html is the map from route to hashed chunk names, so a cached copy outlives the
+    // files it points at — it must always be revalidated. Everything under /assets/ carries a
+    // content hash in its name, so it can be cached hard: a new build means a new name.
+    'Cache-Control': isIndex
+      ? 'no-cache'
+      : urlPath.startsWith('/assets/')
+        ? 'public, max-age=31536000, immutable'
+        : 'public, max-age=3600',
+  })
   createReadStream(filePath).pipe(res)
 }
 

@@ -9,6 +9,7 @@ import IconKeyboardArrowDown from '~icons/material-symbols/keyboard-arrow-down'
 import IconKeyboardArrowUp from '~icons/material-symbols/keyboard-arrow-up'
 import IconLanguage from '~icons/material-symbols/language'
 import IconLayersOutline from '~icons/material-symbols/layers-outline'
+import IconPhotoLibraryOutline from '~icons/material-symbols/photo-library-outline'
 import IconRotateRight from '~icons/material-symbols/rotate-right'
 import IconVideocam from '~icons/material-symbols/videocam'
 import IconVolumeOff from '~icons/material-symbols/volume-off'
@@ -51,6 +52,23 @@ const selectedKey = ref<string | null>(null)
 const selected = computed(() => elements.value.find((e) => e.key === selectedKey.value) ?? null)
 
 const KIND_ICON = { image: IconImageOutline, video: IconVideocam, web: IconLanguage } as const
+
+/** The left rail, Canva-style: pick a source, its panel opens beside it. Two for now; another
+ *  source is one more entry here and one more branch in the panel below. */
+const PANELS = [
+  { id: 'media', label: 'Media', icon: IconPhotoLibraryOutline },
+  { id: 'website', label: 'Website', icon: IconLanguage },
+] as const
+type PanelId = (typeof PANELS)[number]['id']
+const panel = ref<PanelId>('media')
+
+/** Filters the library by filename — a signage library gets long, and hunting one logo down a
+ *  scrolling list is the slowest part of building a scene. */
+const mediaQuery = ref('')
+const filteredLibrary = computed(() => {
+  const q = mediaQuery.value.trim().toLowerCase()
+  return q ? props.library.filter((m) => m.filename.toLowerCase().includes(q)) : props.library
+})
 
 function select(key: string | null) {
   selectedKey.value = key
@@ -453,57 +471,85 @@ function apply() {
     </div>
 
     <div class="flex min-h-0 flex-1">
-      <!-- Left toolbar -->
-      <aside class="flex w-60 shrink-0 flex-col overflow-y-auto border-r border-line p-3">
-        <p class="mb-2 px-1 text-[13px] text-ink-subtle">Add website</p>
-        <form class="mb-4 flex flex-col gap-1.5 px-1" @submit.prevent="addWebsite">
-          <div class="flex gap-1.5">
-            <input
-              v-model="websiteInput"
-              type="text"
-              inputmode="url"
-              placeholder="example.com"
-              aria-label="Website address"
-              class="min-w-0 flex-1 rounded-md border border-line-strong bg-canvas px-2 py-1 text-[13px]
-                     text-ink focus:border-ink focus:outline-none"
-            />
-            <AppButton variant="secondary" size="sm" type="submit">
-              <IconLanguage class="size-4" />
-              Add
-            </AppButton>
-          </div>
-          <p v-if="websiteError" class="text-[12px] text-danger">{{ websiteError }}</p>
-        </form>
+      <!-- Left rail: the source you are adding from, with its panel beside it. -->
+      <nav class="flex w-20 shrink-0 flex-col items-center gap-1 border-r border-line py-3">
+        <button
+          v-for="p in PANELS"
+          :key="p.id"
+          type="button"
+          class="flex w-16 flex-col items-center gap-1 rounded-xl px-2 py-2.5 text-[12px]
+                 transition-colors duration-150"
+          :class="panel === p.id
+            ? 'bg-ink text-ink-inverse'
+            : 'text-ink-muted hover:bg-surface hover:text-ink'"
+          :aria-pressed="panel === p.id"
+          @click="panel = p.id"
+        >
+          <component :is="p.icon" class="size-5" />
+          {{ p.label }}
+        </button>
+      </nav>
 
-        <p class="mb-2 px-1 text-[13px] text-ink-subtle">Add media</p>
-        <p v-if="!library.length" class="px-1 text-[13px] text-ink-muted">
-          The library is empty. Upload something on the Media page first.
-        </p>
-        <ul v-else class="flex flex-col gap-1">
-          <li v-for="m in library" :key="m.id">
-            <div
-              draggable="true"
-              class="flex cursor-grab items-center gap-2.5 rounded-lg p-1.5 transition-colors
-                     duration-200 hover:bg-surface active:cursor-grabbing"
-              title="Drag onto the canvas, or click to add"
-              @dragstart="onToolbarDragStart(m, $event)"
-              @click="addFromMedia(m)"
-            >
-              <div class="relative h-10 w-16 shrink-0 overflow-hidden rounded-md bg-raised">
-                <img
-                  v-if="m.thumbnail_url"
-                  :src="m.thumbnail_url" :alt="m.filename"
-                  class="size-full object-cover" draggable="false"
-                />
-                <component
-                  :is="KIND_ICON[m.kind]"
-                  class="absolute bottom-1 right-1 size-3.5 text-white/90"
-                />
+      <aside class="flex w-64 shrink-0 flex-col overflow-y-auto border-r border-line p-3">
+        <template v-if="panel === 'media'">
+          <input
+            v-model="mediaQuery"
+            type="search"
+            placeholder="Search media"
+            aria-label="Search media"
+            class="mb-3 w-full rounded-lg border border-line-strong bg-canvas px-2.5 py-1.5 text-[13px]
+                   text-ink focus:border-ink focus:outline-none"
+          />
+          <p v-if="!library.length" class="px-1 text-[13px] text-ink-muted">
+            The library is empty. Upload something on the Media page first.
+          </p>
+          <p v-else-if="!filteredLibrary.length" class="px-1 text-[13px] text-ink-muted">
+            Nothing matches that.
+          </p>
+          <ul v-else class="flex flex-col gap-1">
+            <li v-for="m in filteredLibrary" :key="m.id">
+              <div
+                draggable="true"
+                class="flex cursor-grab items-center gap-2.5 rounded-lg p-1.5 transition-colors
+                       duration-200 hover:bg-surface active:cursor-grabbing"
+                title="Drag onto the canvas, or click to add"
+                @dragstart="onToolbarDragStart(m, $event)"
+                @click="addFromMedia(m)"
+              >
+                <div class="relative h-10 w-16 shrink-0 overflow-hidden rounded-md bg-raised">
+                  <img
+                    v-if="m.thumbnail_url"
+                    :src="m.thumbnail_url" :alt="m.filename"
+                    class="size-full object-cover" draggable="false"
+                  />
+                  <component
+                    :is="KIND_ICON[m.kind]"
+                    class="absolute bottom-1 right-1 size-3.5 text-white/90"
+                  />
+                </div>
+                <span class="min-w-0 flex-1 truncate text-[13px] text-ink">{{ m.filename }}</span>
               </div>
-              <span class="min-w-0 flex-1 truncate text-[13px] text-ink">{{ m.filename }}</span>
-            </div>
-          </li>
-        </ul>
+            </li>
+          </ul>
+        </template>
+
+        <form v-else class="flex flex-col gap-2" @submit.prevent="addWebsite">
+          <input
+            v-model="websiteInput"
+            type="text"
+            inputmode="url"
+            placeholder="example.com"
+            aria-label="Website address"
+            class="w-full rounded-lg border border-line-strong bg-canvas px-2.5 py-1.5 text-[13px]
+                   text-ink focus:border-ink focus:outline-none"
+          />
+          <AppButton variant="secondary" size="sm" type="submit" block>
+            <IconLanguage class="size-4" />
+            Add website
+          </AppButton>
+          <p v-if="websiteError" class="text-[12px] text-danger">{{ websiteError }}</p>
+          <p class="text-[12px] text-ink-subtle">Shown live. https only.</p>
+        </form>
       </aside>
 
       <!-- Canvas -->
