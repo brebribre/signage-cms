@@ -25,7 +25,7 @@ import AppModal from '@/reusables/AppModal.vue'
 import MediaPicker from '@/reusables/MediaPicker.vue'
 import type { MediaRead } from '@/types/api'
 import ModalActions from '@/reusables/ModalActions.vue'
-import DurationInput from '@/reusables/DurationInput.vue'
+import DurationPicker from '@/reusables/DurationPicker.vue'
 import OverflowMenu from '@/reusables/OverflowMenu.vue'
 import SceneEditor from '@/reusables/SceneEditor.vue'
 import ScreenPreview from '@/reusables/ScreenPreview.vue'
@@ -305,7 +305,16 @@ function sceneLabel(item: DraftItem): string {
           </div>
 
           <div class="flex shrink-0 items-center gap-1">
-            <DurationInput v-model="row.durationSeconds" />
+            <!-- Video plays to its own natural end — there's no trim yet, so the number here
+                 would just be a promise the player doesn't keep. Everything else has no
+                 natural length of its own, so it gets a real duration picker instead. -->
+            <span
+              v-if="row.elements[0]?.kind === 'video'"
+              class="px-2 py-1 text-[13px] tabular-nums text-ink-subtle"
+            >
+              {{ duration(row.elements[0]?.mediaDuration ?? row.durationSeconds) }}
+            </span>
+            <DurationPicker v-else v-model="row.durationSeconds" />
 
             <!-- Wider screens: each action as its own button. -->
             <div class="hidden items-center gap-1 sm:flex">
