@@ -32,9 +32,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
-import kotlin.math.roundToInt
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
 import androidx.media3.common.MediaItem
@@ -70,43 +68,6 @@ private fun contentScaleFor(fit: String): ContentScale = when (fit) {
  *  device-specific bug seen on some hardware. Kept short enough that a wedged screen recovers
  *  within a minute and a half, not an entire shift. */
 private const val DEFAULT_VIDEO_CAP_SECONDS = 90
-
-/**
- * The CSS width every website element is laid out at, before being scaled into its box.
- *
- * Sites choose a layout from the viewport width, so this is what decides whether a screen shows
- * the desktop design or the phone one. 1280 is the smallest width that reliably lands on desktop
- * breakpoints (Bootstrap's `xl`, Tailwind's `xl`, and the common 1200px container all fit), while
- * staying small enough that text is still legible once it is scaled into a half- or quarter-width
- * element rather than the whole screen.
- */
-private const val DESKTOP_CSS_WIDTH_PX = 1280f
-
-/**
- * Forces the page to lay out at a desktop width, and reports what it ended up with.
- *
- * Setting the WebView's zoom is not enough on its own: a site's own `<meta name="viewport">`
- * wins over it, which is why a screen kept getting the phone layout even with a desktop user
- * agent — the page was still being told the window was as wide as the panel's dp, not its
- * pixels. Rewriting that meta tag is the one instruction a browser cannot overrule. `width` alone
- * (no `initial-scale`) leaves the browser to scale the result to fit, which is exactly wanted:
- * it renders at the panel's real resolution rather than upscaling a small layout.
- *
- * Re-applied on every page load, so following a link inside a site keeps the desktop layout.
- */
-private val DESKTOP_VIEWPORT_SCRIPT = """
-    (function () {
-      var m = document.querySelector('meta[name=viewport]');
-      if (!m) { m = document.createElement('meta'); m.name = 'viewport'; document.head.appendChild(m); }
-      m.setAttribute('content', 'width=${DESKTOP_CSS_WIDTH_PX.toInt()}');
-      return JSON.stringify({
-        css: window.innerWidth,
-        dpr: window.devicePixelRatio,
-        chMobile: (navigator.userAgentData ? navigator.userAgentData.mobile : 'n/a'),
-        ua: navigator.userAgent,
-      });
-    })();
-""".trimIndent()
 
 /** Slack over the slot duration before the watchdog fires, so ordinary buffering on bad venue
  *  wifi is not mistaken for a stall. */
@@ -399,97 +360,44 @@ fun PlaybackSurface(
  * the whole app at once (`MainActivity.dispatchTouchEvent`) — and kiosk mode means even a link
  * that opens a new page cannot leave the player.
  */
-/**
- * A signage panel is a big screen, so a site must lay out as it would in a desktop browser
- * window that size. Two things force the phone layout otherwise, and both have to go:
- *
- * The **user agent**: Android's WebView announces itself as a mobile browser ("Android …
- * Mobile", plus the "wv" WebView marker), and responsive sites serve their phone layout on the
- * strength of that alone, whatever the width. Rewritten to the same Chrome, on a desktop OS —
- * derived from the device's own string rather than hard-coded, so the Chrome version stays
- * honest as the system WebView updates.
- *
- * The **viewport**: `width=device-width` resolves to the WebView's width in *density-independent*
- * units, so a full-screen element on a 1080p panel reports ~960 CSS pixels and lands on tablet
- * breakpoints. The view is therefore laid out at the element's real width in pixels — 1920 CSS
- * pixels for a full-screen element on that panel — and scaled back down by the display density,
- * which renders it at native resolution rather than upscaling a small layout. It is the same
- * composition `ScreenPreview.vue` makes in the CMS, so the preview and the panel agree.
- */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 private fun WebsiteElement(url: String) {
-    BoxWithConstraints(Modifier.fillMaxSize().clipToBounds()) {
-        // How wide the page believes the window is, in CSS pixels, is the whole ballgame: it is
-        // what a responsive site picks its layout from. Sizing the view and scaling it by hand
-        // got this wrong, because a CSS pixel is neither a dp nor a device pixel — the browser
-        // derives it from the display density, so the same code produced a different viewport on
-        // every panel, and a narrow enough one served the phone layout.
-        //
-        // Telling the WebView its zoom directly removes the density from the question entirely:
-        // at a scale of (element pixels / DESKTOP_CSS_WIDTH), the layout viewport is
-        // DESKTOP_CSS_WIDTH CSS pixels wide by definition, on any screen, and the browser does
-        // the scaling itself — no extra layer, and it renders at the panel's real resolution.
-        val elementWidthPx = with(LocalDensity.current) { maxWidth.toPx() }
-        val zoomPercent = ((elementWidthPx / DESKTOP_CSS_WIDTH_PX) * 100f)
-            .roundToInt()
-            .coerceIn(1, 1000)
-        AndroidView(
-            modifier = Modifier.fillMaxSize(),
-            factory = { ctx ->
-                WebView(ctx).apply {
-                    setBackgroundColor(android.graphics.Color.BLACK)
-                    settings.javaScriptEnabled = true
-                    settings.domStorageEnabled = true
-                    settings.mediaPlaybackRequiresUserGesture = false
-                    settings.useWideViewPort = true
-                    // NOT loadWithOverviewMode: it would zoom the page out again to fit, undoing
-                    // the zoom set here.
-                    setInitialScale(zoomPercent)
-                    settings.userAgentString = desktopUserAgent(settings.userAgentString)
-                    // Redirects, links and in-page navigation stay in this view instead of
-                    // handing off to a browser — there isn't one to hand off to on a kiosk screen.
-                    // The log line on load is the only way to see, from a screen you cannot
-                    // attach a debugger to, which layout a site actually chose and why.
-                    webViewClient = object : WebViewClient() {
-                        override fun onPageFinished(view: WebView, finishedUrl: String) {
-                            view.evaluateJavascript(DESKTOP_VIEWPORT_SCRIPT) { measured ->
-                                Log.i(
-                                    "FortuWeb",
-                                    "$finishedUrl laid out $measured in a ${view.width}x${view.height}px view",
-                                )
-                            }
-                        }
-                    }
-                    tag = url
-                    loadUrl(url)
-                }
-            },
-            // Only a changed address reloads; comparing against view.url would reload after every
-            // redirect.
-            update = { view ->
-                view.setInitialScale(zoomPercent)
-                if (view.tag != url) {
-                    view.tag = url
-                    view.loadUrl(url)
-                }
-            },
-            onRelease = { it.destroy() },
-        )
-    }
+    AndroidView(
+        modifier = Modifier.fillMaxSize(),
+        factory = { ctx ->
+            WebView(ctx).apply {
+                setBackgroundColor(android.graphics.Color.BLACK)
+                settings.javaScriptEnabled = true
+                settings.domStorageEnabled = true
+                settings.mediaPlaybackRequiresUserGesture = false
+                // Whatever layout the site picks for this viewport, including its phone one.
+                // Forcing a desktop layout — a rewritten user agent, a fixed CSS width, an
+                // initial scale, a rewritten viewport meta tag — was tried and reverted: the
+                // result depended on the site's own meta tags, the panel's density and when
+                // the script happened to run, and it cropped real pages on real hardware.
+                // Fewer moving parts is worth more here than a layout that is wider when it
+                // happens to work.
+                settings.useWideViewPort = true
+                settings.loadWithOverviewMode = true
+                // Redirects, links and in-page navigation stay in this view instead of
+                // handing off to a browser — there isn't one to hand off to on a kiosk screen.
+                webViewClient = WebViewClient()
+                tag = url
+                loadUrl(url)
+            }
+        },
+        // Only a changed address reloads; comparing against view.url would reload after every
+        // redirect.
+        update = { view ->
+            if (view.tag != url) {
+                view.tag = url
+                view.loadUrl(url)
+            }
+        },
+        onRelease = { it.destroy() },
+    )
 }
-
-/**
- * The WebView's own user agent, with everything that says "phone" taken out: the Android
- * platform token becomes a desktop one, and the "Mobile" and WebView ("wv") markers go. Keeping
- * the rest means the Chrome version stays whatever the device actually ships.
- */
-internal fun desktopUserAgent(current: String): String =
-    current
-        .replace(Regex("""Linux; Android [^;)]*(; [^)]*)?"""), "X11; Linux x86_64")
-        .replace("; wv", "")
-        .replace(" Mobile Safari", " Safari")
-        .replace(Regex(""" Mobile(?= )"""), "")
 
 /** Measures [content] at its pre-rotation aspect (swapped for 90°/270°) and rotates it to fill
  *  this box exactly — the Compose equivalent of `cropMath.ts`'s `rotationStyle`, since Compose

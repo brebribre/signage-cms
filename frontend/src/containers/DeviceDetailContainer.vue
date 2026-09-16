@@ -18,7 +18,7 @@ import ModalActions from '@/reusables/ModalActions.vue'
 import AppTabs from '@/reusables/AppTabs.vue'
 import PageTitle from '@/reusables/PageTitle.vue'
 import StatusDot from '@/reusables/StatusDot.vue'
-import type { DeviceOrientation, PlayerReleaseRead } from '@/types/api'
+import type { PlayerReleaseRead } from '@/types/api'
 
 const route = useRoute()
 const router = useRouter()
@@ -72,7 +72,6 @@ const tab = ref<(typeof TABS)[number]['value']>('manage')
 const form = reactive({
   name: '',
   location: '',
-  orientation: 'landscape' as DeviceOrientation,
   timezone: 'UTC',
 })
 
@@ -80,7 +79,6 @@ watch(device, (d) => {
   if (!d) return
   form.name = d.name
   form.location = d.location
-  form.orientation = d.orientation
   form.timezone = d.timezone
 }, { immediate: true })
 
@@ -89,7 +87,6 @@ const isDirty = computed(() => {
   if (!d) return false
   return form.name !== d.name
     || form.location !== d.location
-    || form.orientation !== d.orientation
     || form.timezone !== d.timezone
 })
 
@@ -113,10 +110,6 @@ const zoneOptions = computed(() => {
   return current && !COMMON_ZONES.includes(current) ? [current, ...COMMON_ZONES] : COMMON_ZONES
 })
 
-function onOrientation(e: Event) {
-  form.orientation = (e.target as HTMLSelectElement).value as DeviceOrientation
-}
-
 /**
  * One request carrying every field the user touched — a dropdown that looks as small as
  * "pick a playlist" is really "change what this screen shows in the next 30 seconds", and
@@ -129,7 +122,6 @@ async function onSave() {
   await save({
     name: form.name,
     location: form.location,
-    orientation: form.orientation,
     timezone: form.timezone,
   })
 }
@@ -205,19 +197,6 @@ async function onDelete() {
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <AppInput id="dev-name" v-model="form.name" label="Name" />
           <AppInput id="dev-location" v-model="form.location" label="Location" />
-
-          <div class="flex flex-col gap-1.5">
-            <label class="text-[13px] text-ink-muted">Orientation</label>
-            <select
-              class="rounded-lg border border-line-strong bg-canvas px-3 py-2 text-sm text-ink
-                     focus:border-ink focus:outline-none"
-              :value="form.orientation"
-              @change="onOrientation"
-            >
-              <option value="landscape">Landscape</option>
-              <option value="portrait">Portrait</option>
-            </select>
-          </div>
 
           <div class="flex flex-col gap-1.5">
             <label class="text-[13px] text-ink-muted">Timezone</label>
@@ -305,7 +284,11 @@ async function onDelete() {
       </template>
 
       <template v-else-if="tab === 'settings'">
-        <DeviceSettingsContainer :device-id="device.id" />
+        <DeviceSettingsContainer
+          :device-id="device.id"
+          :orientation="device.orientation"
+          :save-device="save"
+        />
       </template>
 
       <template v-else>

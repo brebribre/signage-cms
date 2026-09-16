@@ -14,8 +14,20 @@ import AppButton from '@/reusables/AppButton.vue'
 import AppCard from '@/reusables/AppCard.vue'
 import AppSwitch from '@/reusables/AppSwitch.vue'
 import { ALL_DAYS, DAY_BITS, WEEKDAYS, WEEKENDS } from '@/types/api'
+import type { DeviceOrientation, DeviceUpdateBody } from '@/types/api'
 
-const props = defineProps<{ deviceId: string }>()
+const props = defineProps<{
+  deviceId: string
+  /** Rotation is a field on the device row, not one of its remote settings. It belongs in this
+   *  tab because this is where someone setting a screen up looks for it — mounting a panel
+   *  sideways is configuration, not an edit to the device's name — but it saves through the
+   *  device endpoint, which is why the parent hands its save down rather than this owning one. */
+  orientation: DeviceOrientation
+  saveDevice: (body: DeviceUpdateBody) => Promise<boolean>
+}>()
+
+/** The one spec whose value does not live in the settings store — see the prop above. */
+const ORIENTATION_KEY = 'orientation'
 
 const { isLoading, isSaving, error, value, reportedValue, setMany } = useDeviceSettings(props.deviceId)
 const { status: power, isActing: powerActing, error: powerError, refresh: refreshPower, override, resume } =
@@ -39,9 +51,15 @@ type SettingSpec =
   | { key: string; label: string; description: string; kind: 'slider'; min: number; max: number; unit?: string }
   | { key: string; label: string; description: string; kind: 'toggle'; onLabel?: string; offLabel?: string }
   | { key: string; label: string; description: string; kind: 'text'; mask?: boolean; maxLength?: number }
+  | { key: string; label: string; description: string; kind: 'select'; options: { value: string; label: string }[] }
   | { key: string; label: string; description: string; kind: 'power_schedule' }
 
 const SETTINGS: SettingSpec[] = [
+  {
+    key: ORIENTATION_KEY, label: 'Rotation', kind: 'select',
+    options: [{ value: 'landscape', label: 'Landscape' }, { value: 'portrait', label: 'Portrait' }],
+    description: 'How the panel is mounted. The screen turns as soon as it picks this up.',
+  },
   {
     key: 'volume', label: 'Volume', kind: 'slider', min: 0, max: 100, unit: '%',
     description: 'Remote speaker volume.',
@@ -75,6 +93,7 @@ function defaultFor(spec: SettingSpec): unknown {
     case 'slider': return spec.min
     case 'toggle': return false
     case 'text': return ''
+    case 'select': return spec.options[0].value
     case 'power_schedule':
       return { enabled: false, days_of_week: ALL_DAYS, power_on: '08:00', power_off: '22:00' } satisfies PowerScheduleValue
   }
@@ -91,6 +110,8 @@ const justSaved = ref(false)
  *  Settings on a screen nobody has configured yet shows its actual current volume, not a
  *  misleading 0%. Only falls back to a hardcoded default when neither exists at all. */
 function currentValue(spec: SettingSpec): unknown {
+  // Rotation's confirmed value is the device's own field, not anything in the settings store.
+  if (spec.key === ORIENTATION_KEY) return props.orientation
   const stored = value(spec.key)
   if (stored !== undefined && stored !== null) return stored
   const reported = reportedValue(spec.key)
@@ -129,6 +150,9 @@ function onSlider(spec: SettingSpec, e: Event) {
 function onText(spec: SettingSpec, e: Event) {
   setDraft(spec, (e.target as HTMLInputElement).value)
 }
+function onSelect(spec: SettingSpec, e: Event) {
+  setDraft(spec, (e.target as HTMLSelectElement).value)
+}
 function onPowerScheduleField(spec: SettingSpec, patch: Partial<PowerScheduleValue>) {
   setDraft(spec, { ...powerDraft(spec), ...patch })
 }
@@ -149,12 +173,20 @@ function reportedCaption(spec: SettingSpec): string | undefined {
 async function onSaveAll() {
   const dirty = dirtySpecs.value
   let ok = true
-  if (dirty.length) {
-    const failedKeys = await setMany(dirty.map((spec) => ({ key: spec.key, value: drafts[spec.key] })))
-    for (const spec of dirty) {
+  const settingsDirty = dirty.filter((spec) => spec.key !== ORIENTATION_KEY)
+  if (settingsDirty.length) {
+    const failedKeys = await setMany(settingsDirty.map((spec) => ({ key: spec.key, value: drafts[spec.key] })))
+    for (const spec of settingsDirty) {
       if (!failedKeys.includes(spec.key)) delete drafts[spec.key]
     }
     ok = failedKeys.length === 0
+  }
+  // Same click and same staging as every row above, but a different request: rotation is a
+  // device field, so it goes through the device endpoint the parent owns.
+  if (dirty.some((spec) => spec.key === ORIENTATION_KEY)) {
+    const done = await props.saveDevice({ orientation: drafts[ORIENTATION_KEY] as DeviceOrientation })
+    if (done) delete drafts[ORIENTATION_KEY]
+    ok = ok && done
   }
   // After the schedule, never before: an override made with a schedule on ends at that
   // schedule's next change, so it has to be worked out against the one just saved.
@@ -303,7 +335,19 @@ const reportedMismatch = computed(() => {
                 @input="onText(spec, $event)"
               />
 
-              <!-- A genuinely new control shape (not slider/toggle/text) gets one more
+              <select
+                v-else-if="spec.kind === 'select'"
+                class="rounded-md border border-line-strong bg-canvas px-2 py-1 text-[13px]
+                       text-ink focus:border-ink focus:outline-none"
+                :value="draftValue(spec) as string"
+                @change="onSelect(spec, $event)"
+              >
+                <option v-for="opt in spec.options" :key="opt.value" :value="opt.value">
+                  {{ opt.label }}
+                </option>
+              </select>
+
+              <!-- A genuinely new control shape (not slider/toggle/text/select) gets one more
                    branch here — everything else on this row is already generic. -->
             </div>
           </div>

@@ -61,7 +61,7 @@ sealed interface PlayerState {
     ) : PlayerState
 
     /** Paired but nothing assigned. A valid state, not an error. */
-    data class Idle(val deviceName: String, val orientation: String? = null) : PlayerState
+    data class Idle(val deviceName: String) : PlayerState
 
     /** Paired, but the sync loop is failing — bad network, a server error, a manifest this
      *  build cannot read. Shown rather than left on the splash: a screen stuck on a logo is
@@ -76,7 +76,6 @@ sealed interface PlayerState {
     data class Playing(
         val slots: List<ManifestSlot>,
         val shuffle: Boolean,
-        val orientation: String? = null,
     ) : PlayerState {
         /** Every element across every slot, flattened — what most cache/count logic actually
          *  wants, since it does not care which slot an element belongs to. */
@@ -199,6 +198,15 @@ class PlayerEngine(
      *  effect, so it has nowhere else to live. */
     private val _settings = MutableStateFlow(ManifestSettings())
     val settings = _settings.asStateFlow()
+
+    /** The orientation the CMS has configured, published the moment a manifest is adopted.
+     *  Deliberately not carried on [PlayerState]: state is emitted at the *end* of the content
+     *  pipeline, so a rotation used to wait behind downloading and warming every element —
+     *  on a screen carrying a large video, long enough to look broken. Rotating is a property
+     *  of the screen, not of what happens to be playing on it.
+     */
+    private val _orientation = MutableStateFlow<String?>(null)
+    val orientation = _orientation.asStateFlow()
 
     private var screenWidth = 0
     private var screenHeight = 0
@@ -503,6 +511,7 @@ class PlayerEngine(
 
     private fun adoptSettings(manifest: Manifest) {
         deviceTimezone = manifest.device.timezone
+        _orientation.value = manifest.device.orientation
         _settings.value = manifest.settings
         applySettings(manifest.settings)
         // Straight away, not on the next power check: a "Turn off now" should land with the
@@ -571,7 +580,6 @@ class PlayerEngine(
         _state.value = PlayerState.Playing(
             playable,
             manifest.playlist?.shuffle ?: false,
-            manifest.device.orientation,
         )
         _debug.update {
             it.copy(deviceName = manifest.device.name, version = manifest.version,
@@ -598,7 +606,7 @@ class PlayerEngine(
         }
 
         if (slots.isEmpty()) {
-            _state.value = PlayerState.Idle(manifest.device.name, manifest.device.orientation)
+            _state.value = PlayerState.Idle(manifest.device.name)
             cache.evictExcept(emptyList())
             _debug.update { it.copy(cachedBytes = cache.cachedBytes()) }
             return@withContext
@@ -660,12 +668,11 @@ class PlayerEngine(
         }
 
         if (playable.isEmpty()) {
-            _state.value = PlayerState.Idle(manifest.device.name, manifest.device.orientation)
+            _state.value = PlayerState.Idle(manifest.device.name)
         } else {
             _state.value = PlayerState.Playing(
                 playable,
                 manifest.playlist?.shuffle ?: false,
-                manifest.device.orientation,
             )
         }
 

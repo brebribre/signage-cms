@@ -72,6 +72,10 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     val state = engine.state
 
+    /** Read straight from the engine rather than off [state] — see PlayerEngine.orientation
+     *  for why a rotation must not wait for the content pipeline. */
+    val orientation = engine.orientation
+
     /**
      * The engine's own view of things, with the installer's verdict laid over it.
      *

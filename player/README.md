@@ -126,8 +126,14 @@ because it gets read off a television from across a room.
 `screenOrientation` in its manifest. One APK therefore serves portrait totems and landscape
 panels without a separate build for each.
 
-New devices default to **portrait**, since tall totems are the common case here. Change it on the
-device's page in the CMS; the screen picks it up on its next poll (within 30s) with no reinstall.
+New devices default to **portrait**, since tall totems are the common case here. Change it under
+**Settings** on the device's page in the CMS — staged behind "Save changes" like everything else
+that reaches a screen — and it arrives by push, about a second later, with no reinstall.
+
+The orientation is published on its own flow (`PlayerEngine.orientation`) rather than riding on
+`PlayerState`. State is emitted at the *end* of the content pipeline, so routing rotation through
+it made a screen wait for every element to download and warm up first: on a panel carrying a large
+video, long enough to look like the CMS simply had not worked.
 
 While a screen is still pairing it uses whatever the hardware reports, rather than guessing — a
 pairing code is legible either way, and forcing a guess would make the screen visibly flip once
@@ -307,13 +313,13 @@ What they pin down, each mapping to something that actually broke or could:
 - **one 401 does not unpair a screen; repeated 401s still do**, so a real revocation works
 - content downloads before it is shown, and eviction happens only afterwards
 - one bad file does not stop the rest of the loop
-- **orientation from the manifest reaches the state the UI reads**
+- **orientation reaches the UI, and does not wait for the content pipeline to finish**
 - a 304 changes nothing and re-downloads nothing
 - plays batch onto the next heartbeat and are drained, not resent forever
 - an update is never attempted where it cannot install silently, and a failed one is not retried
 
-Verified by mutation: reintroducing the single-401 wipe or dropping orientation from the state
-each fails three tests.
+Verified by mutation: reintroducing the single-401 wipe fails three tests, and publishing
+orientation only from the state emitted at the end of `applyManifest` fails two.
 
 ## Diagnosing a screen in front of you
 

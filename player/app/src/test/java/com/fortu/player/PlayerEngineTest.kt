@@ -410,7 +410,33 @@ class PlayerEngineTest {
         val job = launch { e.run() }
         advanceTimeBy(1_000)
 
-        assertEquals("portrait", (e.state.value as PlayerState.Playing).orientation)
+        assertEquals("portrait", e.orientation.value)
+        job.cancelAndJoin()
+    }
+
+    @Test
+    fun `a rotation does not wait for the content pipeline`() = runTest {
+        // The bug this replaces: orientation rode on the PlayerState emitted at the *end* of
+        // applyManifest — after every element had been downloaded and warmed, and warming a
+        // video reads the whole file. A screen told to rotate kept the old orientation until
+        // all of that finished, which on a panel carrying a large video looks like the CMS
+        // simply not working.
+        val store = FakeStore(storedToken = "t")
+        val api = FakeApi().apply {
+            manifest = manifest(items = listOf(item("a")), orientation = "portrait")
+        }
+        val e = engine(
+            api = api, store = store,
+            warmMedia = { _, _ -> kotlinx.coroutines.delay(60_000) },
+        )
+        val job = launch { e.run() }
+        advanceTimeBy(1_000)
+
+        assertEquals("portrait", e.orientation.value)
+        assertTrue(
+            "content should still be preparing, or this proves nothing",
+            e.state.value !is PlayerState.Playing,
+        )
         job.cancelAndJoin()
     }
 
@@ -424,7 +450,7 @@ class PlayerEngineTest {
         val job = launch { e.run() }
         advanceTimeBy(1_000)
 
-        assertEquals("landscape", (e.state.value as PlayerState.Idle).orientation)
+        assertEquals("landscape", e.orientation.value)
         job.cancelAndJoin()
     }
 

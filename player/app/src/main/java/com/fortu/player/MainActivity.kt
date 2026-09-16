@@ -138,7 +138,7 @@ class MainActivity : ComponentActivity() {
             val settings by vm.settings.collectAsState()
             var showExitPin by remember { mutableStateOf(false) }
             var exitPinError by remember { mutableStateOf(false) }
-            var appliedOrientation by remember { mutableStateOf<String?>(null) }
+            val orientation by vm.orientation.collectAsState()
 
             // The corner hold that opens the debug overlay is recognised in dispatchTouchEvent
             // above, not here — see its comment.
@@ -146,31 +146,24 @@ class MainActivity : ComponentActivity() {
                 // Applied from the CMS rather than fixed in the manifest, so one APK serves
                 // portrait totems and landscape panels. Re-applied whenever the value
                 // changes, since a screen can be re-oriented without being re-paired.
-                LaunchedEffect(state) {
-                    val orientation = when (val s = state) {
-                        is PlayerState.Playing -> s.orientation
-                        is PlayerState.Idle -> s.orientation
+                LaunchedEffect(orientation) {
+                    // Before the first manifest arrives, leave it to the hardware: a pairing
+                    // code is legible either way, and forcing a guess would make the screen
+                    // visibly flip once the real value lands.
+                    val target = when (orientation) {
+                        "portrait" -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                        "landscape" -> ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
                         else -> null
-                    }
-                    if (orientation != appliedOrientation) {
-                        // Lock Task Mode (Device Owner builds only — see KioskPolicy.apply)
-                        // freezes whatever orientation was active when it started and ignores
-                        // requestedOrientation changes after that. Cycling out of and back
-                        // into lock task around the change is the documented workaround; a
-                        // no-op pair of calls on a non-owner build, which was never locked.
-                        val locked = KioskPolicy.isDeviceOwner(this@MainActivity)
-                        if (locked) runCatching { stopLockTask() }
-                        requestedOrientation = when (orientation) {
-                            "portrait" -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-                            "landscape" -> ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-                            // Before the first manifest arrives, leave it to the hardware: a
-                            // pairing code is legible either way, and forcing a guess would
-                            // make the screen visibly flip once the real value lands.
-                            else -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-                        }
-                        if (locked) runCatching { startLockTask() }
-                        appliedOrientation = orientation
-                    }
+                    } ?: return@LaunchedEffect
+                    // Lock Task Mode (Device Owner builds only — see KioskPolicy.apply)
+                    // freezes whatever orientation was active when it started and ignores
+                    // requestedOrientation changes after that. Cycling out of and back
+                    // into lock task around the change is the documented workaround; a
+                    // no-op pair of calls on a non-owner build, which was never locked.
+                    val locked = KioskPolicy.isDeviceOwner(this@MainActivity)
+                    if (locked) runCatching { stopLockTask() }
+                    requestedOrientation = target
+                    if (locked) runCatching { startLockTask() }
                 }
 
                 // A lock landing while someone is at the screen closes what they had open by
