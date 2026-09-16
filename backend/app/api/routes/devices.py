@@ -11,6 +11,7 @@ from app.schemas.devices import (
     DeviceUpdate,
     DeviceUpdateVersionWrite,
     PairPollResponse,
+    PairStartRequest,
     PairStartResponse,
     ProbeResponse,
 )
@@ -19,6 +20,7 @@ from app.services import scheduling
 from app.services.devices import (
     InvalidPlaylist,
     InvalidTimezone,
+    NotAnAndroidScreen,
     PairingNotFound,
     TooManyClaimAttempts,
 )
@@ -35,10 +37,11 @@ def _read(device) -> DeviceRead:
 
 
 @router.post("/devices/pair", response_model=PairStartResponse, status_code=status.HTTP_201_CREATED)
-def start_pairing(session: DbSession) -> PairStartResponse:
+def start_pairing(session: DbSession, body: PairStartRequest | None = None) -> PairStartResponse:
     """Called by a screen on first boot. Deliberately unauthenticated — the device has no
-    credential yet, and this is how it gets one."""
-    device = device_service.start_pairing(session)
+    credential yet, and this is how it gets one. The body only says which player is asking;
+    the Android player sends none."""
+    device = device_service.start_pairing(session, platform=(body or PairStartRequest()).platform)
     return PairStartResponse(
         device_id=device.id,
         pairing_code=device.pairing_code,
@@ -172,6 +175,10 @@ def set_device_update(
     except UnknownRelease:
         raise HTTPException(
             status.HTTP_404_NOT_FOUND, "That version hasn't been uploaded to R2"
+        ) from None
+    except NotAnAndroidScreen:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "Web screens update themselves when the web player is redeployed"
         ) from None
     return _read(updated)
 

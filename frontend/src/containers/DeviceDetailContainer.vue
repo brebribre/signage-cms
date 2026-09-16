@@ -185,6 +185,10 @@ async function onDelete() {
             <dd class="text-sm text-ink">{{ dimensions(device.screen_width, device.screen_height) }}</dd>
           </div>
           <div>
+            <dt class="text-[13px] text-ink-muted">Player</dt>
+            <dd class="text-sm text-ink">{{ device.platform === 'web' ? 'Web browser' : 'Android' }}</dd>
+          </div>
+          <div>
             <dt class="text-[13px] text-ink-muted">App version</dt>
             <dd class="text-sm text-ink">{{ device.app_version ?? '—' }}</dd>
           </div>
@@ -287,6 +291,7 @@ async function onDelete() {
         <DeviceSettingsContainer
           :device-id="device.id"
           :orientation="device.orientation"
+          :platform="device.platform"
           :save-device="save"
         />
       </template>

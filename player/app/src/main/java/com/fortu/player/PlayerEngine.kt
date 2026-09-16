@@ -534,10 +534,14 @@ class PlayerEngine(
         val zone = deviceTimezone?.let { runCatching { ZoneId.of(it) }.getOrNull() } ?: ZoneId.systemDefault()
         val now = clock()
         val decision = PowerPlan.decide(settings.powerSchedule, settings.powerOverride, now, zone)
-        if (decision != null && decision.on != lastAppliedPower) {
-            Log.i(TAG, "power ${if (decision.on) "on" else "off"} (${decision.source})")
-            runCatching { applyPower(decision.on) }.onFailure { Log.w(TAG, "power apply failed", it) }
-            lastAppliedPower = decision.on
+        // No decision means nothing is configured — but a screen this process put to sleep must
+        // not stay asleep just because the thing that said "off" is gone ("Resume schedule" with
+        // no schedule clears the override entirely, and then nothing would ever say "on").
+        val on = decision?.on ?: if (lastAppliedPower == false) true else null
+        if (on != null && on != lastAppliedPower) {
+            Log.i(TAG, "power ${if (on) "on" else "off"} (${decision?.source ?: "cleared"})")
+            runCatching { applyPower(on) }.onFailure { Log.w(TAG, "power apply failed", it) }
+            lastAppliedPower = on
         }
         val untilChange = decision?.nextChangeMillis?.let { it - now }
         return when {

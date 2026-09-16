@@ -15,7 +15,7 @@ from datetime import datetime
 from sqlmodel import Session, select
 
 from app.config import get_settings
-from app.models import Device, ItemFit, Media, MediaKind, Playlist, PlaylistItem, PlaylistItemElement
+from app.models import Device, DevicePlatform, ItemFit, Media, MediaKind, Playlist, PlaylistItem, PlaylistItemElement
 from app.models.base import utcnow
 from app.infra import storage
 from app.services import device_settings
@@ -291,6 +291,10 @@ def available_update(session: Session, device: Device) -> AvailableUpdate | None
     # what it is running we cannot tell whether an update is needed, and pushing blind risks
     # an install loop on every heartbeat.
     if not device.app_version:
+        return None
+    # A web screen runs whatever `web-player/` is deployed and reloads itself onto a new one;
+    # there is no APK it could install.
+    if device.platform != DevicePlatform.ANDROID:
         return None
 
     # A per-device forced update wins over the fleet rollout entirely, even onto a version the

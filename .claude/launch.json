@@ -4,14 +4,34 @@
     {
       "name": "frontend",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--prefix", "frontend"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "frontend"
+      ],
       "port": 5173
     },
     {
       "name": "docs",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "18081", "--directory", "docs"],
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "18081",
+        "--directory",
+        "docs"
+      ],
       "port": 18081
+    },
+    {
+      "name": "web-player",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "cd web-player && npm run build && PORT=4184 BACKEND_URL=http://localhost:8001 node server.mjs"
+      ],
+      "port": 4184
     }
   ]
 }

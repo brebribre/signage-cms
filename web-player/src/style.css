@@ -1,0 +1,74 @@
+/* Fortu's palette: near-black ink, off-white, mid grey — the same tokens as the CMS and the
+   Android player's ui/Screens.kt. Sizes are in vmin so a screen reads the same on a 720p panel
+   and a 4K one, from across a room. */
+:root {
+  --ink: #101111;
+  --ink-inverse: #f9f9f9;
+  --ink-muted: #7d7d7d;
+  --ink-subtle: #4a4a4a;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+  color: var(--ink-inverse);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  cursor: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#app { position: fixed; inset: 0; overflow: hidden; background: #000; }
+
+/* The configured orientation is drawn here — rotated when it disagrees with the panel. */
+#stage { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden; transform-origin: 0 0; background: #000; }
+
+.screen {
+  position: absolute; inset: 0; background: var(--ink);
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  padding: 0 6vmin;
+}
+.col { display: flex; flex-direction: column; align-items: center; }
+.brand { font-size: 5vmin; font-weight: 500; letter-spacing: 1.1vmin; }
+.muted { color: var(--ink-muted); }
+.subtle { color: var(--ink-subtle); }
+.code { font-size: 20vmin; font-weight: 500; letter-spacing: 2.6vmin; margin-right: -2.6vmin; margin-top: 2.5vmin; line-height: 1.1; }
+.row { display: flex; align-items: center; gap: 1.6vmin; }
+.dot { width: 1.6vmin; height: 1.6vmin; border-radius: 50%; background: var(--ink-inverse); animation: pulse 0.9s linear infinite alternate; }
+@keyframes pulse { from { opacity: 0.25; } to { opacity: 1; } }
+.progress { width: 50%; height: 0.6vmin; background: rgba(125, 125, 125, 0.3); margin-top: 4.5vmin; overflow: hidden; }
+.progress > div { height: 100%; background: var(--ink-inverse); transition: width 0.3s; }
+
+/* Playback */
+.slot { position: absolute; inset: 0; background: #000; opacity: 0; transition: opacity 0.3s linear; }
+.slot.shown { opacity: 1; }
+.el { position: absolute; overflow: hidden; }
+.el-inner { position: absolute; }
+.el img, .el video, .el iframe { display: block; width: 100%; height: 100%; border: 0; background: #000; }
+
+/* Power off: nothing but black, over everything but the debug overlay. */
+#sleep { position: absolute; inset: 0; background: #000; z-index: 50; cursor: none; }
+/* Brightness is not a browser control; nothing here pretends otherwise. */
+
+/* Touch lock: sits over websites too, which swallow input the page itself never sees. */
+#shield { position: absolute; inset: 0; z-index: 60; background: transparent; }
+
+#debug {
+  position: absolute; inset: 0; z-index: 100; background: rgba(16, 17, 17, 0.9);
+  display: flex; align-items: center; justify-content: center; cursor: default;
+}
+#debug dl { display: grid; grid-template-columns: auto auto; gap: 0.9vmin 3vmin; margin: 0; font-size: 2.6vmin; }
+#debug dt { color: var(--ink-muted); }
+#debug dd { margin: 0; max-width: 60vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#debug button {
+  display: block; margin-top: 2vmin; padding: 0.6vmin 0; background: none; border: 0; border-bottom: 2px solid transparent;
+  color: var(--ink-inverse); font: inherit; font-size: 2.8vmin; font-weight: 500; cursor: pointer; text-align: left;
+}
+#debug button:focus { outline: none; border-bottom-color: var(--ink-inverse); }
+#debug .hint { margin-top: 1vmin; font-size: 2vmin; color: var(--ink-muted); }

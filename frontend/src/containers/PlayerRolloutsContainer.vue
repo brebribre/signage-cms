@@ -21,7 +21,10 @@ import PageTitle from '@/reusables/PageTitle.vue'
 import type { DeviceRead, PlayerReleaseRead, PlayerRolloutRead } from '@/types/api'
 
 const { releases, rollouts, isLoading, isSaving, error, schedule, cancel, pinDevices, cancelPin } = usePlayerRollouts()
-const { items: devices, resolved, refresh: refreshDevices } = useDevices()
+const { items: allDevices, resolved, refresh: refreshDevices } = useDevices()
+/** Only Android screens install player builds — a web screen reloads onto the newest web
+ *  player deploy instead, so it has no place in version counts or the screen picker. */
+const devices = computed(() => allDevices.value.filter((d) => d.platform !== 'web'))
 const { items: playlists } = usePlaylists()
 const { nowPlaying } = useNowPlaying(resolved, playlists)
 const { bytes, date, dateTime } = useFormat()

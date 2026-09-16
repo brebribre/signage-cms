@@ -204,6 +204,27 @@ def main() -> None:
     r = o.post("/devices/claim", json={"pairing_code": codes[0], "name": "After limit"})
     check("a genuine claim succeeds once the limit resets", r.status_code == 201, str(r.status_code))
 
+    print("\na web screen pairs the same way, and says what it is")
+    r = device.post("/devices/pair", json={"platform": "web"})
+    check("a web screen gets a code too", r.status_code == 201, str(r.status_code))
+    web_pair = r.json()
+    r = o.post("/devices/claim", json={"pairing_code": web_pair["pairing_code"], "name": "Smart TV"})
+    web_id = r.json()["id"]
+    check("it is recorded as a web screen", r.json()["platform"] == "web", r.json().get("platform"))
+    web_poll = device.get(f"/devices/pair/{web_pair['poll_token']}").json()
+    check("it collects a device token", bool(web_poll["device_token"]))
+    check("it is given no broker credential it could never use", web_poll.get("mqtt_password") is None)
+    web_headers = {"Authorization": f"Bearer {web_poll['device_token']}"}
+    check("its token reads the manifest",
+          device.get("/device/manifest", headers=web_headers).status_code == 200)
+    r = device.post("/device/heartbeat", headers=web_headers, json={"app_version": "web-1.0.0"})
+    check("it heartbeats", r.status_code == 200, str(r.status_code))
+    check("it is never offered an APK", r.json()["update"] is None)
+    check("an APK cannot be pinned to it",
+          o.post(f"/devices/{web_id}/update", json={"version": "1.0.0"}).status_code == 409)
+    check("an Android screen (empty pair body) is still android",
+          o.get(f"/devices/{device_id}").json()["platform"] == "android")
+
     print("\ndelete")
     check("deleting a screen returns 204", o.delete(f"/devices/{device_id}").status_code == 204)
     check("...and it is gone", o.get(f"/devices/{device_id}").status_code == 404)

@@ -13,6 +13,16 @@ class DeviceOrientation(StrEnum):
     PORTRAIT = "portrait"
 
 
+class DevicePlatform(StrEnum):
+    """Which player a screen runs. Declared by the screen itself when it asks for a pairing
+    code — it is the only party that knows. Decides whether player APK rollouts apply to it:
+    a web screen updates by reloading the newest deploy of `web-player/`, never by installing
+    anything."""
+
+    ANDROID = "android"
+    WEB = "web"
+
+
 class Device(SQLModel, table=True):
     """A screen.
 
@@ -69,6 +79,11 @@ class Device(SQLModel, table=True):
     orientation: DeviceOrientation = Field(
         default=DeviceOrientation.PORTRAIT,
         sa_column=enum_column(DeviceOrientation, nullable=False),
+    )
+
+    platform: DevicePlatform = Field(
+        default=DevicePlatform.ANDROID,
+        sa_column=enum_column(DevicePlatform, nullable=False, server_default=DevicePlatform.ANDROID.value),
     )
 
     # --- Reported by the device on each heartbeat ---

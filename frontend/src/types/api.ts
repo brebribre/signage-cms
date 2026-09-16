@@ -171,6 +171,10 @@ export interface ItemWrite {
 
 export type DeviceOrientation = 'landscape' | 'portrait'
 
+/** Which player the screen runs. A web screen updates by reloading the deployed web player,
+ *  so software rollouts (APKs) never apply to it. */
+export type DevicePlatform = 'android' | 'web'
+
 export interface DeviceRead {
   id: string
   name: string
@@ -178,6 +182,7 @@ export interface DeviceRead {
   /** IANA name. Schedules are expressed in this screen's local wall clock. */
   timezone: string
   orientation: DeviceOrientation
+  platform: DevicePlatform
   playlist_id: string | null
   screen_width: number | null
   screen_height: number | null

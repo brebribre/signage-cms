@@ -14,7 +14,7 @@ import AppButton from '@/reusables/AppButton.vue'
 import AppCard from '@/reusables/AppCard.vue'
 import AppSwitch from '@/reusables/AppSwitch.vue'
 import { ALL_DAYS, DAY_BITS, WEEKDAYS, WEEKENDS } from '@/types/api'
-import type { DeviceOrientation, DeviceUpdateBody } from '@/types/api'
+import type { DeviceOrientation, DevicePlatform, DeviceUpdateBody } from '@/types/api'
 
 const props = defineProps<{
   deviceId: string
@@ -23,6 +23,8 @@ const props = defineProps<{
    *  sideways is configuration, not an edit to the device's name — but it saves through the
    *  device endpoint, which is why the parent hands its save down rather than this owning one. */
   orientation: DeviceOrientation
+  /** A web screen has no app to exit, so the exit PIN is not offered for it. */
+  platform: DevicePlatform
   saveDevice: (body: DeviceUpdateBody) => Promise<boolean>
 }>()
 
@@ -85,7 +87,9 @@ const SETTINGS: SettingSpec[] = [
 // The schedule renders inside the Power card (see the template) rather than through the
 // generic per-spec loop — it and the on/off actions are one feature to whoever is configuring
 // it, not two unrelated settings that happen to both be about power.
-const listedSettings = computed(() => SETTINGS.filter((s) => s.key !== 'power_schedule'))
+const listedSettings = computed(() =>
+  SETTINGS.filter((s) => s.key !== 'power_schedule' && !(props.platform === 'web' && s.key === 'app_password')),
+)
 const powerScheduleSpec = SETTINGS.find((s) => s.key === 'power_schedule')!
 
 function defaultFor(spec: SettingSpec): unknown {

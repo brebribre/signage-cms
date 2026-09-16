@@ -3,7 +3,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from app.models import DeviceOrientation
+from app.models import DeviceOrientation, DevicePlatform
 
 
 class DeviceRead(BaseModel):
@@ -12,6 +12,8 @@ class DeviceRead(BaseModel):
     location: str
     timezone: str
     orientation: DeviceOrientation
+    # "android" or "web" — web screens update by reloading, so APK rollouts skip them.
+    platform: DevicePlatform
     playlist_id: uuid.UUID | None
     screen_width: int | None
     screen_height: int | None
@@ -23,6 +25,12 @@ class DeviceRead(BaseModel):
     forced_update_version: str | None
     # When that pinned update may start; None means on the screen's next check-in.
     forced_update_at: datetime | None = None
+
+
+class PairStartRequest(BaseModel):
+    """Optional: the Android player posts an empty body, which is read as "android"."""
+
+    platform: DevicePlatform = DevicePlatform.ANDROID
 
 
 class PairStartResponse(BaseModel):

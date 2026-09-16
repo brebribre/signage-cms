@@ -7,7 +7,7 @@ out empty and the omission is silent.
 
 from app.models.account import Account
 from app.models.campaign import Campaign, CampaignDevice
-from app.models.device import Device, DeviceAccess, DeviceOrientation
+from app.models.device import Device, DeviceAccess, DeviceOrientation, DevicePlatform
 from app.models.device_setting import DeviceSetting
 from app.models.events import DeviceEvent, EventLevel, PlayEvent
 from app.models.media import Media, MediaKind, MediaStatus
@@ -25,6 +25,7 @@ __all__ = [
     "DeviceSetting",
     "DeviceEvent",
     "DeviceOrientation",
+    "DevicePlatform",
     "EventLevel",
     "PlayEvent",
     "ItemFit",

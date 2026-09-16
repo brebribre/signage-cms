@@ -21,6 +21,7 @@ from app.models import (
     Device,
     DeviceAccess,
     DeviceOrientation,
+    DevicePlatform,
     Playlist,
     User,
     UserRole,
@@ -63,6 +64,10 @@ class InvalidTimezone(DomainError):
     pass
 
 
+class NotAnAndroidScreen(DomainError):
+    """A player APK was pinned to a web screen, which has nothing to install it with."""
+
+
 def hash_token(token: str) -> str:
     """sha256 hex. The plaintext token is never stored — see `poll_pairing`."""
     return hashlib.sha256(token.encode()).hexdigest()
@@ -94,7 +99,7 @@ def sweep_expired(session: Session) -> int:
     return result.rowcount or 0
 
 
-def start_pairing(session: Session) -> Device:
+def start_pairing(session: Session, *, platform: DevicePlatform = DevicePlatform.ANDROID) -> Device:
     """Called by the **device**, unauthenticated, on first boot.
 
     Creates a row belonging to nobody. That is the one place in the schema where a row
@@ -103,6 +108,7 @@ def start_pairing(session: Session) -> Device:
     sweep_expired(session)
     settings = get_settings()
     device = Device(
+        platform=platform,
         pairing_code=_new_code(session),
         # The device polls with this, not with the human-readable code, so a code
         # shoulder-surfed off the screen cannot be exchanged for a token.
@@ -152,6 +158,10 @@ def poll_pairing(session: Session, *, poll_token: str) -> tuple[Device, str | No
     session.refresh(device)
 
     mqtt_password = None
+    if device.platform == DevicePlatform.WEB:
+        # A browser cannot open the broker's raw TLS port, so a credential would only ever sit
+        # unused in the dynsec store. The web player polls instead.
+        return device, token, None
     try:
         mqtt_password = mqtt_admin.provision_device(device.id)
     except mqtt_admin.MqttAdminError:
@@ -265,6 +275,8 @@ def set_forced_update(
     straggler that missed a fleet-wide rollout, without touching any other screen.
     See `Device.forced_update_version` and `services/device_sync.py::available_update`, which
     is what actually acts on this."""
+    if device.platform != DevicePlatform.ANDROID:
+        raise NotAnAndroidScreen(str(device.id))
     release = player_releases.find_release(version)
     if release is None:
         raise UnknownRelease(version)

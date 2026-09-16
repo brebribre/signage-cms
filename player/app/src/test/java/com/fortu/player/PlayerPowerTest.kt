@@ -85,6 +85,24 @@ class PlayerPowerTest {
     }
 
     @Test
+    fun `resuming with no schedule wakes a screen that was turned off`() = runTest {
+        val applied = mutableListOf<Boolean>()
+        val api = FakeApi().apply {
+            manifest = withPower("v1", ManifestSettings(powerOverride = PowerOverride("off")))
+        }
+        val e = engine(api, startMillis = at(10), applied = applied)
+        val job = launch { e.run() }
+        advanceTimeBy(1_000)
+        assertEquals(listOf(false), applied)
+
+        // "Resume schedule" with no schedule: the override is deleted, and nothing is left.
+        api.manifest = withPower("v2", ManifestSettings())
+        advanceTimeBy(PlayerEngine.POLL_SECONDS * 1000L + 1_000)
+        assertEquals(listOf(false, true), applied)
+        job.cancelAndJoin()
+    }
+
+    @Test
     fun `the same decision is not re-applied on every check`() = runTest {
         val applied = mutableListOf<Boolean>()
         val api = FakeApi().apply { manifest = withPower("v1", ManifestSettings(powerSchedule = weekdays)) }
