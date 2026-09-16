@@ -4,8 +4,8 @@ import IconFolderOpen from '~icons/material-symbols/folder-open-outline'
 import IconGroup from '~icons/material-symbols/group-outline'
 import IconMonitoring from '~icons/material-symbols/monitoring'
 import IconPhotoLibrary from '~icons/material-symbols/photo-library-outline'
+import IconPlayCircle from '~icons/material-symbols/play-circle-outline'
 import IconPlaylistPlay from '~icons/material-symbols/playlist-play'
-import IconRocket from '~icons/material-symbols/rocket-launch-outline'
 import IconSettings from '~icons/material-symbols/settings-outline'
 import IconSystemUpdate from '~icons/material-symbols/system-update-alt'
 import IconTv from '~icons/material-symbols/tv-outline'
@@ -31,20 +31,24 @@ export interface NavSection {
 export function useNavLinks() {
   const sections: NavSection[] = [
     { title: null, icon: null, links: [{ name: 'now', label: 'Overview', icon: IconMonitoring }] },
+    // What the account owns — the files and the hardware. Both are inventory you add to once
+    // and then draw on; neither says anything on its own about what plays.
     {
-      title: 'Content',
+      title: 'Resources',
       icon: IconFolderOpen,
       links: [
         { name: 'media', label: 'Media', icon: IconPhotoLibrary },
-        { name: 'playlists', label: 'Playlists', icon: IconPlaylistPlay },
+        { name: 'devices', label: 'Devices', icon: IconTv },
       ],
     },
+    // What actually plays: a playlist is the sequence, a campaign puts it on screens on a
+    // schedule. The two are almost always edited together.
     {
-      title: 'Deploy',
-      icon: IconRocket,
+      title: 'Programming',
+      icon: IconPlayCircle,
       links: [
+        { name: 'playlists', label: 'Playlists', icon: IconPlaylistPlay },
         { name: 'campaigns', label: 'Campaigns', icon: IconCampaign },
-        { name: 'devices', label: 'Devices', icon: IconTv },
       ],
     },
   ]

@@ -2,7 +2,6 @@
 import { computed, ref, watch } from 'vue'
 import type { Ref } from 'vue'
 import { useRouter } from 'vue-router'
-import IconPhotoLibrary from '~icons/material-symbols/photo-library-outline'
 import IconPlaylistPlay from '~icons/material-symbols/playlist-play'
 import IconTv from '~icons/material-symbols/tv-outline'
 
@@ -119,19 +118,14 @@ function quotaPercent(used: number, quota: number | null): number | null {
         action="Add screen"
         @action="pairing = true"
       />
+      <!-- One card for "nothing to play yet", whether that's no media, no playlist or both:
+           the playlist editor uploads files itself, so starting at the Media page is a detour
+           that leaves you somewhere you still have to leave again. -->
       <OnboardingCard
-        v-if="needsMedia"
-        :icon="IconPhotoLibrary"
-        title="Upload your first media"
-        description="Images and videos to put on your screens."
-        action="Upload media"
-        @action="router.push({ name: 'media' })"
-      />
-      <OnboardingCard
-        v-if="needsPlaylist"
+        v-if="needsMedia || needsPlaylist"
         :icon="IconPlaylistPlay"
         title="Create your first playlist"
-        description="Arrange media into a loop a screen can play."
+        description="Arrange images and videos into a loop a screen can play — upload them as you go."
         action="New playlist"
         @action="router.push({ name: 'playlists', query: { new: '1' } })"
       />
