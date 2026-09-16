@@ -20,6 +20,13 @@ import { KIND_WEB, type ManifestElement, type ManifestSlot } from '../api'
 const DEFAULT_VIDEO_CAP_SECONDS = 90
 const STALL_GRACE_MILLIS = 5_000
 const CROSSFADE_MILLIS = 300
+/** How long a new slot may take to get its first frame decoded before it is shown anyway. */
+const FIRST_FRAME_TIMEOUT_MILLIS = 4_000
+/** A playing video whose position hasn't moved in this many checks is stuck, not slow. */
+const STALL_CHECK_MILLIS = 5_000
+const STALL_CHECKS = 3
+/** Restarts of one stuck video before its slot gives up on it (when the slot can advance). */
+const MAX_STALL_RESTARTS = 2
 
 export interface PlaybackCallbacks {
   onPlayed: (slot: ManifestSlot, startedAtMillis: number, seconds: number) => void
@@ -39,6 +46,9 @@ export class PlaybackSurface {
   private layer: HTMLElement | null = null
   private timers: number[] = []
   private soundBlockedReported = false
+  private autoplayBlockedReported = false
+  /** Per-layer cleanups (a video's stall watchdog), run when that layer is torn down. */
+  private cleanups = new WeakMap<HTMLElement, Array<() => void>>()
 
   constructor(private readonly root: HTMLElement, private readonly cb: PlaybackCallbacks) {}
 
@@ -118,6 +128,13 @@ export class PlaybackSurface {
     }
 
     const previous = this.layer
+    // Free the outgoing slot's video decoders *before* the new slot asks for one. Most TVs have
+    // exactly one hardware video decoder (some two); a new video that can't get one never paints a
+    // frame and usually reports no error either — a black screen that just sits there. This is the
+    // browser's version of the bug the Android player's surface pool exists to avoid.
+    const previousHadVideo = !!previous?.querySelector('video')
+    if (previous) this.releaseVideos(previous)
+
     const layer = document.createElement('div')
     layer.className = 'slot'
     const width = this.root.clientWidth
@@ -150,22 +167,32 @@ export class PlaybackSurface {
         transform: rotation ? `rotate(${rotation}deg)` : '',
       })
 
-      inner.appendChild(this.render(element, loop, singleVideo && !onlySlot ? finishOnce : null))
+      inner.appendChild(this.render(layer, element, loop, singleVideo && !onlySlot ? finishOnce : null))
       box.appendChild(inner)
       layer.appendChild(box)
     })
 
-    this.root.appendChild(layer)
+    // The new slot goes in *underneath* the old one, fully opaque, and the old one stays on top
+    // until the new one has something to show — so a picture never gives way to a black box while
+    // a video is still opening. Only pictures and websites fade: many TVs draw video on a separate
+    // hardware plane beneath the page, and an opacity transition over one tends to show black.
+    if (previous) this.root.insertBefore(layer, previous)
+    else this.root.appendChild(layer)
     this.layer = layer
-    if (fade && previous) {
-      // Paint the new layer at 0, then fade it in over the old one, which keeps showing its
-      // last frame underneath — never a black flash between two pictures.
-      void layer.offsetWidth
-      layer.classList.add('shown')
-      window.setTimeout(() => this.teardown(previous), CROSSFADE_MILLIS)
-    } else {
-      layer.classList.add('shown')
-      if (previous) this.teardown(previous)
+    if (previous && previousHadVideo) {
+      // Its videos were just released, so it has nothing left worth keeping on top.
+      this.teardown(previous)
+    } else if (previous) {
+      const hasVideo = slot.elements.some((el) => el.kind === 'video')
+      void this.firstFrame(layer).then(() => {
+        if (fade && !hasVideo) {
+          previous.style.transition = `opacity ${CROSSFADE_MILLIS}ms linear`
+          previous.style.opacity = '0'
+          window.setTimeout(() => this.teardown(previous), CROSSFADE_MILLIS)
+        } else {
+          this.teardown(previous)
+        }
+      })
     }
 
     if (onlySlot) {
@@ -189,7 +216,33 @@ export class PlaybackSurface {
     return element.media_id ?? element.id
   }
 
-  private render(element: ManifestElement, loop: boolean, onFinished: ((reason: string | null) => void) | null): HTMLElement {
+  /** Resolves once every picture and video in [layer] has something to show, or after
+   *  [FIRST_FRAME_TIMEOUT_MILLIS] — a file that never loads must not hold the old slot forever. */
+  private firstFrame(layer: HTMLElement): Promise<void> {
+    const waits: Array<Promise<void>> = []
+    layer.querySelectorAll('img').forEach((img) => {
+      if (!img.complete) waits.push(new Promise((r) => { img.addEventListener('load', () => r(), { once: true }); img.addEventListener('error', () => r(), { once: true }) }))
+    })
+    layer.querySelectorAll('video').forEach((video) => {
+      if (video.readyState < 2) waits.push(new Promise((r) => { video.addEventListener('loadeddata', () => r(), { once: true }); video.addEventListener('error', () => r(), { once: true }) }))
+    })
+    const timeout = new Promise<void>((r) => window.setTimeout(r, FIRST_FRAME_TIMEOUT_MILLIS))
+    return Promise.race([Promise.all(waits).then(() => undefined), timeout])
+  }
+
+  /** What the first video on screen is doing, for the debug overlay — the one place a black
+   *  screen can be told apart: still loading, stuck, refused by the decoder, or blocked. */
+  videoStatus(): string {
+    const video = this.layer?.querySelector('video')
+    if (!video) return 'none on screen'
+    if (video.error) return `error ${video.error.code}: ${video.error.message || 'cannot decode this file'}`
+    const states = ['no data', 'metadata only', 'first frame', 'buffering ahead', 'playing through']
+    const size = video.videoWidth ? ` · ${video.videoWidth}×${video.videoHeight}` : ''
+    const where = `${video.currentTime.toFixed(1)}s${Number.isFinite(video.duration) ? ` of ${video.duration.toFixed(0)}s` : ''}`
+    return `${video.paused ? 'paused' : 'playing'} ${where} · ${states[video.readyState] ?? video.readyState}${size}${video.muted ? ' · muted' : ''}`
+  }
+
+  private render(layer: HTMLElement, element: ManifestElement, loop: boolean, onFinished: ((reason: string | null) => void) | null): HTMLElement {
     const src = this.sources[element.checksum] ?? element.url
     const fit = objectFit(element.fit)
 
@@ -213,7 +266,14 @@ export class PlaybackSurface {
       // Every video is silent unless the CMS says it carries sound, same as Android.
       video.muted = !element.has_audio
       if (element.has_audio) video.volume = this.cb.volume()
-      if (onFinished) video.onended = () => onFinished(null)
+      video.onended = () => {
+        if (onFinished) onFinished(null)
+        // Some TV browsers ignore `loop` for certain files and stop on the last frame instead.
+        else if (loop) {
+          video.currentTime = 0
+          this.play(video)
+        }
+      }
       video.onerror = () => {
         const message = `${this.nameOf(element)}: ${video.error?.message || `media error ${video.error?.code ?? ''}`}`
         // One unplayable file must never stop the loop on a black screen.
@@ -222,6 +282,7 @@ export class PlaybackSurface {
       }
       video.src = src
       this.play(video)
+      this.watchForStall(layer, video, element, onFinished)
       return video
     }
 
@@ -247,7 +308,16 @@ export class PlaybackSurface {
     const attempt = video.play()
     if (!attempt) return
     attempt.catch((e: DOMException) => {
-      if (e?.name !== 'NotAllowedError' || video.muted) return
+      if (e?.name !== 'NotAllowedError') return
+      if (video.muted) {
+        // Refused even silent — this browser allows no autoplay at all, so the video sits on
+        // black until someone presses a key. Only the TV browser's own settings can change that.
+        if (!this.autoplayBlockedReported) {
+          this.autoplayBlockedReported = true
+          this.cb.onError("The browser won't start video on its own — allow autoplay in the TV browser's settings, or press a key on the remote")
+        }
+        return
+      }
       video.muted = true
       void video.play().catch(() => {})
       if (!this.soundBlockedReported) {
@@ -257,7 +327,51 @@ export class PlaybackSurface {
     })
   }
 
-  private teardown(layer: HTMLElement) {
+  /**
+   * A video that stops moving with no error — the decoder wedged, the network stalled while
+   * streaming, the TV quietly paused it — is restarted rather than left black. On the single-video
+   * path, a video that keeps sticking gives way to the next slot, like Android's watchdog.
+   */
+  private watchForStall(
+    layer: HTMLElement,
+    video: HTMLVideoElement,
+    element: ManifestElement,
+    onFinished: ((reason: string | null) => void) | null,
+  ) {
+    let lastTime = -1
+    let stuckChecks = 0
+    let restarts = 0
+    const timer = window.setInterval(() => {
+      if (video.ended || video.error) return
+      const moving = video.currentTime !== lastTime && !video.paused
+      lastTime = video.currentTime
+      if (moving) {
+        stuckChecks = 0
+        return
+      }
+      if (video.paused) this.play(video) // quietly paused by the browser: just ask again
+      if (++stuckChecks < STALL_CHECKS) return
+      stuckChecks = 0
+      restarts++
+      if (onFinished && restarts > MAX_STALL_RESTARTS) {
+        onFinished(`${this.nameOf(element)}: video kept stalling — skipped`)
+        return
+      }
+      this.cb.onError(`${this.nameOf(element)}: video stuck at ${video.currentTime.toFixed(1)}s — restarting it`)
+      const at = video.currentTime
+      video.addEventListener('loadedmetadata', () => { if (at > 0) video.currentTime = at }, { once: true })
+      video.load()
+      this.play(video)
+    }, STALL_CHECK_MILLIS)
+    const list = this.cleanups.get(layer) ?? []
+    list.push(() => clearInterval(timer))
+    this.cleanups.set(layer, list)
+  }
+
+  /** Stops a layer's videos and gives their decoders back, leaving the layer itself in place. */
+  private releaseVideos(layer: HTMLElement) {
+    this.cleanups.get(layer)?.forEach((fn) => fn())
+    this.cleanups.delete(layer)
     layer.querySelectorAll('video').forEach((v) => {
       v.onended = null
       v.onerror = null
@@ -265,6 +379,10 @@ export class PlaybackSurface {
       v.removeAttribute('src')
       v.load()
     })
+  }
+
+  private teardown(layer: HTMLElement) {
+    this.releaseVideos(layer)
     layer.remove()
   }
 }

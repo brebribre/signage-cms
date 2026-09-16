@@ -328,6 +328,7 @@ async function boot() {
       {
         player: `${__PLAYER_VERSION__} · ${navigator.userAgent.match(/(Tizen|Web0S|webOS|Android|CrOS|Windows|Mac OS X|Linux)/)?.[1] ?? 'browser'}`,
         screen: `${window.innerWidth}×${window.innerHeight} @${window.devicePixelRatio || 1}x${rotated ? ' · rotated' : ''}`,
+        video: surface.videoStatus(),
         'wake lock': wakeLockState,
         'full screen': !fullscreenSupported ? 'not supported by this browser'
           : isFullscreen() ? 'yes' : fullscreenRefused ? 'refused by the browser' : 'no — press OK',
