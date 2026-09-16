@@ -1,6 +1,6 @@
 # Deploy — Fortu CMS
 
-Two Railway services in one project (`fortu-cms`), plus a managed Postgres and a
+Three app services in one project (`fortu-cms`), plus a managed Postgres and a
 Cloudflare R2 bucket. Auto-deploy on push to `main`, connected through the dashboard's
 Settings → Source flow — connecting a source any other way (e.g. `railway config apply`)
 registers no GitHub webhook, and the service silently stops redeploying on push.
@@ -11,6 +11,7 @@ registers no GitHub webhook, and the service silently stops redeploying on push.
 |---|---|---|---|
 | `backend` | `backend` | `uvicorn app.main:app --host 0.0.0.0 --port $PORT` (via `backend/railpack.json`) | `https://signage-cms-production.up.railway.app` |
 | `frontend` | `frontend` | `node server.mjs` (`npm run build` at build time) | `https://practical-benevolence-production-b7b2.up.railway.app` |
+| `web-player` | `web-player` | `node server.mjs` (`npm run build` at build time) — the browser player for smart TVs, see `web-player/README.md` | `https://web-player-production-cbfe.up.railway.app` |
 | `Postgres` | — | `ghcr.io/railwayapp-templates/postgres-ssl:18` | private only |
 
 `frontend`'s `server.mjs` does two things: serves the built SPA, and reverse-proxies `/api/*`
@@ -84,6 +85,24 @@ of names. The ones that matter for *this* deploy, beyond local defaults:
 the build at compile time — the client always calls its own origin, relatively, and never
 knows the backend's real address at all. A redeploy is required after changing anything in
 it — editing it alone does nothing to an already-built `dist/`.
+
+## Environment variables (web player — `web-player`)
+
+| Variable | Value here | Why |
+|---|---|---|
+| `BACKEND_URL` | `https://signage-cms-production.up.railway.app` | Where `server.mjs` proxies `/api/*`, exactly like `frontend`'s. A screen only ever talks to the web player's own origin, so the backend needs no CORS entry for it. |
+
+Created 2026-09-16 with `railway add --service web-player --repo brebribre/signage-cms`, which
+does create the GitHub deploy trigger. The root directory is **not** settable with
+`railway environment edit` (CLI 5.43–5.57 answer "No changes to apply" to every edit); it was
+set through the GraphQL API's `serviceInstanceUpdate(rootDirectory: "/web-player")` — or
+Settings → Source → Root directory in the dashboard. A screen reloads itself onto a new deploy
+within 5 minutes (it compares `RAILWAY_DEPLOYMENT_ID` from `/version.json`).
+
+**Offline caching needs one more R2 CORS origin** — add
+`https://web-player-production-cbfe.up.railway.app` to the bucket policy below. Until then web
+screens stream every file from R2 instead of caching it: they play fine, but stop if the venue's
+network drops.
 
 ## The two CORS surfaces
 
