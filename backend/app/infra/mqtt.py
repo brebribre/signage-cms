@@ -117,6 +117,26 @@ def check_connection() -> bool:
     return result["ok"]
 
 
+def notify_update_available(*, device_ids: list[uuid.UUID], version: str) -> None:
+    """Wake screens because a new player build is live, not because their content changed.
+
+    The player treats any push as "stop waiting and check in now", and it is the heartbeat that
+    actually carries the update offer — so this only has to arrive, not to say anything clever.
+    It is a separate function from `notify_manifest_changed` because the payload there is a
+    manifest version, and a rollout changes no manifest: sending one would be a lie that a
+    future reader would have to untangle.
+
+    Fire-and-forget per device, off the request thread, same reasoning as below.
+    """
+    settings = get_settings()
+    if not settings.mqtt_enabled:
+        return
+    for device_id in device_ids:
+        threading.Thread(
+            target=_publish, args=(_topic(device_id), f"update:{version}"), daemon=True
+        ).start()
+
+
 def notify_manifest_changed(*, device_id: uuid.UUID, version: str) -> None:
     """Tell one screen its manifest may have changed. Fire-and-forget, off the request thread.
 

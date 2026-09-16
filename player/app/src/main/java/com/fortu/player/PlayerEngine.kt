@@ -151,6 +151,13 @@ class PlayerEngine(
     /** Injected so tests can assert on it without a device-owner check. */
     private val canSelfUpdate: () -> Boolean = { false },
     private val installUpdate: (String) -> Boolean = { false },
+    /** Whether the system rejected the install we last handed over — see
+     *  `kiosk/UpdateResultReceiver`. `PackageInstaller` answers by broadcast long after
+     *  [installUpdate] has returned true, so without folding that verdict back in here a
+     *  rejected update never starts the retry backoff and the screen re-downloads the same
+     *  doomed APK on every heartbeat, forever. Injected rather than read from `UpdateOutcome`
+     *  directly, like everything else Android-shaped in this class. */
+    private val consumeInstallFailure: () -> Boolean = { false },
     /** The real side effects of volume/brightness (`AudioManager`, `Settings.System`) live in
      *  `kiosk/DeviceSettingsApplier.kt`, not here — same reasoning as `installUpdate` above:
      *  this class has no Android dependencies, so anything that needs one is a callback. */
@@ -203,6 +210,11 @@ class PlayerEngine(
      *  is always attempted immediately, cooldown or not — it is a different download, not a
      *  repeat of the one that just failed. */
     private var lastFailedUpdate: Pair<String, Long>? = null
+
+    /** The version handed to the installer and not yet ruled on. Held because the rejection
+     *  that comes back by broadcast doesn't name a version, and [lastFailedUpdate] is keyed
+     *  by one. */
+    private var pendingUpdate: String? = null
 
     /** When the current schedule window ends, as epoch millis. The poll interval is
      *  shortened to land on it. */
@@ -675,11 +687,17 @@ class PlayerEngine(
      */
     private fun performInstall(version: String, url: String) {
         Log.i(TAG, "installing update $version")
+        // Only what is true so far: the install is handed to the system here, and the system
+        // answers later by broadcast (see kiosk/UpdateResultReceiver). Claiming "installed" at
+        // this point is what made a rejected update look like one still in progress.
         _debug.update { it.copy(updateStatus = "installing update $version…") }
         val ok = installUpdate(url)
         if (ok) {
+            // Handed over, not landed: whether it installs is answered later, by broadcast.
+            pendingUpdate = version
             lastFailedUpdate = null
         } else {
+            pendingUpdate = null
             lastFailedUpdate = version to System.currentTimeMillis()
             _debug.update { it.copy(updateStatus = "update $version failed — see logcat") }
         }
@@ -689,6 +707,13 @@ class PlayerEngine(
      *  [UPDATE_RETRY_COOLDOWN_MILLIS] instead of hammering the same failing download — see
      *  [checkForUpdateNow] for the version a person can trigger on demand, which skips this. */
     private fun maybeSelfUpdate(version: String, url: String) {
+        // Collect the installer's verdict on the *previous* hand-off before deciding anything:
+        // it arrives by broadcast, long after the call that started that install returned, so
+        // this is the first moment the engine can learn the attempt actually failed.
+        if (consumeInstallFailure()) {
+            pendingUpdate?.let { lastFailedUpdate = it to System.currentTimeMillis() }
+            pendingUpdate = null
+        }
         if (!canSelfUpdate()) {
             Log.i(TAG, "update $version available but this device cannot install silently")
             return
@@ -697,6 +722,13 @@ class PlayerEngine(
         if (lastFailure != null && lastFailure.first == version &&
             System.currentTimeMillis() - lastFailure.second < UPDATE_RETRY_COOLDOWN_MILLIS
         ) {
+            // Say so rather than returning in silence: from the screen, a backed-off retry and
+            // an update that is doing nothing at all look identical.
+            val waitSeconds =
+                (UPDATE_RETRY_COOLDOWN_MILLIS - (System.currentTimeMillis() - lastFailure.second)) / 1000
+            _debug.update {
+                it.copy(updateStatus = "update $version failed — retrying in ${waitSeconds}s")
+            }
             return
         }
         performInstall(version, url)

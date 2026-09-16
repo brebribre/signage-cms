@@ -33,6 +33,7 @@ class PlayerEngineTest {
         cache: FakeCache = FakeCache(),
         canSelfUpdate: () -> Boolean = { false },
         installUpdate: (String) -> Boolean = { true },
+        consumeInstallFailure: () -> Boolean = { false },
         push: PushClient = NoopPushClient,
         warmMedia: suspend (java.io.File, String) -> Unit = { _, _ -> },
     ) = PlayerEngine(
@@ -43,6 +44,7 @@ class PlayerEngineTest {
         apiBaseUrl = "https://api.example.com",
         canSelfUpdate = canSelfUpdate,
         installUpdate = installUpdate,
+        consumeInstallFailure = consumeInstallFailure,
         warmMedia = warmMedia,
         // The test scheduler's dispatcher, so everything the engine does stays inside
         // virtual time and assertions never race real threads.
@@ -538,6 +540,36 @@ class PlayerEngineTest {
         advanceTimeBy(180_000)
 
         assertEquals("no retry within the cooldown window", 1, installs)
+        job.cancelAndJoin()
+    }
+
+    @Test
+    fun `an update the system rejects afterwards is not retried on every heartbeat`() = runTest {
+        // The dangerous case, and the one that actually happens: handing the APK to
+        // PackageInstaller succeeds, and the rejection (no space, wrong signature, a
+        // downgrade) only comes back by broadcast afterwards. Judged on the hand-off alone
+        // this looks like success, so nothing backed off and the screen re-downloaded the
+        // same doomed build every 30 seconds — observed on the emulator before this existed.
+        var installs = 0
+        var rejected = false
+        val store = FakeStore(storedToken = "t")
+        val api = FakeApi().apply {
+            manifest = manifest()
+            heartbeatResponse = com.fortu.player.api.HeartbeatResponse(
+                version = "v1",
+                update = com.fortu.player.api.UpdateInfo("2.0.0", "https://fake/app.apk"),
+            )
+        }
+        val e = engine(
+            api = api, store = store,
+            canSelfUpdate = { true },
+            installUpdate = { installs++; rejected = true; true },
+            consumeInstallFailure = { rejected.also { rejected = false } },
+        )
+        val job = launch { e.run() }
+        advanceTimeBy(180_000)
+
+        assertEquals("a rejection reported by broadcast must start the same backoff", 1, installs)
         job.cancelAndJoin()
     }
 

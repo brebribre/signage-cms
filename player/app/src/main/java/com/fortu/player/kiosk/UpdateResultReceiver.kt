@@ -24,20 +24,38 @@ class UpdateResultReceiver : BroadcastReceiver() {
         when (val status = intent.getIntExtra(PackageInstaller.EXTRA_STATUS, -1)) {
             PackageInstaller.STATUS_SUCCESS -> {
                 Log.i(TAG, "update installed")
+                UpdateOutcome.report("update installed")
                 relaunch(context)
             }
-            PackageInstaller.STATUS_PENDING_USER_ACTION ->
+            PackageInstaller.STATUS_PENDING_USER_ACTION -> {
                 // Should be unreachable as Device Owner. If it happens, the device is not
                 // actually provisioned and the update silently needs a human — worth a loud
                 // log rather than a silent stall.
                 Log.e(TAG, "update needs user action — device is not Device Owner")
-            else ->
-                Log.e(
-                    TAG,
-                    "update failed status=$status " +
-                        intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE).orEmpty(),
+                UpdateOutcome.report("update needs a human to confirm — not Device Owner")
+            }
+            else -> {
+                val detail = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE).orEmpty()
+                Log.e(TAG, "update failed status=$status $detail")
+                // The screen is the only diagnostic surface on a wall; "installing…" forever is
+                // indistinguishable from a wedged update, so say what the system actually said.
+                UpdateOutcome.reportFailure(
+                    "update failed: ${reasonFor(status)}${if (detail.isBlank()) "" else " — $detail"}"
                 )
+            }
         }
+    }
+
+    /** The installer's codes, in words — a bare "status=4" tells whoever is standing at the
+     *  screen nothing, and low storage in particular is both common and fixable on the spot. */
+    private fun reasonFor(status: Int): String = when (status) {
+        PackageInstaller.STATUS_FAILURE_STORAGE -> "not enough free space"
+        PackageInstaller.STATUS_FAILURE_INVALID -> "the APK was rejected as invalid"
+        PackageInstaller.STATUS_FAILURE_CONFLICT -> "conflicts with the installed app (signature?)"
+        PackageInstaller.STATUS_FAILURE_INCOMPATIBLE -> "incompatible with this device"
+        PackageInstaller.STATUS_FAILURE_BLOCKED -> "blocked by the system"
+        PackageInstaller.STATUS_FAILURE_ABORTED -> "aborted"
+        else -> "status $status"
     }
 
     /** Same pattern as `BootReceiver` — a plain `startActivity()` from a background receiver

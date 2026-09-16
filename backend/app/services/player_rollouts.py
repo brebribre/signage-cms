@@ -13,7 +13,8 @@ from datetime import datetime
 
 from sqlmodel import Session, select
 
-from app.models import PlayerRollout, User
+from app.infra import mqtt
+from app.models import Device, PlayerRollout, User
 from app.models.base import utcnow
 from app.services import player_releases
 from app.services.errors import DomainError
@@ -70,6 +71,22 @@ def schedule(
     session.add(rollout)
     session.commit()
     session.refresh(rollout)
+
+    # Wake every screen in the account, so a rollout lands in seconds instead of whenever each
+    # screen next happens to beat. Only for a rollout that is live *now*: nothing can push at a
+    # future moment, so a scheduled one still relies on the heartbeat that comes after its time
+    # — which is exactly what that heartbeat is for.
+    if rollout.scheduled_at <= utcnow():
+        device_ids = list(
+            session.exec(
+                select(Device.id).where(
+                    Device.account_id == user.account_id, Device.token_hash.is_not(None)
+                )
+            ).all()
+        )
+        if device_ids:
+            mqtt.notify_update_available(device_ids=device_ids, version=rollout.version)
+
     return rollout
 
 

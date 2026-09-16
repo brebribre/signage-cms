@@ -12,8 +12,12 @@ import com.fortu.player.data.DeviceStore
 import com.fortu.player.data.MediaCache
 import com.fortu.player.kiosk.DeviceSettingsApplier
 import com.fortu.player.kiosk.SelfUpdater
+import com.fortu.player.kiosk.UpdateOutcome
 import com.fortu.player.push.MqttPushClient
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
@@ -42,6 +46,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         apiBaseUrl = BuildConfig.API_BASE_URL,
         canSelfUpdate = { SelfUpdater.isSupported(app) },
         installUpdate = { url -> SelfUpdater.downloadAndInstall(app, api.http, url) },
+        consumeInstallFailure = { UpdateOutcome.consumeFailure() },
         applySettings = { settings -> DeviceSettingsApplier.apply(app, settings) },
         currentSettings = { DeviceSettingsApplier.currentSettings(app) },
         applyPower = { on -> DeviceSettingsApplier.applyPower(app, on) },
@@ -66,7 +71,18 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     )
 
     val state = engine.state
-    val debug = engine.debug
+
+    /**
+     * The engine's own view of things, with the installer's verdict laid over it.
+     *
+     * `PackageInstaller` reports asynchronously to a BroadcastReceiver (see
+     * kiosk/UpdateResultReceiver), which has no way to reach the engine — so the engine's status
+     * stops at "installing update X…". Merging the two here is what lets the overlay show how it
+     * actually ended: installed, or the reason it did not.
+     */
+    val debug = combine(engine.debug, UpdateOutcome.last) { debug, outcome ->
+        if (outcome == null) debug else debug.copy(updateStatus = outcome)
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, DebugInfo(apiBaseUrl = BuildConfig.API_BASE_URL))
     /** Read by the exit-PIN dialog in MainActivity — `settings.appPassword` is the current
      *  configured PIN, or null/blank when exit isn't guarded. */
     val settings = engine.settings
