@@ -22,6 +22,8 @@ import AppAlert from '@/reusables/AppAlert.vue'
 import AppButton from '@/reusables/AppButton.vue'
 import AppInput from '@/reusables/AppInput.vue'
 import AppModal from '@/reusables/AppModal.vue'
+import MediaPicker from '@/reusables/MediaPicker.vue'
+import type { MediaRead } from '@/types/api'
 import ModalActions from '@/reusables/ModalActions.vue'
 import DurationInput from '@/reusables/DurationInput.vue'
 import OverflowMenu from '@/reusables/OverflowMenu.vue'
@@ -40,7 +42,7 @@ const {
   playlist, draft, isLoading, isSaving, isDirty, error, saveError, deleteError,
   totalSeconds, enabledCount, addMedia, addWebsite, removeAt, move, save, setShuffle, remove,
 } = usePlaylistEditor(id)
-const { items: library, isLoading: libraryLoading } = useMedia()
+const { items: library, isLoading: libraryLoading, prepend } = useMedia()
 const { items: devices } = useDevices()
 const { duration } = useFormat()
 const { presetId, isCustom, customWidth, customHeight, screen, deviceOptions } =
@@ -49,7 +51,6 @@ const preview = usePlaylistPreview(() => draft.value)
 
 const picking = ref(false)
 const confirmingDelete = ref(false)
-const picked = ref<Set<string>>(new Set())
 const dragFrom = ref<number | null>(null)
 
 // The full-page canvas editor. `editingIsNew` tracks whether `editingItem` is still just a
@@ -58,16 +59,20 @@ const dragFrom = ref<number | null>(null)
 const editingItem = ref<DraftItem | null>(null)
 const editingIsNew = ref(false)
 
-function togglePick(mediaId: string) {
-  const next = new Set(picked.value)
-  next.has(mediaId) ? next.delete(mediaId) : next.add(mediaId)
-  picked.value = next
+/** Files dropped on the Add media button open the picker already uploading them, so the
+ *  drop lands somewhere instead of being swallowed. */
+const pickerFiles = ref<File[]>([])
+function openPicker(files: File[] = []) {
+  pickerFiles.value = files
+  picking.value = true
 }
-
-function confirmPick() {
-  addMedia(library.value.filter((m) => picked.value.has(m.id)))
-  picked.value = new Set()
+function closePicker() {
   picking.value = false
+  pickerFiles.value = []
+}
+function confirmPick(chosen: MediaRead[]) {
+  addMedia(chosen)
+  closePicker()
 }
 
 // "Add media" → Website: one address becomes its own full-bleed scene.
@@ -347,7 +352,8 @@ function sceneLabel(item: DraftItem): string {
       <!-- One big Add media at the end of the list, where the next item would go. -->
       <AddMediaMenu
         variant="block"
-        @use-existing="picking = true"
+        @use-existing="openPicker()"
+        @files="openPicker"
         @add-website="openAddWebsite"
         @create-custom="startCreateCustom"
       />
@@ -403,36 +409,15 @@ function sceneLabel(item: DraftItem): string {
       </div>
     </template>
 
-    <AppModal v-if="picking" title="Add media" @close="picking = false">
-      <p v-if="libraryLoading" class="text-sm text-ink-muted">Loading library…</p>
-      <p v-else-if="!library.length" class="text-sm text-ink-muted">
-        The library is empty. Upload something on the Media page first.
-      </p>
-      <ul v-else class="max-h-80 overflow-y-auto">
-        <li v-for="m in library" :key="m.id">
-          <label class="flex cursor-pointer items-center gap-3 rounded-lg p-2 hover:bg-surface">
-            <input
-              type="checkbox"
-              class="size-4 accent-ink"
-              :checked="picked.has(m.id)"
-              @change="togglePick(m.id)"
-            />
-            <div class="h-9 w-16 shrink-0 overflow-hidden rounded-md bg-raised">
-              <img v-if="m.thumbnail_url" :src="m.thumbnail_url" :alt="m.filename"
-                   class="size-full object-cover" />
-            </div>
-            <span class="min-w-0 flex-1 truncate text-sm text-ink">{{ m.filename }}</span>
-          </label>
-        </li>
-      </ul>
-      <ModalActions>
-        <AppButton variant="secondary" size="sm" @click="picking = false">Cancel</AppButton>
-        <AppButton size="sm" :disabled="!picked.size" @click="confirmPick">
-          <IconCheck class="size-4" />
-          Add {{ picked.size || '' }}
-        </AppButton>
-      </ModalActions>
-    </AppModal>
+    <MediaPicker
+      v-if="picking"
+      :library="library"
+      :is-loading="libraryLoading"
+      :initial-files="pickerFiles"
+      @close="closePicker"
+      @confirm="confirmPick"
+      @uploaded="prepend"
+    />
 
     <AppModal v-if="addingWebsite" title="Add website" @close="addingWebsite = false">
       <form @submit.prevent="confirmWebsite">
@@ -473,6 +458,7 @@ function sceneLabel(item: DraftItem): string {
         :item="editingItem"
         :reference-screen="screen"
         :library="library"
+        @uploaded="prepend"
         @apply="applySceneEdit"
         @close="closeSceneEdit"
       />

@@ -9,6 +9,7 @@ import IconKeyboardArrowDown from '~icons/material-symbols/keyboard-arrow-down'
 import IconKeyboardArrowUp from '~icons/material-symbols/keyboard-arrow-up'
 import IconLanguage from '~icons/material-symbols/language'
 import IconLayersOutline from '~icons/material-symbols/layers-outline'
+import IconAddPhotoAlternateOutline from '~icons/material-symbols/add-photo-alternate-outline'
 import IconPhotoLibraryOutline from '~icons/material-symbols/photo-library-outline'
 import IconRotateRight from '~icons/material-symbols/rotate-right'
 import IconVideocam from '~icons/material-symbols/videocam'
@@ -26,7 +27,9 @@ import { mediaToDraftElement, websiteToDraftElement } from '@/hooks/usePlaylistE
 import { normalizeWebsiteUrl, websiteLabel } from '@/utils/websiteUrl'
 import type { DraftElement, DraftItem } from '@/hooks/usePlaylistEditor'
 import type { MediaRead } from '@/types/api'
+import { useMediaUpload } from '@/hooks/useMediaUpload'
 import AppButton from '@/reusables/AppButton.vue'
+import ProgressBar from '@/reusables/ProgressBar.vue'
 
 /**
  * A full-page canvas editor for one scene: a left toolbar to bring media in, the canvas
@@ -44,7 +47,46 @@ const props = defineProps<{
 const emit = defineEmits<{
   apply: [elements: DraftElement[]]
   close: []
+  /** A file uploaded from inside the scene still belongs in the library — the page that owns
+   *  it prepends, so it is there next time without a refetch. */
+  uploaded: [media: MediaRead]
 }>()
+
+/** Uploading from in here adds to the canvas as well as the library: you went looking for
+ *  "add media" while building a scene, so the file you just picked is wanted *in* the scene.
+ *  Before this, an empty library dead-ended with "upload something on the Media page first",
+ *  which means leaving a half-built scene to do it. */
+const { jobs: uploadJobs, add: addUploads } = useMediaUpload((media) => {
+  emit('uploaded', media)
+  addFromMedia(media)
+})
+const mediaInput = ref<HTMLInputElement | null>(null)
+
+function onMediaFiles(e: Event) {
+  const input = e.target as HTMLInputElement
+  if (input.files?.length) addUploads(input.files)
+  input.value = ''
+}
+
+/** Depth-counted — see MediaPicker for why a boolean flickers. */
+let panelDragDepth = 0
+const isPanelDragOver = ref(false)
+function onPanelDragEnter() {
+  panelDragDepth++
+  isPanelDragOver.value = true
+}
+function onPanelDragLeave() {
+  panelDragDepth--
+  if (panelDragDepth <= 0) isPanelDragOver.value = false
+}
+function onPanelDrop(e: DragEvent) {
+  panelDragDepth = 0
+  isPanelDragOver.value = false
+  const files = Array.from(e.dataTransfer?.files ?? [])
+  if (!files.length) return // an element being dragged within the editor, not a file
+  panel.value = 'media'
+  addUploads(files)
+}
 
 // A local working copy — nothing here reaches the draft scene until Apply.
 const elements = ref<DraftElement[]>(props.item.elements.map((e) => ({ ...e })))
@@ -490,8 +532,41 @@ function apply() {
         </button>
       </nav>
 
-      <aside class="flex w-64 shrink-0 flex-col overflow-y-auto border-r border-line p-3">
+      <aside
+        class="flex w-64 shrink-0 flex-col overflow-y-auto border-r p-3 transition-colors duration-200"
+        :class="isPanelDragOver ? 'border-ink bg-surface' : 'border-line'"
+        @dragenter.prevent="onPanelDragEnter"
+        @dragover.prevent
+        @dragleave.prevent="onPanelDragLeave"
+        @drop.prevent="onPanelDrop"
+      >
         <template v-if="panel === 'media'">
+          <button
+            type="button"
+            class="mb-2 flex items-center justify-center gap-1.5 rounded-lg border border-dashed
+                   border-line-strong px-2 py-2 text-[12px] text-ink-muted transition-colors
+                   duration-200 hover:border-ink hover:text-ink"
+            @click="mediaInput?.click()"
+          >
+            <IconAddPhotoAlternateOutline class="size-4" />
+            Upload, or drop files here
+          </button>
+          <input
+            ref="mediaInput" type="file" accept="image/*,video/*" multiple class="hidden"
+            @change="onMediaFiles"
+          />
+
+          <!-- On the canvas the moment it finishes, so the progress row is the only wait. -->
+          <div v-if="uploadJobs.length" class="mb-2 flex flex-col gap-1.5">
+            <div v-for="job in uploadJobs" :key="job.id" class="rounded-lg bg-surface p-2">
+              <p class="truncate text-[12px] text-ink">{{ job.name }}</p>
+              <p v-if="job.error" class="truncate text-[11px] text-danger" :title="job.error">
+                {{ job.error }}
+              </p>
+              <ProgressBar v-else :value="job.progress" class="mt-1" />
+            </div>
+          </div>
+
           <input
             v-model="mediaQuery"
             type="search"
@@ -500,8 +575,8 @@ function apply() {
             class="mb-3 w-full rounded-lg border border-line-strong bg-canvas px-2.5 py-1.5 text-[13px]
                    text-ink focus:border-ink focus:outline-none"
           />
-          <p v-if="!library.length" class="px-1 text-[13px] text-ink-muted">
-            The library is empty. Upload something on the Media page first.
+          <p v-if="!library.length && !uploadJobs.length" class="px-1 text-[13px] text-ink-muted">
+            Nothing in your library yet. Upload above and it drops straight onto the canvas.
           </p>
           <p v-else-if="!filteredLibrary.length" class="px-1 text-[13px] text-ink-muted">
             Nothing matches that.
