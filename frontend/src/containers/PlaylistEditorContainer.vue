@@ -254,7 +254,10 @@ function sceneLabel(item: DraftItem): string {
           :data-row-index="index"
           class="flex cursor-pointer items-center gap-3 rounded-xl bg-surface p-3 transition-colors duration-200"
           :class="[
-            !row.isEnabled && 'opacity-50',
+            // opacity < 1 promotes the row to its own stacking context, so its ⋮ menu needs an
+            // explicit z-index here or it loses to AddMediaMenu's (later in the DOM, also
+            // positioned) stacking context on DOM order alone and renders underneath it.
+            !row.isEnabled && 'relative z-10 opacity-50',
             dragFrom === index && 'bg-raised',
             preview.current.value?.key === row.key && 'bg-raised ring-2 ring-ink',
           ]"
