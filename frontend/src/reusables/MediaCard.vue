@@ -22,7 +22,7 @@ defineProps<{
       v-if="thumbnailUrl"
       :src="thumbnailUrl"
       :alt="filename"
-      class="size-full object-cover"
+      class="absolute inset-0 size-full object-cover"
       loading="lazy"
     />
     <span

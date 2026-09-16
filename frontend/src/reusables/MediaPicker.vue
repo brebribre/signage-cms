@@ -152,7 +152,7 @@ function confirm() {
         >
           <img
             v-if="m.thumbnail_url" :src="m.thumbnail_url" :alt="m.filename"
-            class="size-full object-cover"
+            class="absolute inset-0 size-full object-cover"
           />
           <component :is="KIND_ICON[m.kind]" class="absolute left-1.5 top-1.5 size-3.5 text-white/90" />
           <span

@@ -82,7 +82,7 @@ async function onSave() {
           :aria-pressed="!!order(m.id)"
           @click="togglePick(m.id)"
         >
-          <img v-if="m.thumbnail_url" :src="m.thumbnail_url" :alt="m.filename" class="size-full object-cover" loading="lazy" />
+          <img v-if="m.thumbnail_url" :src="m.thumbnail_url" :alt="m.filename" class="absolute inset-0 size-full object-cover" loading="lazy" />
           <span v-else class="flex size-full items-center justify-center truncate px-1 text-[11px] text-ink-subtle">
             {{ m.filename }}
           </span>
