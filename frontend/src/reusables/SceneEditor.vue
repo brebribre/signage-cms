@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import IconArrowBack from '~icons/material-symbols/arrow-back'
 import IconCheck from '~icons/material-symbols/check'
 import IconCrop from '~icons/material-symbols/crop'
@@ -7,6 +7,7 @@ import IconDeleteOutline from '~icons/material-symbols/delete-outline'
 import IconImageOutline from '~icons/material-symbols/image-outline'
 import IconKeyboardArrowDown from '~icons/material-symbols/keyboard-arrow-down'
 import IconKeyboardArrowUp from '~icons/material-symbols/keyboard-arrow-up'
+import IconLanguage from '~icons/material-symbols/language'
 import IconLayersOutline from '~icons/material-symbols/layers-outline'
 import IconRotateRight from '~icons/material-symbols/rotate-right'
 import IconVideocam from '~icons/material-symbols/videocam'
@@ -20,7 +21,8 @@ import {
   ROTATION_WRAPPER_STYLE,
   rotationStyle,
 } from '@/utils/cropMath'
-import { mediaToDraftElement } from '@/hooks/usePlaylistEditor'
+import { mediaToDraftElement, websiteToDraftElement } from '@/hooks/usePlaylistEditor'
+import { normalizeWebsiteUrl, websiteLabel } from '@/utils/websiteUrl'
 import type { DraftElement, DraftItem } from '@/hooks/usePlaylistEditor'
 import type { MediaRead } from '@/types/api'
 import AppButton from '@/reusables/AppButton.vue'
@@ -48,7 +50,7 @@ const elements = ref<DraftElement[]>(props.item.elements.map((e) => ({ ...e })))
 const selectedKey = ref<string | null>(null)
 const selected = computed(() => elements.value.find((e) => e.key === selectedKey.value) ?? null)
 
-const KIND_ICON = { image: IconImageOutline, video: IconVideocam } as const
+const KIND_ICON = { image: IconImageOutline, video: IconVideocam, web: IconLanguage } as const
 
 function select(key: string | null) {
   selectedKey.value = key
@@ -85,6 +87,27 @@ const frameStyle = computed(() => ({
 }))
 
 const canvasRef = ref<HTMLElement | null>(null)
+
+// A website is laid out at the reference screen's real pixel size and scaled down with the
+// canvas — same as ScreenPreview.vue — so it shows the layout the screen will.
+const canvasWidth = ref(0)
+let canvasObserver: ResizeObserver | null = null
+onMounted(() => {
+  canvasObserver = new ResizeObserver(() => {
+    canvasWidth.value = canvasRef.value?.clientWidth ?? 0
+  })
+  if (canvasRef.value) canvasObserver.observe(canvasRef.value)
+})
+onUnmounted(() => canvasObserver?.disconnect())
+
+function webFrameStyle(el: DraftElement) {
+  const { width, height } = props.referenceScreen
+  return {
+    width: `${width * el.width}px`,
+    height: `${height * el.height}px`,
+    transform: `scale(${canvasWidth.value / width})`,
+  }
+}
 
 function releaseCapture(e: PointerEvent) {
   const el = e.currentTarget as HTMLElement
@@ -345,6 +368,50 @@ function addFromMedia(m: MediaRead, at?: { x: number; y: number }) {
   select(el.key)
 }
 
+// --- Websites: added from the toolbar's address field, and re-pointed from the right panel. ---
+
+const websiteInput = ref('')
+const websiteError = ref<string | null>(null)
+
+function addWebsite() {
+  const url = normalizeWebsiteUrl(websiteInput.value)
+  if (!url) {
+    websiteError.value = 'Enter a full https:// address'
+    return
+  }
+  websiteError.value = null
+  websiteInput.value = ''
+  const size = 0.6
+  const maxZ = Math.max(0, ...elements.value.map((e) => e.zIndex))
+  const offset = Math.min(0.2 + addStagger, 1 - size)
+  addStagger = (addStagger + 0.03) % 0.15
+  const el = websiteToDraftElement(url, { x: offset, y: offset, width: size, height: size, zIndex: maxZ + 1 })
+  elements.value.push(el)
+  select(el.key)
+}
+
+const selectedUrlDraft = ref('')
+const selectedUrlError = ref<string | null>(null)
+watch(selectedKey, () => {
+  selectedUrlDraft.value = selected.value?.webUrl ?? ''
+  selectedUrlError.value = null
+})
+
+function onSelectedUrlCommit() {
+  const el = selected.value
+  if (!el || el.kind !== 'web') return
+  const url = normalizeWebsiteUrl(selectedUrlDraft.value)
+  if (!url) {
+    selectedUrlError.value = 'Enter a full https:// address'
+    return
+  }
+  selectedUrlError.value = null
+  selectedUrlDraft.value = url
+  el.webUrl = url
+  el.url = url
+  el.filename = websiteLabel(url)
+}
+
 function onToolbarDragStart(m: MediaRead, e: DragEvent) {
   e.dataTransfer?.setData('text/plain', m.id)
   if (e.dataTransfer) e.dataTransfer.effectAllowed = 'copy'
@@ -388,6 +455,26 @@ function apply() {
     <div class="flex min-h-0 flex-1">
       <!-- Left toolbar -->
       <aside class="flex w-60 shrink-0 flex-col overflow-y-auto border-r border-line p-3">
+        <p class="mb-2 px-1 text-[13px] text-ink-subtle">Add website</p>
+        <form class="mb-4 flex flex-col gap-1.5 px-1" @submit.prevent="addWebsite">
+          <div class="flex gap-1.5">
+            <input
+              v-model="websiteInput"
+              type="text"
+              inputmode="url"
+              placeholder="example.com"
+              aria-label="Website address"
+              class="min-w-0 flex-1 rounded-md border border-line-strong bg-canvas px-2 py-1 text-[13px]
+                     text-ink focus:border-ink focus:outline-none"
+            />
+            <AppButton variant="secondary" size="sm" type="submit">
+              <IconLanguage class="size-4" />
+              Add
+            </AppButton>
+          </div>
+          <p v-if="websiteError" class="text-[12px] text-danger">{{ websiteError }}</p>
+        </form>
+
         <p class="mb-2 px-1 text-[13px] text-ink-subtle">Add media</p>
         <p v-if="!library.length" class="px-1 text-[13px] text-ink-muted">
           The library is empty. Upload something on the Media page first.
@@ -452,7 +539,17 @@ function apply() {
               @pointercancel="onElementPointerUp"
             >
               <div class="relative size-full overflow-hidden">
-                <template v-if="el.mediaWidth && el.mediaHeight">
+                <!-- pointer-events-none: the element is dragged, not the page inside it browsed. -->
+                <iframe
+                  v-if="el.kind === 'web'"
+                  :src="el.url"
+                  title=""
+                  class="pointer-events-none absolute left-0 top-0 origin-top-left border-0 bg-white"
+                  :style="webFrameStyle(el)"
+                  referrerpolicy="no-referrer"
+                  sandbox="allow-scripts allow-same-origin"
+                />
+                <template v-else-if="el.mediaWidth && el.mediaHeight">
                   <div :style="cropWrapperStyle(el)">
                     <img
                       v-if="el.kind === 'image'"
@@ -560,7 +657,21 @@ function apply() {
               <p class="min-w-0 truncate text-sm text-ink">{{ selected.filename }}</p>
             </div>
 
-            <div class="flex flex-col gap-2">
+            <form v-if="selected.kind === 'web'" class="flex flex-col gap-2" @submit.prevent="onSelectedUrlCommit">
+              <p class="text-[13px] text-ink-subtle">Address</p>
+              <input
+                v-model="selectedUrlDraft"
+                type="text"
+                inputmode="url"
+                aria-label="Website address"
+                class="rounded-md border border-line-strong bg-canvas px-2 py-1 text-[13px] text-ink
+                       focus:border-ink focus:outline-none"
+                @blur="onSelectedUrlCommit"
+              />
+              <p v-if="selectedUrlError" class="text-[12px] text-danger">{{ selectedUrlError }}</p>
+            </form>
+
+            <div v-else class="flex flex-col gap-2">
               <p class="text-[13px] text-ink-subtle">Transform</p>
               <div class="flex flex-wrap gap-2">
                 <AppButton variant="secondary" size="sm" @click="rotateSelected">

@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from enum import StrEnum
 
-from sqlalchemy import Column, ForeignKey, UniqueConstraint
+from sqlalchemy import CheckConstraint, Column, ForeignKey, UniqueConstraint
 from sqlmodel import Field, SQLModel
 
 from app.models.base import enum_column, tz_column, utcnow
@@ -89,9 +89,17 @@ class PlaylistItemElement(SQLModel, table=True):
     the exact "decodes fine, frame never paints, no error" failure this codebase has already
     been burned by once, just relocated. Images have no decoder to contend for, so they're
     unlimited.
+
+    An element shows either a library file (`media_id`) or a live website (`web_url`) —
+    exactly one, enforced by the check constraint below.
     """
 
     __tablename__ = "playlist_item_elements"
+    __table_args__ = (
+        CheckConstraint(
+            "(media_id IS NULL) <> (web_url IS NULL)", name="ck_element_media_or_web_url"
+        ),
+    )
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     playlist_item_id: uuid.UUID = Field(
@@ -100,12 +108,16 @@ class PlaylistItemElement(SQLModel, table=True):
         )
     )
     # RESTRICT, not CASCADE: deleting a file that is on air must be refused with a 409
-    # naming the playlists, not silently punch a hole in a running screen.
-    media_id: uuid.UUID = Field(
+    # naming the playlists, not silently punch a hole in a running screen. Null for a website.
+    media_id: uuid.UUID | None = Field(
+        default=None,
         sa_column=Column(
-            ForeignKey("media.id", ondelete="RESTRICT"), nullable=False, index=True
-        )
+            ForeignKey("media.id", ondelete="RESTRICT"), nullable=True, index=True
+        ),
     )
+    # A website shown live in this element's box — an iframe in the CMS, a WebView on the
+    # screen. https only (see services/playlists.py). Set instead of `media_id`, never with it.
+    web_url: str | None = Field(default=None)
     # Paint order within the scene — higher draws on top. Not a unique/sequential constraint:
     # the editor just needs *a* stable order, and re-saving the whole list (same pattern as
     # position above) never has to renumber gaps.

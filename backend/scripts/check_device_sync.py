@@ -223,6 +223,36 @@ def main() -> None:
     v_duration = lobby.get("/device/manifest").json()["version"]
     check("editing a duration changes the version", v_duration != v_reorder)
 
+    print("\na website element reaches the device live, not as a file")
+
+    def with_website(url: str) -> None:
+        with Session(engine) as s:
+            playlist_service.replace_items(
+                s, user=s.get(User, owner_id), playlist_id=playlist_id,
+                items=[
+                    ItemSpec(elements=[ElementSpec(media_id=m2_id)], duration_seconds=999),
+                    ItemSpec(elements=[ElementSpec(web_url=url)], duration_seconds=30),
+                    ItemSpec(elements=[ElementSpec(media_id=m2_id)], duration_seconds=5, is_enabled=False),
+                ],
+            )
+
+    with_website("https://example.com/menu")
+    body_w = lobby.get("/device/manifest").json()
+    web_el = body_w["slots"][1]["elements"][0]
+    check("its kind is web", web_el["kind"] == "web", str(web_el["kind"]))
+    check("its url is the address itself, not a presigned file",
+          web_el["url"] == "https://example.com/menu", web_el["url"])
+    check("it has no media id and nothing to download",
+          web_el["media_id"] is None and web_el["bytes"] == 0, str(web_el))
+    check("its checksum is derived from the address", web_el["checksum"].startswith("web-"))
+    check("the flat items list leaves it out for older players",
+          len(body_w["items"]) == 1, str(len(body_w["items"])))
+    v_web = body_w["version"]
+    check("adding a website changes the version", v_web != v_duration)
+    with_website("https://example.com/specials")
+    check("pointing the website somewhere else changes the version",
+          lobby.get("/device/manifest").json()["version"] != v_web)
+
     with Session(engine) as s:
         s.add(Playlist(id=uuid.uuid4(), account_id=acct_id, name="Other")); s.commit()
     with Session(engine) as s:

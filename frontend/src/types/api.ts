@@ -112,7 +112,9 @@ export interface ElementRead {
   has_audio: boolean
   /** Video only. Degrees clockwise (0/90/180/270) to correct a file shot sideways. */
   rotation_degrees: number
-  media: ItemMedia
+  /** A file element's media — null for a website element, which has `web_url` instead. */
+  media: ItemMedia | null
+  web_url: string | null
 }
 
 export interface PlaylistItemRead {
@@ -143,7 +145,9 @@ export interface PlaylistDetail extends PlaylistSummary {
 }
 
 export interface ElementWrite {
-  media_id: string
+  /** Exactly one of these: a library file, or a website (https). */
+  media_id?: string | null
+  web_url?: string | null
   z_index?: number
   x?: number
   y?: number

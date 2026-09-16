@@ -1,8 +1,11 @@
 package com.fortu.player.playback
 
+import android.annotation.SuppressLint
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -39,6 +42,7 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import coil.compose.AsyncImage
 import com.fortu.player.R
+import com.fortu.player.api.KIND_WEB
 import com.fortu.player.api.ManifestElement
 import com.fortu.player.api.ManifestSlot
 import kotlinx.coroutines.delay
@@ -271,9 +275,9 @@ fun PlaybackSurface(
                                     )
                                 }
                             }
-                            // A kind this build predates (an iframe/website element authored
-                            // by a newer CMS) — nothing to render, but not a crash, and every
-                            // other element in the slot still shows correctly.
+                            KIND_WEB -> WebsiteElement(element.url)
+                            // A kind this build predates — nothing to render, but not a crash,
+                            // and every other element in the slot still shows correctly.
                             else -> {}
                         }
                     }
@@ -281,6 +285,48 @@ fun PlaybackSurface(
             }
         }
     }
+}
+
+/**
+ * A website, shown live. It leaves composition with its slot, so it loads fresh each time the
+ * slot comes up and its WebView is destroyed when the slot ends.
+ *
+ * Touchable: scrolling, tapping and links all work, so a wayfinding board or an order page is
+ * usable by whoever is standing there. The CMS's touchscreen lock is what turns that off, for
+ * the whole app at once (`MainActivity.dispatchTouchEvent`) — and kiosk mode means even a link
+ * that opens a new page cannot leave the player.
+ */
+@SuppressLint("SetJavaScriptEnabled")
+@Composable
+private fun WebsiteElement(url: String) {
+    AndroidView(
+        modifier = Modifier.fillMaxSize(),
+        factory = { ctx ->
+            WebView(ctx).apply {
+                setBackgroundColor(android.graphics.Color.BLACK)
+                settings.javaScriptEnabled = true
+                settings.domStorageEnabled = true
+                settings.mediaPlaybackRequiresUserGesture = false
+                // Desktop layout at the element's real size, like a browser window that big.
+                settings.useWideViewPort = true
+                settings.loadWithOverviewMode = true
+                // Redirects, links and in-page navigation stay in this view instead of
+                // handing off to a browser — there isn't one to hand off to on a kiosk screen.
+                webViewClient = WebViewClient()
+                tag = url
+                loadUrl(url)
+            }
+        },
+        // Only a changed address reloads; comparing against view.url would reload after every
+        // redirect.
+        update = { view ->
+            if (view.tag != url) {
+                view.tag = url
+                view.loadUrl(url)
+            }
+        },
+        onRelease = { it.destroy() },
+    )
 }
 
 /** Measures [content] at its pre-rotation aspect (swapped for 90°/270°) and rotates it to fill

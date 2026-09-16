@@ -27,12 +27,19 @@ from app.services import scheduling
 logger = logging.getLogger(__name__)
 
 
+def web_checksum(url: str) -> str:
+    """A website element's stand-in for a file checksum. The device keys everything on
+    checksums, and the manifest version hashes them, so this must change exactly when the
+    address does. Prefixed so it can never collide with a real file's sha256."""
+    return "web-" + hashlib.sha256(url.encode()).hexdigest()
+
+
 def _enabled_items(
     session: Session, playlist_id: uuid.UUID
-) -> list[tuple[PlaylistItem, list[tuple[PlaylistItemElement, Media]]]]:
-    """Playable slots only, in play order, each with its elements (media joined in, paint
-    order). A disabled item is not paused — it does not exist as far as a screen is
-    concerned."""
+) -> list[tuple[PlaylistItem, list[tuple[PlaylistItemElement, Media | None]]]]:
+    """Playable slots only, in play order, each with its elements (media joined in — None for
+    a website — paint order). A disabled item is not paused — it does not exist as far as a
+    screen is concerned."""
     items = session.exec(
         select(PlaylistItem)
         .where(PlaylistItem.playlist_id == playlist_id, PlaylistItem.is_enabled.is_(True))
@@ -43,11 +50,11 @@ def _enabled_items(
     item_ids = [i.id for i in items]
     element_rows = session.exec(
         select(PlaylistItemElement, Media)
-        .join(Media, Media.id == PlaylistItemElement.media_id)
+        .outerjoin(Media, Media.id == PlaylistItemElement.media_id)
         .where(PlaylistItemElement.playlist_item_id.in_(item_ids))
         .order_by(PlaylistItemElement.z_index)
     ).all()
-    by_item: dict[uuid.UUID, list[tuple[PlaylistItemElement, Media]]] = {i.id: [] for i in items}
+    by_item: dict[uuid.UUID, list[tuple[PlaylistItemElement, Media | None]]] = {i.id: [] for i in items}
     for element, media in element_rows:
         by_item[element.playlist_item_id].append((element, media))
     return [(item, by_item[item.id]) for item in items]
@@ -90,7 +97,9 @@ def compute_version(session: Session, device: Device, now: datetime | None = Non
                     item.position,
                     [
                         (
-                            str(el.id), media.checksum, el.z_index, el.x, el.y, el.width,
+                            str(el.id),
+                            media.checksum if media else web_checksum(el.web_url),
+                            el.z_index, el.x, el.y, el.width,
                             el.height, el.fit.value, el.crop_x, el.crop_y, el.crop_zoom,
                             el.has_audio, el.rotation_degrees,
                         )
@@ -125,8 +134,10 @@ def compute_version(session: Session, device: Device, now: datetime | None = Non
 @dataclass
 class ManifestElement:
     id: uuid.UUID
-    media_id: uuid.UUID
-    kind: MediaKind
+    #: None for a website element.
+    media_id: uuid.UUID | None
+    #: A media kind ("image"/"video"), or "web" for a website shown live.
+    kind: str
     url: str
     checksum: str
     bytes: int
@@ -212,15 +223,20 @@ def build_manifest(session: Session, device: Device, *, version: str) -> Manifes
             elements=[
                 ManifestElement(
                     id=el.id,
-                    media_id=media.id,
-                    kind=media.kind,
+                    media_id=media.id if media else None,
+                    kind=media.kind.value if media else "web",
                     # 6 hours, not the CMS's shorter preview TTL: a screen may be pulling a
                     # large file over bad venue wifi. The checksum — not this URL — is the
                     # device's cache key, so a re-issued URL for unchanged content is never
-                    # treated as a re-download.
-                    url=media_service.view_url(media, ttl=settings.device_presign_ttl_seconds),
-                    checksum=media.checksum,
-                    bytes=media.size_bytes,
+                    # treated as a re-download. A website is its own address: nothing to
+                    # download, loaded live.
+                    url=(
+                        media_service.view_url(media, ttl=settings.device_presign_ttl_seconds)
+                        if media
+                        else el.web_url
+                    ),
+                    checksum=media.checksum if media else web_checksum(el.web_url),
+                    bytes=media.size_bytes if media else 0,
                     z_index=el.z_index,
                     x=el.x,
                     y=el.y,

@@ -9,7 +9,8 @@ function toItemWrite(item: PlaylistItemRead): ItemWrite {
     duration_seconds: item.duration_seconds,
     is_enabled: item.is_enabled,
     elements: item.elements.map((e) => ({
-      media_id: e.media.id,
+      media_id: e.media?.id ?? null,
+      web_url: e.web_url,
       z_index: e.z_index,
       x: e.x,
       y: e.y,

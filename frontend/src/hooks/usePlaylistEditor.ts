@@ -3,14 +3,18 @@ import { computed, onMounted, ref } from 'vue'
 import { ApiError } from '@/api/request'
 import { usePlaylistApi } from '@/api/usePlaylistApi'
 import type { ElementRead, ItemFit, MediaRead, PlaylistDetail, PlaylistItemRead } from '@/types/api'
+import { websiteLabel } from '@/utils/websiteUrl'
 
-/** One media element within a scene, positioned/sized/rotated on its own. Mirrors
- *  ElementRead but is local until Save. */
+/** One element within a scene — a library file or a live website — positioned/sized/rotated
+ *  on its own. Mirrors ElementRead but is local until Save. */
 export interface DraftElement {
   key: string
-  mediaId: string
+  /** Null for a website element. */
+  mediaId: string | null
+  /** A website shown live, set instead of `mediaId`. `url` holds the same address. */
+  webUrl: string | null
   filename: string
-  kind: 'image' | 'video'
+  kind: 'image' | 'video' | 'web'
   thumbnailUrl: string | null
   url: string
   mediaWidth: number | null
@@ -38,6 +42,9 @@ export interface DraftItem {
 }
 
 const IMAGE_DEFAULT_SECONDS = 10
+/** Same as the server's default for a website scene: it takes a moment to load, and is
+ *  usually worth reading. */
+const WEB_DEFAULT_SECONDS = 30
 
 /** A fresh element for `media`, full-bleed by default — the common case (one element filling
  *  the whole scene) is just this with no overrides. `SceneEditor.vue` calls this too, with a
@@ -47,6 +54,7 @@ export function mediaToDraftElement(m: MediaRead, overrides: Partial<DraftElemen
   return {
     key: crypto.randomUUID(),
     mediaId: m.id,
+    webUrl: null,
     filename: m.filename,
     kind: m.kind,
     thumbnailUrl: m.thumbnail_url,
@@ -54,6 +62,35 @@ export function mediaToDraftElement(m: MediaRead, overrides: Partial<DraftElemen
     mediaWidth: m.width,
     mediaHeight: m.height,
     mediaDuration: m.duration_seconds,
+    zIndex: 0,
+    x: 0,
+    y: 0,
+    width: 1,
+    height: 1,
+    fit: 'cover',
+    cropX: null,
+    cropY: null,
+    cropZoom: null,
+    hasAudio: false,
+    rotationDegrees: 0,
+    ...overrides,
+  }
+}
+
+/** A fresh website element, full-bleed by default — the website counterpart of
+ *  `mediaToDraftElement`. It has no intrinsic size, so nothing to crop, rotate or unmute. */
+export function websiteToDraftElement(url: string, overrides: Partial<DraftElement> = {}): DraftElement {
+  return {
+    key: crypto.randomUUID(),
+    mediaId: null,
+    webUrl: url,
+    filename: websiteLabel(url),
+    kind: 'web',
+    thumbnailUrl: null,
+    url,
+    mediaWidth: null,
+    mediaHeight: null,
+    mediaDuration: null,
     zIndex: 0,
     x: 0,
     y: 0,
@@ -77,16 +114,8 @@ export function createEmptyItem(): DraftItem {
 }
 
 function toDraftElement(el: ElementRead): DraftElement {
-  return {
+  const placement = {
     key: el.id,
-    mediaId: el.media.id,
-    filename: el.media.filename,
-    kind: el.media.kind,
-    thumbnailUrl: el.media.thumbnail_url,
-    url: el.media.url,
-    mediaWidth: el.media.width,
-    mediaHeight: el.media.height,
-    mediaDuration: el.media.duration_seconds,
     zIndex: el.z_index,
     x: el.x,
     y: el.y,
@@ -98,6 +127,19 @@ function toDraftElement(el: ElementRead): DraftElement {
     cropZoom: el.crop_zoom,
     hasAudio: el.has_audio,
     rotationDegrees: el.rotation_degrees,
+  }
+  if (!el.media) return websiteToDraftElement(el.web_url ?? '', placement)
+  return {
+    ...placement,
+    mediaId: el.media.id,
+    webUrl: null,
+    filename: el.media.filename,
+    kind: el.media.kind,
+    thumbnailUrl: el.media.thumbnail_url,
+    url: el.media.url,
+    mediaWidth: el.media.width,
+    mediaHeight: el.media.height,
+    mediaDuration: el.media.duration_seconds,
   }
 }
 
@@ -120,7 +162,7 @@ export function usePlaylistEditor(id: string) {
       draft.value.map((d) => [
         d.durationSeconds, d.isEnabled,
         d.elements.map((e) => [
-          e.mediaId, e.zIndex, e.x, e.y, e.width, e.height, e.fit,
+          e.mediaId, e.webUrl, e.zIndex, e.x, e.y, e.width, e.height, e.fit,
           e.cropX, e.cropY, e.cropZoom, e.hasAudio, e.rotationDegrees,
         ]),
       ]),
@@ -177,6 +219,17 @@ export function usePlaylistEditor(id: string) {
     }
   }
 
+  /** A website as its own new scene, full-bleed — `addMedia`'s counterpart. `url` must already
+   *  be a normalized https address (see utils/websiteUrl.ts). */
+  function addWebsite(url: string) {
+    draft.value.push({
+      key: crypto.randomUUID(),
+      durationSeconds: WEB_DEFAULT_SECONDS,
+      isEnabled: true,
+      elements: [websiteToDraftElement(url)],
+    })
+  }
+
   function removeAt(index: number) {
     draft.value.splice(index, 1)
   }
@@ -200,6 +253,7 @@ export function usePlaylistEditor(id: string) {
             is_enabled: d.isEnabled,
             elements: d.elements.map((e) => ({
               media_id: e.mediaId,
+              web_url: e.webUrl,
               z_index: e.zIndex,
               x: e.x,
               y: e.y,
@@ -260,6 +314,6 @@ export function usePlaylistEditor(id: string) {
   return {
     playlist, draft, isLoading, isSaving, isDirty, error, saveError, deleteError,
     totalSeconds, enabledCount,
-    addMedia, removeAt, move, save, rename, setShuffle, remove, refresh,
+    addMedia, addWebsite, removeAt, move, save, rename, setShuffle, remove, refresh,
   }
 }

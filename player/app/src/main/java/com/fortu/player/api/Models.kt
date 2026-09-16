@@ -76,6 +76,8 @@ data class ManifestItem(
 data class ManifestElement(
     val id: String,
     @SerialName("media_id") val mediaId: String? = null,
+    /** "image", "video", or [KIND_WEB] — a website loaded live from [url], with nothing to
+     *  download ([checksum] is derived from the address, [bytes] is 0). */
     val kind: String,
     val url: String,
     val checksum: String,
@@ -91,6 +93,9 @@ data class ManifestElement(
     @SerialName("crop_y") val cropY: Float? = null,
     @SerialName("crop_zoom") val cropZoom: Float? = null,
 )
+
+/** A website element: shown live in a WebView, never downloaded or cached. */
+const val KIND_WEB = "web"
 
 /** One playable slot — one or more layered [ManifestElement]s, shown together for
  *  [durationSeconds] before the loop advances. */

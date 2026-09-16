@@ -18,7 +18,10 @@ class PlaylistUpdate(BaseModel):
 
 
 class ElementWrite(BaseModel):
-    media_id: uuid.UUID
+    # Exactly one of these: a library file, or a website shown live (https only). Checked in
+    # services/playlists.py::replace_items, alongside the rest of a scene's rules.
+    media_id: uuid.UUID | None = None
+    web_url: str | None = Field(default=None, max_length=2048)
     z_index: int = 0
     # Normalized against the scene's own frame, deliberately unbounded — see
     # PlaylistItemElement for why a design surface must allow partially-off-canvas elements.
@@ -86,7 +89,9 @@ class ElementRead(BaseModel):
     crop_zoom: float | None
     has_audio: bool
     rotation_degrees: int
-    media: ItemMedia
+    # A file element carries `media`; a website element carries `web_url` instead.
+    media: ItemMedia | None
+    web_url: str | None = None
 
 
 class ItemRead(BaseModel):

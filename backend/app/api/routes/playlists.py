@@ -30,7 +30,7 @@ router = APIRouter(tags=["playlists"])
 NOT_FOUND = HTTPException(status.HTTP_404_NOT_FOUND, "Playlist not found")
 
 
-def _element(element: PlaylistItemElement, media: Media) -> ElementRead:
+def _element(element: PlaylistItemElement, media: Media | None) -> ElementRead:
     return ElementRead(
         id=element.id,
         z_index=element.z_index,
@@ -53,11 +53,14 @@ def _element(element: PlaylistItemElement, media: Media) -> ElementRead:
             width=media.width,
             height=media.height,
             duration_seconds=media.duration_seconds,
-        ),
+        )
+        if media
+        else None,
+        web_url=element.web_url,
     )
 
 
-def _item(item: PlaylistItem, elements: list[tuple[PlaylistItemElement, Media]]) -> ItemRead:
+def _item(item: PlaylistItem, elements: list[tuple[PlaylistItemElement, Media | None]]) -> ItemRead:
     return ItemRead(
         id=item.id,
         position=item.position,
@@ -155,6 +158,7 @@ def replace_items(
                     elements=[
                         ElementSpec(
                             media_id=el.media_id,
+                            web_url=el.web_url.strip() if el.web_url else None,
                             z_index=el.z_index,
                             x=el.x,
                             y=el.y,

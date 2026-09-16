@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import type { CSSProperties } from 'vue'
 
 import {
@@ -51,6 +51,31 @@ const frameStyle = computed(() => ({
 }))
 
 const sortedElements = computed(() => [...props.elements].sort((a, b) => a.zIndex - b.zIndex))
+
+/**
+ * A website is laid out at the screen's real pixel size, then scaled down with the frame — so
+ * the preview shows the desktop layout the screen will, not the phone layout a 300px-wide
+ * iframe would get. The frame's rendered width is measured, since CSS can't divide lengths.
+ */
+const frameRef = ref<HTMLElement | null>(null)
+const frameWidth = ref(0)
+let resizeObserver: ResizeObserver | null = null
+onMounted(() => {
+  resizeObserver = new ResizeObserver(() => {
+    frameWidth.value = frameRef.value?.clientWidth ?? 0
+  })
+  if (frameRef.value) resizeObserver.observe(frameRef.value)
+})
+onUnmounted(() => resizeObserver?.disconnect())
+
+function webStyle(el: DraftElement): CSSProperties {
+  return {
+    width: `${props.screenWidth * el.width}px`,
+    height: `${props.screenHeight * el.height}px`,
+    transform: `scale(${frameWidth.value / props.screenWidth})`,
+    transformOrigin: 'top left',
+  }
+}
 
 function boxStyle(el: DraftElement): CSSProperties {
   return {
@@ -113,11 +138,22 @@ function mediaStyle(el: DraftElement): CSSProperties {
        its exact aspect ratio. The padding leaves room for it inside whatever holds the preview. -->
   <div class="flex flex-col items-center p-2.5">
     <div
+      ref="frameRef"
       class="relative overflow-hidden rounded-sm bg-black outline-[10px] outline-solid outline-ink"
       :style="frameStyle"
     >
       <div v-for="el in sortedElements" :key="el.key" :style="boxStyle(el)">
-        <div :style="wrapperStyle(el)">
+        <!-- Not clickable, like the screen itself. -->
+        <iframe
+          v-if="el.kind === 'web'"
+          :src="el.url"
+          title=""
+          class="pointer-events-none border-0 bg-white"
+          :style="webStyle(el)"
+          referrerpolicy="no-referrer"
+          sandbox="allow-scripts allow-same-origin"
+        />
+        <div v-else :style="wrapperStyle(el)">
           <video
             v-if="el.kind === 'video'"
             :src="el.url"

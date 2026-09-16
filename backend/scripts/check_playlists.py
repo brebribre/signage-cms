@@ -169,10 +169,34 @@ def main() -> None:
          {"items": [{"duration_seconds": 99999, "elements": [{"media_id": str(img_a)}]}]}, 422),
         ("an unknown fit value is refused",
          {"items": [{"elements": [{"media_id": str(img_a), "fit": "warp"}]}]}, 422),
+        ("a plain http website is refused",
+         {"items": [{"elements": [{"web_url": "http://example.com"}]}]}, 422),
+        ("an element with both a file and a website is refused",
+         {"items": [{"elements": [{"media_id": str(img_a), "web_url": "https://example.com"}]}]}, 422),
+        ("an element with neither a file nor a website is refused",
+         {"items": [{"elements": [{}]}]}, 422),
+        ("sound on a website is refused",
+         {"items": [{"elements": [{"web_url": "https://example.com", "has_audio": True}]}]}, 422),
     ]:
         check(label, o.put(f"/playlists/{pid}/items", json=payload).status_code == code)
     check("the failed writes left the list untouched",
           len(o.get(f"/playlists/{pid}").json()["items"]) == 2)
+
+    print("\nwebsites")
+    r = o.put(f"/playlists/{pid}/items", json={"items": [
+        {"elements": [{"media_id": str(img_a)}]},
+        {"elements": [{"web_url": "https://example.com/menu"}]},
+    ]})
+    body = r.json()
+    check("a playlist with a website saves", r.status_code == 200, str(r.status_code))
+    web = body["items"][1]["elements"][0]
+    check("the website element round-trips with no media",
+          web["web_url"] == "https://example.com/menu" and web["media"] is None, str(web))
+    check("a website scene defaults to 30 seconds", body["items"][1]["duration_seconds"] == 30,
+          str(body["items"][1]["duration_seconds"]))
+    summary = next(p for p in o.get("/playlists").json() if p["id"] == pid)
+    check("the list gives a website scene a blank tile",
+          len(summary["thumbnails"]) == 2 and summary["thumbnails"][1] is None, str(summary["thumbnails"]))
 
     print("\nan empty playlist is legal")
     body = o.put(f"/playlists/{pid}/items", json={"items": []}).json()

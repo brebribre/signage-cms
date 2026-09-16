@@ -87,7 +87,9 @@ def get_manifest(device: CurrentDevice, session: DbSession, request: Request) ->
                 has_audio=slot.elements[0].has_audio,
             )
             for slot in manifest.slots
-            if slot.elements
+            # A website can't be flattened into this file-only shape — the players that read
+            # it would try to download the page as media.
+            if slot.elements and slot.elements[0].kind != "web"
         ],
         # The real, unflattened shape — see `ManifestResponse.slots`'s own docstring for why
         # this rides alongside `items` rather than replacing it.

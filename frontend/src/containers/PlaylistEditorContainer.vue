@@ -9,6 +9,7 @@ import IconCheck from '~icons/material-symbols/check'
 import IconVisibility from '~icons/material-symbols/visibility'
 import IconVisibilityOff from '~icons/material-symbols/visibility-off'
 import IconArrowBack from '~icons/material-symbols/arrow-back'
+import IconLanguage from '~icons/material-symbols/language'
 
 import { useDevices } from '@/hooks/useDevices'
 import { useFormat } from '@/hooks/useFormat'
@@ -19,6 +20,7 @@ import { SCREEN_PRESETS, useScreenPresets } from '@/hooks/useScreenPresets'
 import AddMediaMenu from '@/reusables/AddMediaMenu.vue'
 import AppAlert from '@/reusables/AppAlert.vue'
 import AppButton from '@/reusables/AppButton.vue'
+import AppInput from '@/reusables/AppInput.vue'
 import AppModal from '@/reusables/AppModal.vue'
 import ModalActions from '@/reusables/ModalActions.vue'
 import DurationInput from '@/reusables/DurationInput.vue'
@@ -28,6 +30,7 @@ import ScreenPreview from '@/reusables/ScreenPreview.vue'
 import PageTitle from '@/reusables/PageTitle.vue'
 import type { DraftElement, DraftItem } from '@/hooks/usePlaylistEditor'
 import { returnLabel, safeReturnPath } from '@/utils/returnTo'
+import { normalizeWebsiteUrl } from '@/utils/websiteUrl'
 
 const route = useRoute()
 const router = useRouter()
@@ -35,7 +38,7 @@ const id = String(route.params.id)
 
 const {
   playlist, draft, isLoading, isSaving, isDirty, error, saveError, deleteError,
-  totalSeconds, enabledCount, addMedia, removeAt, move, save, setShuffle, remove,
+  totalSeconds, enabledCount, addMedia, addWebsite, removeAt, move, save, setShuffle, remove,
 } = usePlaylistEditor(id)
 const { items: library, isLoading: libraryLoading } = useMedia()
 const { items: devices } = useDevices()
@@ -65,6 +68,27 @@ function confirmPick() {
   addMedia(library.value.filter((m) => picked.value.has(m.id)))
   picked.value = new Set()
   picking.value = false
+}
+
+// "Add media" → Website: one address becomes its own full-bleed scene.
+const addingWebsite = ref(false)
+const websiteInput = ref('')
+const websiteError = ref<string | null>(null)
+
+function openAddWebsite() {
+  websiteInput.value = ''
+  websiteError.value = null
+  addingWebsite.value = true
+}
+
+function confirmWebsite() {
+  const url = normalizeWebsiteUrl(websiteInput.value)
+  if (!url) {
+    websiteError.value = 'Enter a full https:// address'
+    return
+  }
+  addWebsite(url)
+  addingWebsite.value = false
 }
 
 /** Reorders the moment the dragged row crosses into another row, rather than waiting for
@@ -253,12 +277,17 @@ function sceneLabel(item: DraftItem): string {
               <IconDragIndicator class="size-4" aria-hidden="true" />
             </button>
 
-            <div class="size-12 shrink-0 overflow-hidden rounded-md bg-raised">
+            <div class="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-raised">
               <img
                 v-if="row.elements[0]?.thumbnailUrl"
                 :src="row.elements[0].thumbnailUrl"
                 :alt="sceneLabel(row)"
                 class="size-full object-cover"
+              />
+              <IconLanguage
+                v-else-if="row.elements[0]?.kind === 'web'"
+                class="size-5 text-ink-muted"
+                :aria-label="sceneLabel(row)"
               />
             </div>
 
@@ -316,7 +345,12 @@ function sceneLabel(item: DraftItem): string {
       </ul>
 
       <!-- One big Add media at the end of the list, where the next item would go. -->
-      <AddMediaMenu variant="block" @use-existing="picking = true" @create-custom="startCreateCustom" />
+      <AddMediaMenu
+        variant="block"
+        @use-existing="picking = true"
+        @add-website="openAddWebsite"
+        @create-custom="startCreateCustom"
+      />
       </div>
 
       <!-- Reference device + preview. What every "Placement" edit above is aimed at, and
@@ -398,6 +432,27 @@ function sceneLabel(item: DraftItem): string {
           Add {{ picked.size || '' }}
         </AppButton>
       </ModalActions>
+    </AppModal>
+
+    <AppModal v-if="addingWebsite" title="Add website" @close="addingWebsite = false">
+      <form @submit.prevent="confirmWebsite">
+        <AppInput
+          id="website-url"
+          v-model="websiteInput"
+          label="Address"
+          placeholder="example.com"
+          :error="websiteError"
+          hint="Some sites refuse to be embedded and stay blank."
+          required
+        />
+        <ModalActions>
+          <AppButton variant="secondary" size="sm" type="button" @click="addingWebsite = false">Cancel</AppButton>
+          <AppButton size="sm" type="submit">
+            <IconCheck class="size-4" />
+            Add
+          </AppButton>
+        </ModalActions>
+      </form>
     </AppModal>
 
     <AppModal v-if="confirmingDelete" title="Delete this playlist?" @close="confirmingDelete = false">

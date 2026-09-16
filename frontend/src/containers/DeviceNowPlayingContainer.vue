@@ -26,7 +26,15 @@ watch(
 const thumbnails = computed(() =>
   (playlist.value?.items ?? [])
     .filter((item) => item.is_enabled && item.elements.length)
-    .map((item) => item.elements[0].media),
+    .map((item) => {
+      const el = item.elements[0]
+      // A website has no thumbnail — a blank tile, like any media without one.
+      return {
+        id: el.id,
+        thumbnail_url: el.media?.thumbnail_url ?? null,
+        filename: el.media?.filename ?? el.web_url ?? '',
+      }
+    }),
 )
 </script>
 

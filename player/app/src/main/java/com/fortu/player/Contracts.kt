@@ -2,6 +2,7 @@ package com.fortu.player
 
 import com.fortu.player.api.HeartbeatRequest
 import com.fortu.player.api.HeartbeatResponse
+import com.fortu.player.api.KIND_WEB
 import com.fortu.player.api.Manifest
 import com.fortu.player.api.ManifestElement
 import com.fortu.player.api.ManifestItem
@@ -79,7 +80,9 @@ interface MediaStore {
 
 fun MediaStore.isCached(item: ManifestItem): Boolean = isCached(item.checksum, item.bytes)
 fun MediaStore.download(item: ManifestItem) = download(item.checksum, item.url)
-fun MediaStore.isCached(element: ManifestElement): Boolean = isCached(element.checksum, element.bytes)
+/** A website element has nothing to download — it is loaded live — so it always counts as ready. */
+fun MediaStore.isCached(element: ManifestElement): Boolean =
+    element.kind == KIND_WEB || isCached(element.checksum, element.bytes)
 fun MediaStore.download(element: ManifestElement) = download(element.checksum, element.url)
 fun MediaStore.fileFor(element: ManifestElement): File = fileFor(element.checksum)
 

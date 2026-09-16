@@ -26,9 +26,11 @@ class ManifestElement(BaseModel):
     #: The underlying media, distinct from `id` (which identifies the *element*, not the
     #: scene). The device reports this back for proof-of-play, and the server resolves the
     #: filename from it — so the log stays authoritative rather than trusting a name the
-    #: device made up.
-    media_id: uuid.UUID
-    kind: MediaKind
+    #: device made up. None for a website element.
+    media_id: uuid.UUID | None = None
+    #: "image", "video", or "web" — a website, loaded live from `url` (nothing to download;
+    #: `checksum` is derived from the address and `bytes` is 0). Players older than 1.1.2 skip it.
+    kind: str
     url: str
     checksum: str
     bytes: int

@@ -1,9 +1,10 @@
 <script setup lang="ts">
-/** "Add media" as a button with two destinations, used both on the playlist row list and
- *  its empty state: an existing single media item straight from the library, or a new
- *  custom scene built on the full-page canvas editor. */
+/** "Add media" as a button with three destinations, used both on the playlist row list and
+ *  its empty state: an existing single media item straight from the library, a website shown
+ *  live, or a new custom scene built on the full-page canvas editor. */
 import { onMounted, onUnmounted, ref } from 'vue'
 import IconAddPhotoAlternateOutline from '~icons/material-symbols/add-photo-alternate-outline'
+import IconLanguage from '~icons/material-symbols/language'
 import IconPhotoLibraryOutline from '~icons/material-symbols/photo-library-outline'
 
 import AppButton from '@/reusables/AppButton.vue'
@@ -18,7 +19,7 @@ withDefaults(defineProps<{
   size: 'sm',
   variant: 'pill',
 })
-const emit = defineEmits<{ 'use-existing': []; 'create-custom': [] }>()
+const emit = defineEmits<{ 'use-existing': []; 'add-website': []; 'create-custom': [] }>()
 
 const open = ref(false)
 const root = ref<HTMLElement | null>(null)
@@ -38,9 +39,10 @@ onUnmounted(() => {
   document.removeEventListener('keydown', onKey)
 })
 
-function pick(kind: 'existing' | 'custom') {
+function pick(kind: 'existing' | 'website' | 'custom') {
   open.value = false
   if (kind === 'existing') emit('use-existing')
+  else if (kind === 'website') emit('add-website')
   else emit('create-custom')
 }
 </script>
@@ -78,6 +80,18 @@ function pick(kind: 'existing' | 'custom') {
         <span class="min-w-0">
           <span class="block text-sm text-ink">Use existing</span>
           <span class="block truncate text-[12px] text-ink-subtle">Pick from your library</span>
+        </span>
+      </button>
+      <button
+        type="button"
+        class="flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors
+               duration-150 hover:bg-surface"
+        @click="pick('website')"
+      >
+        <IconLanguage class="mt-0.5 size-4 shrink-0 text-ink-muted" />
+        <span class="min-w-0">
+          <span class="block text-sm text-ink">Website</span>
+          <span class="block truncate text-[12px] text-ink-subtle">Show a web page live</span>
         </span>
       </button>
       <button

@@ -3,6 +3,7 @@ shown simultaneously."""
 
 import uuid
 from dataclasses import dataclass, field
+from urllib.parse import urlparse
 
 from sqlmodel import Session, delete, func, select
 
@@ -26,6 +27,8 @@ from app.services.errors import DomainError
 # What an image shows for when nothing says otherwise. A lone video element defaults to its
 # own length instead.
 IMAGE_DEFAULT_SECONDS = 10
+# A website takes a moment to load and is usually worth reading, so it stays up longer.
+WEB_DEFAULT_SECONDS = 30
 MIN_ITEM_SECONDS = 1
 MAX_ITEM_SECONDS = 3600
 # How far a crop can zoom in past the tightest "cover" fit before signage media (rarely
@@ -35,9 +38,11 @@ MAX_CROP_ZOOM = 3.0
 
 @dataclass(frozen=True)
 class ElementSpec:
-    """One media element within a scene, as the client describes it."""
+    """One element within a scene, as the client describes it: a library file (`media_id`) or
+    a live website (`web_url`), exactly one of the two."""
 
-    media_id: uuid.UUID
+    media_id: uuid.UUID | None = None
+    web_url: str | None = None
     z_index: int = 0
     x: float = 0.0
     y: float = 0.0
@@ -143,7 +148,8 @@ def list_playlists(
         thumb_rows = session.exec(
             select(PlaylistItem.playlist_id, PlaylistItem.id, Media.thumbnail_key)
             .join(PlaylistItemElement, PlaylistItemElement.playlist_item_id == PlaylistItem.id)
-            .join(Media, Media.id == PlaylistItemElement.media_id)
+            # Outer: a website element has no media, and still takes its (blank) tile.
+            .outerjoin(Media, Media.id == PlaylistItemElement.media_id)
             .where(
                 PlaylistItem.playlist_id.in_(playlist_ids),
                 PlaylistItem.is_enabled.is_(True),
@@ -168,9 +174,9 @@ def list_playlists(
     ]
 
 
-# A scene's elements, media joined in, ordered for paint (z_index ascending — later draws
-# on top).
-SceneRows = list[tuple[PlaylistItem, list[tuple[PlaylistItemElement, Media]]]]
+# A scene's elements, media joined in (None for a website), ordered for paint (z_index
+# ascending — later draws on top).
+SceneRows = list[tuple[PlaylistItem, list[tuple[PlaylistItemElement, Media | None]]]]
 
 
 def _with_elements(session: Session, items: list[PlaylistItem]) -> SceneRows:
@@ -179,11 +185,11 @@ def _with_elements(session: Session, items: list[PlaylistItem]) -> SceneRows:
     item_ids = [i.id for i in items]
     element_rows = session.exec(
         select(PlaylistItemElement, Media)
-        .join(Media, Media.id == PlaylistItemElement.media_id)
+        .outerjoin(Media, Media.id == PlaylistItemElement.media_id)
         .where(PlaylistItemElement.playlist_item_id.in_(item_ids))
         .order_by(PlaylistItemElement.z_index)
     ).all()
-    by_item: dict[uuid.UUID, list[tuple[PlaylistItemElement, Media]]] = {i.id: [] for i in items}
+    by_item: dict[uuid.UUID, list[tuple[PlaylistItemElement, Media | None]]] = {i.id: [] for i in items}
     for element, media in element_rows:
         by_item[element.playlist_item_id].append((element, media))
     return [(item, by_item[item.id]) for item in items]
@@ -254,14 +260,23 @@ def update(
     return playlist
 
 
-def default_duration(elements_media: list[Media]) -> int:
-    """A scene's default length: its one video element's own duration, or the fixed image
-    default otherwise (an image-only scene, an empty scene, or one with no single canonical
-    video to take a length from)."""
-    videos = [m for m in elements_media if m.kind == MediaKind.VIDEO and m.duration_seconds]
+def default_duration(elements_media: list[Media | None]) -> int:
+    """A scene's default length: its one video element's own duration; else the website
+    default if it shows a website (`None` in the list); else the fixed image default (an
+    image-only scene, an empty scene, or one with no single canonical video)."""
+    videos = [m for m in elements_media if m and m.kind == MediaKind.VIDEO and m.duration_seconds]
     if len(videos) == 1:
         return max(MIN_ITEM_SECONDS, round(videos[0].duration_seconds))
+    if any(m is None for m in elements_media):
+        return WEB_DEFAULT_SECONDS
     return IMAGE_DEFAULT_SECONDS
+
+
+def is_web_url(url: str) -> bool:
+    """https with a host. Screens block plain http, so an http address would save fine and
+    then show nothing — refused here instead."""
+    parsed = urlparse(url)
+    return parsed.scheme == "https" and bool(parsed.netloc)
 
 
 def replace_items(
@@ -284,7 +299,7 @@ def replace_items(
     """
     playlist = _owned(session, user, playlist_id)
 
-    media_ids = {el.media_id for spec in items for el in spec.elements}
+    media_ids = {el.media_id for spec in items for el in spec.elements if el.media_id is not None}
     found: dict[uuid.UUID, Media] = {}
     if media_ids:
         for media in session.exec(select(Media).where(Media.id.in_(media_ids))).all():
@@ -293,6 +308,14 @@ def replace_items(
     for spec in items:
         video_count = 0
         for el in spec.elements:
+            if (el.media_id is None) == (el.web_url is None):
+                raise InvalidItems("each element needs either a media file or a website address")
+            if el.web_url is not None:
+                if len(el.web_url) > 2048 or not is_web_url(el.web_url):
+                    raise InvalidItems(f"{el.web_url} is not a valid https:// address")
+                if el.has_audio or el.rotation_degrees:
+                    raise InvalidItems("sound and rotation don't apply to a website")
+                continue
             media = found.get(el.media_id)
             # Same message whether it is missing, another account's, or still uploading — a
             # playlist editor must not become a probe for what exists elsewhere.
@@ -320,7 +343,7 @@ def replace_items(
 
     session.exec(delete(PlaylistItem).where(PlaylistItem.playlist_id == playlist_id))
     for position, spec in enumerate(items):
-        elements_media = [found[el.media_id] for el in spec.elements]
+        elements_media = [found[el.media_id] if el.media_id else None for el in spec.elements]
         # id is generated client-side (default_factory), so it's already real before add() —
         # no flush needed to reference it while building this scene's elements below.
         item = PlaylistItem(
@@ -336,6 +359,7 @@ def replace_items(
                 PlaylistItemElement(
                     playlist_item_id=item.id,
                     media_id=el.media_id,
+                    web_url=el.web_url,
                     z_index=el.z_index,
                     x=el.x,
                     y=el.y,

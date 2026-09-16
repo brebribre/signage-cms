@@ -8,6 +8,7 @@ import com.fortu.player.api.ManifestElement
 import com.fortu.player.api.ManifestSettings
 import com.fortu.player.api.ManifestSlot
 import com.fortu.player.api.PlayReport
+import com.fortu.player.api.KIND_WEB
 import com.fortu.player.api.UnauthorizedException
 import com.fortu.player.power.PowerPlan
 import kotlinx.coroutines.CoroutineDispatcher
@@ -633,7 +634,8 @@ class PlayerEngine(
         // Preparing screen if downloading already put it up; if nothing needed fetching,
         // whatever was already on screen just keeps looping a little longer instead of
         // flashing a progress screen over content that is playing fine.
-        val toWarm = playable.flatMap { it.elements }.distinctBy { it.checksum }
+        // A website has no file to warm — it loads live when its slot comes up.
+        val toWarm = playable.flatMap { it.elements }.filter { it.kind != KIND_WEB }.distinctBy { it.checksum }
         for (element in toWarm) {
             if (missing.isNotEmpty()) {
                 _state.value = PlayerState.Preparing(
@@ -656,7 +658,7 @@ class PlayerEngine(
         }
 
         // Evict only after the new set is safely on disk.
-        cache.evictExcept(allElements.map { it.checksum })
+        cache.evictExcept(allElements.filter { it.kind != KIND_WEB }.map { it.checksum })
         _debug.update { it.copy(cachedBytes = cache.cachedBytes()) }
     }
 
@@ -762,8 +764,9 @@ class PlayerEngine(
                         // recorded rather than dropped.
                         mediaId = element.mediaId,
                         // Left blank on purpose: the server resolves the real name from
-                        // mediaId, so the log cannot drift when a file is renamed.
-                        filename = "",
+                        // mediaId, so the log cannot drift when a file is renamed. A website
+                        // has no media id, so its address is the name.
+                        filename = if (element.kind == KIND_WEB) element.url else "",
                         startedAt = java.time.Instant.ofEpochMilli(startedAtMillis).toString(),
                         seconds = seconds,
                     )

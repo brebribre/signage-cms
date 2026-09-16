@@ -346,6 +346,40 @@ class PlayerEngineTest {
     }
 
     @Test
+    fun `a website element plays without downloading anything`() = runTest {
+        val store = FakeStore(storedToken = "t")
+        val cache = FakeCache()
+        val website = com.fortu.player.api.ManifestElement(
+            id = "el-web",
+            kind = com.fortu.player.api.KIND_WEB,
+            url = "https://example.com/menu",
+            checksum = "web-abc",
+            bytes = 0,
+        )
+        val api = FakeApi().apply {
+            manifest = manifest(
+                slots = listOf(
+                    slot(item("a")),
+                    com.fortu.player.api.ManifestSlot(id = "slot-web", durationSeconds = 30, elements = listOf(website)),
+                ),
+            )
+        }
+        val e = engine(api = api, store = store, cache = cache)
+        val job = launch { e.run() }
+        advanceTimeBy(1_000)
+
+        assertEquals("only the file downloads", listOf("a"), cache.downloaded)
+        val state = e.state.value
+        assertTrue("both slots should play, got $state", state is PlayerState.Playing)
+        assertEquals(2, (state as PlayerState.Playing).slots.size)
+        org.junit.Assert.assertFalse(
+            "a website is never kept in the file cache",
+            cache.lastEvictKeep!!.contains("web-abc"),
+        )
+        job.cancelAndJoin()
+    }
+
+    @Test
     fun `a screen with no playlist idles rather than erroring`() = runTest {
         val store = FakeStore(storedToken = "t")
         val api = FakeApi().apply { manifest = manifest(items = emptyList(), playlist = null) }
