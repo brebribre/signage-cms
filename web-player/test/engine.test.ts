@@ -192,6 +192,34 @@ describe('sync', () => {
     expect(cache.log).toContain('evict except a')
   })
 
+  it('on a browser that cannot play cached video, videos play from their address, cache kept as fallback', async () => {
+    api.manifest = manifest()
+    start({ streamVideos: () => true })
+    await tick(0)
+    const s = engine.state.value as Extract<typeof engine.state.value, { kind: 'playing' }>
+    expect(s.sources).toEqual({ a: 'blob:a', b: 'https://r2/b' })
+    expect(s.alternates).toEqual({ a: 'https://r2/a', b: 'blob:b' })
+    expect(cache.files.has('b')).toBe(true)
+  })
+
+  it('switching to streamed video fetches a whole manifest at once', async () => {
+    api.manifest = manifest()
+    start()
+    await tick(0)
+    engine.refreshContent()
+    await tick(0)
+    expect(api.manifestCalls).toEqual([null, null])
+  })
+
+  it('an error stays on the debug overlay after later polls succeed', async () => {
+    api.manifest = manifest()
+    start()
+    await tick(0)
+    engine.reportError('video broke')
+    await tick(POLL_SECONDS * 1000 * 2)
+    expect(engine.debug.value.lastError).toBe('video broke')
+  })
+
   it('a website element plays without downloading anything', async () => {
     api.manifest = manifest({
       slots: [{ id: 'w', duration_seconds: 30, elements: [{ id: 'we', kind: 'web', url: 'https://example.com', checksum: 'web-x', bytes: 0 }] }],

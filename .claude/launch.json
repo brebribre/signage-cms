@@ -32,6 +32,17 @@
         "cd web-player && npm run build && PORT=4184 BACKEND_URL=http://localhost:8001 node server.mjs"
       ],
       "port": 4184
+    },
+    {
+      "name": "web-player-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "web-player"
+      ],
+      "port": 5174
     }
   ]
 }

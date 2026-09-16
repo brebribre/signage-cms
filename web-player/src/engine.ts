@@ -35,8 +35,15 @@ export type PlayerState =
   | { kind: 'idle'; deviceName: string }
   | { kind: 'trouble'; deviceName: string | null; message: string; apiHost: string; attempts: number }
   /** `sources` maps each element's checksum to the URL playback loads it from — a cached copy
-   *  where there is one, the element's own address where it streams. */
-  | { kind: 'playing'; slots: ManifestSlot[]; shuffle: boolean; sources: Record<string, string> }
+   *  where there is one, the element's own address where it streams. `alternates` is the other of
+   *  the two, where both exist, for playback to fall back on when the first won't play. */
+  | {
+      kind: 'playing'
+      slots: ManifestSlot[]
+      shuffle: boolean
+      sources: Record<string, string>
+      alternates: Record<string, string>
+    }
 
 export interface DebugInfo {
   deviceName: string | null
@@ -45,6 +52,9 @@ export interface DebugInfo {
   itemCount: number
   lastPollAt: number | null
   lastError: string | null
+  /** When [lastError] happened. Errors stay shown until a newer one replaces them — clearing
+   *  them on every successful poll wiped a playback error before anyone could read it. */
+  lastErrorAt: number | null
   apiHost: string
   /** How content is stored: offline cache, or streaming because this browser can't keep files. */
   storage: string
@@ -92,6 +102,9 @@ export interface EngineOptions {
   /** Pre-decodes an image so its first showing isn't a cold decode. */
   warmMedia?: (url: string, kind: string) => Promise<void>
   screenSize?: () => { width: number; height: number } | null
+  /** True on a browser that can't play video from the offline cache (see main.ts): videos then
+   *  play from their address, with the cached copy kept as the fallback. */
+  streamVideos?: () => boolean
   clock?: () => number
 }
 
@@ -135,6 +148,7 @@ export class PlayerEngine {
       itemCount: 0,
       lastPollAt: null,
       lastError: null,
+      lastErrorAt: null,
       apiHost: opts.apiHost,
       storage: opts.cache.available ? 'offline cache' : 'streaming (no offline cache over plain HTTP)',
       schedule: null,
@@ -173,8 +187,8 @@ export class PlayerEngine {
     })
   }
 
-  private setError(message: string | null) {
-    this.debug.update((d) => ({ ...d, lastError: message }))
+  private setError(message: string) {
+    this.debug.update((d) => ({ ...d, lastError: message, lastErrorAt: this.clock() }))
   }
 
   private async runForever() {
@@ -299,10 +313,10 @@ export class PlayerEngine {
       const showing = this.state.value.kind === 'playing' || this.state.value.kind === 'idle'
       const urlsExpiring =
         this.streamingSince !== null && this.clock() - this.streamingSince > STREAM_URL_REFRESH_MILLIS
-      const etag = showing && !urlsExpiring ? this.store.etag() : null
+      const etag = showing && !urlsExpiring ? this.store.etag() || null : null
       const manifest = await this.api.fetchManifest(token, etag)
 
-      this.debug.update((d) => ({ ...d, lastPollAt: this.clock(), lastError: null }))
+      this.debug.update((d) => ({ ...d, lastPollAt: this.clock() }))
 
       if (manifest) {
         await this.applyManifest(manifest)
@@ -431,8 +445,11 @@ export class PlayerEngine {
       kind: 'playing',
       slots: playable,
       shuffle: manifest.playlist?.shuffle ?? false,
-      sources: await this.sourcesFor(playable, new Set()),
+      ...(await this.sourcesFor(playable, new Set())),
     })
+    // A stored manifest's addresses may have expired while the screen was off: anything playing
+    // from one gets a fresh manifest on the very first poll rather than a 304.
+    if (this.streamsAnything(playable, new Set())) this.streamingSince = 0
     this.debug.update((d) => ({
       ...d,
       deviceName: manifest.device.name,
@@ -451,14 +468,42 @@ export class PlayerEngine {
     return true
   }
 
-  private async sourcesFor(slots: ManifestSlot[], streamed: Set<string>): Promise<Record<string, string>> {
+  private async sourcesFor(
+    slots: ManifestSlot[],
+    streamed: Set<string>,
+  ): Promise<{ sources: Record<string, string>; alternates: Record<string, string> }> {
     const sources: Record<string, string> = {}
+    const alternates: Record<string, string> = {}
+    const streamVideos = this.opts.streamVideos?.() ?? false
     for (const el of slots.flatMap((s) => s.elements)) {
       if (sources[el.checksum]) continue
-      sources[el.checksum] =
-        el.kind === KIND_WEB || streamed.has(el.checksum) ? el.url : await this.cache.objectUrl(el.checksum)
+      if (el.kind === KIND_WEB || streamed.has(el.checksum)) {
+        sources[el.checksum] = el.url
+        continue
+      }
+      const cached = await this.cache.objectUrl(el.checksum)
+      if (el.kind === 'video' && streamVideos) {
+        sources[el.checksum] = el.url
+        alternates[el.checksum] = cached
+      } else {
+        sources[el.checksum] = cached
+        alternates[el.checksum] = el.url
+      }
     }
-    return sources
+    return { sources, alternates }
+  }
+
+  /** Presigned addresses expire; anything playing from one needs the manifest refreshed in time. */
+  private streamsAnything(slots: ManifestSlot[], streamed: Set<string>): boolean {
+    if (streamed.size) return true
+    return !!this.opts.streamVideos?.() && slots.some((s) => s.elements.some((el) => el.kind === 'video'))
+  }
+
+  /** Asks the next poll for a whole manifest instead of a 304, and runs it now — so a change in
+   *  how media should be played (see [EngineOptions.streamVideos]) takes effect straight away. */
+  refreshContent() {
+    this.store.saveEtag('')
+    this.nudge()
   }
 
   private async applyManifest(manifest: Manifest) {
@@ -521,9 +566,9 @@ export class PlayerEngine {
       }
       fetched++
     }
-    this.streamingSince = streamed.size ? this.clock() : null
+    this.streamingSince = this.streamsAnything(slots, streamed) ? this.clock() : null
 
-    const sources = await this.sourcesFor(slots, streamed)
+    const { sources, alternates } = await this.sourcesFor(slots, streamed)
 
     // Warm what is about to go on screen before switching, so the first loop through new content
     // looks like every loop after it.
@@ -541,7 +586,7 @@ export class PlayerEngine {
       }
     }
 
-    this.state.set({ kind: 'playing', slots, shuffle: manifest.playlist?.shuffle ?? false, sources })
+    this.state.set({ kind: 'playing', slots, shuffle: manifest.playlist?.shuffle ?? false, sources, alternates })
 
     // Evict only after the new set is safely stored.
     await this.cache.evictExcept(files.filter((el) => !streamed.has(el.checksum)).map((el) => el.checksum))

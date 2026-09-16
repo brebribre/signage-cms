@@ -46,10 +46,14 @@ html, body {
 .progress > div { height: 100%; background: var(--ink-inverse); transition: width 0.3s; }
 
 /* Playback */
-.slot { position: absolute; inset: 0; background: #000; }
+/* Transparent, like the video element itself: many TVs show video on a hardware plane beneath
+   the page, seen through a hole the browser leaves where the video is — so nothing stacked over
+   that spot may paint. #stage stays black for letterboxing. */
+.slot { position: absolute; inset: 0; background: transparent; }
 .el { position: absolute; overflow: hidden; }
 .el-inner { position: absolute; }
 .el img, .el video, .el iframe { display: block; width: 100%; height: 100%; border: 0; background: #000; }
+.el video { background: transparent; }
 
 /* Power off: nothing but black, over everything but the debug overlay. */
 #sleep { position: absolute; inset: 0; background: #000; z-index: 50; cursor: none; }

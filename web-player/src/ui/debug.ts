@@ -28,10 +28,10 @@ export function renderDebug(el: HTMLElement, info: DebugInfo, extra: Record<stri
     ['cached', `${(info.cachedBytes / 1_048_576).toFixed(1)} MB`],
     ['storage', info.storage],
     ['last poll', ago(info.lastPollAt)],
-    ['schedule', info.schedule ?? 'default playlist'],
+    ['schedule', info.schedule || 'default playlist'],
     ...Object.entries(extra),
     ['update', info.updateStatus ?? 'not checked'],
-    ['last error', info.lastError ?? 'none'],
+    ['last error', info.lastError ? `${info.lastError} (${ago(info.lastErrorAt)})` : 'none'],
   ]
   const focused = document.activeElement?.id
   el.innerHTML = `<div>

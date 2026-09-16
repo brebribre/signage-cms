@@ -27,12 +27,18 @@ const STALL_CHECK_MILLIS = 5_000
 const STALL_CHECKS = 3
 /** Restarts of one stuck video before its slot gives up on it (when the slot can advance). */
 const MAX_STALL_RESTARTS = 2
+/** A video with no picture after this long is tried from its other source, if it has one. */
+const NO_PICTURE_MILLIS = 6_000
 
 export interface PlaybackCallbacks {
   onPlayed: (slot: ManifestSlot, startedAtMillis: number, seconds: number) => void
   onError: (message: string) => void
   /** 0-1, read whenever a video with sound starts or the CMS changes it. */
   volume: () => number
+  /** A video from the offline cache wouldn't play, and its network address did. Smart TV
+   *  browsers hand video to the TV's own player, which can read an address but not a file kept
+   *  inside the browser — see main.ts for what this switches. */
+  onCachedVideoUnplayable?: () => void
 }
 
 const objectFit = (fit: string | undefined) => (fit === 'cover' ? 'cover' : fit === 'stretch' ? 'fill' : 'contain')
@@ -40,6 +46,10 @@ const objectFit = (fit: string | undefined) => (fit === 'cover' ? 'cover' : fit 
 export class PlaybackSurface {
   private slots: ManifestSlot[] = []
   private sources: Record<string, string> = {}
+  private alternates: Record<string, string> = {}
+  /** The last video's state as it left the screen — so the debug overlay, opened during a
+   *  picture, can still say what happened to the video before it. */
+  private lastVideo: string | null = null
   private key = ''
   private index = 0
   private startedAt = Date.now()
@@ -54,12 +64,18 @@ export class PlaybackSurface {
 
   /** A playlist identical to the one already looping (a restore followed by the same manifest
    *  from the network) keeps its place instead of starting over. */
-  setPlaylist(slots: ManifestSlot[], sources: Record<string, string>) {
-    const key = JSON.stringify([slots, sources])
+  setPlaylist(slots: ManifestSlot[], sources: Record<string, string>, alternates: Record<string, string> = {}) {
+    // Only a change to *what* plays restarts the loop. New addresses for the same files — a
+    // manifest refresh, or switching this browser to network video — apply from the next slot on,
+    // without cutting off whatever is on screen now.
+    this.sources = sources
+    this.alternates = alternates
+    // Addresses left out: they are presigned and re-issued on every full manifest, while the
+    // checksum beside each one already names the content (a website's included).
+    const key = JSON.stringify(slots, (k, v) => (k === 'url' ? undefined : v))
     if (key === this.key) return
     this.key = key
     this.slots = slots
-    this.sources = sources
     this.index = 0
     this.startedAt = Date.now()
     this.show()
@@ -234,12 +250,17 @@ export class PlaybackSurface {
    *  screen can be told apart: still loading, stuck, refused by the decoder, or blocked. */
   videoStatus(): string {
     const video = this.layer?.querySelector('video')
-    if (!video) return 'none on screen'
-    if (video.error) return `error ${video.error.code}: ${video.error.message || 'cannot decode this file'}`
+    if (!video) return this.lastVideo ? `last one: ${this.lastVideo}` : 'none played yet'
+    return this.describe(video)
+  }
+
+  private describe(video: HTMLVideoElement): string {
+    const from = video.currentSrc.startsWith('blob:') ? 'from cache' : 'from network'
+    if (video.error) return `error ${video.error.code} ${from}: ${video.error.message || 'cannot decode this file'}`
     const states = ['no data', 'metadata only', 'first frame', 'buffering ahead', 'playing through']
     const size = video.videoWidth ? ` · ${video.videoWidth}×${video.videoHeight}` : ''
     const where = `${video.currentTime.toFixed(1)}s${Number.isFinite(video.duration) ? ` of ${video.duration.toFixed(0)}s` : ''}`
-    return `${video.paused ? 'paused' : 'playing'} ${where} · ${states[video.readyState] ?? video.readyState}${size}${video.muted ? ' · muted' : ''}`
+    return `${video.paused ? 'paused' : 'playing'} ${where} · ${states[video.readyState] ?? video.readyState}${size} · ${from}${video.muted ? ' · muted' : ''}`
   }
 
   private render(layer: HTMLElement, element: ManifestElement, loop: boolean, onFinished: ((reason: string | null) => void) | null): HTMLElement {
@@ -274,15 +295,41 @@ export class PlaybackSurface {
           this.play(video)
         }
       }
+      // Two ways to reach one file — the offline cache and its network address. If the first
+      // gives no picture, the other is tried once before the video counts as failed.
+      const alternate = this.alternates[element.checksum]
+      let triedAlternate = false
+      const tryAlternate = (why: string): boolean => {
+        if (triedAlternate || !alternate) return false
+        triedAlternate = true
+        const fromCache = video.currentSrc.startsWith('blob:') || src.startsWith('blob:')
+        console.warn('[FortuPlayer]', `${this.nameOf(element)}: ${why} — trying its other source`)
+        video.src = alternate
+        this.play(video)
+        if (fromCache) {
+          // Only called once the network copy actually shows a picture — a flaky network must
+          // not be mistaken for a browser that can't play cached video.
+          video.addEventListener('loadeddata', () => this.cb.onCachedVideoUnplayable?.(), { once: true })
+        }
+        return true
+      }
       video.onerror = () => {
         const message = `${this.nameOf(element)}: ${video.error?.message || `media error ${video.error?.code ?? ''}`}`
+        if (tryAlternate(`error ${video.error?.code ?? ''}`)) return
         // One unplayable file must never stop the loop on a black screen.
         if (onFinished) onFinished(message)
         else this.cb.onError(message)
       }
       video.src = src
       this.play(video)
-      this.watchForStall(layer, video, element, onFinished)
+      this.later(NO_PICTURE_MILLIS, () => {
+        if (video.isConnected && video.readyState < 2 && !video.error) {
+          if (!tryAlternate(`no picture after ${NO_PICTURE_MILLIS / 1000}s`)) {
+            this.cb.onError(`${this.nameOf(element)}: no picture after ${NO_PICTURE_MILLIS / 1000}s (${this.describe(video)})`)
+          }
+        }
+      })
+      this.watchForStall(layer, video, element, onFinished, tryAlternate)
       return video
     }
 
@@ -337,6 +384,7 @@ export class PlaybackSurface {
     video: HTMLVideoElement,
     element: ManifestElement,
     onFinished: ((reason: string | null) => void) | null,
+    tryAlternate: (why: string) => boolean,
   ) {
     let lastTime = -1
     let stuckChecks = 0
@@ -352,6 +400,7 @@ export class PlaybackSurface {
       if (video.paused) this.play(video) // quietly paused by the browser: just ask again
       if (++stuckChecks < STALL_CHECKS) return
       stuckChecks = 0
+      if (tryAlternate(`stuck at ${video.currentTime.toFixed(1)}s`)) return
       restarts++
       if (onFinished && restarts > MAX_STALL_RESTARTS) {
         onFinished(`${this.nameOf(element)}: video kept stalling — skipped`)
@@ -373,6 +422,7 @@ export class PlaybackSurface {
     this.cleanups.get(layer)?.forEach((fn) => fn())
     this.cleanups.delete(layer)
     layer.querySelectorAll('video').forEach((v) => {
+      if (v.currentSrc) this.lastVideo = this.describe(v)
       v.onended = null
       v.onerror = null
       v.pause()

@@ -18,6 +18,8 @@ declare const __PLAYER_VERSION__: string
 
 const TAG = '[FortuPlayer]'
 const API_HOST_KEY = 'fortu_player.api_host'
+/** Set once this browser has shown it can't play video from the offline cache. */
+const STREAM_VIDEOS_KEY = 'fortu_player.stream_videos'
 /** How often a running screen looks for a newer deploy of this player. */
 const UPDATE_CHECK_MILLIS = 5 * 60 * 1000
 const LONG_PRESS_MILLIS = 900
@@ -69,6 +71,7 @@ async function boot() {
   let wakeLockState = 'wakeLock' in navigator ? 'not held' : 'unsupported by this browser'
 
   const volume = () => (settings.volume ?? 100) / 100
+  let streamVideos = readLocal(STREAM_VIDEOS_KEY) === '1'
 
   const cache = new CacheStorageMedia()
   // Asked once: without it the browser may clear the media cache under storage pressure.
@@ -101,6 +104,7 @@ async function boot() {
       width: Math.round(window.innerWidth * (window.devicePixelRatio || 1)),
       height: Math.round(window.innerHeight * (window.devicePixelRatio || 1)),
     }),
+    streamVideos: () => streamVideos,
   })
 
   // --- Orientation --------------------------------------------------------------------------
@@ -132,6 +136,13 @@ async function boot() {
     onPlayed: (slot, startedAt, seconds) => engine.reportPlay(slot, startedAt, seconds),
     onError: (message) => engine.reportError(message),
     volume,
+    onCachedVideoUnplayable: () => {
+      if (streamVideos) return
+      streamVideos = true
+      try { localStorage.setItem(STREAM_VIDEOS_KEY, '1') } catch { /* re-learned after a restart */ }
+      engine.reportError("This browser can't play video from its offline cache — videos now play from the network")
+      engine.refreshContent()
+    },
   })
 
   const status = document.createElement('div')
@@ -163,7 +174,7 @@ async function boot() {
     if (state.kind === 'playing') {
       status.remove()
       lastStatusHtml = ''
-      surface.setPlaylist(state.slots, state.sources)
+      surface.setPlaylist(state.slots, state.sources, state.alternates)
     } else {
       surface.destroy()
       const html = statusScreenHtml(state)
