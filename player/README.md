@@ -178,7 +178,7 @@ resetting again. This is why it's a provisioning step rather than a setting you 
 5. **Launch the app.** It applies the full policy on first run: lock task mode, no lock screen,
    stay-on-while-plugged, deferred system updates, and itself as the persistent launcher.
 6. **Pair it** — read the code off the screen, enter it in the CMS.
-7. **Verify:** long-press for the debug overlay. The `kiosk` row should read
+7. **Verify:** hold the top-left corner for the debug overlay. The `kiosk` row should read
    **`device owner (full kiosk)`**. If it says `not owner (screen pinning only)`, step 4 didn't
    take.
 8. Reboot the device once and confirm it comes back into the loop on its own.
@@ -317,9 +317,16 @@ each fails three tests.
 
 ## Diagnosing a screen in front of you
 
-**Long-press anywhere** to toggle a debug overlay: device name, API URL, manifest version,
-cached size, item count, last poll and last error. There is no keyboard on a signage screen and
-no way to read logcat from across a lobby, so this is the diagnostic surface.
+**Hold the top-left corner** (about a second) to toggle a debug overlay: device name, API URL,
+manifest version, cached size, item count, last poll and last error. There is no keyboard on a
+signage screen and no way to read logcat from across a lobby, so this is the diagnostic surface.
+A keyboard's **Menu** key does the same, and is the only way in while the CMS's touchscreen lock
+is on.
+
+The corner, rather than anywhere: a scene can show a live website, which people are meant to be
+able to touch, and its own long-press (selecting text) must not also be this. The press is timed
+from touch-down in `MainActivity.dispatchTouchEvent`, so a page that swallows the gesture cannot
+hide the overlay from whoever is standing at the screen.
 
 The pairing screen is also the app's error state. An unpaired, revoked, or rejected device
 always lands back on a visible code rather than a black screen — **a screen showing a code can

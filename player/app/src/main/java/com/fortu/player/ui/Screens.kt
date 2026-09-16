@@ -267,8 +267,9 @@ fun StartingScreen() {
 }
 
 /**
- * Long-press anywhere to show this. The only way to diagnose a screen you are standing in
- * front of with no keyboard and no logcat.
+ * Hold the top-left corner to show this (see `MainActivity.dispatchTouchEvent`), or press Menu
+ * on a keyboard. The only way to diagnose a screen you are standing in front of with no
+ * keyboard and no logcat.
  */
 @Composable
 fun DebugOverlay(
@@ -307,7 +308,7 @@ fun DebugOverlay(
                     .clickable(onClick = onExitRequested),
             )
             Text(
-                "Long-press again to dismiss",
+                "Hold the top-left corner again to dismiss",
                 color = InkMuted,
                 fontSize = 14.sp,
                 modifier = Modifier.padding(top = 6.dp),

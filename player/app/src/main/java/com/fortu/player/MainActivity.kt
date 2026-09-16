@@ -1,6 +1,8 @@
 package com.fortu.player
 
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.content.pm.ActivityInfo
 import android.os.Bundle
 import android.util.Log
@@ -10,7 +12,6 @@ import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.LaunchedEffect
@@ -20,7 +21,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -35,6 +35,7 @@ import com.fortu.player.ui.PreparingScreen
 import com.fortu.player.ui.StartingScreen
 import com.fortu.player.ui.TroubleScreen
 import kotlinx.coroutines.delay
+import kotlin.math.hypot
 
 class MainActivity : ComponentActivity() {
     private val vm: PlayerViewModel by viewModels()
@@ -42,15 +43,61 @@ class MainActivity : ComponentActivity() {
     /** Activity-level rather than inside setContent, so the Menu key can open it too. */
     private var showDebug by mutableStateOf(false)
 
+    private var touchDownX = 0f
+    private var touchDownY = 0f
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var pendingLongPress: Runnable? = null
+
     /**
-     * The CMS's touchscreen lock: every touch on this window is dropped before any view or
-     * composable sees it — playback, the long-press debug gesture, all of it. Only touches are
-     * affected. System edge gestures never reach an app window anyway; in lock task mode they're
-     * already blocked (see KioskPolicy), and the lock can't reach them either way.
+     * Two jobs, both of which have to happen before anything else sees the touch.
+     *
+     * The CMS's touchscreen lock: every touch on this window is dropped — playback, the website
+     * a scene is showing, the corner gesture below, all of it. Only touches are affected. System
+     * edge gestures never reach an app window anyway; in lock task mode they're already blocked
+     * (see KioskPolicy), and the lock can't reach them either way.
+     *
+     * The hidden gesture that opens the debug overlay: hold the top-left corner. Recognised here
+     * rather than in Compose, and on a timer from touch-down rather than on touch-up, because a
+     * website element is a WebView that handles its own touches (people are meant to be able to
+     * use it) — it answers a long press with its own text-selection menu, and the app window
+     * never sees the press end. Confined to the corner so using a page never trips it. The touch
+     * itself is always passed on, so the page loses nothing.
      */
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
         if (vm.settings.value.touchscreenDisabled == true) return true
+        when (ev.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                touchDownX = ev.x
+                touchDownY = ev.y
+                if (inHiddenCorner(ev.x, ev.y)) {
+                    val fire = Runnable {
+                        pendingLongPress = null
+                        showDebug = !showDebug
+                    }
+                    pendingLongPress = fire
+                    mainHandler.postDelayed(fire, LONG_PRESS_MILLIS)
+                }
+            }
+            MotionEvent.ACTION_MOVE -> {
+                val slopPx = LONG_PRESS_SLOP_DP * resources.displayMetrics.density
+                if (hypot(ev.x - touchDownX, ev.y - touchDownY) > slopPx) cancelLongPress()
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> cancelLongPress()
+        }
         return super.dispatchTouchEvent(ev)
+    }
+
+    /** Top-left corner, as a fraction of the screen — big enough to hit without looking, small
+     *  enough to stay out of the way of whatever is playing. */
+    private fun inHiddenCorner(x: Float, y: Float): Boolean {
+        val metrics = resources.displayMetrics
+        return x <= metrics.widthPixels * HIDDEN_CORNER_FRACTION &&
+            y <= metrics.heightPixels * HIDDEN_CORNER_FRACTION
+    }
+
+    private fun cancelLongPress() {
+        pendingLongPress?.let(mainHandler::removeCallbacks)
+        pendingLongPress = null
     }
 
     /** Menu on a USB keyboard or remote opens the debug overlay. That is the local way out
@@ -93,16 +140,9 @@ class MainActivity : ComponentActivity() {
             var exitPinError by remember { mutableStateOf(false) }
             var appliedOrientation by remember { mutableStateOf<String?>(null) }
 
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    // Long-press is the only input this app has. There is no keyboard on a
-                    // signage screen, and a visible button would eventually get tapped by a
-                    // member of the public.
-                    .pointerInput(Unit) {
-                        detectTapGestures(onLongPress = { showDebug = !showDebug })
-                    }
-            ) {
+            // The corner hold that opens the debug overlay is recognised in dispatchTouchEvent
+            // above, not here — see its comment.
+            Box(Modifier.fillMaxSize()) {
                 // Applied from the CMS rather than fixed in the manifest, so one APK serves
                 // portrait totems and landscape panels. Re-applied whenever the value
                 // changes, since a screen can be re-oriented without being re-paired.
@@ -208,6 +248,14 @@ class MainActivity : ComponentActivity() {
     /** Lifts lock task mode so the device's normal navigation becomes reachable again — the
      *  one exit this app has. A no-op, logged rather than crashing, when the device was never
      *  in lock task to begin with (not Device Owner, or already out of it). */
+    private companion object {
+        /** Deliberately longer than the system's own long-press, so a page's own long-press
+         *  (selecting text) in the corner is not immediately also this. */
+        const val LONG_PRESS_MILLIS = 900L
+        const val LONG_PRESS_SLOP_DP = 24f
+        const val HIDDEN_CORNER_FRACTION = 0.2f
+    }
+
     private fun exitKiosk() {
         runCatching { stopLockTask() }
             .onFailure { Log.w("FortuPlayer", "stopLockTask failed", it) }
