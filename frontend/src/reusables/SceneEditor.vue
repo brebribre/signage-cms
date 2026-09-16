@@ -514,94 +514,119 @@ function apply() {
         <div class="flex justify-center" :style="frameOuterStyle" @click.self="select(null)">
           <div
             ref="canvasRef"
-            class="relative w-full overflow-hidden rounded-xl bg-black"
+            class="relative w-full rounded-xl bg-black"
             :style="frameStyle"
             @click.self="select(null)"
             @dragover.prevent
             @drop.prevent="onCanvasDrop"
           >
-            <div
-              v-for="el in elements"
-              :key="el.key"
-              class="absolute touch-none select-none"
-              :class="[
-                cropMode && selectedKey === el.key ? 'cursor-move' : 'cursor-grab active:cursor-grabbing',
-                selectedKey === el.key && 'outline outline-2 outline-offset-2 outline-white',
-              ]"
-              :style="{
-                left: `${el.x * 100}%`, top: `${el.y * 100}%`,
-                width: `${el.width * 100}%`, height: `${el.height * 100}%`,
-                zIndex: el.zIndex,
-              }"
-              @pointerdown="onElementPointerDown(el, $event)"
-              @pointermove="onElementPointerMove"
-              @pointerup="onElementPointerUp"
-              @pointercancel="onElementPointerUp"
-            >
-              <div class="relative size-full overflow-hidden">
-                <!-- pointer-events-none: the element is dragged, not the page inside it browsed. -->
-                <iframe
-                  v-if="el.kind === 'web'"
-                  :src="el.url"
-                  title=""
-                  class="pointer-events-none absolute left-0 top-0 origin-top-left border-0 bg-white"
-                  :style="webFrameStyle(el)"
-                  referrerpolicy="no-referrer"
-                  sandbox="allow-scripts allow-same-origin"
-                />
-                <template v-else-if="el.mediaWidth && el.mediaHeight">
-                  <div :style="cropWrapperStyle(el)">
-                    <img
-                      v-if="el.kind === 'image'"
-                      :src="el.url" :alt="el.filename"
-                      class="absolute max-w-none select-none"
-                      :style="mediaStyle(el)"
-                      draggable="false"
-                    />
-                    <video
-                      v-else
-                      :src="el.url"
-                      class="absolute select-none"
-                      :style="mediaStyle(el)"
-                      :muted="!el.hasAudio"
-                      loop playsinline autoplay draggable="false"
-                    />
+            <!-- What the screen shows, clipped to the frame: an element hanging off the canvas
+                 is cut off here exactly as the device will cut it off. `pointer-events-none` so
+                 a click on bare canvas still reaches the frame below and deselects. -->
+            <div class="pointer-events-none absolute inset-0 overflow-hidden rounded-xl">
+              <div
+                v-for="el in elements"
+                :key="el.key"
+                class="absolute"
+                :style="{
+                  left: `${el.x * 100}%`, top: `${el.y * 100}%`,
+                  width: `${el.width * 100}%`, height: `${el.height * 100}%`,
+                  zIndex: el.zIndex,
+                }"
+              >
+                <div class="relative size-full overflow-hidden">
+                  <!-- The page inside is not browsed here; the element is dragged. -->
+                  <iframe
+                    v-if="el.kind === 'web'"
+                    :src="el.url"
+                    title=""
+                    class="pointer-events-none absolute left-0 top-0 origin-top-left border-0 bg-white"
+                    :style="webFrameStyle(el)"
+                    referrerpolicy="no-referrer"
+                    sandbox="allow-scripts allow-same-origin"
+                  />
+                  <template v-else-if="el.mediaWidth && el.mediaHeight">
+                    <div :style="cropWrapperStyle(el)">
+                      <img
+                        v-if="el.kind === 'image'"
+                        :src="el.url" :alt="el.filename"
+                        class="absolute max-w-none select-none"
+                        :style="mediaStyle(el)"
+                        draggable="false"
+                      />
+                      <video
+                        v-else
+                        :src="el.url"
+                        class="absolute select-none"
+                        :style="mediaStyle(el)"
+                        :muted="!el.hasAudio"
+                        loop playsinline autoplay draggable="false"
+                      />
+                    </div>
+                  </template>
+                  <div v-else class="flex size-full items-center justify-center bg-raised text-[11px] text-ink-subtle">
+                    {{ el.filename }}
                   </div>
-                </template>
-                <div v-else class="flex size-full items-center justify-center bg-raised text-[11px] text-ink-subtle">
-                  {{ el.filename }}
                 </div>
               </div>
-
-              <div
-                v-for="corner in CORNERS"
-                v-show="selectedKey === el.key && !cropMode"
-                :key="corner"
-                class="absolute size-3 -translate-x-1/2 -translate-y-1/2 touch-none rounded-full border-2 border-ink bg-canvas"
-                :style="{ left: HANDLE_POS[corner].left, top: HANDLE_POS[corner].top, cursor: HANDLE_CURSOR[corner] }"
-                @pointerdown.stop="onHandlePointerDown(corner, $event)"
-                @pointermove.stop="onHandlePointerMove"
-                @pointerup.stop="onHandlePointerUp"
-                @pointercancel.stop="onHandlePointerUp"
-              />
-
-              <!-- Crop handles: thicker bars at each edge's midpoint, the common-software
-                   crop tell — drag one inward to trim that side. -->
-              <div
-                v-for="edge in EDGES"
-                v-show="selectedKey === el.key && cropMode"
-                :key="edge"
-                class="absolute -translate-x-1/2 -translate-y-1/2 touch-none rounded-full border-2 border-ink bg-canvas"
-                :class="edge === 'n' || edge === 's' ? 'h-1.5 w-8' : 'h-8 w-1.5'"
-                :style="{ left: EDGE_POS[edge].left, top: EDGE_POS[edge].top, cursor: EDGE_CURSOR[edge] }"
-                @pointerdown.stop="onEdgeHandlePointerDown(edge, $event)"
-                @pointermove.stop="onEdgeHandlePointerMove"
-                @pointerup.stop="onEdgeHandlePointerUp"
-                @pointercancel.stop="onEdgeHandlePointerUp"
-              />
             </div>
 
-            <div v-if="!elements.length" class="flex size-full items-center justify-center px-6 text-center text-[13px] text-white/40">
+            <!-- Selection, deliberately NOT clipped: an element dragged half off the canvas keeps
+                 its outline and handles reachable out in the margin, the way every design tool
+                 behaves. The layer itself ignores pointer events; only the boxes take them, so
+                 clicking bare canvas still deselects. -->
+            <div class="pointer-events-none absolute inset-0">
+              <div
+                v-for="el in elements"
+                :key="el.key"
+                class="pointer-events-auto absolute touch-none select-none"
+                :class="[
+                  cropMode && selectedKey === el.key ? 'cursor-move' : 'cursor-grab active:cursor-grabbing',
+                  selectedKey === el.key && 'outline outline-2 outline-offset-2 outline-white',
+                ]"
+                :style="{
+                  left: `${el.x * 100}%`, top: `${el.y * 100}%`,
+                  width: `${el.width * 100}%`, height: `${el.height * 100}%`,
+                  zIndex: el.zIndex,
+                }"
+                @pointerdown="onElementPointerDown(el, $event)"
+                @pointermove="onElementPointerMove"
+                @pointerup="onElementPointerUp"
+                @pointercancel="onElementPointerUp"
+              >
+                <div
+                  v-for="corner in CORNERS"
+                  v-show="selectedKey === el.key && !cropMode"
+                  :key="corner"
+                  class="absolute size-3 -translate-x-1/2 -translate-y-1/2 touch-none rounded-full border-2 border-ink bg-canvas"
+                  :style="{ left: HANDLE_POS[corner].left, top: HANDLE_POS[corner].top, cursor: HANDLE_CURSOR[corner] }"
+                  @pointerdown.stop="onHandlePointerDown(corner, $event)"
+                  @pointermove.stop="onHandlePointerMove"
+                  @pointerup.stop="onHandlePointerUp"
+                  @pointercancel.stop="onHandlePointerUp"
+                />
+
+                <!-- Crop handles: thicker bars at each edge's midpoint, the common-software
+                     crop tell — drag one inward to trim that side. -->
+                <div
+                  v-for="edge in EDGES"
+                  v-show="selectedKey === el.key && cropMode"
+                  :key="edge"
+                  class="absolute -translate-x-1/2 -translate-y-1/2 touch-none rounded-full border-2 border-ink bg-canvas"
+                  :class="edge === 'n' || edge === 's' ? 'h-1.5 w-8' : 'h-8 w-1.5'"
+                  :style="{ left: EDGE_POS[edge].left, top: EDGE_POS[edge].top, cursor: EDGE_CURSOR[edge] }"
+                  @pointerdown.stop="onEdgeHandlePointerDown(edge, $event)"
+                  @pointermove.stop="onEdgeHandlePointerMove"
+                  @pointerup.stop="onEdgeHandlePointerUp"
+                  @pointercancel.stop="onEdgeHandlePointerUp"
+                />
+              </div>
+            </div>
+
+            <div
+              v-if="!elements.length"
+              class="pointer-events-none absolute inset-0 flex items-center justify-center px-6 text-center text-[13px] text-white/40"
+            >
               Drag media from the left, or click it, to start this scene
             </div>
           </div>
