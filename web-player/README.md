@@ -38,6 +38,17 @@ port of `PlayerEngine.kt`, and the tests in `test/` mirror `PlayerEngineTest.kt`
    kiosk or full-screen mode if it has one, and turn off the TV's own screensaver/eco sleep. On
    Chrome: `chrome --kiosk --autoplay-policy=no-user-gesture-required https://<player-url>`.
 
+**Hiding the browser bar**: no web page can go full screen by itself — every browser requires a
+key press or tap first. So the player asks on its pairing, idle and error screens ("Press OK on
+the remote to hide the browser bar"), and goes full screen on the first press of any remote key.
+It then **stays** full screen across automatic updates: the page a screen opens (`index.html`,
+`src/shell.ts`) only holds a frame, and updates reload the player inside that frame, never the
+page that owns full screen. What still brings the bar back is the TV closing or reloading the
+browser itself (a reboot, the browser being closed) — then it's one press again. To never see it,
+use the TV's kiosk/URL-launcher mode, or install the page as an app where the browser offers
+"Add to home screen" (it opens with no bar, via `manifest.webmanifest`). The debug overlay's
+**full screen** row says whether this browser supports it at all.
+
 **Debug overlay**: hold the top-left corner, or press **Menu**, **Info** or **D**. It shows the
 server, content version, cache, wake lock and last error, with **Check for update** and
 **Reload player**. (A corner hold on top of a website element doesn't reach the page — use a key.)

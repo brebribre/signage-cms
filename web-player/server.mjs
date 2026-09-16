@@ -66,7 +66,8 @@ function serveStatic(req, res) {
   }
 
   const ext = extname(filePath)
-  const noCache = filePath === join(DIST, 'index.html') || urlPath === '/sw.js'
+  // Pages name the hashed chunks they load, and sw.js must be re-checked to ever change.
+  const noCache = ext === '.html' || urlPath === '/sw.js'
   res.writeHead(200, {
     'Content-Type': MIME[ext] || 'application/octet-stream',
     'Cache-Control': noCache

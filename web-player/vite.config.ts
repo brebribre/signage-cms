@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 
 import { defineConfig } from 'vitest/config'
 
@@ -14,6 +15,14 @@ export default defineConfig({
     // Smart TV browsers run Chromium several years old (Tizen 5 is Chromium 69, webOS 5 is 68).
     // Syntax is lowered to what they parse; nothing here needs a runtime polyfill.
     target: 'es2017',
+    rollupOptions: {
+      // Two pages: the shell a screen opens (index.html, holds full screen) and the player it
+      // frames (player.html) — see src/shell.ts.
+      input: {
+        shell: fileURLToPath(new URL('./index.html', import.meta.url)),
+        player: fileURLToPath(new URL('./player.html', import.meta.url)),
+      },
+    },
   },
   server: {
     port: 5174,

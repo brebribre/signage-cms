@@ -1,0 +1,9 @@
+{
+  "name": "Fortu Player",
+  "short_name": "Fortu",
+  "start_url": "/",
+  "scope": "/",
+  "display": "fullscreen",
+  "background_color": "#000000",
+  "theme_color": "#101111"
+}

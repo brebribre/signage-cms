@@ -141,6 +141,9 @@ async function boot() {
   shield.id = 'shield'
   const debugEl = document.createElement('div')
   debugEl.id = 'debug'
+  const fullscreenHint = document.createElement('div')
+  fullscreenHint.id = 'fs-hint'
+  fullscreenHint.textContent = 'Press OK on the remote to hide the browser bar'
 
   let lastStatusHtml = ''
   function render() {
@@ -152,9 +155,11 @@ async function boot() {
       status.remove()
       lastStatusHtml = ''
       if (!sleep.isConnected) stage.appendChild(sleep)
+      syncFullscreenHint()
       return
     }
     sleep.remove()
+    syncFullscreenHint()
     if (state.kind === 'playing') {
       status.remove()
       lastStatusHtml = ''
@@ -252,6 +257,7 @@ async function boot() {
     if (isDebugKey) {
       e.preventDefault()
       setDebug(!debugEl.isConnected)
+      requestFullscreen()
     } else if (e.key === 'Escape' && debugEl.isConnected) {
       setDebug(false)
     } else if (settings.touchscreen_disabled !== true) {
@@ -259,17 +265,53 @@ async function boot() {
     }
   }, true)
 
-  /** A browser only goes full screen in answer to someone's input, so the first touch or key
-   *  press does it. Kiosk-mode TV browsers are full screen already and never get here. */
-  function requestFullscreen() {
-    const root = document.documentElement as HTMLElement & { webkitRequestFullscreen?: () => void }
-    const doc = document as Document & { webkitFullscreenElement?: Element }
-    if (document.fullscreenElement || doc.webkitFullscreenElement) return
+  // --- Full screen ----------------------------------------------------------------------------
+
+  /** A page may only go full screen in answer to someone's input — no browser lets it happen on
+   *  load. So: try anyway at start (a few TV and kiosk browsers allow it), then take the first
+   *  key press or touch, and say on the non-playing screens that one press is all it needs.
+   *  Kiosk-mode browsers have no bar to hide and never need any of this. */
+  // Full screen belongs to the page around this frame (src/shell.ts) — same origin, so it is
+  // reachable directly. Opened on its own, this page is its own top.
+  const topDocument = (() => {
+    try { return window.top!.document } catch { return document }
+  })()
+  const doc = topDocument as Document & { webkitFullscreenElement?: Element; webkitFullscreenEnabled?: boolean }
+  const root = topDocument.documentElement as HTMLElement & { webkitRequestFullscreen?: () => void }
+  const fullscreenSupported = !!(doc.fullscreenEnabled || doc.webkitFullscreenEnabled)
+  const isFullscreen = () => !!(doc.fullscreenElement || doc.webkitFullscreenElement)
+  /** Set once the browser has refused a request made in answer to a real press — asking again
+   *  would change nothing, and a hint promising otherwise would sit on the screen forever. */
+  let fullscreenRefused = false
+
+  function requestFullscreen(fromInput = true) {
+    if (!fullscreenSupported || isFullscreen()) return
     try {
-      if (root.requestFullscreen) void root.requestFullscreen().catch(() => {})
-      else root.webkitRequestFullscreen?.()
-    } catch { /* not allowed here; nothing lost */ }
+      if (root.requestFullscreen) {
+        root.requestFullscreen().catch(() => {
+          if (fromInput) {
+            fullscreenRefused = true
+            syncFullscreenHint()
+          }
+        })
+      } else {
+        root.webkitRequestFullscreen?.()
+      }
+    } catch {
+      if (fromInput) fullscreenRefused = true
+    }
   }
+
+  /** Only over the pairing, preparing, idle and trouble screens — someone is usually standing at
+   *  the TV for those, and it never sits on top of content. */
+  function syncFullscreenHint() {
+    const show = fullscreenSupported && !fullscreenRefused && !isFullscreen() && powered &&
+      engine.state.value.kind !== 'playing'
+    if (show && !fullscreenHint.isConnected) app.appendChild(fullscreenHint)
+    if (!show) fullscreenHint.remove()
+  }
+  topDocument.addEventListener('fullscreenchange', syncFullscreenHint)
+  topDocument.addEventListener('webkitfullscreenchange', syncFullscreenHint)
 
   // --- Debug overlay ------------------------------------------------------------------------
 
@@ -287,6 +329,8 @@ async function boot() {
         player: `${__PLAYER_VERSION__} · ${navigator.userAgent.match(/(Tizen|Web0S|webOS|Android|CrOS|Windows|Mac OS X|Linux)/)?.[1] ?? 'browser'}`,
         screen: `${window.innerWidth}×${window.innerHeight} @${window.devicePixelRatio || 1}x${rotated ? ' · rotated' : ''}`,
         'wake lock': wakeLockState,
+        'full screen': !fullscreenSupported ? 'not supported by this browser'
+          : isFullscreen() ? 'yes' : fullscreenRefused ? 'refused by the browser' : 'no — press OK',
         power: powered ? 'on' : 'off',
       },
       { onCheckUpdate: () => void checkForUpdate(true), onReload: () => location.reload() },
@@ -309,7 +353,10 @@ async function boot() {
 
   /** The web counterpart of the Android player's self-update: nothing to install, just the newest
    *  deploy to load. Held off while content is still downloading, so a download isn't thrown
-   *  away half done — the cache survives the reload either way. */
+   *  away half done — the cache survives the reload either way.
+   *
+   *  Only this frame reloads, never the page around it (see src/shell.ts), so a screen that is
+   *  full screen stays full screen across an update. */
   async function checkForUpdate(manual: boolean) {
     if (manual) {
       engine.setUpdateStatus('checking for update…')
@@ -341,11 +388,14 @@ async function boot() {
   // The nearest thing to push a browser has: the network coming back ends the current wait.
   window.addEventListener('online', () => engine.nudge())
 
-  if ('serviceWorker' in navigator && window.isSecureContext) {
+  // Opened directly rather than through the shell (src/shell.ts), which registers it otherwise.
+  if (window.top === window && 'serviceWorker' in navigator && window.isSecureContext) {
     navigator.serviceWorker.register('/sw.js').catch((e) => console.warn(TAG, 'service worker not registered', e))
   }
 
   void syncWakeLock()
+  requestFullscreen(false)
+  syncFullscreenHint()
   await engine.run()
 }
 

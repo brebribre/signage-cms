@@ -5,10 +5,10 @@
 // Network first for everything, falling back to the last copy: a deploy is picked up the
 // moment it's reachable, and nothing stale is served while the network is fine.
 
-const SHELL = 'fortu-shell-v1'
+const SHELL = 'fortu-shell-v2'
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(SHELL).then((cache) => cache.add('/')).then(() => self.skipWaiting()))
+  event.waitUntil(caches.open(SHELL).then((cache) => cache.addAll(['/', '/player.html'])).then(() => self.skipWaiting()))
 })
 
 self.addEventListener('activate', (event) => {
@@ -32,13 +32,13 @@ self.addEventListener('fetch', (event) => {
       .then((res) => {
         if (res.ok) {
           const copy = res.clone()
-          // Every navigation is the same SPA shell, so it is kept under one key.
-          caches.open(SHELL).then((cache) => cache.put(req.mode === 'navigate' ? '/' : req, copy))
+          // Kept by path without its query: the shell and the player frame are two pages.
+          caches.open(SHELL).then((cache) => cache.put(url.pathname, copy))
         }
         return res
       })
       .catch(() =>
-        caches.match(req.mode === 'navigate' ? '/' : req).then((hit) => hit || Response.error()),
+        caches.match(url.pathname).then((hit) => hit || (req.mode === 'navigate' ? caches.match('/') : undefined)).then((hit) => hit || Response.error()),
       ),
   )
 })
