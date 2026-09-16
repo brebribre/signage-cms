@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -31,12 +30,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
 import androidx.media3.common.MediaItem
@@ -82,7 +80,33 @@ private const val DEFAULT_VIDEO_CAP_SECONDS = 90
  * staying small enough that text is still legible once it is scaled into a half- or quarter-width
  * element rather than the whole screen.
  */
-private val DESKTOP_CSS_WIDTH = 1280.dp
+private const val DESKTOP_CSS_WIDTH_PX = 1280f
+
+/**
+ * Forces the page to lay out at a desktop width, and reports what it ended up with.
+ *
+ * Setting the WebView's zoom is not enough on its own: a site's own `<meta name="viewport">`
+ * wins over it, which is why a screen kept getting the phone layout even with a desktop user
+ * agent — the page was still being told the window was as wide as the panel's dp, not its
+ * pixels. Rewriting that meta tag is the one instruction a browser cannot overrule. `width` alone
+ * (no `initial-scale`) leaves the browser to scale the result to fit, which is exactly wanted:
+ * it renders at the panel's real resolution rather than upscaling a small layout.
+ *
+ * Re-applied on every page load, so following a link inside a site keeps the desktop layout.
+ */
+private val DESKTOP_VIEWPORT_SCRIPT = """
+    (function () {
+      var m = document.querySelector('meta[name=viewport]');
+      if (!m) { m = document.createElement('meta'); m.name = 'viewport'; document.head.appendChild(m); }
+      m.setAttribute('content', 'width=${DESKTOP_CSS_WIDTH_PX.toInt()}');
+      return JSON.stringify({
+        css: window.innerWidth,
+        dpr: window.devicePixelRatio,
+        chMobile: (navigator.userAgentData ? navigator.userAgentData.mobile : 'n/a'),
+        ua: navigator.userAgent,
+      });
+    })();
+""".trimIndent()
 
 /** Slack over the slot duration before the watchdog fires, so ordinary buffering on bad venue
  *  wifi is not mistaken for a stall. */
@@ -395,29 +419,23 @@ fun PlaybackSurface(
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 private fun WebsiteElement(url: String) {
-    val density = LocalDensity.current.density
     BoxWithConstraints(Modifier.fillMaxSize().clipToBounds()) {
-        // The page is laid out at a desktop width and then scaled to fit this element exactly.
+        // How wide the page believes the window is, in CSS pixels, is the whole ballgame: it is
+        // what a responsive site picks its layout from. Sizing the view and scaling it by hand
+        // got this wrong, because a CSS pixel is neither a dp nor a device pixel — the browser
+        // derives it from the display density, so the same code produced a different viewport on
+        // every panel, and a narrow enough one served the phone layout.
         //
-        // A CSS pixel is a *device* pixel divided by the page's devicePixelRatio, which is the
-        // display density — NOT a dp. So a view of DESKTOP_CSS_WIDTH dp yields a viewport of
-        // (that / density) CSS pixels, which is how an earlier attempt produced a 1120-pixel
-        // viewport on a density-2 screen instead of the intended width. Dividing by the density
-        // here is what makes the viewport come out at DESKTOP_CSS_WIDTH exactly.
-        val viewWidth = DESKTOP_CSS_WIDTH / density
-        val scale = maxWidth / viewWidth
+        // Telling the WebView its zoom directly removes the density from the question entirely:
+        // at a scale of (element pixels / DESKTOP_CSS_WIDTH), the layout viewport is
+        // DESKTOP_CSS_WIDTH CSS pixels wide by definition, on any screen, and the browser does
+        // the scaling itself — no extra layer, and it renders at the panel's real resolution.
+        val elementWidthPx = with(LocalDensity.current) { maxWidth.toPx() }
+        val zoomPercent = ((elementWidthPx / DESKTOP_CSS_WIDTH_PX) * 100f)
+            .roundToInt()
+            .coerceIn(1, 1000)
         AndroidView(
-            modifier = Modifier
-                // requiredSize, not size: the view has to be allowed to exceed this box's
-                // constraints, because laying the page out at a desktop width is the entire
-                // point — `size()` would be clamped back to the box and the scale below would
-                // then shrink the page a second time.
-                .requiredSize(viewWidth, maxHeight / scale)
-                .graphicsLayer(
-                    scaleX = scale,
-                    scaleY = scale,
-                    transformOrigin = TransformOrigin(0f, 0f),
-                ),
+            modifier = Modifier.fillMaxSize(),
             factory = { ctx ->
                 WebView(ctx).apply {
                     setBackgroundColor(android.graphics.Color.BLACK)
@@ -425,11 +443,9 @@ private fun WebsiteElement(url: String) {
                     settings.domStorageEnabled = true
                     settings.mediaPlaybackRequiresUserGesture = false
                     settings.useWideViewPort = true
-                    // NOT loadWithOverviewMode: that zooms a page out to fit the viewport, which
-                    // is the opposite of what is wanted here — the view is already exactly as
-                    // wide as the layout, so the page must render 1:1 inside it rather than
-                    // shrinking itself again.
-                    setInitialScale(100)
+                    // NOT loadWithOverviewMode: it would zoom the page out again to fit, undoing
+                    // the zoom set here.
+                    setInitialScale(zoomPercent)
                     settings.userAgentString = desktopUserAgent(settings.userAgentString)
                     // Redirects, links and in-page navigation stay in this view instead of
                     // handing off to a browser — there isn't one to hand off to on a kiosk screen.
@@ -437,13 +453,10 @@ private fun WebsiteElement(url: String) {
                     // attach a debugger to, which layout a site actually chose and why.
                     webViewClient = object : WebViewClient() {
                         override fun onPageFinished(view: WebView, finishedUrl: String) {
-                            view.evaluateJavascript(
-                                "JSON.stringify({css:window.innerWidth,dpr:window.devicePixelRatio," +
-                                    "doc:document.documentElement.clientWidth})",
-                            ) { measured ->
+                            view.evaluateJavascript(DESKTOP_VIEWPORT_SCRIPT) { measured ->
                                 Log.i(
                                     "FortuWeb",
-                                    "laid out $measured in a ${view.width}x${view.height}px view",
+                                    "$finishedUrl laid out $measured in a ${view.width}x${view.height}px view",
                                 )
                             }
                         }
@@ -455,6 +468,7 @@ private fun WebsiteElement(url: String) {
             // Only a changed address reloads; comparing against view.url would reload after every
             // redirect.
             update = { view ->
+                view.setInitialScale(zoomPercent)
                 if (view.tag != url) {
                     view.tag = url
                     view.loadUrl(url)
