@@ -514,7 +514,7 @@ function apply() {
         <div class="flex justify-center" :style="frameOuterStyle" @click.self="select(null)">
           <div
             ref="canvasRef"
-            class="relative w-full rounded-xl bg-black"
+            class="relative w-full bg-black"
             :style="frameStyle"
             @click.self="select(null)"
             @dragover.prevent
@@ -523,7 +523,7 @@ function apply() {
             <!-- What the screen shows, clipped to the frame: an element hanging off the canvas
                  is cut off here exactly as the device will cut it off. `pointer-events-none` so
                  a click on bare canvas still reaches the frame below and deselects. -->
-            <div class="pointer-events-none absolute inset-0 overflow-hidden rounded-xl">
+            <div class="pointer-events-none absolute inset-0 overflow-hidden">
               <div
                 v-for="el in elements"
                 :key="el.key"

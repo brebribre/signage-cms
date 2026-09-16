@@ -135,11 +135,13 @@ function mediaStyle(el: DraftElement): CSSProperties {
 
 <template>
   <!-- The bezel is an outline, not a border: an outline adds no size, so the screen area keeps
-       its exact aspect ratio. The padding leaves room for it inside whatever holds the preview. -->
+       its exact aspect ratio. The padding leaves room for it inside whatever holds the preview.
+       Square corners, because the panels are square — a rounded preview would promise a shape
+       the hardware does not have. -->
   <div class="flex flex-col items-center p-2.5">
     <div
       ref="frameRef"
-      class="relative overflow-hidden rounded-sm bg-black outline-[10px] outline-solid outline-ink"
+      class="relative overflow-hidden bg-black outline-[10px] outline-solid outline-ink"
       :style="frameStyle"
     >
       <div v-for="el in sortedElements" :key="el.key" :style="boxStyle(el)">
