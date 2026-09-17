@@ -210,14 +210,15 @@ function sceneLabel(item: DraftItem): string {
             v-else
             ref="renameButton"
             type="button"
-            class="group -mx-2 flex max-w-full items-center gap-2 rounded-lg px-2 text-left transition-colors
-                   duration-150 hover:bg-canvas focus-visible:outline-2 focus-visible:outline-brand-bright"
+            class="group -mx-2 max-w-full rounded-lg px-2 text-left transition-colors duration-150
+                   hover:bg-canvas focus-visible:outline-2 focus-visible:outline-brand-bright"
             :aria-label="`Rename ${playlist.name}`"
             @click="startRename"
           >
-            <span class="truncate">{{ playlist.name }}</span>
+            {{ playlist.name }}
+            <!-- Inline, so it follows the last word when the name wraps. -->
             <IconEdit
-              class="size-5 shrink-0 text-ink-subtle transition-colors group-hover:text-ink sm:size-6"
+              class="ml-1 inline size-5 align-[-0.1em] text-ink-subtle transition-colors group-hover:text-ink sm:size-6"
               aria-hidden="true"
             />
           </button>
