@@ -88,6 +88,7 @@ async function boot() {
       applyTouchLock()
     },
     currentSettings: () => ({ volume: Math.round(volume() * 100), power_state: powered ? 'on' : 'off' }),
+    droppedFrames: () => surface.takeDroppedFrames(),
     applyPower: (on) => {
       powered = on
       render()

@@ -100,6 +100,9 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
      *  file is visible as an error rather than only as a gap someone happens to notice. */
     fun reportError(message: String) = engine.reportError(message)
 
+    /** Decoder health from the playback surface — see PlayerEngine.reportVideoStats. */
+    fun reportVideoStats(droppedFrames: Int, decoder: String?) = engine.reportVideoStats(droppedFrames, decoder)
+
     /** "Check for update" from the debug overlay — the on-screen counterpart to rolling an
      *  update out from the CMS, for exactly the situation that motivated it: an update that
      *  should have landed automatically but has not, and someone is now standing at the

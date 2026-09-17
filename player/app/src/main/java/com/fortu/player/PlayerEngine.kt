@@ -8,6 +8,7 @@ import com.fortu.player.api.ManifestElement
 import com.fortu.player.api.ManifestSettings
 import com.fortu.player.api.ManifestSlot
 import com.fortu.player.api.PlayReport
+import com.fortu.player.api.PlaybackReport
 import com.fortu.player.api.KIND_WEB
 import com.fortu.player.api.DisconnectedException
 import com.fortu.player.api.UnauthorizedException
@@ -138,6 +139,13 @@ data class DebugInfo(
      *  `UpdateBanner`) draws while an install is under way or has just failed. Null when no
      *  update is in flight. */
     val update: UpdateProgress? = null,
+    /** The video decoder in use, once one has been initialised. */
+    val decoder: String? = null,
+    /** Frames dropped since this process started — the on-screen counterpart of what each
+     *  heartbeat reports as a delta. */
+    val droppedFrames: Int = 0,
+    /** Throughput of the last media download that was large enough to measure. */
+    val downloadBytesPerSecond: Long? = null,
 )
 
 enum class UpdatePhase { DOWNLOADING, INSTALLING, FAILED }
@@ -266,6 +274,13 @@ class PlayerEngine(
 
     /** Errors observed since the last heartbeat, reported the same way. */
     private val pendingErrors = java.util.Collections.synchronizedList(mutableListOf<String>())
+
+    /** Dropped video frames since the last heartbeat, and the decoder that dropped them —
+     *  see [reportVideoStats]. */
+    private val droppedSinceBeat = java.util.concurrent.atomic.AtomicInteger(0)
+    @Volatile private var decoderName: String? = null
+    /** Bytes per second over the last media download large enough to say something. */
+    @Volatile private var lastDownloadBps: Long? = null
 
     fun setScreenSize(w: Int, h: Int) { screenWidth = w; screenHeight = h }
 
@@ -466,6 +481,11 @@ class PlayerEngine(
                         errors = errors,
                         plays = plays,
                         reportedSettings = currentSettings().ifEmpty { null },
+                        playback = PlaybackReport(
+                            droppedFrames = droppedSinceBeat.getAndSet(0),
+                            decoder = decoderName,
+                            downloadBytesPerSecond = lastDownloadBps,
+                        ),
                     ),
                 )
                 res.update?.let { maybeSelfUpdate(token, it) }
@@ -549,6 +569,8 @@ class PlayerEngine(
         lastFailedUpdate = null
         reportedUnsupportedFor = null
         validUntilMillis = null
+        droppedSinceBeat.set(0)
+        lastDownloadBps = null
         _orientation.value = null
         _debug.update {
             DebugInfo(apiBaseUrl = it.apiBaseUrl, kiosk = it.kiosk)
@@ -704,7 +726,9 @@ class PlayerEngine(
                     "${element.kind} · ${element.bytes / 1_048_576} MB",
                 )
                 try {
+                    val startedAt = clock()
                     cache.download(element)
+                    noteDownload(element.bytes, clock() - startedAt)
                 } catch (e: Exception) {
                     Log.e(TAG, "download failed for ${element.id}", e)
                     _debug.update { it.copy(lastError = "download: ${e.message}") }
@@ -958,6 +982,29 @@ class PlayerEngine(
         }
     }
 
+    /**
+     * From the playback surface's ExoPlayer analytics: frames the decoder dropped (as it
+     * reports them, in batches), and which decoder it picked. Batched onto the next heartbeat
+     * as a delta; shown on the debug overlay as a running total. The numbers behind "is this
+     * box coping?", so tuning is done on evidence rather than by watching a wall.
+     */
+    fun reportVideoStats(droppedFrames: Int, decoder: String?) {
+        if (droppedFrames > 0) droppedSinceBeat.addAndGet(droppedFrames)
+        if (decoder != null) decoderName = decoder
+        _debug.update {
+            it.copy(decoder = decoderName, droppedFrames = it.droppedFrames + droppedFrames.coerceAtLeast(0))
+        }
+    }
+
+    /** A download's throughput, kept only when the file was big and slow enough to measure —
+     *  a 40 KB thumbnail in 30 ms says nothing about the link. */
+    private fun noteDownload(bytes: Long, elapsedMillis: Long) {
+        if (bytes < MIN_MEASURED_DOWNLOAD_BYTES || elapsedMillis < MIN_MEASURED_DOWNLOAD_MILLIS) return
+        val bps = bytes * 1000 / elapsedMillis
+        lastDownloadBps = bps
+        _debug.update { it.copy(downloadBytesPerSecond = bps) }
+    }
+
     fun reportError(message: String) {
         synchronized(pendingErrors) {
             if (pendingErrors.size >= MAX_PENDING_ERRORS) pendingErrors.removeAt(0)
@@ -1005,6 +1052,11 @@ class PlayerEngine(
         // Matches the server's per-heartbeat cap, so a full buffer sends in one go.
         const val MAX_PENDING_PLAYS = 50
         const val MAX_PENDING_ERRORS = 20
+
+        /** A download is only measured when it is at least this big and took at least this
+         *  long — anything smaller is dominated by connection setup, not the link. */
+        const val MIN_MEASURED_DOWNLOAD_BYTES = 1_048_576L
+        const val MIN_MEASURED_DOWNLOAD_MILLIS = 1_000L
     }
 
 }

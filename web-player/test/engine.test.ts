@@ -332,6 +332,19 @@ describe('sync', () => {
     expect(engine.state.value.kind).toBe('playing')
   })
 
+  it('dropped frames ride the next heartbeat as a delta', async () => {
+    api.manifest = manifest()
+    let dropped = 4
+    start({ droppedFrames: () => { const d = dropped; dropped = 0; return d } })
+    // The first heartbeat goes out with the first manifest, and takes the count with it.
+    await tick(0)
+    expect(api.heartbeats.slice(-1)[0]!.playback).toEqual({ dropped_frames: 4, decoder: null, download_bytes_per_second: null })
+    expect(engine.debug.value.droppedFrames).toBe(4)
+    await tick(POLL_SECONDS * 1000)
+    expect(api.heartbeats.slice(-1)[0]!.playback?.dropped_frames).toBe(0)
+    expect(engine.debug.value.droppedFrames).toBe(4)
+  })
+
   it('one 401 does not unpair a working screen', async () => {
     api.manifest = manifest()
     start()

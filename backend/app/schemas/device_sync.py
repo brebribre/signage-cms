@@ -129,6 +129,17 @@ class PlayReport(BaseModel):
     seconds: int = Field(default=0, ge=0, le=86_400)
 
 
+class PlaybackReport(BaseModel):
+    """How playback is going on the screen — see Device.playback_dropped_frames."""
+
+    #: Video frames the decoder dropped since the previous heartbeat.
+    dropped_frames: int = Field(default=0, ge=0)
+    #: The decoder in use ("OMX.amlogic.avc.decoder.awesome"); None where the platform hides it.
+    decoder: str | None = Field(default=None, max_length=120)
+    #: Measured over the last media download, when one was large enough to measure.
+    download_bytes_per_second: int | None = Field(default=None, ge=0)
+
+
 class HeartbeatRequest(BaseModel):
     app_version: str | None = Field(default=None, max_length=32)
     screen: HeartbeatScreen | None = None
@@ -142,6 +153,8 @@ class HeartbeatRequest(BaseModel):
     # predates reporting; an unrecognized key inside it is dropped, not rejected — see
     # services/device_settings.py::record_reported.
     reported_settings: dict[str, Any] | None = None
+    # Absent on a build that predates it.
+    playback: PlaybackReport | None = None
 
 
 class UpdateInfo(BaseModel):

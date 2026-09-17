@@ -29,7 +29,7 @@ const {
   device, isLoading, isSaving, error, saveError, saveSucceeded, probeState, disconnectState,
   save, disconnect, probe, setForcedUpdate, cancelForcedUpdate,
 } = useDeviceDetail(id)
-const { dimensions, relativeTime, date } = useFormat()
+const { bytes, dimensions, relativeTime, date } = useFormat()
 const { isOwner } = useAuth()
 
 const confirmingDisconnect = ref(false)
@@ -163,6 +163,25 @@ async function onDisconnect() {
           <div>
             <dt class="text-[13px] text-ink-muted">App version</dt>
             <dd class="text-sm text-ink">{{ device.app_version ?? '—' }}</dd>
+          </div>
+          <!-- Playback health, from the last heartbeat — "is this box coping?" in numbers. -->
+          <div v-if="device.playback_reported_at">
+            <dt class="text-[13px] text-ink-muted">Playback</dt>
+            <dd
+              class="text-sm"
+              :class="(device.playback_dropped_frames ?? 0) > 0 ? 'text-danger' : 'text-ink'"
+              :title="device.playback_decoder ?? undefined"
+            >
+              {{ device.playback_dropped_frames ?? 0 }} dropped frame{{ device.playback_dropped_frames === 1 ? '' : 's' }}
+              <span class="text-ink-subtle">since last check-in</span>
+              <span v-if="device.playback_decoder" class="block truncate text-[13px] text-ink-muted">
+                {{ device.playback_decoder }}
+              </span>
+            </dd>
+          </div>
+          <div v-if="device.download_bytes_per_second">
+            <dt class="text-[13px] text-ink-muted">Download speed</dt>
+            <dd class="text-sm text-ink">{{ bytes(device.download_bytes_per_second) }}/s <span class="text-ink-subtle">last file</span></dd>
           </div>
         </dl>
       </AppCard>

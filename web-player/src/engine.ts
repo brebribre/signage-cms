@@ -57,6 +57,10 @@ export interface DebugInfo {
   schedule: string | null
   /** Whether a newer deploy of the web player exists — the web counterpart of self-update. */
   updateStatus: string | null
+  /** Frames dropped since the page loaded — the on-screen counterpart of each heartbeat's delta. */
+  droppedFrames: number
+  /** Throughput of the last media download large enough to measure. */
+  downloadBytesPerSecond: number | null
 }
 
 type Listener<T> = (value: T) => void
@@ -93,6 +97,9 @@ export interface EngineOptions {
   applySettings?: (settings: ManifestSettings) => void
   /** What the screen's settings actually are right now, for the heartbeat to report. */
   currentSettings?: () => Record<string, string | number | boolean>
+  /** Frames the browser's decoder dropped since the last call — from the playback surface,
+   *  drained once per heartbeat. */
+  droppedFrames?: () => number
   /** Sleeps or wakes the screen. Called only when the power decision changes. */
   applyPower?: (on: boolean) => void
   /** Pre-decodes an image so its first showing isn't a cold decode. */
@@ -129,6 +136,15 @@ export class PlayerEngine {
   private streamingSince: number | null = null
   private pendingPlays: PlayReport[] = []
   private pendingErrors: string[] = []
+  /** Bytes per second over the last media download big and slow enough to say something. */
+  private lastDownloadBps: number | null = null
+
+  /** A 40 KB file in 30 ms says nothing about the link; only a real download is measured. */
+  private noteDownload(bytes: number, elapsedMillis: number) {
+    if (bytes < MIN_MEASURED_DOWNLOAD_BYTES || elapsedMillis < MIN_MEASURED_DOWNLOAD_MILLIS) return
+    this.lastDownloadBps = Math.round((bytes * 1000) / elapsedMillis)
+    this.debug.update((d) => ({ ...d, downloadBytesPerSecond: this.lastDownloadBps }))
+  }
 
   constructor(opts: EngineOptions) {
     this.opts = opts
@@ -148,6 +164,8 @@ export class PlayerEngine {
       storage: opts.cache.available ? 'offline cache' : 'everything streams (no cache over plain HTTP)',
       schedule: null,
       updateStatus: null,
+      droppedFrames: 0,
+      downloadBytesPerSecond: null,
     })
   }
 
@@ -331,6 +349,8 @@ export class PlayerEngine {
         const plays = this.pendingPlays.splice(0)
         const errors = this.pendingErrors.splice(0)
         const reported = this.opts.currentSettings?.() ?? {}
+        const dropped = this.opts.droppedFrames?.() ?? 0
+        if (dropped) this.debug.update((d) => ({ ...d, droppedFrames: d.droppedFrames + dropped }))
         const res = await this.api.heartbeat(token, {
           app_version: this.opts.appVersion,
           screen: this.opts.screenSize?.() ?? null,
@@ -338,6 +358,8 @@ export class PlayerEngine {
           errors,
           plays,
           reported_settings: Object.keys(reported).length ? reported : null,
+          // A browser never says which decoder it used; the count is what the CMS can act on.
+          playback: { dropped_frames: dropped, decoder: null, download_bytes_per_second: this.lastDownloadBps },
         })
         if (etag !== null && `"${res.version}"` !== etag) {
           // Version moved under us — loop again soon, but never with zero delay.
@@ -382,6 +404,7 @@ export class PlayerEngine {
     }
     this.pendingPlays.length = 0
     this.pendingErrors.length = 0
+    this.lastDownloadBps = null
     this.validUntilMillis = null
     this.orientation.set(null)
     this.state.set({ kind: 'starting' })
@@ -588,7 +611,9 @@ export class PlayerEngine {
       })
       try {
         console.info(TAG, `downloading ${file.checksum} (${file.bytes} bytes)`)
+        const startedAt = this.clock()
         await this.cache.download(file.checksum, file.url, file.bytes)
+        this.noteDownload(file.bytes, this.clock() - startedAt)
       } catch (e) {
         // Where Android skips a slot whose file failed to download, a browser has a better
         // option: play it straight from its address. The usual cause here is storage the
@@ -713,6 +738,10 @@ export const POLL_SECONDS = 10
 export const MIN_POLL_MILLIS = 2_000
 /** How often power is re-checked when no change is due sooner. */
 export const POWER_CHECK_MILLIS = 30_000
+/** A download is only measured when it is at least this big and took at least this long. */
+export const MIN_MEASURED_DOWNLOAD_BYTES = 1_048_576
+export const MIN_MEASURED_DOWNLOAD_MILLIS = 1_000
+
 /** Consecutive 401s before a screen gives up its pairing. */
 export const UNAUTHORIZED_BEFORE_REPAIR = 3
 export const UNAUTHORIZED_RETRY_SECONDS = 5

@@ -443,6 +443,11 @@ fun DebugOverlay(
             DebugRow("version", info.version?.take(24) ?: "—")
             DebugRow("items", info.itemCount.toString())
             DebugRow("cached", "%.1f MB".format(info.cachedBytes / 1_048_576.0))
+            DebugRow("video", "${info.decoder ?: "no decoder yet"} · ${info.droppedFrames} dropped")
+            DebugRow(
+                "download",
+                info.downloadBytesPerSecond?.let { "%.1f MB/s".format(it / 1_048_576.0) } ?: "not measured",
+            )
             DebugRow("last poll", info.lastPoll)
             DebugRow("schedule", info.schedule ?: "default playlist")
             DebugRow("kiosk", info.kiosk)

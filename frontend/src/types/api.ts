@@ -221,6 +221,13 @@ export interface DeviceRead {
   /** The reason, in the screen's own words, when `update_state` is 'failed'. */
   update_detail: string | null
   update_reported_at: string | null
+  /** Playback health from the last heartbeat: frames the decoder dropped since the beat before,
+   *  the hardware decoder in use, and the last measured media download speed. Null on players
+   *  that predate reporting. */
+  playback_dropped_frames: number | null
+  playback_decoder: string | null
+  download_bytes_per_second: number | null
+  playback_reported_at: string | null
 }
 
 export type DeviceUpdateState = 'downloading' | 'installing' | 'installed' | 'failed'

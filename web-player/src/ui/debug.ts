@@ -26,6 +26,8 @@ export function renderDebug(el: HTMLElement, info: DebugInfo, extra: Record<stri
     ['version', info.version?.slice(0, 24) ?? '—'],
     ['items', String(info.itemCount)],
     ['cached', `${(info.cachedBytes / 1_048_576).toFixed(1)} MB`],
+    ['dropped frames', String(info.droppedFrames)],
+    ['download', info.downloadBytesPerSecond ? `${(info.downloadBytesPerSecond / 1_048_576).toFixed(1)} MB/s` : 'not measured'],
     ['storage', info.storage],
     ['last poll', ago(info.lastPollAt)],
     ['schedule', info.schedule || 'default playlist'],

@@ -57,6 +57,10 @@ export class PlaybackSurface {
   private autoplayBlockedReported = false
   /** Per-layer cleanups (a video's stall watchdog), run when that layer is torn down. */
   private cleanups = new WeakMap<HTMLElement, Array<() => void>>()
+  /** Dropped-frame bookkeeping for [takeDroppedFrames]: what each video had last reported, and
+   *  the deltas of videos already gone. */
+  private droppedSeen = new WeakMap<HTMLVideoElement, number>()
+  private droppedCarried = 0
 
   constructor(private readonly root: HTMLElement, private readonly cb: PlaybackCallbacks) {}
 
@@ -269,6 +273,25 @@ export class PlaybackSurface {
     return Promise.race([Promise.all(waits).then(() => undefined), timeout])
   }
 
+  /**
+   * Frames the browser's decoder dropped since the last call, across every video that played
+   * in between — the browser's `getVideoPlaybackQuality()`, which counts per element, turned
+   * into one delta per heartbeat. Zero where the browser doesn't offer the count.
+   */
+  takeDroppedFrames(): number {
+    let total = this.droppedCarried
+    this.droppedCarried = 0
+    this.layer?.querySelectorAll('video').forEach((v) => { total += this.droppedDelta(v) })
+    return total
+  }
+
+  private droppedDelta(video: HTMLVideoElement): number {
+    const now = video.getVideoPlaybackQuality?.()?.droppedVideoFrames ?? 0
+    const delta = Math.max(0, now - (this.droppedSeen.get(video) ?? 0))
+    this.droppedSeen.set(video, now)
+    return delta
+  }
+
   /** What the first video on screen is doing, for the debug overlay — the one place a black
    *  screen can be told apart: still loading, stuck, refused by the decoder, or blocked. */
   videoStatus(): string {
@@ -466,9 +489,11 @@ export class PlaybackSurface {
 
   /** Stops a layer's videos and gives their decoders back, leaving the layer itself in place. */
   private releaseVideos(layer: HTMLElement) {
-    // Described before anything is stopped, so the overlay shows how it was actually playing.
+    // Described before anything is stopped, so the overlay shows how it was actually playing —
+    // and its dropped frames banked, so a video that ends between heartbeats still counts.
     layer.querySelectorAll('video').forEach((v) => {
       if (v.currentSrc) this.lastVideo = this.describe(v)
+      this.droppedCarried += this.droppedDelta(v)
     })
     this.cleanups.get(layer)?.forEach((fn) => fn())
     this.cleanups.delete(layer)

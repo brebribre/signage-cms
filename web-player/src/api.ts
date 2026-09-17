@@ -120,6 +120,9 @@ export interface HeartbeatRequest {
   errors: string[]
   plays: PlayReport[]
   reported_settings?: Record<string, string | number | boolean> | null
+  /** Playback health — frames dropped since the last beat, the decoder (unknown in a browser),
+   *  and the last measured download speed. See PlayerEngine.kt's PlaybackReport. */
+  playback?: { dropped_frames: number; decoder: string | null; download_bytes_per_second: number | null } | null
 }
 
 export interface HeartbeatResponse {

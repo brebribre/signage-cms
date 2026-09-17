@@ -250,6 +250,29 @@ class PlayerEngineTest {
         job.cancelAndJoin()
     }
 
+    @Test
+    fun `dropped frames and the decoder ride the next heartbeat, and the count is drained`() = runTest {
+        val store = FakeStore(storedToken = "t")
+        val api = FakeApi().apply { manifest = manifest() }
+        val e = engine(api = api, store = store)
+        val job = launch { e.run() }
+        advanceTimeBy(1_000)
+        e.reportVideoStats(3, "OMX.test.avc")
+        e.reportVideoStats(2, null)
+        advanceTimeBy(35_000)
+
+        val beat = api.heartbeats.last().playback
+        assertEquals(5, beat?.droppedFrames)
+        assertEquals("OMX.test.avc", beat?.decoder)
+        assertEquals(5, e.debug.value.droppedFrames)
+
+        advanceTimeBy(35_000)
+        val next = api.heartbeats.last().playback
+        assertEquals("a delta, not a running total", 0, next?.droppedFrames)
+        assertEquals("the decoder is a fact about the box, not the beat", "OMX.test.avc", next?.decoder)
+        job.cancelAndJoin()
+    }
+
     // --- manifest handling ------------------------------------------------------------------
 
     @Test

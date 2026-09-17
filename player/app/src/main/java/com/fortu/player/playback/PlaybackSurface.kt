@@ -1,6 +1,7 @@
 package com.fortu.player.playback
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
@@ -43,6 +44,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import coil.compose.AsyncImage
@@ -138,6 +140,9 @@ fun PlaybackSurface(
     /** Reported to the CMS so an unplayable file shows up on the health page rather than
      *  only as a gap someone happens to notice. */
     onPlaybackError: (String) -> Unit = {},
+    /** Dropped frames (as the decoder reports them, in batches) and the decoder's name, for
+     *  the heartbeat and the debug overlay — see PlayerEngine.reportVideoStats. */
+    onVideoStats: (droppedFrames: Int, decoder: String?) -> Unit = { _, _ -> },
 ) {
     var index by remember(slots) { mutableIntStateOf(0) }
     val slot = slots[index.coerceIn(slots.indices)]
@@ -203,12 +208,7 @@ fun PlaybackSurface(
     val requiredPoolSize = slots.maxOfOrNull { s -> s.elements.count { it.kind == "video" } } ?: 0
     LaunchedEffect(requiredPoolSize) {
         while (exoPool.size < requiredPoolSize) {
-            exoPool.add(
-                ExoPlayer.Builder(context).build().apply {
-                    playWhenReady = true
-                    volume = 0f
-                },
-            )
+            exoPool.add(newPooledPlayer(context, onVideoStats))
         }
         poolSize = exoPool.size
     }
@@ -233,10 +233,7 @@ fun PlaybackSurface(
      * acceptable trade against ever risking a call into an already-released player.
      */
     fun replacePoolMember(poolIndex: Int) {
-        exoPool[poolIndex] = ExoPlayer.Builder(context).build().apply {
-            playWhenReady = true
-            volume = 0f
-        }
+        exoPool[poolIndex] = newPooledPlayer(context, onVideoStats)
     }
 
     // A lone video repeats: with no next slot, ending playback would freeze the screen on its
@@ -358,6 +355,29 @@ fun PlaybackSurface(
         }
     }
 }
+
+/** One pool member: muted until a slot says otherwise, and wired to report how its decoder
+ *  is doing. Dropped frames arrive in batches (Media3 reports every few hundred ms while it is
+ *  dropping any); the decoder name arrives once per initialisation. */
+private fun newPooledPlayer(context: Context, onVideoStats: (Int, String?) -> Unit): ExoPlayer =
+    ExoPlayer.Builder(context).build().apply {
+        playWhenReady = true
+        volume = 0f
+        addAnalyticsListener(object : AnalyticsListener {
+            override fun onDroppedVideoFrames(eventTime: AnalyticsListener.EventTime, droppedFrames: Int, elapsedMs: Long) {
+                onVideoStats(droppedFrames, null)
+            }
+
+            override fun onVideoDecoderInitialized(
+                eventTime: AnalyticsListener.EventTime,
+                decoderName: String,
+                initializedTimestampMs: Long,
+                initializationDurationMs: Long,
+            ) {
+                onVideoStats(0, decoderName)
+            }
+        })
+    }
 
 /**
  * The picture behind a blurred scene (see [SceneBackground]): the source image's cached file, or

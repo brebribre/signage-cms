@@ -202,6 +202,7 @@ class MainActivity : ComponentActivity() {
                         fileFor = vm::localFileFor,
                         onPlayed = vm::reportPlay,
                         onPlaybackError = vm::reportError,
+                        onVideoStats = vm::reportVideoStats,
                     )
                 }
                 // A small card at the bottom while a build downloads or installs, and for a

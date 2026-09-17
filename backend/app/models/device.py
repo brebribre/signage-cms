@@ -139,6 +139,16 @@ class Device(SQLModel, table=True):
     update_detail: str | None = Field(default=None, max_length=500)
     update_reported_at: datetime | None = Field(default=None, sa_column=tz_column(nullable=True))
 
+    # --- Playback health, reported on each heartbeat ---
+    # Dropped video frames since the previous heartbeat, the hardware decoder in use, and the
+    # throughput of the last media download — the numbers behind "is this box coping?", so
+    # tuning is done on evidence rather than by watching a wall. Null on players that predate
+    # reporting.
+    playback_dropped_frames: int | None = Field(default=None)
+    playback_decoder: str | None = Field(default=None, max_length=120)
+    download_bytes_per_second: int | None = Field(default=None)
+    playback_reported_at: datetime | None = Field(default=None, sa_column=tz_column(nullable=True))
+
     # --- Disconnecting ---
     # Set when someone in the CMS disconnects this screen. From then on the screen's very next
     # request is answered 410 Gone — a deliberate, unambiguous "you were disconnected", distinct

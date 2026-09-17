@@ -23,6 +23,7 @@ from app.services import media as media_service
 from app.services import player_releases
 from app.services import player_rollouts
 from app.services import scheduling
+from app.schemas.device_sync import PlaybackReport
 
 logger = logging.getLogger(__name__)
 
@@ -427,6 +428,7 @@ def record_heartbeat(
     current_item_id: uuid.UUID | None,
     errors: list[str],
     reported_settings: dict | None = None,
+    playback: "PlaybackReport | None" = None,
 ) -> None:
     """Update liveness. Errors are logged, not stored — Phase 14 gives them a table if a
     device health page is ever built; until then they only need to be visible to whoever is
@@ -455,6 +457,13 @@ def record_heartbeat(
         device.screen_width = screen_width
     if screen_height is not None:
         device.screen_height = screen_height
+    if playback is not None:
+        device.playback_dropped_frames = playback.dropped_frames
+        device.playback_decoder = playback.decoder
+        # Kept from the last measurable download rather than nulled on every quiet beat.
+        if playback.download_bytes_per_second is not None:
+            device.download_bytes_per_second = playback.download_bytes_per_second
+        device.playback_reported_at = now
     session.add(device)
     session.commit()
 

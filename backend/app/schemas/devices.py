@@ -34,6 +34,11 @@ class DeviceRead(BaseModel):
     update_progress_pct: int | None = None
     update_detail: str | None = None
     update_reported_at: datetime | None = None
+    # Playback health from the last heartbeat — see Device.playback_dropped_frames.
+    playback_dropped_frames: int | None = None
+    playback_decoder: str | None = None
+    download_bytes_per_second: int | None = None
+    playback_reported_at: datetime | None = None
     # Set once "Disconnect" has been clicked and the screen is being told; the row disappears
     # (GET → 404) the moment the screen has heard. See Device.disconnect_requested_at.
     disconnect_requested_at: datetime | None = None

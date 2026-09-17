@@ -209,6 +209,19 @@ data class HeartbeatRequest(
      *  what the CMS wants them to be. Primitives of any kind: volume/brightness are numbers,
      *  `power_state` is "on"/"off". */
     @SerialName("reported_settings") val reportedSettings: Map<String, kotlinx.serialization.json.JsonPrimitive>? = null,
+    /** How playback is going — see [PlaybackReport]. */
+    val playback: PlaybackReport? = null,
+)
+
+/** Playback health, once per heartbeat: what the CMS shows as "is this box coping?". */
+@Serializable
+data class PlaybackReport(
+    /** Frames the video decoder dropped since the previous heartbeat. */
+    @SerialName("dropped_frames") val droppedFrames: Int = 0,
+    /** The hardware decoder in use, e.g. "OMX.amlogic.avc.decoder.awesome". */
+    val decoder: String? = null,
+    /** Measured over the last media download large enough to measure. */
+    @SerialName("download_bytes_per_second") val downloadBytesPerSecond: Long? = null,
 )
 
 @Serializable
