@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import IconAdd from '~icons/material-symbols/add'
 import IconArrowBack from '~icons/material-symbols/arrow-back'
 
 import { useFormat } from '@/hooks/useFormat'
@@ -52,7 +53,10 @@ async function onCreate() {
 
     <PageTitle title="Playlists" :subtitle="`${items.length} playlist${items.length === 1 ? '' : 's'}`">
       <template #actions>
-        <AppButton size="sm" @click="adding = true">New playlist</AppButton>
+        <AppButton size="sm" @click="adding = true">
+          <IconAdd class="size-4" aria-hidden="true" />
+          New playlist
+        </AppButton>
       </template>
     </PageTitle>
 
@@ -65,7 +69,10 @@ async function onCreate() {
       description="A playlist is an ordered list of media with a duration for each slot."
     >
       <template #actions>
-        <AppButton size="sm" @click="adding = true">New playlist</AppButton>
+        <AppButton size="sm" @click="adding = true">
+          <IconAdd class="size-4" aria-hidden="true" />
+          New playlist
+        </AppButton>
       </template>
     </EmptyState>
 

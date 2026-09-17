@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import IconAdd from '~icons/material-symbols/add'
 
 import { useDevices } from '@/hooks/useDevices'
 import { useNowPlaying } from '@/hooks/useNowPlaying'
@@ -37,7 +38,10 @@ async function onClaim(body: ClaimBody) {
   <div class="flex flex-col gap-6">
     <PageTitle title="Devices" :subtitle="`${items.length} screen${items.length === 1 ? '' : 's'}`">
       <template #actions>
-        <AppButton size="sm" @click="pairing = true">Add screen</AppButton>
+        <AppButton size="sm" @click="pairing = true">
+          <IconAdd class="size-4" aria-hidden="true" />
+          Add screen
+        </AppButton>
       </template>
     </PageTitle>
 
@@ -50,7 +54,10 @@ async function onClaim(body: ClaimBody) {
       description="Power on a screen — it will show a pairing code. Type that code here to add it."
     >
       <template #actions>
-        <AppButton size="sm" @click="pairing = true">Add screen</AppButton>
+        <AppButton size="sm" @click="pairing = true">
+          <IconAdd class="size-4" aria-hidden="true" />
+          Add screen
+        </AppButton>
       </template>
     </EmptyState>
 

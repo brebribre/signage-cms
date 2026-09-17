@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
+import IconAdd from '~icons/material-symbols/add'
 import IconPlayArrow from '~icons/material-symbols/play-arrow'
 import IconTv from '~icons/material-symbols/tv-outline'
 
@@ -23,7 +24,10 @@ const { date } = useFormat()
       :subtitle="`${items.length} campaign${items.length === 1 ? '' : 's'}`"
     >
       <template #actions>
-        <AppButton size="sm" @click="router.push({ name: 'deploy' })">New campaign</AppButton>
+        <AppButton size="sm" @click="router.push({ name: 'deploy' })">
+          <IconAdd class="size-4" aria-hidden="true" />
+          New campaign
+        </AppButton>
       </template>
     </PageTitle>
 
@@ -37,7 +41,10 @@ const { date } = useFormat()
                     every screen you pick — the only place playlist assignment happens."
     >
       <template #actions>
-        <AppButton size="sm" @click="router.push({ name: 'deploy' })">New campaign</AppButton>
+        <AppButton size="sm" @click="router.push({ name: 'deploy' })">
+          <IconAdd class="size-4" aria-hidden="true" />
+          New campaign
+        </AppButton>
       </template>
     </EmptyState>
 
