@@ -243,12 +243,16 @@ function onElementPointerUp(e: PointerEvent) {
   releaseCapture(e)
 }
 
-// --- Resize via corner handles — free (unlocked) aspect, matches "enlarge or make it
-// smaller" as asked. Each corner keeps the OPPOSITE corner fixed as the anchor. ---
+// --- Handles, the way Canva's work: a CORNER scales the element, keeping its shape; a SIDE
+// crops that side. Both anchor on the opposite corner/side, so what you aren't dragging stays
+// exactly where it was. ---
 
 type Corner = 'nw' | 'ne' | 'sw' | 'se'
 const CORNERS: Corner[] = ['nw', 'ne', 'sw', 'se']
 const MIN_SIZE = 0.05
+/** The server's cap on crop zoom (services/playlists.py MAX_CROP_ZOOM) — a side can't crop
+ *  tighter than this, or the scene would fail to save. */
+const MAX_CROP_ZOOM = 3
 
 const resizingCorner = ref<Corner | null>(null)
 let resizeStartPointer = { x: 0, y: 0 }
@@ -265,21 +269,29 @@ function onHandlePointerDown(corner: Corner, e: PointerEvent) {
   ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
 }
 
+/** Proportional scale about the opposite corner. Worked in a single scale factor — whichever
+ *  axis the pointer has moved further along — so the box's aspect never drifts, and neither does
+ *  the media's crop inside it (the same crop at the same aspect is the same picture, larger). */
 function onHandlePointerMove(e: PointerEvent) {
   if (!resizingCorner.value || !selected.value || !canvasRef.value) return
-  const box = canvasRef.value.getBoundingClientRect()
-  const dx = (e.clientX - resizeStartPointer.x) / box.width
-  const dy = (e.clientY - resizeStartPointer.y) / box.height
-  let { x, y, width, height } = resizeStartBox
+  const canvas = canvasRef.value.getBoundingClientRect()
+  const dx = (e.clientX - resizeStartPointer.x) / canvas.width
+  const dy = (e.clientY - resizeStartPointer.y) / canvas.height
   const corner = resizingCorner.value
-  if (corner === 'se') { width += dx; height += dy }
-  else if (corner === 'nw') { x += dx; width -= dx; y += dy; height -= dy }
-  else if (corner === 'ne') { width += dx; y += dy; height -= dy }
-  else if (corner === 'sw') { x += dx; width -= dx; height += dy }
-  selected.value.x = x
-  selected.value.y = y
-  selected.value.width = Math.max(MIN_SIZE, width)
-  selected.value.height = Math.max(MIN_SIZE, height)
+  const sx = corner === 'ne' || corner === 'se' ? 1 : -1
+  const sy = corner === 'sw' || corner === 'se' ? 1 : -1
+  const start = resizeStartBox
+  const scale = Math.max(
+    (start.width + sx * dx) / start.width,
+    (start.height + sy * dy) / start.height,
+    MIN_SIZE / Math.min(start.width, start.height),
+  )
+  const width = start.width * scale
+  const height = start.height * scale
+  selected.value.width = width
+  selected.value.height = height
+  selected.value.x = sx === 1 ? start.x : start.x + start.width - width
+  selected.value.y = sy === 1 ? start.y : start.y + start.height - height
 }
 
 function onHandlePointerUp(e: PointerEvent) {
@@ -297,49 +309,117 @@ const HANDLE_CURSOR: Record<Corner, string> = {
   nw: 'nwse-resize', se: 'nwse-resize', ne: 'nesw-resize', sw: 'nesw-resize',
 }
 
-// --- Crop via edge handles — shown only in crop mode, in place of the corner handles.
-// Dragging one edge moves just that edge (the opposite edge stays put), same anchor logic
-// as the corner resize but locked to a single axis. The box's aspect changes as a result,
-// and since the box's own aspect is what the cover-crop math targets, trimming an edge is
-// exactly what crops the media — no separate crop rectangle to keep in sync. -->
-
 type Edge = 'n' | 's' | 'e' | 'w'
 const EDGES: Edge[] = ['n', 's', 'e', 'w']
 
 const resizingEdge = ref<Edge | null>(null)
 let edgeStartPointer = { x: 0, y: 0 }
 let edgeStartBox = { x: 0, y: 0, width: 0, height: 0 }
+/** Where the whole media sits on the canvas (fractions), cropped parts included — held fixed for
+ *  the length of a side-crop drag. Null for a website, which has nothing to crop. */
+let edgeMedia: { left: number; top: number; width: number; height: number } | null = null
+
+/**
+ * A Fit (or legacy Stretch) element shows its media letterboxed inside a larger box. Cropping
+ * starts from what is actually visible, so the box first shrinks onto the media and becomes
+ * Fill — which looks the same, minus the bars — and the crop proceeds from there.
+ */
+function fillToVisibleMedia(el: DraftElement) {
+  if (el.fit === 'cover' || !el.mediaWidth || !el.mediaHeight) return
+  const eff = effectiveDimensions(el.mediaWidth, el.mediaHeight, el.rotationDegrees)
+  const mediaAspect = eff.width / eff.height
+  if (el.fit === 'contain') {
+    if (mediaAspect > elementTargetAspect(el)) {
+      const height = (el.width * canvasAspect.value) / mediaAspect
+      el.y += (el.height - height) / 2
+      el.height = height
+    } else {
+      const width = (el.height * mediaAspect) / canvasAspect.value
+      el.x += (el.width - width) / 2
+      el.width = width
+    }
+  }
+  el.fit = 'cover'
+  el.cropX = 0.5
+  el.cropY = 0.5
+  el.cropZoom = 1
+}
 
 function onEdgeHandlePointerDown(edge: Edge, e: PointerEvent) {
-  if (!selected.value) return
+  const el = selected.value
+  if (!el) return
+  edgeMedia = null
+  if (el.mediaWidth && el.mediaHeight) {
+    fillToVisibleMedia(el)
+    const rect = currentCropRect(el, el.cropX ?? 0.5, el.cropY ?? 0.5)
+    const width = el.width / rect.w
+    const height = el.height / rect.h
+    edgeMedia = { left: el.x - rect.x * width, top: el.y - rect.y * height, width, height }
+  }
   resizingEdge.value = edge
   edgeStartPointer = { x: e.clientX, y: e.clientY }
-  edgeStartBox = {
-    x: selected.value.x, y: selected.value.y,
-    width: selected.value.width, height: selected.value.height,
-  }
+  edgeStartBox = { x: el.x, y: el.y, width: el.width, height: el.height }
   ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
 }
 
+/**
+ * Moves one side, the opposite one staying put.
+ *
+ * For media it is a crop: the picture stays exactly where it is on the canvas and only the window
+ * onto it moves — so the side can go back out, revealing what was cropped, up to the media's own
+ * edge and no further. The new window is then written back as the element's box plus the
+ * crop centre and zoom that reproduce it (resolveCropRect's inverse). A website has no picture
+ * to hold still, so its side simply resizes that side.
+ */
 function onEdgeHandlePointerMove(e: PointerEvent) {
-  if (!resizingEdge.value || !selected.value || !canvasRef.value) return
-  const box = canvasRef.value.getBoundingClientRect()
-  const dx = (e.clientX - edgeStartPointer.x) / box.width
-  const dy = (e.clientY - edgeStartPointer.y) / box.height
-  let { x, y, width, height } = edgeStartBox
+  const el = selected.value
+  if (!resizingEdge.value || !el || !canvasRef.value) return
+  const canvas = canvasRef.value.getBoundingClientRect()
+  const dx = (e.clientX - edgeStartPointer.x) / canvas.width
+  const dy = (e.clientY - edgeStartPointer.y) / canvas.height
   const edge = resizingEdge.value
-  if (edge === 'e') width += dx
-  else if (edge === 'w') { x += dx; width -= dx }
-  else if (edge === 's') height += dy
-  else if (edge === 'n') { y += dy; height -= dy }
-  selected.value.x = x
-  selected.value.y = y
-  selected.value.width = Math.max(MIN_SIZE, width)
-  selected.value.height = Math.max(MIN_SIZE, height)
+  const start = edgeStartBox
+
+  let left = start.x
+  let top = start.y
+  let right = start.x + start.width
+  let bottom = start.y + start.height
+  const m = edgeMedia
+  const minLeft = m ? m.left : -Infinity
+  const maxRight = m ? m.left + m.width : Infinity
+  const minTop = m ? m.top : -Infinity
+  const maxBottom = m ? m.top + m.height : Infinity
+  if (edge === 'e') right = Math.min(maxRight, Math.max(left + MIN_SIZE, right + dx))
+  else if (edge === 'w') left = Math.max(minLeft, Math.min(right - MIN_SIZE, left + dx))
+  else if (edge === 's') bottom = Math.min(maxBottom, Math.max(top + MIN_SIZE, bottom + dy))
+  else top = Math.max(minTop, Math.min(bottom - MIN_SIZE, top + dy))
+
+  const box = { x: left, y: top, width: right - left, height: bottom - top }
+  if (!m || !el.mediaWidth || !el.mediaHeight) {
+    Object.assign(el, box)
+    return
+  }
+
+  // The visible window as a fraction of the media, and the zoom resolveCropRect needs to produce
+  // a window that size at this box's aspect.
+  const w = box.width / m.width
+  const h = box.height / m.height
+  const eff = effectiveDimensions(el.mediaWidth, el.mediaHeight, el.rotationDegrees)
+  const mediaAspect = eff.width / eff.height
+  const boxAspect = (box.width / box.height) * canvasAspect.value
+  const fullWindowW = mediaAspect > boxAspect ? boxAspect / mediaAspect : 1
+  const zoom = Math.max(1, fullWindowW / w)
+  if (zoom > MAX_CROP_ZOOM) return // cropped as far as a scene can be
+
+  Object.assign(el, box)
+  el.cropZoom = zoom
+  el.cropX = (box.x - m.left) / m.width + w / 2
+  el.cropY = (box.y - m.top) / m.height + h / 2
 }
 
 function onEdgeHandlePointerUp(e: PointerEvent) {
   resizingEdge.value = null
+  edgeMedia = null
   releaseCapture(e)
 }
 
@@ -740,6 +820,7 @@ function apply() {
                   v-for="corner in CORNERS"
                   v-show="selectedKey === el.key && !cropMode"
                   :key="corner"
+                  title="Resize"
                   class="absolute size-3 -translate-x-1/2 -translate-y-1/2 touch-none rounded-full border-2 border-ink bg-canvas"
                   :style="{ left: HANDLE_POS[corner].left, top: HANDLE_POS[corner].top, cursor: HANDLE_CURSOR[corner] }"
                   @pointerdown.stop="onHandlePointerDown(corner, $event)"
@@ -748,12 +829,14 @@ function apply() {
                   @pointercancel.stop="onHandlePointerUp"
                 />
 
-                <!-- Crop handles: thicker bars at each edge's midpoint, the common-software
-                     crop tell — drag one inward to trim that side. -->
+                <!-- Side handles: bars at each side's midpoint, Canva's crop tell — drag one
+                     inward to crop that side, back out to reveal it again. Shown whenever the
+                     element is selected; a website's resize that side instead. -->
                 <div
                   v-for="edge in EDGES"
-                  v-show="selectedKey === el.key && cropMode"
+                  v-show="selectedKey === el.key"
                   :key="edge"
+                  :title="el.kind === 'web' ? 'Resize' : 'Crop'"
                   class="absolute -translate-x-1/2 -translate-y-1/2 touch-none rounded-full border-2 border-ink bg-canvas"
                   :class="edge === 'n' || edge === 's' ? 'h-1.5 w-8' : 'h-8 w-1.5'"
                   :style="{ left: EDGE_POS[edge].left, top: EDGE_POS[edge].top, cursor: EDGE_CURSOR[edge] }"
