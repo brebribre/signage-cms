@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import IconArrowBack from '~icons/material-symbols/arrow-back'
+import IconAspectRatio from '~icons/material-symbols/aspect-ratio-outline'
+import IconClose from '~icons/material-symbols/close'
+import IconWallpaper from '~icons/material-symbols/wallpaper'
 import IconCheck from '~icons/material-symbols/check'
 import IconCrop from '~icons/material-symbols/crop'
 import IconDeleteOutline from '~icons/material-symbols/delete-outline'
@@ -147,8 +150,53 @@ function moveLayer(key: string, direction: 'up' | 'down') {
 
 const FRAME_MAX_HEIGHT = 640
 const canvasAspect = computed(() => props.referenceScreen.width / props.referenceScreen.height)
-const frameWidthPx = computed(() => Math.round(FRAME_MAX_HEIGHT * canvasAspect.value))
+/** The canvas fits the stage it sits in both ways — on a phone a portrait screen is limited by
+ *  the height left between the header and the toolbar, not just the width. */
+const stageRef = ref<HTMLElement | null>(null)
+const stageSize = ref({ width: 0, height: 0 })
+const frameWidthPx = computed(() => {
+  const byCap = FRAME_MAX_HEIGHT * canvasAspect.value
+  const { width, height } = stageSize.value
+  if (!width || !height) return Math.round(byCap)
+  return Math.max(0, Math.round(Math.min(byCap, width, height * canvasAspect.value)))
+})
 const frameOuterStyle = computed(() => ({ width: `min(100%, ${frameWidthPx.value}px)` }))
+let stageObserver: ResizeObserver | null = null
+onMounted(() => {
+  stageObserver = new ResizeObserver(([entry]) => {
+    const style = getComputedStyle(entry.target)
+    const padX = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight)
+    const padY = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom)
+    const box = entry.target.getBoundingClientRect()
+    stageSize.value = { width: box.width - padX, height: box.height - padY }
+  })
+  if (stageRef.value) stageObserver.observe(stageRef.value)
+})
+onUnmounted(() => stageObserver?.disconnect())
+
+// --- Phones and tablets (below lg): Canva's mobile layout. The canvas takes the screen, a toolbar
+// along the bottom holds the tools — the sources when nothing is selected, what you can do to
+// the selection when something is — and the desktop side panels open as bottom sheets. ---
+
+const wideQuery = typeof window !== 'undefined' ? window.matchMedia('(min-width: 1024px)') : null
+const isWide = ref(wideQuery?.matches ?? true)
+function onWideChange(e: MediaQueryListEvent) {
+  isWide.value = e.matches
+  if (e.matches) sheet.value = null
+}
+onMounted(() => wideQuery?.addEventListener('change', onWideChange))
+onUnmounted(() => wideQuery?.removeEventListener('change', onWideChange))
+
+/** Which bottom sheet is open on a narrow screen: a source panel, or the edit panel (layers,
+ *  background, and the selection's details). */
+const sheet = ref<'sources' | 'edit' | null>(null)
+function openSources(id: PanelId) {
+  panel.value = id
+  sheet.value = 'sources'
+}
+function closeSheet() {
+  sheet.value = null
+}
 const frameStyle = computed(() => ({
   aspectRatio: `${props.referenceScreen.width} / ${props.referenceScreen.height}`,
 }))
@@ -489,6 +537,7 @@ function deleteSelected() {
   if (!selectedKey.value) return
   elements.value = elements.value.filter((e) => e.key !== selectedKey.value)
   selectedKey.value = null
+  if (!isWide.value) closeSheet()
 }
 
 // --- Add element: from the left toolbar, either a click (stacked, staggered placement) or
@@ -524,6 +573,7 @@ function addFromMedia(m: MediaRead, at?: { x: number; y: number }) {
   const el = mediaToDraftElement(m, { x, y, width, height, zIndex: maxZ + 1 })
   elements.value.push(el)
   select(el.key)
+  if (!isWide.value) closeSheet()
 }
 
 // --- Websites: added from the toolbar's address field, and re-pointed from the right panel. ---
@@ -546,6 +596,7 @@ function addWebsite() {
   const el = websiteToDraftElement(url, { x: offset, y: offset, width: size, height: size, zIndex: maxZ + 1 })
   elements.value.push(el)
   select(el.key)
+  if (!isWide.value) closeSheet()
 }
 
 const selectedUrlDraft = ref('')
@@ -586,6 +637,11 @@ function onCanvasDrop(e: DragEvent) {
   })
 }
 
+/** One button in the narrow-screen toolbar: icon over label, a comfortable tap target. */
+const TOOL =
+  'flex min-w-[4.5rem] shrink-0 flex-col items-center gap-1 rounded-xl px-2 py-1.5 text-[12px] text-ink ' +
+  'transition-colors duration-150 active:bg-surface disabled:opacity-35'
+
 function apply() {
   emit('apply', elements.value, background.value)
 }
@@ -593,7 +649,7 @@ function apply() {
 
 <template>
   <div class="flex h-full flex-col">
-    <div class="flex shrink-0 items-center justify-between gap-4 border-b border-line px-4 py-3 sm:px-6">
+    <div class="flex shrink-0 items-center justify-between gap-3 border-b border-line px-3 py-2.5 sm:px-6 sm:py-3">
       <div class="flex min-w-0 items-center gap-3">
         <AppButton variant="ghost" size="sm" @click="emit('close')">
           <IconArrowBack class="size-4" />
@@ -610,9 +666,10 @@ function apply() {
       </AppButton>
     </div>
 
-    <div class="flex min-h-0 flex-1">
-      <!-- Left rail: the source you are adding from, with its panel beside it. -->
-      <nav class="flex w-20 shrink-0 flex-col items-center gap-1 border-r border-line py-3">
+    <div class="relative flex min-h-0 flex-1">
+      <!-- Left rail: the source you are adding from, with its panel beside it. Desktop only; on a
+           narrow screen the sources are in the bottom toolbar. -->
+      <nav class="hidden w-20 shrink-0 flex-col items-center gap-1 border-r border-line py-3 lg:flex">
         <button
           v-for="p in PANELS"
           :key="p.id"
@@ -631,13 +688,28 @@ function apply() {
       </nav>
 
       <aside
-        class="flex w-64 shrink-0 flex-col overflow-y-auto border-r p-3 transition-colors duration-200"
-        :class="isPanelDragOver ? 'border-ink bg-surface' : 'border-line'"
+        v-show="isWide || sheet === 'sources'"
+        class="flex flex-col overflow-y-auto transition-colors duration-200"
+        :class="[
+          isWide
+            ? 'w-64 shrink-0 border-r p-3'
+            : 'fixed inset-x-0 bottom-0 z-50 max-h-[60dvh] rounded-t-2xl border-t bg-canvas px-4 pt-2 pb-[calc(1rem_+_env(safe-area-inset-bottom))]',
+          isPanelDragOver ? 'border-ink bg-surface' : 'border-line',
+        ]"
         @dragenter.prevent="onPanelDragEnter"
         @dragover.prevent
         @dragleave.prevent="onPanelDragLeave"
         @drop.prevent="onPanelDrop"
       >
+        <div v-if="!isWide" class="sticky -top-2 z-10 -mx-4 mb-2 flex items-center justify-between bg-canvas px-4 pt-2 pb-1">
+          <span class="mx-auto mb-1 h-1 w-10 rounded-full bg-line-strong" aria-hidden="true" />
+        </div>
+        <div v-if="!isWide" class="mb-3 flex items-center justify-between">
+          <p class="text-base text-ink">{{ panel === 'media' ? 'Media' : 'Website' }}</p>
+          <button type="button" class="rounded-full p-1.5 text-ink-muted hover:bg-surface" aria-label="Close" @click="closeSheet">
+            <IconClose class="size-5" />
+          </button>
+        </div>
         <template v-if="panel === 'media'">
           <button
             type="button"
@@ -727,7 +799,9 @@ function apply() {
 
       <!-- Canvas -->
       <div
-        class="flex min-w-0 flex-1 items-center justify-center overflow-auto bg-surface p-6"
+        ref="stageRef"
+        class="flex min-w-0 flex-1 items-center justify-center overflow-hidden bg-surface p-4 lg:overflow-auto lg:p-6"
+        :class="!isWide && 'pb-4'"
         @click.self="select(null)"
       >
         <div class="flex justify-center" :style="frameOuterStyle" @click.self="select(null)">
@@ -821,7 +895,8 @@ function apply() {
                   v-show="selectedKey === el.key && !cropMode"
                   :key="corner"
                   title="Resize"
-                  class="absolute size-3 -translate-x-1/2 -translate-y-1/2 touch-none rounded-full border-2 border-ink bg-canvas"
+                  class="absolute size-3 -translate-x-1/2 -translate-y-1/2 touch-none rounded-full border-2 border-ink bg-canvas
+                         before:absolute before:-inset-3 before:content-[''] lg:before:-inset-1.5"
                   :style="{ left: HANDLE_POS[corner].left, top: HANDLE_POS[corner].top, cursor: HANDLE_CURSOR[corner] }"
                   @pointerdown.stop="onHandlePointerDown(corner, $event)"
                   @pointermove.stop="onHandlePointerMove"
@@ -837,7 +912,8 @@ function apply() {
                   v-show="selectedKey === el.key"
                   :key="edge"
                   :title="el.kind === 'web' ? 'Resize' : 'Crop'"
-                  class="absolute -translate-x-1/2 -translate-y-1/2 touch-none rounded-full border-2 border-ink bg-canvas"
+                  class="absolute -translate-x-1/2 -translate-y-1/2 touch-none rounded-full border-2 border-ink bg-canvas
+                         before:absolute before:-inset-3 before:content-[''] lg:before:-inset-1.5"
                   :class="edge === 'n' || edge === 's' ? 'h-1.5 w-8' : 'h-8 w-1.5'"
                   :style="{ left: EDGE_POS[edge].left, top: EDGE_POS[edge].top, cursor: EDGE_CURSOR[edge] }"
                   @pointerdown.stop="onEdgeHandlePointerDown(edge, $event)"
@@ -852,14 +928,27 @@ function apply() {
               v-if="!elements.length"
               class="pointer-events-none absolute inset-0 flex items-center justify-center px-6 text-center text-[13px] text-white/40"
             >
-              Drag media from the left, or click it, to start this scene
+              <span class="hidden lg:inline">Drag media from the left, or click it, to start this scene</span>
+              <span class="lg:hidden">Tap Media below to start this scene</span>
             </div>
           </div>
         </div>
       </div>
 
       <!-- Right panel: layers on top, details for whatever's selected below -->
-      <aside class="flex w-72 shrink-0 flex-col overflow-y-auto border-l border-line">
+      <aside
+        v-show="isWide || sheet === 'edit'"
+        class="flex flex-col overflow-y-auto border-line"
+        :class="isWide
+          ? 'w-72 shrink-0 border-l'
+          : 'fixed inset-x-0 bottom-0 z-50 max-h-[60dvh] rounded-t-2xl border-t bg-canvas pb-[env(safe-area-inset-bottom)]'"
+      >
+        <div v-if="!isWide" class="flex items-center justify-between px-4 pt-3">
+          <p class="text-base text-ink">{{ selected ? 'Edit' : 'Scene' }}</p>
+          <button type="button" class="rounded-full p-1.5 text-ink-muted hover:bg-surface" aria-label="Close" @click="closeSheet">
+            <IconClose class="size-5" />
+          </button>
+        </div>
         <div v-if="elements.length" class="flex max-h-56 shrink-0 flex-col gap-0.5 overflow-y-auto border-b border-line p-3">
           <p class="mb-1 flex items-center gap-1.5 px-1 text-[13px] text-ink-subtle">
             <IconLayersOutline class="size-3.5" />
@@ -1021,6 +1110,91 @@ function apply() {
           </template>
         </div>
       </aside>
+
+      <!-- Behind an open sheet: tapping outside it closes it. -->
+      <div v-if="!isWide && sheet" class="fixed inset-0 z-40 bg-ink/30" aria-hidden="true" @click="closeSheet" />
     </div>
+
+    <!-- Crop on a narrow screen: the zoom slider sits just above the toolbar, so the canvas stays
+         in view while you pan and zoom. -->
+    <div
+      v-if="!isWide && selected && cropMode"
+      class="flex shrink-0 items-center gap-3 border-t border-line bg-canvas px-4 py-2"
+    >
+      <span class="text-[12px] text-ink-muted">Zoom</span>
+      <input
+        type="range" min="1" max="3" step="0.05"
+        :value="selected.cropZoom ?? 1"
+        aria-label="Crop zoom"
+        class="h-1.5 flex-1 cursor-pointer accent-brand"
+        @input="onZoomInput"
+      />
+      <button type="button" class="text-[12px] text-ink-muted" @click="resetCrop">Reset</button>
+    </div>
+
+    <!-- The bottom toolbar (below lg), like Canva's: sources when nothing is selected, and what can
+         be done to the selection when something is. Scrolls sideways when the tools outgrow it. -->
+    <nav
+      v-if="!isWide"
+      class="flex shrink-0 gap-1 overflow-x-auto border-t border-line bg-canvas px-2 pt-1.5 pb-[calc(0.375rem_+_env(safe-area-inset-bottom))]"
+      aria-label="Scene tools"
+    >
+      <template v-if="!selected">
+        <button type="button" :class="TOOL" @click="openSources('media')">
+          <IconPhotoLibraryOutline class="size-6" aria-hidden="true" />Media
+        </button>
+        <button type="button" :class="TOOL" @click="openSources('website')">
+          <IconLanguage class="size-6" aria-hidden="true" />Website
+        </button>
+        <button v-if="elements.length" type="button" :class="TOOL" @click="sheet = 'edit'">
+          <IconLayersOutline class="size-6" aria-hidden="true" />Layers
+        </button>
+        <button type="button" :class="TOOL" @click="sheet = 'edit'">
+          <IconWallpaper class="size-6" aria-hidden="true" />Background
+        </button>
+      </template>
+      <template v-else>
+        <template v-if="selected.kind !== 'web'">
+          <button
+            type="button" :class="TOOL"
+            :aria-pressed="selected.fit === 'cover'"
+            @click="setFit(selected.fit === 'cover' ? 'contain' : 'cover')"
+          >
+            <IconAspectRatio class="size-6" aria-hidden="true" />{{ selected.fit === 'cover' ? 'Fill' : 'Fit' }}
+          </button>
+          <button
+            type="button" :class="[TOOL, cropMode && '!text-brand']"
+            :aria-pressed="cropMode"
+            :disabled="!selected.mediaWidth || selected.fit !== 'cover'"
+            @click="cropMode = !cropMode"
+          >
+            <IconCrop class="size-6" aria-hidden="true" />Crop
+          </button>
+          <button type="button" :class="TOOL" @click="rotateSelected">
+            <IconRotateRight class="size-6" aria-hidden="true" />Rotate
+          </button>
+          <button
+            v-if="selected.kind === 'video'"
+            type="button" :class="TOOL"
+            @click="selected.hasAudio = !selected.hasAudio"
+          >
+            <component :is="selected.hasAudio ? IconVolumeUp : IconVolumeOff" class="size-6" aria-hidden="true" />
+            {{ selected.hasAudio ? 'Sound on' : 'Muted' }}
+          </button>
+        </template>
+        <button v-else type="button" :class="TOOL" @click="sheet = 'edit'">
+          <IconLanguage class="size-6" aria-hidden="true" />Address
+        </button>
+        <button type="button" :class="TOOL" @click="sheet = 'edit'">
+          <IconLayersOutline class="size-6" aria-hidden="true" />Layers
+        </button>
+        <button type="button" :class="[TOOL, '!text-danger']" @click="deleteSelected">
+          <IconDeleteOutline class="size-6" aria-hidden="true" />Delete
+        </button>
+        <button type="button" :class="[TOOL, '!text-brand']" @click="select(null)">
+          <IconCheck class="size-6" aria-hidden="true" />Done
+        </button>
+      </template>
+    </nav>
   </div>
 </template>
