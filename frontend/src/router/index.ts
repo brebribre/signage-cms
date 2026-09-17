@@ -21,7 +21,8 @@ const router = createRouter({
       path: '/',
       component: () => import('@/views/SidebarView.vue'),
       children: [
-        { path: '', redirect: { name: 'media' } },
+        // Overview is home: where signing in lands, and where an address with no page goes.
+        { path: '', redirect: { name: 'now' } },
         {
           path: 'now',
           name: 'now',
@@ -102,7 +103,7 @@ const router = createRouter({
         },
       ],
     },
-    { path: '/:pathMatch(.*)*', redirect: { name: 'media' } },
+    { path: '/:pathMatch(.*)*', redirect: { name: 'now' } },
   ],
 })
 
@@ -127,7 +128,7 @@ router.beforeEach(async (to) => {
   // Hiding the nav entry is a courtesy; this is the client-side half of the enforcement,
   // and the server refuses these routes regardless.
   if (to.meta.ownerOnly && !isOwner.value) {
-    return { name: 'media' }
+    return { name: 'now' }
   }
   return true
 })
