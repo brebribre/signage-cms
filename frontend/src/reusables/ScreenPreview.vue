@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import type { CSSProperties } from 'vue'
 
 import {
@@ -77,6 +77,15 @@ onMounted(() => {
   if (frameRef.value) resizeObserver.observe(frameRef.value)
 })
 onUnmounted(() => resizeObserver?.disconnect())
+
+/**
+ * Which files have arrived. Until one has, its element shows a placeholder, so a slow image
+ * reads as "still loading" rather than as a scene with a hole in it. Kept by URL across scenes:
+ * going back to a scene whose files are already here shows them straight away. A file that
+ * fails counts as arrived too — a placeholder that never ends would be its own lie.
+ */
+const arrived = reactive(new Set<string>())
+const markArrived = (url: string) => arrived.add(url)
 
 function webStyle(el: DraftElement): CSSProperties {
   return {
@@ -167,6 +176,8 @@ function mediaStyle(el: DraftElement): CSSProperties {
             class="select-none"
             :style="mediaStyle(el)"
             :muted="!el.hasAudio"
+            @loadeddata="markArrived(el.url)"
+            @error="markArrived(el.url)"
             autoplay
             loop
             playsinline
@@ -177,8 +188,18 @@ function mediaStyle(el: DraftElement): CSSProperties {
             alt=""
             class="select-none"
             :style="mediaStyle(el)"
+            @load="markArrived(el.url)"
+            @error="markArrived(el.url)"
           />
         </div>
+        <Transition leave-active-class="transition-opacity duration-200" leave-to-class="opacity-0">
+          <div
+            v-if="el.kind !== 'web' && !arrived.has(el.url)"
+            class="preview-loading absolute inset-0 overflow-hidden bg-white/10"
+            role="status"
+            aria-label="Loading"
+          />
+        </Transition>
       </div>
       <div v-if="!elements.length" class="flex size-full items-center justify-center text-[13px] text-white/40">
         Nothing to preview
@@ -186,3 +207,25 @@ function mediaStyle(el: DraftElement): CSSProperties {
     </div>
   </div>
 </template>
+
+<style scoped>
+/* The same sweep as SkeletonBlock, dimmed for a black screen. */
+.preview-loading::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.12), transparent);
+  animation: preview-sweep 1.4s ease-in-out infinite;
+}
+@keyframes preview-sweep {
+  to {
+    transform: translateX(100%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .preview-loading::after {
+    animation: none;
+  }
+}
+</style>
