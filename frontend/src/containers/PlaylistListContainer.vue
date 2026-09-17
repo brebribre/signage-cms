@@ -16,6 +16,7 @@ import ModalActions from '@/reusables/ModalActions.vue'
 import PageTitle from '@/reusables/PageTitle.vue'
 import ListRowSkeleton from '@/reusables/ListRowSkeleton.vue'
 import SkeletonList from '@/reusables/SkeletonList.vue'
+import ThumbnailStrip from '@/reusables/ThumbnailStrip.vue'
 import { returnLabel, safeReturnPath } from '@/utils/returnTo'
 
 const route = useRoute()
@@ -87,8 +88,12 @@ async function onCreate() {
         interactive
         @click="router.push({ name: 'playlist-detail', params: { id: p.id } })"
       >
+        <!-- The details come first and wrap rather than truncate; the thumbnails take whatever
+             width is left and fit as many as they can (see ThumbnailStrip). On a phone they sit
+             under the details, across the full width. -->
         <div class="flex items-center gap-4">
-          <div class="min-w-0 flex-1">
+          <div class="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+          <div class="min-w-0 sm:max-w-[60%] sm:shrink-0">
             <p class="truncate text-base text-ink">{{ p.name }}</p>
             <p class="mt-0.5 text-[13px] text-ink-muted">
               {{ p.item_count }} item{{ p.item_count === 1 ? '' : 's' }} ·
@@ -97,14 +102,12 @@ async function onCreate() {
               · updated {{ date(p.updated_at) }}
             </p>
           </div>
-          <div v-if="p.thumbnails.length" class="flex max-w-[13rem] shrink-0 gap-1.5 overflow-x-auto">
-            <div
-              v-for="(url, i) in p.thumbnails"
-              :key="i"
-              class="size-14 shrink-0 overflow-hidden rounded-lg bg-raised"
-            >
-              <img v-if="url" :src="url" class="size-full object-cover" loading="lazy" />
-            </div>
+          <ThumbnailStrip
+            v-if="p.thumbnails.length"
+            :thumbnails="p.thumbnails"
+            :total="p.item_count"
+            class="min-w-14 flex-1 justify-start sm:justify-end"
+          />
           </div>
           <span class="shrink-0 text-ink-subtle" aria-hidden="true">›</span>
         </div>
