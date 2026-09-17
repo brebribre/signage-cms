@@ -39,7 +39,36 @@ export function useMedia() {
     items.value = [media, ...items.value.filter((m) => m.id !== media.id)]
   }
 
+  /**
+   * Deletes each file — four at a time, so a big selection doesn't crawl — and reports what
+   * happened to every one of them.
+   *
+   * Not all-or-nothing, on purpose: the server refuses a file that is still in a playlist (and,
+   * for a manager, one somebody else uploaded), and one refusal shouldn't keep the other
+   * nineteen in the library. Deleted files leave the list at once; refused ones stay, with the
+   * server's own reason ("Used in Lobby Loop — remove it there first").
+   */
+  async function removeMany(ids: string[]): Promise<{ deleted: number; failed: { filename: string; reason: string }[] }> {
+    const failed: { filename: string; reason: string }[] = []
+    const gone = new Set<string>()
+    const queue = [...ids]
+    const worker = async () => {
+      for (let id = queue.shift(); id !== undefined; id = queue.shift()) {
+        try {
+          await api.remove(id)
+          gone.add(id)
+        } catch (e) {
+          const filename = items.value.find((m) => m.id === id)?.filename ?? 'A file'
+          failed.push({ filename, reason: e instanceof ApiError ? e.message : 'Could not delete it' })
+        }
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(4, ids.length) }, worker))
+    items.value = items.value.filter((m) => !gone.has(m.id))
+    return { deleted: gone.size, failed }
+  }
+
   onMounted(refresh)
 
-  return { items, visible, counts, filter, isLoading, error, refresh, prepend }
+  return { items, visible, counts, filter, isLoading, error, refresh, prepend, removeMany }
 }
