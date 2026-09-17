@@ -3,9 +3,8 @@
 /*
   Paskall CMS design tokens.
 
-  Taken from fortu.co.id rather than invented: Helvetica Neue, headings at weight 500 with
-  -0.025em tracking at every size, pill buttons carrying a 1px border, and no shadows
-  anywhere. Light mode only — there is no dark palette and no runtime theming, so
+  Pill buttons carrying a 1px border, headings at weight 500, and no shadows anywhere. Light
+  mode only — there is no dark palette and no runtime theming, so
   `color-scheme: light` is declared and native controls follow it.
 
   Ink and surfaces stay monochrome — body text, cards and hairlines. What is *active or
@@ -18,12 +17,17 @@
 */
 
 @theme {
-  /* --- Type --- */
-  --font-sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  /* --- Type ---
+     Two faces, each doing the job it is good at. Outfit is round and geometric with a
+     single-storey "a" — the same build as the Paskall wordmark — so page titles and the big
+     figures on a dashboard sit beside the logo as one thing. Geometric faces lose legibility
+     small, though, so everything at reading size is Inter, which is drawn for exactly that and
+     keeps up with Outfit's proportions. Both are bundled (see main.ts). */
+  --font-sans: "Inter Variable", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-display: "Outfit Variable", "Inter Variable", "Helvetica Neue", Arial, sans-serif;
 
-  /* Every heading on fortu.co.id uses this, from 30px to 96px. It is the most
-     recognisable single property of the brand. */
-  --tracking-heading: -0.025em;
+  /* Outfit is already tightly spaced; the -0.025em Helvetica needed would crowd it. */
+  --tracking-heading: -0.015em;
 
   /* --- Surfaces --- */
   /* The page behind the cards. Slightly cool rather than neutral grey, so it sits under the
@@ -102,6 +106,7 @@ body {
 /* Headings are medium, never bold, and always tracked in. Set once here so no component
    has to remember it — the one rule most easily lost across thirty templates. */
 h1, h2, h3, h4 {
+  font-family: var(--font-display);
   font-weight: 500;
   letter-spacing: var(--tracking-heading);
 }

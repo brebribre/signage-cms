@@ -3,6 +3,10 @@ import { createApp } from 'vue'
 
 import App from './App.vue'
 import router from './router'
+// Bundled with the app, not fetched from a font service: no third-party request, and no flash of
+// the fallback face on a slow link. See the type note in style.css.
+import '@fontsource-variable/inter'
+import '@fontsource-variable/outfit'
 import './style.css'
 
 /**

@@ -49,7 +49,7 @@ const emit = defineEmits<{ open: [] }>()
       </button>
     </div>
     <p
-      class="mt-2 text-3xl"
+      class="mt-2 font-display text-3xl tracking-tight"
       :class="tone === 'danger' ? 'text-danger' : tone === 'brand' ? 'text-ink-inverse' : 'text-ink'"
     >
       {{ value }}
