@@ -9,6 +9,8 @@
  * `openable` adds a round button in the corner that emits `open` — for a figure you can go and
  * look at. Without it the card is just a figure.
  */
+import SkeletonBlock from '@/reusables/SkeletonBlock.vue'
+
 withDefaults(
   defineProps<{
     label: string
@@ -16,8 +18,11 @@ withDefaults(
     hint?: string
     tone?: 'plain' | 'brand' | 'danger'
     openable?: boolean
+    /** The figure isn't known yet: placeholders stand in for the number and its line of context,
+     *  rather than a "0" that reads as real. */
+    loading?: boolean
   }>(),
-  { tone: 'plain', openable: false },
+  { tone: 'plain', openable: false, loading: false },
 )
 const emit = defineEmits<{ open: [] }>()
 </script>
@@ -48,6 +53,18 @@ const emit = defineEmits<{ open: [] }>()
         </svg>
       </button>
     </div>
+    <template v-if="loading">
+      <span class="sr-only">{{ label }}: loading</span>
+      <SkeletonBlock
+        class="mt-3 h-7 w-14 rounded-md"
+        :class="tone === 'brand' && 'bg-ink-inverse/25!'"
+      />
+      <SkeletonBlock
+        class="mt-2.5 h-3 w-24 rounded-md"
+        :class="tone === 'brand' && 'bg-ink-inverse/20!'"
+      />
+    </template>
+    <template v-else>
     <p
       class="mt-2 font-display text-3xl tracking-tight"
       :class="tone === 'danger' ? 'text-danger' : tone === 'brand' ? 'text-ink-inverse' : 'text-ink'"
@@ -61,5 +78,6 @@ const emit = defineEmits<{ open: [] }>()
     >
       {{ hint }}
     </p>
+    </template>
   </div>
 </template>

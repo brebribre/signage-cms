@@ -15,6 +15,8 @@ import MediaCard from '@/reusables/MediaCard.vue'
 import ModalActions from '@/reusables/ModalActions.vue'
 import PageTitle from '@/reusables/PageTitle.vue'
 import ProgressBar from '@/reusables/ProgressBar.vue'
+import SkeletonBlock from '@/reusables/SkeletonBlock.vue'
+import SkeletonList from '@/reusables/SkeletonList.vue'
 import { ACCEPTED_MEDIA, SUPPORTED_FILE_TYPES } from '@/utils/mediaTypes'
 
 const router = useRouter()
@@ -164,7 +166,17 @@ const STATUS_LABEL: Record<string, string> = {
 
     <AppAlert v-if="error" tone="danger">{{ error }}</AppAlert>
 
-    <p v-if="isLoading" class="text-sm text-ink-muted">Loading…</p>
+    <!-- The same grid the tiles will fill, so nothing moves when they arrive. -->
+    <SkeletonList v-if="isLoading" label="Loading media" :count="8">
+      <template #wrapper="{ count }">
+        <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+          <div v-for="i in count" :key="i" class="relative">
+            <span class="block pt-[100%]" aria-hidden="true" />
+            <SkeletonBlock class="absolute! inset-0 rounded-2xl" />
+          </div>
+        </div>
+      </template>
+    </SkeletonList>
 
     <EmptyState
       v-else-if="!visible.length"

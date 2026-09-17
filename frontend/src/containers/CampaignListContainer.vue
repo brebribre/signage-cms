@@ -11,6 +11,8 @@ import AppButton from '@/reusables/AppButton.vue'
 import AppCard from '@/reusables/AppCard.vue'
 import EmptyState from '@/reusables/EmptyState.vue'
 import PageTitle from '@/reusables/PageTitle.vue'
+import ListRowSkeleton from '@/reusables/ListRowSkeleton.vue'
+import SkeletonList from '@/reusables/SkeletonList.vue'
 
 const router = useRouter()
 const { items, isLoading, error } = useCampaigns()
@@ -32,7 +34,9 @@ const { date } = useFormat()
     </PageTitle>
 
     <AppAlert v-if="error" tone="danger">{{ error }}</AppAlert>
-    <p v-if="isLoading" class="text-sm text-ink-muted">Loading…</p>
+    <SkeletonList v-if="isLoading" label="Loading campaigns">
+      <ListRowSkeleton />
+    </SkeletonList>
 
     <EmptyState
       v-else-if="!items.length"

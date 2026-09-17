@@ -14,6 +14,8 @@ import AppModal from '@/reusables/AppModal.vue'
 import EmptyState from '@/reusables/EmptyState.vue'
 import ModalActions from '@/reusables/ModalActions.vue'
 import PageTitle from '@/reusables/PageTitle.vue'
+import ListRowSkeleton from '@/reusables/ListRowSkeleton.vue'
+import SkeletonList from '@/reusables/SkeletonList.vue'
 import { returnLabel, safeReturnPath } from '@/utils/returnTo'
 
 const route = useRoute()
@@ -61,7 +63,9 @@ async function onCreate() {
     </PageTitle>
 
     <AppAlert v-if="error" tone="danger">{{ error }}</AppAlert>
-    <p v-if="isLoading" class="text-sm text-ink-muted">Loading…</p>
+    <SkeletonList v-if="isLoading" label="Loading playlists">
+      <ListRowSkeleton :thumbnails="3" />
+    </SkeletonList>
 
     <EmptyState
       v-else-if="!items.length"

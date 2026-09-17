@@ -21,6 +21,8 @@ import OnboardingCard from '@/reusables/OnboardingCard.vue'
 import PageTitle from '@/reusables/PageTitle.vue'
 import PairScreenForm from '@/reusables/PairScreenForm.vue'
 import StatCard from '@/reusables/StatCard.vue'
+import DeviceCardSkeleton from '@/reusables/DeviceCardSkeleton.vue'
+import SkeletonList from '@/reusables/SkeletonList.vue'
 import type { ClaimBody } from '@/types/api'
 
 /**
@@ -37,7 +39,7 @@ const { devices: health, storage, offline, withErrors, isLoading: healthLoading 
 /** Everything the health endpoint doesn't count as offline — the hero card's line of context. */
 const online = computed(() => health.value.filter((d) => d.is_online))
 const { items: playlists, isLoading: playlistsLoading, error: playlistsError } = usePlaylists()
-const { items: campaigns } = useCampaigns()
+const { items: campaigns, isLoading: campaignsLoading } = useCampaigns()
 /** Distinct screens covered by any campaign — a screen in two campaigns counts once. */
 const campaignScreens = computed(() => new Set(campaigns.value.flatMap((c) => c.device_ids)).size)
 const { items: media, isLoading: mediaLoading, error: mediaError } = useMedia()
@@ -140,14 +142,14 @@ function quotaPercent(used: number, quota: number | null): number | null {
     <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
       <!-- One coloured card per row, and it is the figure the page is about. -->
       <StatCard
-        label="Screens" :value="devices.length" tone="brand" openable
+        label="Screens" :value="devices.length" tone="brand" openable :loading="devicesLoading && !devices.length"
         :hint="devices.length ? `${online.length} online now` : 'None paired yet'"
         @open="router.push({ name: 'devices' })"
       />
       <!-- How many campaigns there are, and how far they reach: distinct screens across all of
            them, since one screen can sit in several. -->
       <StatCard
-        label="Campaigns" :value="campaigns.length" openable
+        label="Campaigns" :value="campaigns.length" openable :loading="campaignsLoading && !campaigns.length"
         :hint="campaigns.length
           ? `Across ${campaignScreens} screen${campaignScreens === 1 ? '' : 's'}`
           : 'None yet'"
@@ -155,11 +157,12 @@ function quotaPercent(used: number, quota: number | null): number | null {
       />
       <StatCard
         label="Reporting errors" :value="withErrors.length" :tone="withErrors.length ? 'danger' : 'plain'"
+        :loading="healthLoading && !health.length"
         :openable="withErrors.length > 0" hint="In the last 24 hours"
         @open="filter = 'errors'"
       />
       <StatCard
-        label="Storage" :value="storage ? bytes(storage.used_bytes) : '—'" openable
+        label="Storage" :value="storage ? bytes(storage.used_bytes) : '—'" openable :loading="healthLoading && !storage"
         :hint="storage?.quota_bytes
           ? `of ${bytes(storage.quota_bytes)} (${quotaPercent(storage.used_bytes, storage.quota_bytes)}%)`
           : 'No quota set'"
@@ -182,9 +185,9 @@ function quotaPercent(used: number, quota: number | null): number | null {
       </FilterChip>
     </div>
 
-    <p v-if="(devicesLoading || healthLoading) && !devices.length" class="text-sm text-ink-muted">
-      Loading…
-    </p>
+    <SkeletonList v-if="(devicesLoading || healthLoading) && !devices.length" label="Loading screens" :count="3">
+      <DeviceCardSkeleton />
+    </SkeletonList>
 
     <EmptyState
       v-else-if="!filtered.length"

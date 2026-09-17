@@ -13,6 +13,8 @@ import DeviceCard from '@/reusables/DeviceCard.vue'
 import EmptyState from '@/reusables/EmptyState.vue'
 import PageTitle from '@/reusables/PageTitle.vue'
 import PairScreenForm from '@/reusables/PairScreenForm.vue'
+import DeviceCardSkeleton from '@/reusables/DeviceCardSkeleton.vue'
+import SkeletonList from '@/reusables/SkeletonList.vue'
 import type { ClaimBody } from '@/types/api'
 
 const router = useRouter()
@@ -46,7 +48,9 @@ async function onClaim(body: ClaimBody) {
     </PageTitle>
 
     <AppAlert v-if="error" tone="danger">{{ error }}</AppAlert>
-    <p v-if="isLoading" class="text-sm text-ink-muted">Loading…</p>
+    <SkeletonList v-if="isLoading" label="Loading screens" :count="3">
+      <DeviceCardSkeleton />
+    </SkeletonList>
 
     <EmptyState
       v-else-if="!items.length"

@@ -48,9 +48,12 @@ async function onLogout() {
     <main id="main" tabindex="-1" class="min-w-0 flex-1 overflow-y-auto bg-page">
       <div class="mx-auto max-w-5xl px-4 py-8 sm:px-8">
         <!-- Keyed by path only where a route asks for it (see router meta.keyByPath): elsewhere
-             the component is reused across param changes, as it always was. -->
+             the component is reused across param changes, as it always was. Keyed by the page's
+             own route (matched[1]), not the leaf: a page whose tabs are child routes (Settings)
+             then stays mounted as you switch tabs, so its tab underline slides instead of the
+             whole page being rebuilt around it. -->
         <router-view v-slot="{ Component, route }">
-          <component :is="Component" :key="route.meta.keyByPath ? route.path : route.name" />
+          <component :is="Component" :key="route.meta.keyByPath ? route.path : (route.matched[1]?.name ?? route.name)" />
         </router-view>
       </div>
     </main>
