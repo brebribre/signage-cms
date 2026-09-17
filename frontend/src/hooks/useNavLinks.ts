@@ -37,7 +37,7 @@ export function useNavLinks() {
       icon: IconFolderOpen,
       links: [
         { name: 'media', label: 'Media', icon: IconPhotoLibrary },
-        { name: 'devices', label: 'Devices', icon: IconTv },
+        { name: 'devices', label: 'Screens', icon: IconTv },
       ],
     },
     // What actually plays: a playlist is the sequence, a campaign puts it on screens on a

@@ -64,7 +64,7 @@ async function onClaim(body: ClaimBody) {
 
 <template>
   <div class="flex flex-col gap-6">
-    <PageTitle title="Devices" :subtitle="`${items.length} screen${items.length === 1 ? '' : 's'}`">
+    <PageTitle title="Screens" :subtitle="`${items.length} screen${items.length === 1 ? '' : 's'}`">
       <template #actions>
         <AppButton size="sm" @click="pairing = true">
           <IconAdd class="size-4" aria-hidden="true" />

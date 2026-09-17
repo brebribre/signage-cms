@@ -3,7 +3,7 @@ import type { Ref } from 'vue'
 import type { DeviceResolutionRead, PlaylistSummary } from '@/types/api'
 
 /** The "currently playing" line on every device card — resolved server-side from the screen's
- *  campaigns, named from the playlist list. One place, so the Devices list, the deploy picker
+ *  campaigns, named from the playlist list. One place, so the Screens list, the deploy picker
  *  and the rollout picker can never word it differently. Read-only: what a screen plays is
  *  decided in Campaigns. */
 export function useNowPlaying(

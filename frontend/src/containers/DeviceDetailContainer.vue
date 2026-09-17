@@ -119,7 +119,7 @@ async function onDelete() {
 <template>
   <div class="flex flex-col gap-6">
     <AppButton variant="ghost" size="sm" class="self-start" @click="router.push({ name: 'devices' })">
-      ← Devices
+      ← Screens
     </AppButton>
 
     <p v-if="isLoading" class="text-sm text-ink-muted">Loading…</p>
@@ -315,7 +315,7 @@ async function onDelete() {
     >
       <p class="text-sm text-ink-muted">
         {{ device?.name }} will not install {{ device?.forced_update_version }}. It stays on
-        whatever it's currently running until the fleet rollout — or a new single-device
+        whatever it's currently running until the fleet rollout — or a new single-screen
         update — says otherwise.
       </p>
       <ModalActions>

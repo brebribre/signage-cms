@@ -76,7 +76,7 @@ const SETTINGS: SettingSpec[] = [
   },
   {
     key: 'app_password', label: 'App lock PIN', kind: 'text', mask: true, maxLength: 20,
-    description: 'Required on the device to exit the player app.',
+    description: 'Required on the screen to exit the player app.',
   },
   {
     key: 'power_schedule', label: 'Power schedule', kind: 'power_schedule',

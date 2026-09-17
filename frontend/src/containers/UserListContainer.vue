@@ -258,7 +258,7 @@ function reach(u: AccountUserRead): string {
           </ul>
         </div>
         <p v-else class="text-[13px] text-ink-subtle">
-          No screens yet — you can grant access once devices are paired.
+          No screens yet — you can grant access once screens are paired.
         </p>
         <ModalActions>
           <AppButton variant="secondary" size="sm" type="button" @click="adding = false">Cancel</AppButton>

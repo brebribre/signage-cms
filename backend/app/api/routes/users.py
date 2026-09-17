@@ -60,7 +60,7 @@ def create_user(body: ManagerCreate, owner: RequireOwner, session: DbSession) ->
     except EmailTaken:
         raise HTTPException(status.HTTP_409_CONFLICT, "That email is already registered") from None
     except UnknownDevice:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Device not found") from None
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Screen not found") from None
     return _read(session, manager)
 
 
@@ -112,7 +112,7 @@ def set_grants(
     except UserNotFound:
         raise NOT_FOUND from None
     except UnknownDevice:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Device not found") from None
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Screen not found") from None
     return _read(session, user)
 
 

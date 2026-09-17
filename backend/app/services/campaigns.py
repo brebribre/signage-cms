@@ -186,7 +186,7 @@ def create(
 ) -> tuple[Campaign, list[uuid.UUID]]:
     reachable = _reachable_device_ids(session, user=user, device_ids=device_ids)
     if not reachable:
-        raise InvalidCampaign("none of the selected devices are available")
+        raise InvalidCampaign("none of the selected screens are available")
     skipped = [d for d in device_ids if d not in reachable]
 
     campaign = Campaign(account_id=user.account_id, created_by=user.id, name=name.strip())
@@ -209,7 +209,7 @@ def update(
 ) -> tuple[Campaign, list[uuid.UUID]]:
     reachable = _reachable_device_ids(session, user=user, device_ids=device_ids)
     if not reachable:
-        raise InvalidCampaign("none of the selected devices are available")
+        raise InvalidCampaign("none of the selected screens are available")
     skipped = [d for d in device_ids if d not in reachable]
 
     # Devices leaving the campaign need a nudge too — their schedule rows are about to

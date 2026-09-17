@@ -79,16 +79,20 @@ const router = createRouter({
           component: () => import('@/containers/DeployContainer.vue'),
           meta: { keyByPath: true },
         },
+        // "Screens" to the people using the CMS; still "devices" in the code and the API.
         {
-          path: 'devices',
+          path: 'screens',
           name: 'devices',
           component: () => import('@/containers/DeviceListContainer.vue'),
         },
         {
-          path: 'devices/:id',
+          path: 'screens/:id',
           name: 'device-detail',
           component: () => import('@/containers/DeviceDetailContainer.vue'),
         },
+        // Old addresses, from before the rename — bookmarks and shared links still land.
+        { path: 'devices', redirect: { name: 'devices' } },
+        { path: 'devices/:id', redirect: (to) => ({ name: 'device-detail', params: { id: to.params.id } }) },
         // One Settings page whose sections are tabs, each its own route — see SettingsContainer.
         {
           path: 'settings',

@@ -127,7 +127,7 @@ async function onClaim(body: ClaimBody) {
 
 const { items: playlists, refresh: refreshPlaylists } = usePlaylists()
 const playlistById = computed(() => new Map(playlists.value.map((p) => [p.id, p])))
-/** Same "currently playing" line the Devices list shows, so a screen's card reads identically. */
+/** Same "currently playing" line the Screens list shows, so a screen's card reads identically. */
 const { nowPlaying } = useNowPlaying(resolved, playlists)
 
 interface Slot extends TimeWindow {
@@ -702,7 +702,7 @@ const BOUND_TIME_INPUT =
             </div>
           </div>
 
-          <!-- The Devices list's own card, in picker mode — the only difference is selecting. -->
+          <!-- The Screens list's own card, in picker mode — the only difference is selecting. -->
           <div class="flex flex-col gap-2">
             <DeviceCard
               v-for="d in orderedDevices"

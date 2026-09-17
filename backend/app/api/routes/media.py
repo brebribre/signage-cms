@@ -50,7 +50,7 @@ def start_upload(body: UploadRequest, user: CurrentUser, session: DbSession) -> 
         raise HTTPException(
             status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
             f"{body.content_type} is not supported. Allowed: {', '.join(sorted(ALLOWED_MIME))}. "
-            "Video must be h.264 in MP4 — it is the only codec every signage device decodes "
+            "Video must be h.264 in MP4 — it is the only codec every signage screen decodes "
             "in hardware.",
         ) from None
     except FileTooLarge:

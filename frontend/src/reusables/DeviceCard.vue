@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * One screen as a card: its shape on the left, one fact per row on the right. Shared by the
- * Devices list (clicking opens the screen) and the campaign screen picker (clicking selects it),
+ * Screens list (clicking opens the screen) and the campaign screen picker (clicking selects it),
  * so a screen looks the same wherever you meet it. Presentational only — the caller handles
  * the click and says what's playing.
  */

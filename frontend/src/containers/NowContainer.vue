@@ -27,7 +27,7 @@ import type { ClaimBody } from '@/types/api'
 
 /**
  * Overview: the fleet at a glance — summary figures, filters, and every screen as the same card
- * the Devices list uses, so a screen reads identically wherever you meet it. See
+ * the Screens list uses, so a screen reads identically wherever you meet it. See
  * UX_REDESIGN_PLAN.md §3 for where this page came from.
  */
 const router = useRouter()
@@ -195,7 +195,7 @@ function quotaPercent(used: number, quota: number | null): number | null {
       :description="rows.length ? 'No screens match this filter.' : 'Pair a screen and it will appear here.'"
     />
 
-    <!-- The Devices list's own card, so a screen reads identically on both pages. -->
+    <!-- The Screens list's own card, so a screen reads identically on both pages. -->
     <div v-else class="flex flex-col gap-2">
       <DeviceCard
         v-for="r in filtered"

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-/** Claiming a screen by the code it shows — shared by the Devices page and the deploy flow.
+/** Claiming a screen by the code it shows — shared by the Screens page and the deploy flow.
  *  Owns only its own fields; the claim itself and the handshake state come from the caller's
  *  `useDevices()`, so whichever page opened this sees the new screen in its own list. */
 import { computed, ref } from 'vue'

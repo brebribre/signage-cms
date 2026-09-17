@@ -75,7 +75,7 @@ def device_for_user(device_id: uuid.UUID, user: CurrentUser, session: DbSession)
     outside their scope, and "you may not see this" and "this does not exist" must look
     identical from outside.
     """
-    not_found = HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Device not found")
+    not_found = HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Screen not found")
 
     device = session.get(Device, device_id)
     if device is None or device.account_id is None:
