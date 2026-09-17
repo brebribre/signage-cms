@@ -17,7 +17,6 @@ import AppModal from '@/reusables/AppModal.vue'
 import DeviceCard from '@/reusables/DeviceCard.vue'
 import EmptyState from '@/reusables/EmptyState.vue'
 import ModalActions from '@/reusables/ModalActions.vue'
-import PageTitle from '@/reusables/PageTitle.vue'
 import type { DeviceRead, PlayerReleaseRead, PlayerRolloutRead } from '@/types/api'
 
 const { releases, rollouts, isLoading, isSaving, error, schedule, cancel, pinDevices, cancelPin } = usePlayerRollouts()
@@ -149,9 +148,8 @@ const ROW = 'flex items-center gap-3 px-4 py-2.5'
 
 <template>
   <div class="flex flex-col gap-8">
-    <div class="flex flex-col gap-1">
-      <PageTitle title="Software updates" />
-      <p v-if="activeRollout" class="text-[13px] text-ink-muted">
+    <div v-if="activeRollout" class="flex flex-col gap-1">
+      <p class="text-[13px] text-ink-muted">
         Live: <span class="text-ink tabular-nums">{{ activeRollout.version }}</span>
         · since {{ dateTime(activeRollout.scheduled_at) }}
       </p>

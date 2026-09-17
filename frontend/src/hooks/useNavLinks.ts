@@ -1,13 +1,11 @@
 import type { Component } from 'vue'
 import IconCampaign from '~icons/material-symbols/campaign-outline'
 import IconFolderOpen from '~icons/material-symbols/folder-open-outline'
-import IconGroup from '~icons/material-symbols/group-outline'
 import IconMonitoring from '~icons/material-symbols/monitoring'
 import IconPhotoLibrary from '~icons/material-symbols/photo-library-outline'
 import IconPlayCircle from '~icons/material-symbols/play-circle-outline'
 import IconPlaylistPlay from '~icons/material-symbols/playlist-play'
 import IconSettings from '~icons/material-symbols/settings-outline'
-import IconSystemUpdate from '~icons/material-symbols/system-update-alt'
 import IconTv from '~icons/material-symbols/tv-outline'
 
 export interface NavLink {
@@ -24,10 +22,11 @@ export interface NavSection {
   links: NavLink[]
 }
 
-/** The app's page links, in one place for both the desktop sidebar (section titles, a
- *  collapsible Settings row) and the mobile bar (a tab per ungrouped link, a tab per category
- *  that opens its pages above the bar) — so the two can never drift apart. `settings` is
- *  owner-only; callers gate it. The external Documentation link stays in SidebarContainer. */
+/** The app's page links, in one place for both the desktop sidebar (section titles) and the
+ *  mobile bar (a tab per ungrouped link, a tab per category that opens its pages above the bar)
+ *  — so the two can never drift apart. `settings` is owner-only; callers gate it. It is a single
+ *  link: its sections are tabs on the Settings page itself. The external Documentation link
+ *  stays in SidebarContainer. */
 export function useNavLinks() {
   const sections: NavSection[] = [
     { title: null, icon: null, links: [{ name: 'now', label: 'Overview', icon: IconMonitoring }] },
@@ -54,12 +53,9 @@ export function useNavLinks() {
   ]
 
   const settings: NavSection = {
-    title: 'Settings',
+    title: 'Account',
     icon: IconSettings,
-    links: [
-      { name: 'settings-users', label: 'User Management', icon: IconGroup },
-      { name: 'settings-updates', label: 'Software updates', icon: IconSystemUpdate },
-    ],
+    links: [{ name: 'settings', label: 'Settings', icon: IconSettings }],
   }
 
   const primary = sections.flatMap((s) => s.links)

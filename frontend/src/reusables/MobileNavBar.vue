@@ -2,8 +2,8 @@
 /**
  * The sidebar is `hidden` below `lg` (see SidebarView.vue) — this is what replaces it. Same
  * structure as the sidebar, fitted to a phone: an ungrouped link is its own tab, and a category
- * is one tab that opens its pages in a small menu above the bar. Owners get Settings the same
- * way. Weight and the brand blue mark the active tab, as in the sidebar.
+ * is one tab that opens its pages in a small menu above the bar. Owners get a Settings tab, which
+ * opens the Settings page (its sections are tabs there). Weight and the brand blue mark the active tab, as in the sidebar.
  */
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -25,7 +25,7 @@ const tabs = computed<Tab[]>(() => {
     if (s.title) out.push({ kind: 'group', key: s.title, section: s })
     else for (const link of s.links) out.push({ kind: 'link', key: link.name, link })
   }
-  if (isOwner.value) out.push({ kind: 'group', key: settings.title!, section: settings })
+  if (isOwner.value) out.push({ kind: 'link', key: 'settings', link: settings.links[0] })
   return out
 })
 

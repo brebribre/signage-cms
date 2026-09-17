@@ -89,17 +89,27 @@ const router = createRouter({
           name: 'device-detail',
           component: () => import('@/containers/DeviceDetailContainer.vue'),
         },
+        // One Settings page whose sections are tabs, each its own route — see SettingsContainer.
         {
-          path: 'settings/users',
-          name: 'settings-users',
-          component: () => import('@/containers/UserListContainer.vue'),
+          path: 'settings',
+          name: 'settings',
+          component: () => import('@/containers/SettingsContainer.vue'),
           meta: { ownerOnly: true },
-        },
-        {
-          path: 'settings/updates',
-          name: 'settings-updates',
-          component: () => import('@/containers/PlayerRolloutsContainer.vue'),
-          meta: { ownerOnly: true },
+          redirect: { name: 'settings-users' },
+          children: [
+            {
+              path: 'users',
+              name: 'settings-users',
+              component: () => import('@/containers/UserListContainer.vue'),
+              meta: { ownerOnly: true },
+            },
+            {
+              path: 'updates',
+              name: 'settings-updates',
+              component: () => import('@/containers/PlayerRolloutsContainer.vue'),
+              meta: { ownerOnly: true },
+            },
+          ],
         },
       ],
     },

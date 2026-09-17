@@ -10,7 +10,6 @@ import AppButton from '@/reusables/AppButton.vue'
 import AppInput from '@/reusables/AppInput.vue'
 import AppModal from '@/reusables/AppModal.vue'
 import ModalActions from '@/reusables/ModalActions.vue'
-import PageTitle from '@/reusables/PageTitle.vue'
 import type { AccountUserRead } from '@/types/api'
 
 const { user: me } = useAuth()
@@ -82,11 +81,9 @@ function reach(u: AccountUserRead): string {
 
 <template>
   <div class="flex flex-col gap-6">
-    <PageTitle title="User Management">
-      <template #actions>
-        <AppButton size="sm" @click="adding = true">Create subaccount</AppButton>
-      </template>
-    </PageTitle>
+    <div class="flex justify-end">
+      <AppButton size="sm" @click="adding = true">Create subaccount</AppButton>
+    </div>
 
     <AppAlert v-if="error" tone="danger">{{ error }}</AppAlert>
     <AppAlert v-if="formError" tone="danger">{{ formError }}</AppAlert>

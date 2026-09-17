@@ -11,31 +11,24 @@
  * - **Real landmarks and names**: one `<nav>`, each group a `<ul>` labelled by its own heading, so
  *   a screen reader announces "Resources, list, 2 items" instead of a wall of links.
  * - **Focus is visible** on every row, because this is the first thing Tab reaches on the page.
- * - **Settings is a disclosure**, with `aria-expanded`/`aria-controls` and an icon that turns —
- *   and it opens itself when you are on a settings page, so the current page is never hidden.
+ * - **Settings is one link** to a page whose sections are tabs, so the sidebar stays a flat list.
  * - **The account block sits at the bottom**, where every dashboard puts it, and says who you are
  *   and which account before offering the way out.
  */
-import { computed, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import IconChevronRight from '~icons/material-symbols/chevron-right'
+import { computed } from 'vue'
+import { useRouter } from 'vue-router'
 import IconLogout from '~icons/material-symbols/logout'
 import IconMenuBook from '~icons/material-symbols/menu-book-outline'
 import IconOpenInNew from '~icons/material-symbols/open-in-new'
-import IconSettings from '~icons/material-symbols/settings-outline'
 
 import { useAuth } from '@/hooks/useAuth'
 import { useNavLinks } from '@/hooks/useNavLinks'
 import AppLogo from '@/reusables/AppLogo.vue'
 
-const route = useRoute()
 const router = useRouter()
 const { user, account, isOwner, logout } = useAuth()
-// Settings is owner-only, grouped under one collapsible row rather than more top-level links.
+// Settings is owner-only: one link, whose sections are tabs on its own page.
 const { sections, settings } = useNavLinks()
-
-const inSettings = computed(() => String(route.name ?? '').startsWith('settings-'))
-const settingsOpen = ref(inSettings.value)
 
 /** Their initials, for the account block — two letters at most, and never an empty circle. */
 const initials = computed(() =>
@@ -93,32 +86,11 @@ const ROW_ACTIVE =
         <p id="nav-account" class="px-3 pt-5 pb-1.5 text-[11px] font-medium tracking-wider text-ink-subtle uppercase">
           Account
         </p>
-        <button
-          type="button"
-          class="text-left"
-          :class="[ROW, inSettings && '!text-brand font-medium [&_svg]:!text-brand']"
-          :aria-expanded="settingsOpen"
-          aria-controls="nav-settings-links"
-          @click="settingsOpen = !settingsOpen"
-        >
-          <IconSettings class="size-[18px] shrink-0 text-ink-muted" aria-hidden="true" />
-          <span class="flex-1">Settings</span>
-          <IconChevronRight
-            class="size-4 shrink-0 text-ink-subtle transition-transform duration-200"
-            :class="settingsOpen && 'rotate-90'"
-            aria-hidden="true"
-          />
-        </button>
-        <!-- Indented under its parent and hung off a hairline, so the nesting is visible rather
-             than implied by indentation alone. -->
-        <ul
-          v-show="settingsOpen"
-          id="nav-settings-links"
-          aria-labelledby="nav-account"
-          class="mt-0.5 ml-[22px] flex flex-col gap-0.5 border-l border-line pl-2"
-        >
+        <ul class="flex flex-col gap-0.5" aria-labelledby="nav-account">
           <li v-for="link in settings.links" :key="link.name">
+            <!-- The parent route, so the row stays current on every Settings tab. -->
             <router-link :to="{ name: link.name }" :class="ROW" :active-class="ROW_ACTIVE">
+              <component :is="link.icon" class="size-[18px] shrink-0 text-ink-muted" aria-hidden="true" />
               {{ link.label }}
             </router-link>
           </li>
