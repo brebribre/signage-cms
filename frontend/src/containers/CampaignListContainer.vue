@@ -25,7 +25,7 @@ const { date } = useFormat()
     >
       <template #actions>
         <AppButton size="sm" @click="router.push({ name: 'deploy' })">
-          <IconAdd class="size-4 transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] group-hover:rotate-90 motion-reduce:transition-none" aria-hidden="true" />
+          <IconAdd class="size-4" aria-hidden="true" />
           New campaign
         </AppButton>
       </template>
@@ -42,7 +42,7 @@ const { date } = useFormat()
     >
       <template #actions>
         <AppButton size="sm" @click="router.push({ name: 'deploy' })">
-          <IconAdd class="size-4 transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] group-hover:rotate-90 motion-reduce:transition-none" aria-hidden="true" />
+          <IconAdd class="size-4" aria-hidden="true" />
           New campaign
         </AppButton>
       </template>

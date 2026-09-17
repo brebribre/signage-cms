@@ -5,11 +5,6 @@
  * to shift — the border is present in both, only its colour changes.
  *
  * Primary is the brand blue; secondary and ghost stay ink, so one blue button leads per view.
- *
- * Motion: every button rises 2px under the pointer and presses in on click — quick enough to feel
- * like a response rather than an effect, and off entirely for anyone who has asked their system
- * for reduced motion. The button is a `group`, so an icon inside can join in (the + on create
- * buttons turns a quarter).
  */
 withDefaults(
   defineProps<{
@@ -40,10 +35,8 @@ const SIZES = {
   <button
     :type="type"
     :disabled="disabled || loading"
-    class="group inline-flex items-center justify-center gap-2 rounded-full border font-normal
-           transition-[color,background-color,border-color,transform] duration-200
-           ease-[cubic-bezier(0.4,0,0.2,1)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.97]
-           active:duration-75 motion-reduce:transform-none motion-reduce:transition-colors
+    class="inline-flex items-center justify-center gap-2 rounded-full border font-normal
+           transition-colors duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]
            focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-bright
            disabled:opacity-40 disabled:pointer-events-none"
     :class="[VARIANTS[variant], SIZES[size], block && 'w-full']"
