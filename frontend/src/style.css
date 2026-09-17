@@ -40,8 +40,11 @@
   /* --- Brand. Straight off the logo: see the note above. --- */
   /* The default: solid fills, active nav rows, primary buttons. */
   --color-brand: #003399;
-  /* Hover/pressed — the gradient's dark end, so a button darkens rather than greys. */
+  /* The gradient's dark end — the deep side of the brand gradient on hero cards. */
   --color-brand-strong: #002f96;
+  /* A primary button under the pointer: part-way from the core blue to the bright end, so the
+     change is plain to see (the dark end sits too close to the core to notice). */
+  --color-brand-hover: #1f55c4;
   /* The gradient's bright end. Small accents and focus rings, never large fills: it is too
      light against white for text at body size. */
   --color-brand-bright: #0076dd;

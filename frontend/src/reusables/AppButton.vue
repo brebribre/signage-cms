@@ -19,7 +19,9 @@ withDefaults(
 )
 
 const VARIANTS = {
-  primary: 'border-brand bg-brand text-ink-inverse hover:bg-brand-strong hover:border-brand-strong',
+  // Hover lightens toward the logo's bright end: a darker shade of #003399 is too close to
+  // tell apart, where this reads as a change at a glance — as secondary's grey fill does.
+  primary: 'border-brand bg-brand text-ink-inverse hover:bg-brand-hover hover:border-brand-hover',
   secondary: 'border-ink bg-transparent text-ink hover:bg-raised',
   ghost: 'border-transparent bg-transparent text-ink-muted hover:text-ink hover:bg-raised',
   danger: 'border-danger bg-transparent text-danger hover:bg-danger hover:text-ink-inverse',
