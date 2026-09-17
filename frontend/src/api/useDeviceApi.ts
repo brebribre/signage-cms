@@ -33,6 +33,10 @@ export function useDeviceApi() {
       request<DeviceRead>('POST', `/devices/${id}/update`, body),
     /** Cancels a pending single-device update before the screen has picked it up. */
     cancelForcedUpdate: (id: string) => request<DeviceRead>('DELETE', `/devices/${id}/update`),
+    /** Starts the disconnect handshake: the screen is told on its next request and resets
+     *  itself; the row disappears (GET → 404) once it has heard. See useDeviceDetail.disconnect. */
+    disconnect: (id: string) => request<DeviceRead>('POST', `/devices/${id}/disconnect`),
+    /** Removes the row without waiting for the screen — the fallback when it never answers. */
     remove: (id: string) => request<void>('DELETE', `/devices/${id}`),
   }
 }

@@ -12,6 +12,10 @@ import java.util.concurrent.TimeUnit
 /** Raised when the server rejects our device token — the screen must re-pair. */
 class UnauthorizedException : IOException("device token rejected")
 
+/** Raised on 410: someone in the CMS disconnected this screen. Unlike a 401, which can be a
+ *  transient fault worth riding out, this is deliberate and final — the screen resets at once. */
+class DisconnectedException : IOException("disconnected from the CMS")
+
 /**
  * The two endpoints a paired screen talks to, plus the two it uses to get paired.
  *
@@ -71,6 +75,7 @@ class ApiClient(
         http.newCall(builder.build()).execute().use { res ->
             if (res.code == 304) return null
             if (res.code == 401) throw UnauthorizedException()
+            if (res.code == 410) throw DisconnectedException()
             if (!res.isSuccessful) throw IOException("manifest failed: HTTP ${res.code}")
             return json.decodeFromString(res.body!!.string())
         }
@@ -87,6 +92,7 @@ class ApiClient(
             .build()
         http.newCall(req).execute().use { res ->
             if (res.code == 401) throw UnauthorizedException()
+            if (res.code == 410) throw DisconnectedException()
             if (!res.isSuccessful) throw IOException("heartbeat failed: HTTP ${res.code}")
             return json.decodeFromString(res.body!!.string())
         }

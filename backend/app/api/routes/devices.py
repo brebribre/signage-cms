@@ -202,6 +202,19 @@ def probe_device(device: DeviceForUser, session: DbSession) -> ProbeResponse:
     )
 
 
+@router.post("/devices/{device_id}/disconnect", response_model=DeviceRead)
+def disconnect_device(device: DeviceForUser, session: DbSession) -> DeviceRead:
+    """Tell a screen it is being disconnected, and let it reset itself — the counterpart of
+    pairing's handshake. The frontend then polls GET /devices/{id}: 200 while the screen is
+    still being told, 404 once it has heard (the row is deleted with that answer — see
+    deps.py::get_current_device). A screen that never checks in is removed with DELETE below
+    after a grace period, and re-pairs by itself whenever it next connects."""
+    return _read(device_service.request_disconnect(session, device=device))
+
+
 @router.delete("/devices/{device_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_device(device: DeviceForUser, session: DbSession) -> None:
+    """Remove a screen without waiting for it to hear — the fallback when a disconnect handshake
+    times out on a screen that is offline. Its token stops working; it re-pairs when it next
+    connects."""
     device_service.remove(session, device=device)

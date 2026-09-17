@@ -9,6 +9,7 @@ import com.fortu.player.api.ManifestSettings
 import com.fortu.player.api.ManifestSlot
 import com.fortu.player.api.PlayReport
 import com.fortu.player.api.KIND_WEB
+import com.fortu.player.api.DisconnectedException
 import com.fortu.player.api.UnauthorizedException
 import com.fortu.player.api.UpdateInfo
 import com.fortu.player.api.UpdateStatusReport
@@ -294,6 +295,13 @@ class PlayerEngine(
                 syncAndPlay(token)
                 consecutiveFailures = 0
                 unauthorizedStreak = 0
+            } catch (e: DisconnectedException) {
+                // Deliberate and final, unlike a 401 — no streak to confirm. Whoever clicked
+                // Disconnect is watching for the pairing code to come back.
+                Log.w(TAG, "disconnected by the CMS — resetting and re-pairing")
+                resetForNewOwner()
+                consecutiveFailures = 0
+                unauthorizedStreak = 0
             } catch (e: UnauthorizedException) {
                 // Discarding the token is destructive and irreversible *from the device*:
                 // somebody has to physically walk to the screen and re-pair it. A single 401
@@ -472,6 +480,8 @@ class PlayerEngine(
                 }
             } catch (e: UnauthorizedException) {
                 throw e
+            } catch (e: DisconnectedException) {
+                throw e
             } catch (e: Exception) {
                 Log.w(TAG, "heartbeat failed (continuing)", e)
             }
@@ -519,6 +529,32 @@ class PlayerEngine(
      *  the next change instead of being put straight back to sleep. Null in a fresh process, so
      *  the first decision after a reboot always applies. */
     private var lastAppliedPower: Boolean? = null
+
+    /**
+     * Everything this screen holds on behalf of the account that just let it go, gone — so the
+     * next person to pair it starts from a screen that could be fresh out of the box: no token,
+     * no cached content of someone else's, awake, touch unlocked, no exit PIN, no power
+     * schedule, orientation back to the hardware's own until a new manifest says otherwise, and
+     * nothing queued to report to an account that no longer owns it.
+     */
+    private suspend fun resetForNewOwner() {
+        store.clear()
+        push.disconnect()
+        forgetAccountSettings()
+        runCatching { cache.evictExcept(emptyList()) }
+            .onFailure { Log.w(TAG, "could not clear cached content on disconnect", it) }
+        synchronized(pendingPlays) { pendingPlays.clear() }
+        synchronized(pendingErrors) { pendingErrors.clear() }
+        pendingUpdate = null
+        lastFailedUpdate = null
+        reportedUnsupportedFor = null
+        validUntilMillis = null
+        _orientation.value = null
+        _debug.update {
+            DebugInfo(apiBaseUrl = it.apiBaseUrl, kiosk = it.kiosk)
+        }
+        _state.value = PlayerState.Starting
+    }
 
     /**
      * A screen that has lost its account — deleted or unpaired in the CMS — must stop acting on

@@ -1,5 +1,6 @@
 import {
   KIND_WEB,
+  DisconnectedError,
   UnauthorizedError,
   type Manifest,
   type ManifestElement,
@@ -199,7 +200,14 @@ export class PlayerEngine {
         unauthorizedStreak = 0
       } catch (e) {
         if (this.stopped) return
-        if (e instanceof UnauthorizedError) {
+        if (e instanceof DisconnectedError) {
+          // Deliberate and final, unlike a 401 — no streak to confirm. Whoever clicked
+          // Disconnect is watching for the pairing code to come back.
+          console.warn(TAG, 'disconnected by the CMS — resetting and re-pairing')
+          await this.resetForNewOwner()
+          consecutiveFailures = 0
+          unauthorizedStreak = 0
+        } else if (e instanceof UnauthorizedError) {
           // A single 401 is not enough to throw a pairing away — somebody would have to walk to
           // the screen to redo it. Several in a row, confirmed quickly, is. See PlayerEngine.kt.
           unauthorizedStreak++
@@ -337,7 +345,7 @@ export class PlayerEngine {
           continue
         }
       } catch (e) {
-        if (e instanceof UnauthorizedError) throw e
+        if (e instanceof UnauthorizedError || e instanceof DisconnectedError) throw e
         console.warn(TAG, 'heartbeat failed (continuing)', e)
       }
 
@@ -353,6 +361,30 @@ export class PlayerEngine {
     if (untilBoundary <= 0) return MIN_POLL_MILLIS
     if (untilBoundary < normal) return Math.max(untilBoundary, MIN_POLL_MILLIS)
     return normal
+  }
+
+  /**
+   * Everything this screen holds on behalf of the account that just let it go, gone — so the
+   * next person to pair it starts from a screen that could be fresh out of the box: no token,
+   * no cached content of someone else's, awake, touch unlocked, no power schedule, orientation
+   * back to the panel's own until a new manifest says otherwise, and nothing queued to report
+   * to an account that no longer owns it.
+   */
+  private async resetForNewOwner() {
+    this.store.clear()
+    this.forgetAccountSettings()
+    if (this.cache.available) {
+      try {
+        await this.cache.evictExcept([])
+      } catch (e) {
+        console.warn(TAG, 'could not clear cached content on disconnect', e)
+      }
+    }
+    this.pendingPlays.length = 0
+    this.pendingErrors.length = 0
+    this.validUntilMillis = null
+    this.orientation.set(null)
+    this.state.set({ kind: 'starting' })
   }
 
   /**

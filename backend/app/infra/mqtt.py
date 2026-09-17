@@ -137,6 +137,19 @@ def notify_update_available(*, device_ids: list[uuid.UUID], version: str) -> Non
         ).start()
 
 
+def notify_disconnect(*, device_id: uuid.UUID) -> None:
+    """Wake one screen so it finds out right now that it has been disconnected — its next
+    request is answered 410 (see api/deps.py::get_current_device), and this is what makes
+    "next" mean "within a second" rather than "within the poll interval". Retained like every
+    other publish here: a screen that is offline when this fires gets it the instant it
+    reconnects, and device ids are never reused, so a retained "unpair" can only ever reach
+    the screen it was meant for. Fire-and-forget, same as the rest."""
+    settings = get_settings()
+    if not settings.mqtt_enabled:
+        return
+    threading.Thread(target=_publish, args=(_topic(device_id), "unpair"), daemon=True).start()
+
+
 def notify_manifest_changed(*, device_id: uuid.UUID, version: str) -> None:
     """Tell one screen its manifest may have changed. Fire-and-forget, off the request thread.
 

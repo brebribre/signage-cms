@@ -136,6 +136,15 @@ export class UnauthorizedError extends Error {
   }
 }
 
+/** Raised on 410: someone in the CMS disconnected this screen. Unlike a 401, which can be a
+ *  transient fault worth riding out, this is deliberate and final — the screen resets at once. */
+export class DisconnectedError extends Error {
+  constructor() {
+    super('disconnected from the CMS')
+    this.name = 'DisconnectedError'
+  }
+}
+
 export interface PlayerApi {
   startPairing(): Promise<PairStartResponse>
   /** Null when the pairing expired or was already collected (HTTP 404). */
@@ -189,6 +198,7 @@ export class ApiClient implements PlayerApi {
     const res = await request(`${this.baseUrl}/device/manifest`, { headers })
     if (res.status === 304) return null
     if (res.status === 401) throw new UnauthorizedError()
+    if (res.status === 410) throw new DisconnectedError()
     if (!res.ok) throw new Error(`manifest failed: HTTP ${res.status}`)
     return res.json()
   }
@@ -200,6 +210,7 @@ export class ApiClient implements PlayerApi {
       body: JSON.stringify(body),
     })
     if (res.status === 401) throw new UnauthorizedError()
+    if (res.status === 410) throw new DisconnectedError()
     if (!res.ok) throw new Error(`heartbeat failed: HTTP ${res.status}`)
     return res.json()
   }

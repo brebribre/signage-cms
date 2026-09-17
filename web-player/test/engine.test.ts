@@ -5,6 +5,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  DisconnectedError,
   UnauthorizedError,
   type HeartbeatRequest,
   type Manifest,
@@ -76,7 +77,7 @@ class FakeApi implements PlayerApi {
     return this.manifest
   }
   async heartbeat(_token: string, body: HeartbeatRequest) {
-    if (this.manifestError instanceof UnauthorizedError) throw this.manifestError
+    if (this.manifestError instanceof UnauthorizedError || this.manifestError instanceof DisconnectedError) throw this.manifestError
     this.heartbeats.push(body)
     return { version: this.manifest?.version ?? 'v0', update: null }
   }
@@ -340,6 +341,24 @@ describe('sync', () => {
     api.manifestError = null
     await tick(10_000)
     expect(store.token()).toBe('tok')
+  })
+
+  it('a screen the CMS disconnects re-pairs at once and forgets the account', async () => {
+    // 410 is deliberate, unlike a 401 — no three-strikes wait, and nothing of the old account
+    // survives: token, cached content, pending reports, orientation.
+    api.manifest = manifest()
+    start()
+    await tick(0)
+    expect(engine.state.value.kind).toBe('playing')
+    engine.reportError('stale')
+    api.manifestError = new DisconnectedError()
+    await tick(POLL_SECONDS * 1000)
+    api.manifestError = null
+    await tick(1_000)
+    expect(store.token()).toBeNull()
+    expect(cache.log[cache.log.length - 1]).toBe('evict except ')
+    expect(engine.orientation.value).toBeNull()
+    expect(engine.state.value.kind).toBe('pairing')
   })
 
   it('repeated 401s do unpair, within seconds', async () => {

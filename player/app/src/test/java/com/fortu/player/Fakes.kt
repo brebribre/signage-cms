@@ -228,3 +228,4 @@ fun manifest(
 )
 
 fun unauthorized() = UnauthorizedException()
+fun disconnected() = com.fortu.player.api.DisconnectedException()

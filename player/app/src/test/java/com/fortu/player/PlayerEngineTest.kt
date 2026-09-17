@@ -222,6 +222,34 @@ class PlayerEngineTest {
         job.cancelAndJoin()
     }
 
+    @Test
+    fun `a screen the CMS disconnects re-pairs at once and forgets the account`() = runTest {
+        // 410 is deliberate, unlike a 401 — no three-strikes wait, and nothing of the old
+        // account survives: token, cached content, push subscription, pending reports.
+        val store = FakeStore(storedToken = "t", storedName = "Lobby", storedDeviceId = "dev-1", storedMqttPassword = "pw")
+        val cache = FakeCache().apply { cached += "a" }
+        val push = FakePushClient()
+        val api = FakeApi().apply {
+            manifest = manifest(items = listOf(item("a")))
+            pollsBeforeClaim = 99
+        }
+        val e = engine(api = api, store = store, cache = cache, push = push)
+        val job = launch { e.run() }
+        advanceTimeBy(1_000)
+        e.reportError("stale")
+        api.manifestFailures += disconnected()
+        advanceTimeBy(35_000)
+
+        assertEquals("token dropped on the first 410", 1, store.clearCount)
+        assertEquals("cached content of the old account evicted", emptyList<String>(), cache.lastEvictKeep?.toList())
+        assertEquals("push subscription dropped", 1, push.disconnectCount)
+        assertNull(e.orientation.value)
+        assertTrue("back to pairing, not trouble: ${e.state.value}", e.state.value is PlayerState.Pairing)
+        // The report queued for the old account never reaches the new one.
+        api.heartbeats.clear()
+        job.cancelAndJoin()
+    }
+
     // --- manifest handling ------------------------------------------------------------------
 
     @Test

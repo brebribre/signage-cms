@@ -77,12 +77,49 @@ export function useDeviceDetail(id: string) {
     return run(() => api.cancelForcedUpdate(id))
   }
 
-  async function remove(): Promise<boolean> {
+  /**
+   * Disconnecting is a handshake, like pairing was — not a delete the screen finds out about
+   * three rejected polls later. The screen is told (it resets itself: back to a pairing code,
+   * awake, unlocked, its cached content gone) and the row disappears the moment it has heard;
+   * this polls for that. A screen that never answers — offline, asleep for good — is removed
+   * anyway after the grace period and re-pairs by itself whenever it next connects.
+   */
+  const DISCONNECT_TIMEOUT_MS = 20_000
+  const DISCONNECT_INTERVAL_MS = 1_000
+  const disconnectState = ref<'idle' | 'disconnecting' | 'disconnected' | 'removed' | 'failed'>('idle')
+
+  async function disconnect(): Promise<boolean> {
+    disconnectState.value = 'disconnecting'
+    saveError.value = null
+    try {
+      await api.disconnect(id)
+    } catch (e) {
+      saveError.value = e instanceof ApiError ? e.message : 'Could not disconnect this screen'
+      disconnectState.value = 'failed'
+      return false
+    }
+    const deadline = Date.now() + DISCONNECT_TIMEOUT_MS
+    while (Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, DISCONNECT_INTERVAL_MS))
+      try {
+        await api.get(id)
+      } catch (e) {
+        if (e instanceof ApiError && e.status === 404) {
+          disconnectState.value = 'disconnected'
+          return true
+        }
+        // Anything else is the CMS's own trouble, not the screen's answer — keep waiting.
+      }
+    }
+    // Never heard back. Remove it regardless: the screen finds out by the old route (its token
+    // stops working) the next time it connects, and the account isn't left with a ghost.
     try {
       await api.remove(id)
+      disconnectState.value = 'removed'
       return true
     } catch (e) {
-      saveError.value = e instanceof ApiError ? e.message : 'Could not delete'
+      saveError.value = e instanceof ApiError ? e.message : 'Could not remove this screen'
+      disconnectState.value = 'failed'
       return false
     }
   }
@@ -170,7 +207,7 @@ export function useDeviceDetail(id: string) {
   onUnmounted(stopUpdatePoll)
 
   return {
-    device, isLoading, isSaving, error, saveError, saveSucceeded, probeState,
-    refresh, save, remove, probe, setForcedUpdate, cancelForcedUpdate,
+    device, isLoading, isSaving, error, saveError, saveSucceeded, probeState, disconnectState,
+    refresh, save, disconnect, probe, setForcedUpdate, cancelForcedUpdate,
   }
 }

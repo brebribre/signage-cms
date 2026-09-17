@@ -364,9 +364,14 @@ The pairing screen is also the app's error state. An unpaired, revoked, or rejec
 always lands back on a visible code rather than a black screen — **a screen showing a code can
 be diagnosed from across the room; a black one cannot.**
 
-If a screen was deleted in the CMS, its token stops working and it shows a fresh pairing code on
-its own, with its PIN, touch lock and power settings cleared. Nothing needs to be done to the
-hardware.
+Disconnecting a screen in the CMS is a handshake, the mirror of pairing: the screen is woken
+and told on its very next request (a `410 Gone`, distinct from the `401` a passing fault can
+produce), and resets itself at once — token gone, the account's cached content evicted, awake,
+touch unlocked, PIN and power schedule cleared, orientation back to the panel's own — and shows
+a fresh pairing code while the CMS watches for it to have heard. A screen that is offline when
+this happens is removed anyway after a short grace period and finds out by the old route (its
+token stops working; three rejections in a row, seconds apart) whenever it next connects.
+Nothing needs to be done to the hardware either way.
 
 ---
 

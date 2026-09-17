@@ -14,6 +14,7 @@ import AppButton from '@/reusables/AppButton.vue'
 import AppCard from '@/reusables/AppCard.vue'
 import AppInput from '@/reusables/AppInput.vue'
 import AppModal from '@/reusables/AppModal.vue'
+import ConnectAnimation from '@/reusables/ConnectAnimation.vue'
 import ModalActions from '@/reusables/ModalActions.vue'
 import AppTabs from '@/reusables/AppTabs.vue'
 import PageTitle from '@/reusables/PageTitle.vue'
@@ -25,13 +26,23 @@ const router = useRouter()
 const id = String(route.params.id)
 
 const {
-  device, isLoading, isSaving, error, saveError, saveSucceeded, probeState,
-  save, remove, probe, setForcedUpdate, cancelForcedUpdate,
+  device, isLoading, isSaving, error, saveError, saveSucceeded, probeState, disconnectState,
+  save, disconnect, probe, setForcedUpdate, cancelForcedUpdate,
 } = useDeviceDetail(id)
 const { dimensions, relativeTime, date } = useFormat()
 const { isOwner } = useAuth()
 
-const confirmingDelete = ref(false)
+const confirmingDisconnect = ref(false)
+
+/** The handshake, as the dialog shows it — the pairing animation run the other way. */
+const handshake = computed<'disconnecting' | 'disconnected' | 'failed' | null>(() => {
+  switch (disconnectState.value) {
+    case 'disconnecting': return 'disconnecting'
+    case 'disconnected': case 'removed': return 'disconnected'
+    case 'failed': return 'failed'
+    default: return null
+  }
+})
 
 const TABS = [
   { value: 'manage', label: 'Manage' },
@@ -84,9 +95,12 @@ async function onSave() {
   })
 }
 
-async function onDelete() {
-  if (await remove()) router.push({ name: 'devices' })
-  else confirmingDelete.value = false
+async function onDisconnect() {
+  if (!(await disconnect())) return
+  // Held so the outcome is actually seen — the screen resetting is the one piece of feedback
+  // that says it really let go; a screen that never answered gets a moment longer to read why.
+  await new Promise((r) => setTimeout(r, disconnectState.value === 'removed' ? 2_500 : 1_200))
+  router.push({ name: 'devices' })
 }
 </script>
 
@@ -102,7 +116,7 @@ async function onDelete() {
     <template v-else-if="device">
       <PageTitle :title="device.name || 'Unnamed screen'">
         <template #actions>
-          <AppButton variant="danger" size="sm" @click="confirmingDelete = true">Delete</AppButton>
+          <AppButton variant="danger" size="sm" @click="confirmingDisconnect = true">Disconnect</AppButton>
         </template>
       </PageTitle>
 
@@ -229,15 +243,38 @@ async function onDelete() {
       </template>
     </template>
 
-    <AppModal v-if="confirmingDelete" title="Delete this screen?" @close="confirmingDelete = false">
-      <p class="text-sm text-ink-muted">
-        {{ device?.name }} will be removed from your account. If the hardware is still running,
-        its token stops working and it starts pairing again on its own — read the new code off
-        the screen to add it back.
+    <AppModal
+      v-if="confirmingDisconnect"
+      title="Disconnect this screen?"
+      @close="disconnectState === 'disconnecting' ? undefined : (confirmingDisconnect = false)"
+    >
+      <p v-if="!handshake" class="text-sm text-ink-muted">
+        {{ device?.name }} will be removed from your account. The screen is told straight away:
+        it forgets this account's content and settings, wakes up if it was asleep, and shows a
+        new pairing code — read that off the screen to add it back.
       </p>
-      <ModalActions>
-        <AppButton variant="secondary" size="sm" @click="confirmingDelete = false">Cancel</AppButton>
-        <AppButton variant="danger" size="sm" @click="onDelete">Delete</AppButton>
+
+      <div v-if="handshake" class="flex flex-col items-center gap-1 rounded-lg bg-surface px-3 py-3">
+        <ConnectAnimation :state="handshake" />
+        <p v-if="handshake === 'disconnecting'" class="text-[13px] text-ink-muted">
+          Telling {{ device?.name }} to reset…
+        </p>
+        <p v-else-if="disconnectState === 'disconnected'" class="text-[13px] text-ink">
+          {{ device?.name }} disconnected — it's showing a pairing code now
+        </p>
+        <p v-else-if="disconnectState === 'removed'" class="text-[13px] text-ink-muted">
+          {{ device?.name }} didn't answer — it's offline. It's been removed anyway, and will
+          start pairing by itself the next time it connects.
+        </p>
+      </div>
+
+      <AppAlert v-if="disconnectState === 'failed' && saveError" tone="danger">{{ saveError }}</AppAlert>
+
+      <ModalActions v-if="disconnectState === 'idle' || disconnectState === 'failed'">
+        <AppButton variant="secondary" size="sm" @click="confirmingDisconnect = false">Cancel</AppButton>
+        <AppButton variant="danger" size="sm" @click="onDisconnect">
+          {{ disconnectState === 'failed' ? 'Try again' : 'Disconnect' }}
+        </AppButton>
       </ModalActions>
     </AppModal>
 

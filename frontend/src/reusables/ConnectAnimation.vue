@@ -1,22 +1,30 @@
 <script setup lang="ts">
 /** Cloud → screen, while a newly claimed screen collects its credential: dots travel toward the
  *  TV while waiting, the line settles green with a check once it has connected, or a red cross
- *  marks the TV if it didn't. Presentational only — handed a state, knows nothing about pairing. */
+ *  marks the TV if it didn't. Run the other way for disconnecting: dots travel back to the
+ *  cloud while the screen is told, and the line goes quiet once it has heard. Presentational
+ *  only — handed a state, knows nothing about pairing. */
 import IconCheck from '~icons/material-symbols/check'
 import IconClose from '~icons/material-symbols/close'
 import IconCloud from '~icons/material-symbols/cloud-outline'
 import IconTv from '~icons/material-symbols/tv-outline'
 
-defineProps<{ state: 'connecting' | 'connected' | 'failed' }>()
+defineProps<{ state: 'connecting' | 'connected' | 'failed' | 'disconnecting' | 'disconnected' }>()
 
-const LABEL = { connecting: 'Connecting', connected: 'Connected', failed: 'Not connected' } as const
+const LABEL = {
+  connecting: 'Connecting',
+  connected: 'Connected',
+  failed: 'Not connected',
+  disconnecting: 'Disconnecting',
+  disconnected: 'Disconnected',
+} as const
 </script>
 
 <template>
   <div class="flex items-center justify-center gap-3 py-2" role="status" :aria-label="LABEL[state]">
     <span
       class="flex size-12 shrink-0 items-center justify-center rounded-full bg-raised text-ink"
-      :class="state === 'connecting' && 'cloud-pulse'"
+      :class="(state === 'connecting' || state === 'disconnecting') && 'cloud-pulse'"
     >
       <IconCloud class="size-6" />
     </span>
@@ -24,19 +32,23 @@ const LABEL = { connecting: 'Connecting', connected: 'Connected', failed: 'Not c
     <div class="relative flex h-3 w-24 items-center">
       <span
         class="h-0.5 w-full rounded-full transition-colors duration-300"
-        :class="state === 'connected' ? 'bg-emerald-600' : 'bg-line'"
+        :class="state === 'connected' ? 'bg-emerald-600' : state === 'disconnected' ? 'bg-line-strong opacity-40' : 'bg-line'"
       />
-      <template v-if="state === 'connecting'">
+      <template v-if="state === 'connecting' || state === 'disconnecting'">
         <span
           v-for="i in 3"
           :key="i"
           class="travel-dot absolute top-1/2 size-1.5 rounded-full bg-ink"
+          :class="state === 'disconnecting' && 'travel-back'"
           :style="{ animationDelay: `${(i - 1) * 0.4}s` }"
         />
       </template>
     </div>
 
-    <span class="relative flex size-12 shrink-0 items-center justify-center rounded-full bg-raised text-ink">
+    <span
+      class="relative flex size-12 shrink-0 items-center justify-center rounded-full bg-raised transition-colors duration-300"
+      :class="state === 'disconnected' ? 'text-ink-subtle' : 'text-ink'"
+    >
       <IconTv class="size-6" />
       <span
         v-if="state === 'connected'"
@@ -44,6 +56,13 @@ const LABEL = { connecting: 'Connecting', connected: 'Connected', failed: 'Not c
                bg-emerald-600 text-white ring-2 ring-canvas"
       >
         <IconCheck class="size-3.5" />
+      </span>
+      <span
+        v-else-if="state === 'disconnected'"
+        class="badge-pop absolute -right-1 -bottom-1 flex size-5 items-center justify-center rounded-full
+               bg-ink-subtle text-white ring-2 ring-canvas"
+      >
+        <IconClose class="size-3.5" />
       </span>
       <span
         v-else-if="state === 'failed'"
@@ -76,6 +95,9 @@ const LABEL = { connecting: 'Connecting', connected: 'Connected', failed: 'Not c
   15% { opacity: 1; }
   85% { opacity: 1; }
   100% { left: 100%; opacity: 0; }
+}
+.travel-back {
+  animation-direction: reverse;
 }
 
 .badge-pop {

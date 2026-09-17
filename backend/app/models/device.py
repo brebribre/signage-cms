@@ -139,6 +139,16 @@ class Device(SQLModel, table=True):
     update_detail: str | None = Field(default=None, max_length=500)
     update_reported_at: datetime | None = Field(default=None, sa_column=tz_column(nullable=True))
 
+    # --- Disconnecting ---
+    # Set when someone in the CMS disconnects this screen. From then on the screen's very next
+    # request is answered 410 Gone — a deliberate, unambiguous "you were disconnected", distinct
+    # from the 401 a transient fault can produce — and the row is deleted as that answer goes
+    # out. The screen resets itself at once (see PlayerEngine.kt's handling of 410) instead of
+    # needing three 401s in a row to be sure; the CMS watches the row disappear as its
+    # confirmation. A screen that never comes (offline) is removed anyway after a grace period,
+    # and re-pairs by the old 401 path whenever it next connects.
+    disconnect_requested_at: datetime | None = Field(default=None, sa_column=tz_column(nullable=True))
+
     created_at: datetime = Field(default_factory=utcnow, sa_column=tz_column(nullable=False))
 
 

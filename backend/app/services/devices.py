@@ -413,6 +413,19 @@ def probe(session: Session, *, device: Device) -> ProbeResult:
     return ProbeResult(probed_at=utcnow(), previous_last_seen_at=previous)
 
 
+def request_disconnect(session: Session, *, device: Device) -> Device:
+    """Start disconnecting a screen: mark it, and wake it so it asks in right away. The actual
+    delete happens when the screen next authenticates and is told 410 — see
+    `api/deps.py::get_current_device` — so the CMS can watch the row vanish as proof the
+    screen has heard. `remove()` is the fallback for a screen that never comes."""
+    device.disconnect_requested_at = utcnow()
+    session.add(device)
+    session.commit()
+    session.refresh(device)
+    mqtt.notify_disconnect(device_id=device.id)
+    return device
+
+
 def remove(session: Session, *, device: Device) -> None:
     session.exec(delete(DeviceAccess).where(DeviceAccess.device_id == device.id))
     session.exec(delete(Device).where(Device.id == device.id))

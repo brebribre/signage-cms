@@ -114,9 +114,21 @@ def get_current_device(request: Request, session: DbSession) -> Device:
         raise unauthorized
 
     try:
-        return device_service.authenticate(session, bearer=token)
+        device = device_service.authenticate(session, bearer=token)
     except device_service.DeviceNotFound:
         raise unauthorized from None
+
+    # Disconnected from the CMS: say so once, unmistakably, and finish the job as the answer
+    # goes out. 410 rather than 401 because a 401 can be a transient fault the screen is right
+    # to ride out — this cannot be. The screen resets itself on this answer; the CMS, polling
+    # for the row, sees a 404 and knows the screen has heard. See Device.disconnect_requested_at.
+    if device.disconnect_requested_at is not None:
+        device_service.remove(session, device=device)
+        raise HTTPException(
+            status_code=status.HTTP_410_GONE,
+            detail="This screen was disconnected from the CMS. Pair it again to reconnect.",
+        )
+    return device
 
 
 CurrentDevice = Annotated[Device, Depends(get_current_device)]
