@@ -37,9 +37,9 @@ sealed interface PlayerState {
     /** Unpaired, revoked, or 401'd — always lands here rather than on a black screen,
      *  because a screen showing a pairing code is diagnosable from across the room.
      *
-     * `apiHost` is displayed deliberately: pairing fails silently and confusingly when the
-     * screen and the CMS are talking to different servers, and the only way to notice is to
-     * see which one the screen is using. */
+     * `apiHost` matters when pairing "does not work": almost always the screen and the CMS are
+     * talking to different servers. The pairing screen no longer shows it (it is Paskall's
+     * front door, not a diagnostic page); the debug overlay does. */
     data class Pairing(
         val code: String,
         val apiHost: String,

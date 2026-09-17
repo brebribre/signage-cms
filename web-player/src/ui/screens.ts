@@ -1,3 +1,4 @@
+import logoUrl from '../assets/paskall-wordmark.png'
 import type { PlayerState } from '../engine'
 
 /**
@@ -14,19 +15,22 @@ type StatusState = Exclude<PlayerState, { kind: 'playing' }>
 export function statusScreenHtml(s: StatusState): string {
   switch (s.kind) {
     case 'starting':
-      return `<div class="screen"><div class="brand">FORTU</div></div>`
+      return `<div class="screen screen-brand"><img class="logo" src="${logoUrl}" alt="Paskall"></div>`
 
+    // In Paskall's own look — the first thing anyone setting up a screen sees. No server address
+    // and no poll count: the code and "waiting" are all a person in front of it needs.
     case 'pairing':
-      return `<div class="screen"><div class="col">
-        <div class="brand">FORTU</div>
-        <div class="muted" style="font-size:4vmin;margin-top:7vmin">Enter this code in the CMS</div>
-        <div class="code">${esc(s.code)}</div>
-        <div class="row muted" style="font-size:3vmin;margin-top:4vmin">
-          <span class="dot"></span>
-          <span>${s.checks === 0 ? 'Waiting for the CMS' : `Waiting for the CMS · checked ${s.checks}×`}</span>
+      return `<div class="screen screen-brand"><div class="col">
+        <img class="logo" src="${logoUrl}" alt="Paskall">
+        <div class="pair-card">
+          <div class="pair-label">Enter this code in the CMS</div>
+          <div class="code">${esc(s.code)}</div>
         </div>
-        <div class="subtle" style="font-size:2.6vmin;margin-top:5vmin">${esc(s.apiHost)}</div>
-        ${s.error ? `<div class="muted" style="font-size:3vmin;margin-top:2vmin">${esc(s.error)}</div>` : ''}
+        <div class="row pair-status">
+          <span class="dot"></span>
+          <span>Waiting for the CMS</span>
+        </div>
+        ${s.error ? `<div class="pair-status" style="margin-top:2vmin">${esc(s.error)}</div>` : ''}
       </div></div>`
 
     case 'claimed':

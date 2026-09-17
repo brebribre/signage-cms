@@ -189,7 +189,7 @@ class MainActivity : ComponentActivity() {
 
                 when (val s = state) {
                     is PlayerState.Starting -> StartingScreen()
-                    is PlayerState.Pairing -> PairingScreen(s.code, s.apiHost, s.error, s.checks)
+                    is PlayerState.Pairing -> PairingScreen(s.code, s.error)
                     is PlayerState.Claimed -> ClaimedScreen(s.deviceName)
                     is PlayerState.Preparing ->
                         PreparingScreen(s.deviceName, s.done, s.total, s.currentFile)

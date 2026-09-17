@@ -1,3 +1,5 @@
+import '@fontsource-variable/inter'
+import '@fontsource-variable/outfit'
 import './style.css'
 
 import { ApiClient, type ManifestSettings } from './api'

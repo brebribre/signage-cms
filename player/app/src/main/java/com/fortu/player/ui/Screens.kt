@@ -6,7 +6,10 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,6 +35,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -41,82 +52,117 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.fortu.player.DebugInfo
+import com.fortu.player.R
 
-// Fortu's palette: near-black ink, off-white, mid grey. Same tokens as the CMS.
+// Paskall's palette — the same tokens as the CMS (frontend/src/style.css) and the web player.
 private val Ink = Color(0xFF101111)
 private val InkInverse = Color(0xFFF9F9F9)
 private val InkMuted = Color(0xFF7D7D7D)
 private val InkSubtle = Color(0xFF4A4A4A)
+private val BrandStrong = Color(0xFF002F96)
+private val Brand = Color(0xFF003399)
+private val BrandBright = Color(0xFF0076DD)
+/** Secondary text on the brand gradient. */
+private val OnBrandMuted = Color.White.copy(alpha = 0.78f)
+
+/** The CMS's hero-card gradient, corner to corner, as a screen background. */
+private val BrandGradient = Brush.linearGradient(
+    0f to BrandStrong,
+    0.45f to Brand,
+    1f to BrandBright,
+    start = Offset.Zero,
+    end = Offset.Infinite,
+)
+
+// Paskall's typefaces, as in the CMS: Outfit for display, Inter for everything else. Bundled as
+// fixed weights cut from the CMS's own variable fonts (SIL Open Font License), so they work
+// offline and on every Android version.
+private val Outfit = FontFamily(Font(R.font.outfit_medium, FontWeight.Medium))
+private val Inter = FontFamily(
+    Font(R.font.inter_regular, FontWeight.Normal),
+    Font(R.font.inter_medium, FontWeight.Medium),
+)
 
 /**
- * The pairing screen. Deliberately the app's error state too — a screen showing a code can be
- * diagnosed from across a room, a black one cannot.
+ * The pairing screen, in Paskall's own look — the first thing anyone setting up a screen sees:
+ * the brand gradient, the logo in white, and the code on a translucent card. Deliberately the
+ * app's error state too — a screen showing a code can be diagnosed from across a room, a black
+ * one cannot. The server address is in the debug overlay, not here.
  */
 @Composable
-fun PairingScreen(code: String, apiHost: String, error: String?, checks: Int) {
+fun PairingScreen(code: String, error: String?) {
     Box(
-        Modifier.fillMaxSize().background(Ink),
+        Modifier.fillMaxSize().background(BrandGradient),
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                "FORTU",
-                color = InkInverse,
-                fontSize = 28.sp,
-                fontWeight = FontWeight.Medium,
-                letterSpacing = 6.sp,
-            )
-            Text(
-                "Enter this code in the CMS",
-                color = InkMuted,
-                fontSize = 22.sp,
-                modifier = Modifier.padding(top = 40.dp),
-            )
-            // Very large: this is read off a television from across a room.
-            Text(
-                code,
-                color = InkInverse,
-                fontSize = 120.sp,
-                fontWeight = FontWeight.Medium,
-                letterSpacing = 16.sp,
-                modifier = Modifier.padding(top = 16.dp),
-            )
+            PaskallLogo(height = 44.dp)
+
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .padding(top = 36.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(Color.White.copy(alpha = 0.1f))
+                    .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(24.dp))
+                    .padding(horizontal = 48.dp, vertical = 22.dp),
+            ) {
+                Text(
+                    "Enter this code in the CMS",
+                    color = OnBrandMuted,
+                    fontSize = 22.sp,
+                    fontFamily = Inter,
+                )
+                // Very large: this is read off a television from across a room.
+                Text(
+                    code,
+                    color = Color.White,
+                    fontSize = 116.sp,
+                    fontFamily = Outfit,
+                    fontWeight = FontWeight.Medium,
+                    letterSpacing = 14.sp,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
 
             // A live indicator, because a static code cannot be told apart from a frozen app.
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(top = 24.dp),
+                modifier = Modifier.padding(top = 28.dp),
             ) {
                 PulsingDot()
                 Text(
-                    if (checks == 0) "Waiting for the CMS" else "Waiting for the CMS · checked ${checks}×",
-                    color = InkMuted,
-                    fontSize = 16.sp,
+                    "Waiting for the CMS",
+                    color = OnBrandMuted,
+                    fontSize = 18.sp,
+                    fontFamily = Inter,
                     modifier = Modifier.padding(start = 10.dp),
                 )
             }
 
-            // The single most useful line when pairing "does not work": almost always the
-            // screen and the CMS are pointed at different servers, and this is the only place
-            // that is visible without a laptop.
-            Text(
-                apiHost,
-                color = InkSubtle,
-                fontSize = 14.sp,
-                modifier = Modifier.padding(top = 28.dp),
-            )
-
             if (error != null) {
                 Text(
                     error,
-                    color = InkMuted,
+                    color = OnBrandMuted,
                     fontSize = 16.sp,
+                    fontFamily = Inter,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.padding(top = 12.dp),
                 )
             }
         }
     }
+}
+
+/** The Paskall wordmark, in white for the brand gradient. */
+@Composable
+private fun PaskallLogo(height: Dp) {
+    Image(
+        painter = painterResource(R.drawable.paskall_wordmark),
+        contentDescription = "Paskall",
+        colorFilter = ColorFilter.tint(Color.White),
+        modifier = Modifier.height(height),
+    )
 }
 
 /** Slow pulse. Deliberately unhurried — this is ambient reassurance on a wall, not a spinner
@@ -261,8 +307,8 @@ fun TroubleScreen(deviceName: String?, message: String, apiHost: String, attempt
 
 @Composable
 fun StartingScreen() {
-    Box(Modifier.fillMaxSize().background(Ink), contentAlignment = Alignment.Center) {
-        Text("FORTU", color = InkInverse, fontSize = 28.sp, letterSpacing = 6.sp)
+    Box(Modifier.fillMaxSize().background(BrandGradient), contentAlignment = Alignment.Center) {
+        PaskallLogo(height = 44.dp)
     }
 }
 

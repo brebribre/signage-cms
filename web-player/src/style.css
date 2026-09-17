@@ -1,4 +1,4 @@
-/* Fortu's palette: near-black ink, off-white, mid grey — the same tokens as the CMS and the
+/* Paskall's palette and type — the same tokens as the CMS (frontend/src/style.css) and the
    Android player's ui/Screens.kt. Sizes are in vmin so a screen reads the same on a 720p panel
    and a 4K one, from across a room. */
 :root {
@@ -6,6 +6,11 @@
   --ink-inverse: #f9f9f9;
   --ink-muted: #7d7d7d;
   --ink-subtle: #4a4a4a;
+  --brand-strong: #002f96;
+  --brand: #003399;
+  --brand-bright: #0076dd;
+  --font-sans: 'Inter Variable', 'Helvetica Neue', Arial, sans-serif;
+  --font-display: 'Outfit Variable', 'Inter Variable', 'Helvetica Neue', Arial, sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -17,7 +22,7 @@ html, body {
   overflow: hidden;
   background: #000;
   color: var(--ink-inverse);
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: var(--font-sans);
   cursor: none;
   user-select: none;
   -webkit-user-select: none;
@@ -35,10 +40,29 @@ html, body {
   padding: 0 6vmin;
 }
 .col { display: flex; flex-direction: column; align-items: center; }
-.brand { font-size: 5vmin; font-weight: 500; letter-spacing: 1.1vmin; }
 .muted { color: var(--ink-muted); }
 .subtle { color: var(--ink-subtle); }
-.code { font-size: 20vmin; font-weight: 500; letter-spacing: 2.6vmin; margin-right: -2.6vmin; margin-top: 2.5vmin; line-height: 1.1; }
+
+/* Starting and pairing: the brand gradient, as on the CMS's hero cards, with the logo in white. */
+.screen-brand {
+  background:
+    radial-gradient(ellipse at 85% 110%, rgba(0, 118, 221, 0.55), transparent 60%),
+    linear-gradient(135deg, var(--brand-strong) 0%, var(--brand) 45%, var(--brand-bright) 100%);
+}
+.logo { height: 8vmin; width: auto; filter: brightness(0) invert(1); }
+.pair-card {
+  margin-top: 6vmin;
+  padding: 3.5vmin 7vmin 3vmin;
+  border-radius: 4vmin;
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 0 0 0.15vmin rgba(255, 255, 255, 0.18);
+}
+.pair-label { font-size: 3.6vmin; color: rgba(255, 255, 255, 0.78); }
+.code {
+  font-family: var(--font-display); font-size: 19vmin; font-weight: 500; line-height: 1.1;
+  letter-spacing: 2.4vmin; margin-right: -2.4vmin; margin-top: 1vmin;
+}
+.pair-status { font-size: 3vmin; color: rgba(255, 255, 255, 0.78); margin-top: 4.5vmin; }
 .row { display: flex; align-items: center; gap: 1.6vmin; }
 .dot { width: 1.6vmin; height: 1.6vmin; border-radius: 50%; background: var(--ink-inverse); animation: pulse 0.9s linear infinite alternate; }
 @keyframes pulse { from { opacity: 0.25; } to { opacity: 1; } }
@@ -83,5 +107,5 @@ html, body {
 /* One line, low on the non-playing screens only — see syncFullscreenHint in main.ts. */
 #fs-hint {
   position: absolute; left: 0; right: 0; bottom: 4vmin; z-index: 70; text-align: center;
-  color: var(--ink-muted); font-size: 2.4vmin; pointer-events: none;
+  color: rgba(255, 255, 255, 0.6); font-size: 2.4vmin; pointer-events: none;
 }
