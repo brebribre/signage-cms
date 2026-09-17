@@ -2,7 +2,8 @@
 import { ref } from 'vue'
 
 /** Generic: takes files and emits them. It must not know what media is. */
-const props = defineProps<{ accept?: string; label?: string; hint?: string }>()
+/** `hint` may be several lines, shown one under another. */
+const props = defineProps<{ accept?: string; label?: string; hint?: string | string[] }>()
 const emit = defineEmits<{ files: [File[]] }>()
 
 const isOver = ref(false)
@@ -33,7 +34,13 @@ function onPick(e: Event) {
     @drop.prevent="onDrop"
   >
     <p class="text-sm text-ink">{{ label ?? 'Drop files here' }}</p>
-    <p v-if="hint" class="mt-1 text-[13px] text-ink-subtle">{{ hint }}</p>
+    <p
+      v-for="line in props.hint ? ([] as string[]).concat(props.hint) : []"
+      :key="line"
+      class="mt-1 text-[13px] text-ink-subtle"
+    >
+      {{ line }}
+    </p>
     <button
       type="button"
       class="mt-3 rounded-full border border-ink px-4 py-1.5 text-[13px] text-ink

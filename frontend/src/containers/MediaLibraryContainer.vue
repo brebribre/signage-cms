@@ -11,11 +11,11 @@ import FilterChip from '@/reusables/FilterChip.vue'
 import MediaCard from '@/reusables/MediaCard.vue'
 import PageTitle from '@/reusables/PageTitle.vue'
 import ProgressBar from '@/reusables/ProgressBar.vue'
+import { ACCEPTED_MEDIA, SUPPORTED_FILE_TYPES } from '@/utils/mediaTypes'
 
 const router = useRouter()
 const { visible, counts, filter, isLoading, error, prepend } = useMedia()
 const { jobs, active, isUploading, add, dismiss, clearFinished } = useMediaUpload(prepend)
-const ACCEPT = 'image/jpeg,image/png,image/webp,image/gif,video/mp4'
 
 const STATUS_LABEL: Record<string, string> = {
   queued: 'Waiting',
@@ -32,9 +32,9 @@ const STATUS_LABEL: Record<string, string> = {
     <PageTitle title="Media" :subtitle="`${counts.all} file${counts.all === 1 ? '' : 's'}`" />
 
     <DropZone
-      :accept="ACCEPT"
+      :accept="ACCEPTED_MEDIA"
       label="Drop images or videos here"
-      hint="JPEG, PNG, WebP, GIF, and h.264 MP4 — the only video every screen decodes in hardware"
+      :hint="SUPPORTED_FILE_TYPES"
       @files="add"
     />
 
