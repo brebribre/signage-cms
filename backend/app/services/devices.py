@@ -18,6 +18,7 @@ from sqlmodel import Session, delete, select
 from app.config import get_settings
 from app.infra import mqtt, mqtt_admin
 from app.models import (
+    Account,
     Device,
     DeviceAccess,
     DeviceOrientation,
@@ -207,6 +208,8 @@ def claim(
     device.account_id = user.account_id
     device.created_by = user.id
     device.name = name.strip() or "Unnamed screen"
+    # Starts in the account's default zone (Settings → General); changeable per screen after.
+    device.timezone = _account_default_timezone(session, user)
     device.location = location.strip()
     session.add(device)
 
@@ -218,6 +221,11 @@ def claim(
     session.commit()
     session.refresh(device)
     return device
+
+
+def _account_default_timezone(session: Session, user: User) -> str:
+    account = session.get(Account, user.account_id)
+    return account.default_timezone if account and account.default_timezone else "UTC"
 
 
 def _mock_pairing_code() -> str | None:
@@ -252,6 +260,7 @@ def _claim_mock_screen(session: Session, *, user: User, name: str, location: str
         token_hash=hash_token(secrets.token_urlsafe(32)),
         paired_at=now,
         last_seen_at=now,
+        timezone=_account_default_timezone(session, user),
         screen_width=1920,
         screen_height=1080,
         app_version="mock",

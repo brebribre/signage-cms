@@ -225,6 +225,21 @@ def main() -> None:
     check("an Android screen (empty pair body) is still android",
           o.get(f"/devices/{device_id}").json()["platform"] == "android")
 
+    print("\nthe account's default timezone")
+    check("a new account defaults to UTC", o.get("/me").json()["account"]["default_timezone"] == "UTC")
+    check("a manager cannot change it", m.patch("/account", json={"default_timezone": "Asia/Jakarta"}).status_code == 403)
+    check("an unknown zone is refused", o.patch("/account", json={"default_timezone": "Mars/Olympus"}).status_code == 422)
+    r = o.patch("/account", json={"default_timezone": "Asia/Jakarta"})
+    check("an owner can change it", r.status_code == 200 and r.json()["default_timezone"] == "Asia/Jakarta", r.text[:120])
+    check("an existing screen keeps its own zone", o.get(f"/devices/{device_id}").json()["timezone"] == "UTC",
+          o.get(f"/devices/{device_id}").json()["timezone"])
+    tz_pair = device.post("/devices/pair").json()
+    device_service._claim_attempts.clear()
+    r = o.post("/devices/claim", json={"pairing_code": tz_pair["pairing_code"], "name": "New in Jakarta"})
+    check("a screen paired afterwards starts in it", r.json().get("timezone") == "Asia/Jakarta", r.json().get("timezone"))
+    o.delete(f"/devices/{r.json()['id']}")
+    o.patch("/account", json={"default_timezone": "UTC"})
+
     print("\nthe local mock pairing code")
     settings.mock_pairing_code = "mock tv"
     settings.cookie_secure = False

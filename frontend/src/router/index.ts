@@ -95,8 +95,14 @@ const router = createRouter({
           name: 'settings',
           component: () => import('@/containers/SettingsContainer.vue'),
           meta: { ownerOnly: true },
-          redirect: { name: 'settings-users' },
+          redirect: { name: 'settings-general' },
           children: [
+            {
+              path: 'general',
+              name: 'settings-general',
+              component: () => import('@/containers/GeneralSettingsContainer.vue'),
+              meta: { ownerOnly: true },
+            },
             {
               path: 'users',
               name: 'settings-users',

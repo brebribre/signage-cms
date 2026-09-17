@@ -19,6 +19,7 @@ import AppTabs from '@/reusables/AppTabs.vue'
 import PageTitle from '@/reusables/PageTitle.vue'
 import StatusDot from '@/reusables/StatusDot.vue'
 import type { PlayerReleaseRead } from '@/types/api'
+import { zoneOptions as zoneChoices } from '@/utils/timezones'
 
 const route = useRoute()
 const router = useRouter()
@@ -90,25 +91,8 @@ const isDirty = computed(() => {
     || form.timezone !== d.timezone
 })
 
-const COMMON_ZONES = [
-  'UTC',
-  'Asia/Jakarta',
-  'Asia/Singapore',
-  'Asia/Kuala_Lumpur',
-  'Asia/Bangkok',
-  'Asia/Tokyo',
-  'Australia/Sydney',
-  'Europe/London',
-  'Europe/Amsterdam',
-  'America/New_York',
-  'America/Los_Angeles',
-]
-
-/** The device's own zone always appears, even if it isn't in the short list above. */
-const zoneOptions = computed(() => {
-  const current = device.value?.timezone
-  return current && !COMMON_ZONES.includes(current) ? [current, ...COMMON_ZONES] : COMMON_ZONES
-})
+/** The device's own zone always appears, even if it isn't in the common list. */
+const zoneOptions = computed(() => zoneChoices(device.value?.timezone))
 
 /**
  * One request carrying every field the user touched — a dropdown that looks as small as

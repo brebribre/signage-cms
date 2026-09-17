@@ -21,4 +21,8 @@ class Account(SQLModel, table=True):
     # Bytes. None means unlimited, which is the default — a quota that appears without anyone
     # setting it would block uploads for reasons nobody chose.
     storage_quota_bytes: int | None = Field(default=None, sa_column=Column(BigInteger, nullable=True))
+    # IANA name every newly paired screen starts in (Settings → General). A default, not a
+    # constraint: each screen's own timezone is still its own, and changing this moves no screen
+    # already paired. UTC until an owner chooses — never a guess at their locale.
+    default_timezone: str = Field(default="UTC", sa_column_kwargs={"server_default": "UTC"})
     created_at: datetime = Field(default_factory=utcnow, sa_column=tz_column(nullable=False))

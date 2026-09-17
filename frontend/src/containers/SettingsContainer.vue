@@ -16,6 +16,7 @@ const route = useRoute()
 const router = useRouter()
 
 const TABS = [
+  { value: 'settings-general', label: 'General' },
   { value: 'settings-users', label: 'User management' },
   { value: 'settings-updates', label: 'Software updates' },
 ] as const
@@ -29,7 +30,7 @@ function open(name: string) {
 
 <template>
   <div class="flex flex-col gap-6">
-    <PageTitle title="Settings" subtitle="Your team, and the player software on your screens." />
+    <PageTitle title="Settings" subtitle="Account defaults, your team, and the player software on your screens." />
     <AppTabs :items="TABS" :model-value="current" @update:model-value="open" />
     <router-view />
   </div>

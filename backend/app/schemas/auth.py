@@ -39,6 +39,15 @@ class LoginRequest(BaseModel):
 class AccountRead(BaseModel):
     id: uuid.UUID
     name: str
+    default_timezone: str
+
+
+class AccountUpdate(BaseModel):
+    """Account-wide settings (Settings → General). Owner-only."""
+
+    # IANA name. Checked against the tz database in the service, so a typo is a 422 rather than
+    # every new screen quietly running on UTC.
+    default_timezone: str | None = Field(default=None, min_length=1, max_length=64)
 
 
 class UserRead(BaseModel):

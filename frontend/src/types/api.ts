@@ -15,6 +15,8 @@ export interface UserRead {
 export interface AccountRead {
   id: string
   name: string
+  /** IANA name newly paired screens start in (Settings → General). */
+  default_timezone: string
 }
 
 export interface MeResponse {
