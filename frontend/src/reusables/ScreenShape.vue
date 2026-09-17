@@ -5,7 +5,7 @@
  *  only what's drawn inside changes, letterboxed to fit. */
 import { computed } from 'vue'
 
-import fortuLogoUrl from '@/assets/fortu-logo.png'
+import wordmarkUrl from '@/assets/paskall-wordmark.png'
 import type { DeviceRead } from '@/types/api'
 
 const props = withDefaults(defineProps<{ device: DeviceRead; size?: number }>(), { size: 88 })
@@ -40,23 +40,8 @@ const bezel = computed(() => (props.size >= 72 ? 5 : 3))
         padding: `${Math.round(size * 0.09)}px ${Math.round(size * 0.14)}px`,
       }"
     >
-      <!-- The source file is a light wordmark on a transparent ground — invisible on this white
-           screen mock — so it's used as a mask and painted solid black instead. -->
-      <span
-        class="block h-full w-full bg-ink"
-        :style="{
-          maskImage: `url(${fortuLogoUrl})`,
-          WebkitMaskImage: `url(${fortuLogoUrl})`,
-          maskRepeat: 'no-repeat',
-          WebkitMaskRepeat: 'no-repeat',
-          maskPosition: 'center',
-          WebkitMaskPosition: 'center',
-          maskSize: 'contain',
-          WebkitMaskSize: 'contain',
-        }"
-        role="img"
-        aria-label="Fortu logo"
-      />
+      <!-- The logo in its own colours: a screen that belongs to this CMS. -->
+      <img :src="wordmarkUrl" alt="Paskall logo" draggable="false" class="block h-full w-full select-none object-contain" />
     </div>
   </div>
 </template>

@@ -1,10 +1,11 @@
 <script setup lang="ts">
 /**
- * The FORTU wordmark: tracked out and slightly stretched, as on fortu.co.id. No system
- * font ships an extended width, so the stretch is a transform — and it grows from the
- * transform origin, which is why `align` exists: a left-anchored logo drifts right of
- * centre when its parent centres it.
+ * The Paskall logo — the icon and wordmark together, as supplied (src/assets/paskall-logo.png is
+ * the original; paskall-wordmark.png is it trimmed, on a transparent ground). An image rather than
+ * type, so it's the brand's own letterforms and colour everywhere it appears.
  */
+import wordmarkUrl from '@/assets/paskall-wordmark.png'
+
 withDefaults(defineProps<{ size?: 'sm' | 'md'; align?: 'left' | 'center' }>(), {
   size: 'md',
   align: 'left',
@@ -12,13 +13,11 @@ withDefaults(defineProps<{ size?: 'sm' | 'md'; align?: 'left' | 'center' }>(), {
 </script>
 
 <template>
-  <span
-    class="inline-block font-medium uppercase text-ink"
-    :class="[
-      size === 'sm' ? 'text-sm tracking-[0.18em]' : 'text-base tracking-[0.2em]',
-      align === 'center' ? 'origin-center' : 'origin-left',
-    ]"
-    style="transform: scaleX(1.08)"
-    >Fortu<span class="text-ink-muted">&nbsp;CMS</span></span
-  >
+  <img
+    :src="wordmarkUrl"
+    alt="Paskall"
+    draggable="false"
+    class="block w-auto select-none"
+    :class="[size === 'sm' ? 'h-6' : 'h-8', align === 'center' && 'mx-auto']"
+  />
 </template>

@@ -125,5 +125,5 @@ createServer((req, res) => {
     serveStatic(req, res)
   }
 }).listen(PORT, () => {
-  console.log(`Fortu CMS frontend listening on :${PORT}, proxying /api/* to ${BACKEND_URL}`)
+  console.log(`Paskall frontend listening on :${PORT}, proxying /api/* to ${BACKEND_URL}`)
 })
