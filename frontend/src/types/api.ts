@@ -62,6 +62,13 @@ export interface MediaRead {
   url: string
   /** Playlist names using this media. Populated on detail, empty in listings. */
   used_in: string[]
+  /** A video's normalised playback copy (H.264, up to 4K, 30 fps): false while it is still being
+   *  made, true once screens can have it — or once it failed, with `playback_error` saying why,
+   *  in which case screens play the original. Always true for images. */
+  playback_ready: boolean
+  /** Whether the file was re-encoded, or only remuxed because it already met the target. */
+  playback_reencoded: boolean
+  playback_error: string | null
 }
 
 export type MediaDetail = MediaRead

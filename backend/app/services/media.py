@@ -222,7 +222,7 @@ def delete_media(session: Session, *, user: User, media_id: uuid.UUID) -> None:
         # Surfacing the RESTRICT from the schema as a usable error rather than a 500.
         raise MediaInUse(names)
 
-    keys = [k for k in (media.storage_key, media.thumbnail_key, media.stream_key) if k]
+    keys = [k for k in (media.storage_key, media.thumbnail_key, media.stream_key, media.playback_key) if k]
     session.exec(delete(Media).where(Media.id == media_id))
     session.commit()
 
@@ -233,6 +233,25 @@ def delete_media(session: Session, *, user: User, media_id: uuid.UUID) -> None:
 
 def view_url(media: Media, ttl: int | None = None) -> str:
     return storage.presign_get(media.storage_key, ttl)
+
+
+def playback_ready(media: Media) -> bool:
+    """Whether screens can have this file in its playable form — see Media.playback_key. A
+    video that failed processing counts as ready too: screens get the original, as before."""
+    return media.kind != MediaKind.VIDEO or media.playback_key is not None or media.playback_error is not None
+
+
+def playback_key(media: Media) -> str:
+    """What a screen downloads: the normalised copy when there is one, else the original."""
+    return media.playback_key or media.storage_key
+
+
+def playback_checksum(media: Media) -> str:
+    return media.playback_checksum or media.checksum
+
+
+def playback_size_bytes(media: Media) -> int:
+    return media.playback_size_bytes if media.playback_key and media.playback_size_bytes else media.size_bytes
 
 
 def thumbnail_url(media: Media) -> str | None:

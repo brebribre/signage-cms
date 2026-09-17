@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from enum import StrEnum
 
-from sqlalchemy import BigInteger, Column, ForeignKey
+from sqlalchemy import BigInteger, Boolean, Column, ForeignKey
 from sqlmodel import Field, SQLModel
 
 from app.models.base import enum_column, tz_column, utcnow
@@ -74,6 +74,22 @@ class Media(SQLModel, table=True):
     # Why the copy couldn't be made (not H.264, ffmpeg failed…). Set once, so a file that can't
     # be converted isn't retried on every restart; web screens stream the original instead.
     stream_error: str | None = None
+
+    # --- The copy screens actually play: normalised on upload ---
+    # Made by services/video_streams.py: H.264 High 4.1, at most 1920 on the long side, at most
+    # 30 fps, yuv420p, AAC — the one shape every signage box decodes in hardware. An upload that
+    # already meets it is only remuxed (faststart), so nothing is re-encoded without cause. Screens
+    # receive this copy, keyed by its own checksum; the original stays in R2 for the library and
+    # for re-processing. The fragmented streaming copy above is made from this, not the original.
+    playback_key: str | None = None
+    playback_size_bytes: int | None = Field(default=None, sa_column=Column(BigInteger, nullable=True))
+    playback_checksum: str | None = None
+    # Whether the file was actually re-encoded (True) or only remuxed because it already met the
+    # target (False) — shown on the media page, and the answer to "did you touch my video?".
+    playback_reencoded: bool = Field(default=False, sa_column=Column(Boolean, nullable=False, server_default="false"))
+    # Why no copy could be made. Set once, so a broken file isn't retried on every restart;
+    # screens then get the original, as they did before this existed.
+    playback_error: str | None = None
 
     status: MediaStatus = Field(
         default=MediaStatus.PENDING,

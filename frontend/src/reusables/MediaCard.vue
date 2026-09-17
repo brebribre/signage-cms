@@ -10,6 +10,8 @@
 import IconCheck from '~icons/material-symbols/check'
 import IconPlayArrow from '~icons/material-symbols/play-arrow'
 
+import AppSpinner from '@/reusables/AppSpinner.vue'
+
 withDefaults(
   defineProps<{
     filename: string
@@ -17,8 +19,10 @@ withDefaults(
     thumbnailUrl: string | null
     selectable?: boolean
     selected?: boolean
+    /** A video whose playback copy is still being made — screens can't have it yet. */
+    processing?: boolean
   }>(),
-  { selectable: false, selected: false },
+  { selectable: false, selected: false, processing: false },
 )
 </script>
 
@@ -49,6 +53,14 @@ withDefaults(
       aria-hidden="true"
     >
       <IconPlayArrow class="size-4" />
+    </span>
+    <span
+      v-if="processing"
+      class="absolute inset-x-2 bottom-2 flex items-center justify-center gap-1.5 rounded-full
+             bg-ink/70 px-2 py-1 text-[11px] text-ink-inverse"
+    >
+      <AppSpinner size="sm" label="Optimising" />
+      Optimising for screens
     </span>
 
     <template v-if="selectable">

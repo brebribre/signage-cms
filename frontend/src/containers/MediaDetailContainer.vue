@@ -69,6 +69,16 @@ async function onDelete() {
           <dt class="text-[13px] text-ink-muted">Duration</dt>
           <dd class="text-sm text-ink">{{ duration(media.duration_seconds) }}</dd>
         </div>
+        <!-- What screens actually receive — see backend/app/services/video_streams.py. -->
+        <div v-if="media.kind === 'video'" class="col-span-2">
+          <dt class="text-[13px] text-ink-muted">Copy for screens</dt>
+          <dd class="text-sm" :class="media.playback_error ? 'text-danger' : 'text-ink'">
+            <template v-if="media.playback_error">Couldn't be made — {{ media.playback_error }}. Screens play the original.</template>
+            <template v-else-if="!media.playback_ready">Optimising… screens get it in a moment.</template>
+            <template v-else-if="media.playback_reencoded">Re-encoded for screens: H.264, up to 4K, 30 fps</template>
+            <template v-else>As uploaded — it already fits every screen</template>
+          </dd>
+        </div>
       </dl>
 
       <div>

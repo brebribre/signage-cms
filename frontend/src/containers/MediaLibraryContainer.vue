@@ -20,7 +20,26 @@ import SkeletonList from '@/reusables/SkeletonList.vue'
 import { ACCEPTED_MEDIA, SUPPORTED_FILE_TYPES } from '@/utils/mediaTypes'
 
 const router = useRouter()
-const { items, visible, counts, filter, isLoading, error, prepend, removeMany } = useMedia()
+const { items, visible, counts, filter, isLoading, error, prepend, removeMany, refresh } = useMedia()
+
+// A just-uploaded video shows "Optimising" until its playback copy exists — a few seconds to a
+// few minutes, done on the server. Poll while any is, so the badge clears by itself.
+const PROCESSING_POLL_MS = 5_000
+const anyProcessing = computed(() => items.value.some((m) => m.kind === 'video' && !m.playback_ready))
+let processingTimer: ReturnType<typeof setTimeout> | null = null
+function stopProcessingPoll() {
+  if (processingTimer !== null) clearTimeout(processingTimer)
+  processingTimer = null
+}
+function scheduleProcessingPoll() {
+  stopProcessingPoll()
+  processingTimer = setTimeout(async () => {
+    await refresh(true)
+    if (anyProcessing.value) scheduleProcessingPoll()
+  }, PROCESSING_POLL_MS)
+}
+watch(anyProcessing, (busy) => (busy ? scheduleProcessingPoll() : stopProcessingPoll()), { immediate: true })
+onUnmounted(stopProcessingPoll)
 const { jobs, active, isUploading, add, dismiss, clearFinished } = useMediaUpload(prepend)
 
 // --- Selecting several, to delete them together ---
@@ -200,6 +219,7 @@ const STATUS_LABEL: Record<string, string> = {
         :thumbnail-url="m.thumbnail_url"
         :selectable="selecting"
         :selected="selected.has(m.id)"
+        :processing="m.kind === 'video' && !m.playback_ready"
         @click="onTile(m.id)"
       />
     </div>

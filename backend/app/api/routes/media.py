@@ -32,6 +32,7 @@ def _read(media: Media, used_in: list[str] | None = None) -> MediaRead:
         thumbnail_url=media_service.thumbnail_url(media),
         url=media_service.view_url(media),
         used_in=used_in or [],
+        playback_ready=media_service.playback_ready(media),
     )
 
 
@@ -112,6 +113,7 @@ def get_media(media_id: uuid.UUID, user: CurrentUser, session: DbSession) -> Med
         thumbnail_url=media_service.thumbnail_url(media),
         url=media_service.view_url(media),
         used_in=media_service.playlists_using(session, media_id),
+        playback_ready=media_service.playback_ready(media),
     )
 
 

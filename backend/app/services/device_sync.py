@@ -99,7 +99,10 @@ def compute_version(session: Session, device: Device, now: datetime | None = Non
                     [
                         (
                             str(el.id),
-                            media.checksum if media else web_checksum(el.web_url),
+                            # The playable copy's identity once it exists (services/
+                            # video_streams.py) — its arrival is what makes a screen fetch the
+                            # smaller, normalised file in place of the original.
+                            media_service.playback_checksum(media) if media else web_checksum(el.web_url),
                             # A video's streaming copy appearing (services/video_streams.py)
                             # changes what a web screen caches and plays.
                             media.stream_checksum if media else None,
@@ -243,12 +246,12 @@ def build_manifest(session: Session, device: Device, *, version: str) -> Manifes
                     # treated as a re-download. A website is its own address: nothing to
                     # download, loaded live.
                     url=(
-                        media_service.view_url(media, ttl=settings.device_presign_ttl_seconds)
+                        storage.presign_get(media_service.playback_key(media), settings.device_presign_ttl_seconds)
                         if media
                         else el.web_url
                     ),
-                    checksum=media.checksum if media else web_checksum(el.web_url),
-                    bytes=media.size_bytes if media else 0,
+                    checksum=media_service.playback_checksum(media) if media else web_checksum(el.web_url),
+                    bytes=media_service.playback_size_bytes(media) if media else 0,
                     z_index=el.z_index,
                     x=el.x,
                     y=el.y,

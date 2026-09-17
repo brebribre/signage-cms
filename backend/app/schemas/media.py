@@ -52,6 +52,12 @@ class MediaRead(BaseModel):
     # previewing a 480px thumbnail would misreport both sharpness and cropping.
     url: str
     used_in: list[str] = []
+    # A video's playback copy (see Media.playback_key): false while it is still being made,
+    # true once screens can have it. Always true for images. `playback_error` says why a video
+    # never got one; screens then play the original.
+    playback_ready: bool = True
+    playback_reencoded: bool = False
+    playback_error: str | None = None
 
 
 class MediaDetail(MediaRead):

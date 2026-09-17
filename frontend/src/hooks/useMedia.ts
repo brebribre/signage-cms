@@ -22,15 +22,18 @@ export function useMedia() {
     video: items.value.filter((m) => m.kind === 'video').length,
   }))
 
-  async function refresh() {
-    isLoading.value = true
+  /** `silent` skips the loading flag — for the background poll while a video is being
+   *  optimised, where flashing the grid to skeletons every few seconds would be worse than the
+   *  badge it's refreshing. */
+  async function refresh(silent = false) {
+    if (!silent) isLoading.value = true
     error.value = null
     try {
       items.value = await api.list()
     } catch (e) {
       error.value = e instanceof ApiError ? e.message : 'Could not load the library'
     } finally {
-      isLoading.value = false
+      if (!silent) isLoading.value = false
     }
   }
 
