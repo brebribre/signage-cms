@@ -128,7 +128,12 @@ const STATUS_LABEL: Record<string, string> = {
             {{ STATUS_LABEL[job.status] }}
           </p>
         </div>
-        <ProgressBar v-if="job.status === 'uploading'" :value="job.progress" class="mt-2" />
+        <ProgressBar
+          v-if="job.status === 'uploading' || job.status === 'probing' || job.status === 'finishing'"
+          :value="job.progress"
+          :indeterminate="job.status !== 'uploading'"
+          class="mt-2"
+        />
         <p v-if="job.error" class="mt-1.5 text-[13px] text-danger">{{ job.error }}</p>
         <AppButton v-if="job.status === 'failed'" variant="ghost" size="sm" class="mt-1.5"
                    @click="dismiss(job.id)">

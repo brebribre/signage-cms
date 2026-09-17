@@ -15,7 +15,7 @@ import AppInput from '@/reusables/AppInput.vue'
 import AppModal from '@/reusables/AppModal.vue'
 import DropZone from '@/reusables/DropZone.vue'
 import ModalActions from '@/reusables/ModalActions.vue'
-import ProgressBar from '@/reusables/ProgressBar.vue'
+import UploadStatus from '@/reusables/UploadStatus.vue'
 import type { PlaylistSummary } from '@/types/api'
 import { SUPPORTED_FILE_TYPES } from '@/utils/mediaTypes'
 
@@ -57,9 +57,9 @@ async function onSave() {
 
       <ul v-if="jobs.length" class="flex flex-col gap-2">
         <li v-for="j in jobs" :key="j.id" class="flex items-center gap-3 text-[13px]">
-          <span class="w-40 shrink-0 truncate text-ink">{{ j.name }}</span>
-          <ProgressBar v-if="j.status !== 'failed'" class="flex-1" :value="j.progress" />
+          <UploadStatus v-if="j.status !== 'failed'" :job="j" class="flex-1" />
           <template v-else>
+            <span class="w-40 shrink-0 truncate text-ink">{{ j.name }}</span>
             <span class="min-w-0 flex-1 truncate text-danger" :title="j.error ?? ''">{{ j.error }}</span>
             <button type="button" class="text-ink-muted hover:text-ink" aria-label="Dismiss" @click="dismiss(j.id)">
               <IconClose class="size-4" />

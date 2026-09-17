@@ -16,7 +16,7 @@ export interface UploadJob {
 /** How long a finished row stays before it removes itself. The file is already visible in
  *  the grid by then, so a lingering "Done" row is just noise. Failures are never
  *  auto-dismissed — those are the ones you need to read. */
-const DONE_LINGER_MS = 1500
+const DONE_LINGER_MS = 1200
 
 /** Two at a time. A dozen parallel 200 MB PUTs saturate a venue's uplink and make every
  *  one of them slow, so the queue is the feature, not a limitation. */
@@ -159,13 +159,18 @@ export function useMediaUpload(onUploaded?: (media: MediaRead) => void) {
         size_bytes: job.file.size,
       })
 
-      const etag = await put(ticket.upload_url, job.file, job.file.type, (f) => {
-        job.progress = f
-      })
-
-      if (info.thumbnail) {
-        await put(ticket.thumbnail_upload_url, info.thumbnail, 'image/jpeg')
-      }
+      // The thumbnail goes up alongside the file rather than after it: waiting for it once the
+      // file's bar was already full was a pause with nothing on screen to explain it. It's small,
+      // so it barely competes for the uplink.
+      const thumbnailPut = info.thumbnail
+        ? put(ticket.thumbnail_upload_url, info.thumbnail, 'image/jpeg')
+        : Promise.resolve(null)
+      const [etag] = await Promise.all([
+        put(ticket.upload_url, job.file, job.file.type, (f) => {
+          job.progress = f
+        }),
+        thumbnailPut,
+      ])
 
       job.status = 'finishing'
       // The checksum is the content's identity — the Android player caches by it, so a

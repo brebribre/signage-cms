@@ -22,7 +22,7 @@ import { useMediaUpload } from '@/hooks/useMediaUpload'
 import AppButton from '@/reusables/AppButton.vue'
 import AppModal from '@/reusables/AppModal.vue'
 import ModalActions from '@/reusables/ModalActions.vue'
-import ProgressBar from '@/reusables/ProgressBar.vue'
+import UploadStatus from '@/reusables/UploadStatus.vue'
 import type { MediaRead } from '@/types/api'
 
 const props = defineProps<{
@@ -144,11 +144,7 @@ function confirm() {
         <div v-for="job in jobs" :key="job.id" class="relative w-full rounded-lg bg-surface">
           <span class="block pt-[56.25%]" aria-hidden="true" />
           <div class="absolute inset-0 flex flex-col justify-end p-2">
-            <p class="truncate text-[12px] text-ink">{{ job.name }}</p>
-            <p v-if="job.error" class="truncate text-[11px] text-danger" :title="job.error">
-              {{ job.error }}
-            </p>
-            <ProgressBar v-else :value="job.progress" class="mt-1" />
+            <UploadStatus :job="job" done-label="Selected" />
           </div>
         </div>
 

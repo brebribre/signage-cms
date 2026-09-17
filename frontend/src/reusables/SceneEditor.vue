@@ -33,7 +33,7 @@ import type { MediaRead, SceneBackground } from '@/types/api'
 import { BLUR_IMAGE_STYLE, SCENE_BACKGROUNDS, blurImageUrl, blurSource } from '@/utils/sceneBackground'
 import { useMediaUpload } from '@/hooks/useMediaUpload'
 import AppButton from '@/reusables/AppButton.vue'
-import ProgressBar from '@/reusables/ProgressBar.vue'
+import UploadStatus from '@/reusables/UploadStatus.vue'
 
 /**
  * A full-page canvas editor for one scene: a left toolbar to bring media in, the canvas
@@ -800,11 +800,7 @@ function apply() {
           <!-- On the canvas the moment it finishes, so the progress row is the only wait. -->
           <div v-if="uploadJobs.length" class="mb-2 flex flex-col gap-1.5">
             <div v-for="job in uploadJobs" :key="job.id" class="rounded-lg bg-surface p-2">
-              <p class="truncate text-[12px] text-ink">{{ job.name }}</p>
-              <p v-if="job.error" class="truncate text-[11px] text-danger" :title="job.error">
-                {{ job.error }}
-              </p>
-              <ProgressBar v-else :value="job.progress" class="mt-1" />
+              <UploadStatus :job="job" done-label="Added to scene" />
             </div>
           </div>
 
