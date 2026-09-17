@@ -16,8 +16,8 @@ android {
         // WebView/codec behaviour on anything actually shipping.
         minSdk = 24
         targetSdk = 35
-        versionCode = 18
-        versionName = "1.1.7"
+        versionCode = 19
+        versionName = "1.1.8"
 
         // The API base URL is compiled in, not configured on the device — a screen with no
         // keyboard cannot be asked to type one. Override per build:
