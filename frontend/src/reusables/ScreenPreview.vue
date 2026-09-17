@@ -12,6 +12,7 @@ import {
 import type { DraftElement } from '@/hooks/usePlaylistEditor'
 import type { SceneBackground } from '@/types/api'
 import { BLUR_IMAGE_STYLE, blurImageUrl, blurSource } from '@/utils/sceneBackground'
+import { websiteLayoutScreen } from '@/utils/websiteLayout'
 
 /**
  * A device screen, drawn at its real aspect ratio and scaled to fit the space it is given —
@@ -88,10 +89,11 @@ const arrived = reactive(new Set<string>())
 const markArrived = (url: string) => arrived.add(url)
 
 function webStyle(el: DraftElement): CSSProperties {
+  const layout = websiteLayoutScreen(props.screenWidth, props.screenHeight)
   return {
-    width: `${props.screenWidth * el.width}px`,
-    height: `${props.screenHeight * el.height}px`,
-    transform: `scale(${frameWidth.value / props.screenWidth})`,
+    width: `${layout.width * el.width}px`,
+    height: `${layout.height * el.height}px`,
+    transform: `scale(${frameWidth.value / layout.width})`,
     transformOrigin: 'top left',
   }
 }

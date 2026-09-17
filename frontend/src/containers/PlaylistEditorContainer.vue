@@ -431,7 +431,10 @@ function sceneLabel(item: DraftItem): string {
           </div>
         </div>
 
+        <!-- Unloaded while the scene editor covers the page: its websites would otherwise stay
+             loaded twice, under the editor's own — too much for a phone. -->
         <ScreenPreview
+          v-if="!editingItem"
           :screen-width="screen.width"
           :screen-height="screen.height"
           :elements="preview.current.value?.elements ?? []"

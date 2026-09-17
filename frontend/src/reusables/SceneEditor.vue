@@ -27,6 +27,7 @@ import {
   rotationStyle,
 } from '@/utils/cropMath'
 import { mediaToDraftElement, websiteToDraftElement } from '@/hooks/usePlaylistEditor'
+import { websiteLayoutScreen } from '@/utils/websiteLayout'
 import { normalizeWebsiteUrl, websiteLabel } from '@/utils/websiteUrl'
 import type { DraftElement, DraftItem } from '@/hooks/usePlaylistEditor'
 import type { MediaRead, SceneBackground } from '@/types/api'
@@ -270,7 +271,7 @@ const floating = computed(() => {
 })
 
 function webFrameStyle(el: DraftElement) {
-  const { width, height } = props.referenceScreen
+  const { width, height } = websiteLayoutScreen(props.referenceScreen.width, props.referenceScreen.height)
   return {
     width: `${width * el.width}px`,
     height: `${height * el.height}px`,
