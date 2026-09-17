@@ -101,8 +101,12 @@ within 5 minutes (it compares `RAILWAY_DEPLOYMENT_ID` from `/version.json`).
 
 **Offline pictures need one more R2 CORS origin** — add
 `https://web-player-production-cbfe.up.railway.app` to the bucket policy below (done 2026-09-17).
-Without it web screens stream pictures from R2 instead of caching them. Videos always stream on
-web screens regardless — see `web-player/README.md`.
+Without it web screens stream everything from R2 instead of caching it.
+
+**`backend` needs ffmpeg** — `backend/railpack.json` installs it (`deploy.aptPackages`). The API
+process uses it to make each video's streaming copy for web screens
+(`app/services/video_streams.py`), on a background thread, right after upload and at startup for
+anything still missing one. Without ffmpeg nothing breaks: web screens stream those videos from R2.
 
 ## The two CORS surfaces
 

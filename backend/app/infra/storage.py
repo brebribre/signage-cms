@@ -2,7 +2,7 @@
 
 **The only module in the codebase that touches boto3 or constructs a storage URL.** That is
 what makes swapping providers a one-file change, and what lets check scripts stub storage by
-patching this module's four functions.
+patching this module's functions.
 """
 
 import logging
@@ -88,6 +88,17 @@ def head_object(key: str) -> dict | None:
         if exc.response.get("Error", {}).get("Code") in {"404", "NoSuchKey", "NotFound"}:
             return None
         raise
+
+
+def download_file(key: str, path: str) -> None:
+    """Copy an object to a local file — for server-side work on an upload (see
+    services/video_streams.py). Streams to disk; a large video is never held in memory."""
+    _client().download_file(get_settings().r2_bucket, key, path)
+
+
+def upload_file(path: str, key: str, content_type: str) -> None:
+    """The reverse of [download_file]: a local file into the bucket, multipart where large."""
+    _client().upload_file(path, get_settings().r2_bucket, key, ExtraArgs={"ContentType": content_type})
 
 
 def delete_object(key: str) -> None:

@@ -43,6 +43,8 @@ def main() -> None:
             known.add(m.storage_key)
             if m.thumbnail_key:
                 known.add(m.thumbnail_key)
+            if m.stream_key:
+                known.add(m.stream_key)
 
     cutoff = datetime.now(UTC) - timedelta(hours=args.min_age_hours)
     orphans: list[tuple[str, int]] = []

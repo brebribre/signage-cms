@@ -192,7 +192,33 @@ describe('sync', () => {
     expect(cache.log).toContain('evict except ')
   })
 
-  it('videos are never downloaded: they play from their address, and keep the manifest fresh', async () => {
+  it('a video with a streaming copy stores the copy, not the original, and plays it through MediaSource', async () => {
+    const m = manifest()
+    Object.assign(m.slots![1].elements[0], {
+      stream_url: 'https://r2/b-stream', stream_bytes: 180, stream_checksum: 'sha256:bs', stream_mime: 'video/mp4; codecs="avc1.64001f"',
+    })
+    api.manifest = m
+    start({ canPlayStream: () => true })
+    await tick(0)
+    expect(cache.log).toEqual(['download a', 'download sha256:bs', 'evict except a,sha256:bs'])
+    const s = engine.state.value as Extract<typeof engine.state.value, { kind: 'playing' }>
+    expect(s.sources).toEqual({ a: 'blob:a', b: 'mse:blob:sha256:bs' })
+  })
+
+  it('a streaming copy this browser cannot play is not stored; the video plays from its address', async () => {
+    const m = manifest()
+    Object.assign(m.slots![1].elements[0], {
+      stream_url: 'https://r2/b-stream', stream_bytes: 180, stream_checksum: 'sha256:bs', stream_mime: 'video/mp4; codecs="hev1"',
+    })
+    api.manifest = m
+    start({ canPlayStream: () => false })
+    await tick(0)
+    expect(cache.log.filter((l) => l.startsWith('download'))).toEqual(['download a'])
+    const s = engine.state.value as Extract<typeof engine.state.value, { kind: 'playing' }>
+    expect(s.sources.b).toBe('https://r2/b')
+  })
+
+  it('a video without a streaming copy yet is not downloaded: it plays from its address, and keeps the manifest fresh', async () => {
     api.manifest = manifest()
     store.saveEtag('"v1"')
     start()

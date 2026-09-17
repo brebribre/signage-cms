@@ -15,9 +15,9 @@ port of `PlayerEngine.kt`, and the tests in `test/` mirror `PlayerEngineTest.kt`
   clock. Off means a black screen with nothing decoding and the wake lock released.
 - **Settings**: rotation, volume and the touchscreen lock. (The app-lock PIN is hidden for web
   screens — there's no app to exit.)
-- **Offline**: pictures are cached in the browser and the player itself by a service worker, so
-  a screen that loses its network keeps showing its pictures. **Videos always play from R2** and
-  need the network — see the table below.
+- **Offline**: pictures and videos are cached in the browser and the player itself by a service
+  worker, so a screen that loses its network keeps playing — see "Video files" below for how
+  videos manage that on a TV.
 
 ## Where it differs, and why
 
@@ -29,7 +29,7 @@ port of `PlayerEngine.kt`, and the tests in `test/` mirror `PlayerEngineTest.kt`
 | Rotation | `requestedOrientation` | The page draws itself turned 90° when the setting doesn't match the panel's shape. |
 | Brightness | Not offered by the CMS yet | Not possible from a browser. |
 | Websites | WebView | `<iframe>` — sites that forbid being framed (`X-Frame-Options`) won't show. |
-| Video files | Downloaded and played offline | Played straight from R2, never downloaded. TV browsers hand video to the TV's own player, which can open an address but not a file stored inside the browser — cached videos were a black screen on a Samsung Tizen TV. Without network, video slides are skipped and pictures keep looping. |
+| Video files | Downloaded and played offline | Also downloaded and played offline, but from a **streaming copy** the backend makes at upload (`backend/app/services/video_streams.py`: fragmented MP4, same streams, not re-encoded) and played through Media Source Extensions (`src/ui/streamFeed.ts`). A TV browser hands a plain video file to the TV's own player, which can't open a file stored in the browser — that was a black screen on a Samsung Tizen TV; MediaSource is the path TV browsers do support. Until a video's copy exists (a minute or so after upload), or if the browser refuses its codecs (H.264 + AAC only), it plays from R2 instead. If a stored copy won't play, that slot falls back to R2 and the CMS gets an error saying why. |
 | Sound | Always | Browsers block autoplay with sound until someone interacts; the player falls back to muted and reports it. Enable autoplay in the TV browser's settings. |
 
 ## Setting up a screen
@@ -55,12 +55,12 @@ use the TV's kiosk/URL-launcher mode, or install the page as an app where the br
 server, content version, cache, wake lock and last error, with **Check for update** and
 **Reload player**. (A corner hold on top of a website element doesn't reach the page — use a key.)
 
-### Offline pictures need R2 CORS
+### Offline play needs R2 CORS
 
-Picture downloads go straight from the browser to R2, so the bucket's CORS policy must allow the
-web player's origin (R2 → `fortu-cms` → Settings → CORS Policy — add it to `AllowedOrigins`, with
-`GET`). Without it pictures stream from R2 like videos: everything still plays, but nothing
-survives the network dropping. Videos don't need CORS — they're never downloaded.
+Downloads go straight from the browser to R2, so the bucket's CORS policy must allow the web
+player's origin (R2 → `fortu-cms` → Settings → CORS Policy — add it to `AllowedOrigins`, with
+`GET`). Without it everything streams from R2: it all still plays, but nothing survives the
+network dropping.
 
 ## Development
 

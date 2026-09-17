@@ -116,6 +116,10 @@ def get_manifest(device: CurrentDevice, session: DbSession, request: Request) ->
                         crop_x=el.crop_x,
                         crop_y=el.crop_y,
                         crop_zoom=el.crop_zoom,
+                        stream_url=el.stream_url,
+                        stream_bytes=el.stream_bytes,
+                        stream_checksum=el.stream_checksum,
+                        stream_mime=el.stream_mime,
                     )
                     for el in slot.elements
                 ],

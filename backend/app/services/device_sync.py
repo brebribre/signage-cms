@@ -99,6 +99,9 @@ def compute_version(session: Session, device: Device, now: datetime | None = Non
                         (
                             str(el.id),
                             media.checksum if media else web_checksum(el.web_url),
+                            # A video's streaming copy appearing (services/video_streams.py)
+                            # changes what a web screen caches and plays.
+                            media.stream_checksum if media else None,
                             el.z_index, el.x, el.y, el.width,
                             el.height, el.fit.value, el.crop_x, el.crop_y, el.crop_zoom,
                             el.has_audio, el.rotation_degrees,
@@ -152,6 +155,10 @@ class ManifestElement:
     crop_x: float | None = None
     crop_y: float | None = None
     crop_zoom: float | None = None
+    stream_url: str | None = None
+    stream_bytes: int | None = None
+    stream_checksum: str | None = None
+    stream_mime: str | None = None
 
 
 @dataclass
@@ -248,6 +255,14 @@ def build_manifest(session: Session, device: Device, *, version: str) -> Manifes
                     crop_x=el.crop_x,
                     crop_y=el.crop_y,
                     crop_zoom=el.crop_zoom,
+                    stream_url=(
+                        storage.presign_get(media.stream_key, settings.device_presign_ttl_seconds)
+                        if media and media.stream_key
+                        else None
+                    ),
+                    stream_bytes=media.stream_size_bytes if media and media.stream_key else None,
+                    stream_checksum=media.stream_checksum if media and media.stream_key else None,
+                    stream_mime=media.stream_mime if media and media.stream_key else None,
                 )
                 for el, media in elements
             ],

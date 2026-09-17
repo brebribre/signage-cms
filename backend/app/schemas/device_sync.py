@@ -48,6 +48,14 @@ class ManifestElement(BaseModel):
     crop_x: float | None = None
     crop_y: float | None = None
     crop_zoom: float | None = None
+    # A video's streaming copy (fragmented MP4, services/video_streams.py) — what a web screen
+    # caches and feeds to Media Source Extensions, since a TV browser can't play a cached plain
+    # file. `stream_mime` carries the codecs MediaSource needs. All null until the copy exists,
+    # and for images and websites; the Android player ignores them and keeps using `url`.
+    stream_url: str | None = None
+    stream_bytes: int | None = None
+    stream_checksum: str | None = None
+    stream_mime: str | None = None
 
 
 class ManifestSlot(BaseModel):

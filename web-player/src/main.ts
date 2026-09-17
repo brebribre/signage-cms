@@ -97,6 +97,11 @@ async function boot() {
       img.src = url
       await img.decode()
     },
+    // Videos are stored for offline play only where MediaSource can play their streaming copy —
+    // see storedFile in engine.ts. Checked per codec string, so an unsupported one streams.
+    canPlayStream: (mime) => {
+      try { return !!window.MediaSource && MediaSource.isTypeSupported(mime) } catch { return false }
+    },
     screenSize: () => ({
       width: Math.round(window.innerWidth * (window.devicePixelRatio || 1)),
       height: Math.round(window.innerHeight * (window.devicePixelRatio || 1)),

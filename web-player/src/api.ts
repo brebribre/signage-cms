@@ -37,6 +37,13 @@ export interface ManifestElement {
   fit?: string
   has_audio?: boolean
   rotation_degrees?: number
+  /** A video's streaming copy — fragmented MP4 made at upload, played through MediaSource. See
+   *  `storedFile` in engine.ts. Absent until the backend has made it, and for anything else. */
+  stream_url?: string | null
+  stream_bytes?: number | null
+  stream_checksum?: string | null
+  /** Includes codecs, e.g. `video/mp4; codecs="avc1.64001f,mp4a.40.2"`. */
+  stream_mime?: string | null
 }
 
 export const KIND_WEB = 'web'

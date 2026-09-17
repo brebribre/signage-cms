@@ -1,4 +1,6 @@
 import { KIND_WEB, type ManifestElement, type ManifestSlot } from '../api'
+import { STREAM_SOURCE_PREFIX } from '../engine'
+import { feedStream, type StreamFeed } from './streamFeed'
 
 /**
  * The loop — the Android player's `playback/PlaybackSurface.kt`, in the DOM.
@@ -253,7 +255,8 @@ export class PlaybackSurface {
     const states = ['no data', 'metadata only', 'first frame', 'buffering ahead', 'playing through']
     const size = video.videoWidth ? ` · ${video.videoWidth}×${video.videoHeight}` : ''
     const where = `${video.currentTime.toFixed(1)}s${Number.isFinite(video.duration) ? ` of ${video.duration.toFixed(0)}s` : ''}`
-    return `${video.paused ? 'paused' : 'playing'} ${where} · ${states[video.readyState] ?? video.readyState}${size}${video.muted ? ' · muted' : ''}`
+    const from = video.dataset.source ? ` · ${video.dataset.source}` : ''
+    return `${video.paused ? 'paused' : 'playing'} ${where} · ${states[video.readyState] ?? video.readyState}${size}${from}${video.muted ? ' · muted' : ''}`
   }
 
   private render(layer: HTMLElement, element: ManifestElement, loop: boolean, onFinished: ((reason: string | null) => void) | null): HTMLElement {
@@ -274,34 +277,74 @@ export class PlaybackSurface {
       video.playsInline = true
       video.autoplay = true
       video.preload = 'auto'
-      video.loop = loop
       video.style.objectFit = fit
       video.setAttribute('playsinline', '')
       // Every video is silent unless the CMS says it carries sound, same as Android.
       video.muted = !element.has_audio
       if (element.has_audio) video.volume = this.cb.volume()
+      // A stored copy is fed through MediaSource (see ui/streamFeed.ts); anything else plays from
+      // its address. If the browser refuses the stored copy, the video falls back to its address
+      // for the rest of this slot — and says why, so the CMS shows it.
+      const stored = src.startsWith(STREAM_SOURCE_PREFIX) && !!element.stream_mime
+      let useStored = stored
+      let feed: StreamFeed | null = null
+      const start = () => {
+        feed?.destroy()
+        feed = null
+        if (useStored) {
+          video.dataset.source = 'saved copy'
+          feed = feedStream(video, src.slice(STREAM_SOURCE_PREFIX.length), element.stream_mime!, (reason) => {
+            fallBack(reason)
+          })
+        } else {
+          video.dataset.source = 'network'
+          video.src = element.url
+        }
+        this.play(video)
+      }
+      const fallBack = (reason: string): boolean => {
+        if (!useStored) return false
+        useStored = false
+        this.cb.onError(`${this.nameOf(element)}: saved copy wouldn't play (${reason}) — playing from the network`)
+        start()
+        return true
+      }
+
+      // MediaSource can't simply rewind past what it has dropped, so looping and restarting both
+      // start the feed over; a network video just seeks.
+      video.loop = loop && !stored
       video.onended = () => {
         if (onFinished) onFinished(null)
-        // Some TV browsers ignore `loop` for certain files and stop on the last frame instead.
         else if (loop) {
-          video.currentTime = 0
-          this.play(video)
+          // Some TV browsers ignore `loop` for certain files and stop on the last frame instead.
+          if (useStored) start()
+          else {
+            video.currentTime = 0
+            this.play(video)
+          }
         }
       }
       video.onerror = () => {
         const message = `${this.nameOf(element)}: ${video.error?.message || `media error ${video.error?.code ?? ''}`}`
+        if (fallBack(`error ${video.error?.code ?? ''}`)) return
         // One unplayable file must never stop the loop on a black screen.
         if (onFinished) onFinished(message)
         else this.cb.onError(message)
       }
-      video.src = src
-      this.play(video)
+      start()
       this.later(NO_PICTURE_MILLIS, () => {
         if (video.isConnected && video.readyState < 2 && !video.error) {
-          this.cb.onError(`${this.nameOf(element)}: no picture after ${NO_PICTURE_MILLIS / 1000}s (${this.describe(video)})`)
+          const why = `no picture after ${NO_PICTURE_MILLIS / 1000}s (${this.describe(video)})`
+          if (!fallBack(why)) this.cb.onError(`${this.nameOf(element)}: ${why}`)
         }
       })
-      this.watchForStall(layer, video, element, onFinished)
+      this.onCleanup(layer, () => feed?.destroy())
+      this.watchForStall(layer, video, element, onFinished, (at) => {
+        if (useStored) return start()
+        video.addEventListener('loadedmetadata', () => { if (at > 0) video.currentTime = at }, { once: true })
+        video.load()
+        this.play(video)
+      })
       return video
     }
 
@@ -356,12 +399,14 @@ export class PlaybackSurface {
     video: HTMLVideoElement,
     element: ManifestElement,
     onFinished: ((reason: string | null) => void) | null,
+    restart: (at: number) => void,
   ) {
     let lastTime = -1
     let stuckChecks = 0
     let restarts = 0
     const timer = window.setInterval(() => {
-      if (video.ended || video.error) return
+      // A hidden page (the TV switched to another app or input) pauses video by design.
+      if (video.ended || video.error || document.hidden) return
       const moving = video.currentTime !== lastTime && !video.paused
       lastTime = video.currentTime
       if (moving) {
@@ -377,22 +422,26 @@ export class PlaybackSurface {
         return
       }
       this.cb.onError(`${this.nameOf(element)}: video stuck at ${video.currentTime.toFixed(1)}s — restarting it`)
-      const at = video.currentTime
-      video.addEventListener('loadedmetadata', () => { if (at > 0) video.currentTime = at }, { once: true })
-      video.load()
-      this.play(video)
+      restart(video.currentTime)
     }, STALL_CHECK_MILLIS)
+    this.onCleanup(layer, () => clearInterval(timer))
+  }
+
+  private onCleanup(layer: HTMLElement, fn: () => void) {
     const list = this.cleanups.get(layer) ?? []
-    list.push(() => clearInterval(timer))
+    list.push(fn)
     this.cleanups.set(layer, list)
   }
 
   /** Stops a layer's videos and gives their decoders back, leaving the layer itself in place. */
   private releaseVideos(layer: HTMLElement) {
+    // Described before anything is stopped, so the overlay shows how it was actually playing.
+    layer.querySelectorAll('video').forEach((v) => {
+      if (v.currentSrc) this.lastVideo = this.describe(v)
+    })
     this.cleanups.get(layer)?.forEach((fn) => fn())
     this.cleanups.delete(layer)
     layer.querySelectorAll('video').forEach((v) => {
-      if (v.currentSrc) this.lastVideo = this.describe(v)
       v.onended = null
       v.onerror = null
       v.pause()

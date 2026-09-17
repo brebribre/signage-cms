@@ -164,6 +164,11 @@ def complete_upload(
     session.add(media)
     session.commit()
     session.refresh(media)
+
+    if media.kind == MediaKind.VIDEO:
+        from app.services import video_streams
+
+        video_streams.enqueue(media.id)
     return media
 
 
@@ -217,7 +222,7 @@ def delete_media(session: Session, *, user: User, media_id: uuid.UUID) -> None:
         # Surfacing the RESTRICT from the schema as a usable error rather than a 500.
         raise MediaInUse(names)
 
-    keys = [media.storage_key] + ([media.thumbnail_key] if media.thumbnail_key else [])
+    keys = [k for k in (media.storage_key, media.thumbnail_key, media.stream_key) if k]
     session.exec(delete(Media).where(Media.id == media_id))
     session.commit()
 

@@ -35,7 +35,8 @@ export type PlayerState =
   | { kind: 'idle'; deviceName: string }
   | { kind: 'trouble'; deviceName: string | null; message: string; apiHost: string; attempts: number }
   /** `sources` maps each element's checksum to the URL playback loads it from — the cached copy
-   *  for a picture, the element's own address for a video or website (see [playsFromNetwork]). */
+   *  for a picture or a video with a streaming copy (see [storedFile]), otherwise the element's own
+   *  address. */
   | { kind: 'playing'; slots: ManifestSlot[]; shuffle: boolean; sources: Record<string, string> }
 
 export interface DebugInfo {
@@ -95,6 +96,8 @@ export interface EngineOptions {
   /** Pre-decodes an image so its first showing isn't a cold decode. */
   warmMedia?: (url: string, kind: string) => Promise<void>
   screenSize?: () => { width: number; height: number } | null
+  /** Whether this browser's MediaSource plays a streaming copy's MIME type — see [storedFile]. */
+  canPlayStream?: (mime: string) => boolean
   clock?: () => number
 }
 
@@ -140,7 +143,7 @@ export class PlayerEngine {
       lastError: null,
       lastErrorAt: null,
       apiHost: opts.apiHost,
-      storage: opts.cache.available ? 'pictures cached · videos stream' : 'everything streams (no cache over plain HTTP)',
+      storage: opts.cache.available ? 'offline cache' : 'everything streams (no cache over plain HTTP)',
       schedule: null,
       updateStatus: null,
     })
@@ -437,8 +440,8 @@ export class PlayerEngine {
       shuffle: manifest.playlist?.shuffle ?? false,
       sources: await this.sourcesFor(playable, new Set()),
     })
-    // A stored manifest's addresses may have expired while the screen was off: a video plays from
-    // one, so it gets a fresh manifest on the very first poll rather than a 304.
+    // A stored manifest's addresses may have expired while the screen was off: a video without a
+    // stored copy plays from one, so it gets a fresh manifest on the very first poll.
     if (this.streamsAnything(playable, new Set())) this.streamingSince = 0
     this.debug.update((d) => ({
       ...d,
@@ -451,26 +454,39 @@ export class PlayerEngine {
     this.adoptSettings(manifest)
   }
 
+  /** The file this element keeps on the screen, if any — see [storedFile]. */
+  private stored(el: ManifestElement): StoredFile | null {
+    return storedFile(el, this.opts.canPlayStream ?? (() => false))
+  }
+
   private async allCached(elements: ManifestElement[]): Promise<boolean> {
     for (const el of elements) {
-      if (!playsFromNetwork(el) && !(await this.cache.isCached(el.checksum, el.bytes))) return false
+      const file = this.stored(el)
+      if (file && !(await this.cache.isCached(file.checksum, file.bytes))) return false
     }
     return true
   }
 
-  private async sourcesFor(slots: ManifestSlot[], streamed: Set<string>): Promise<Record<string, string>> {
+  /** Keyed by the element's own checksum, which is what playback looks up. A stored video's
+   *  value is prefixed [STREAM_SOURCE_PREFIX]: it is fed to MediaSource, never set as `src`. */
+  private async sourcesFor(slots: ManifestSlot[], unstored: Set<string>): Promise<Record<string, string>> {
     const sources: Record<string, string> = {}
     for (const el of slots.flatMap((s) => s.elements)) {
       if (sources[el.checksum]) continue
-      sources[el.checksum] =
-        playsFromNetwork(el) || streamed.has(el.checksum) ? el.url : await this.cache.objectUrl(el.checksum)
+      const file = this.stored(el)
+      if (!file || unstored.has(file.checksum)) {
+        sources[el.checksum] = el.url
+      } else {
+        const url = await this.cache.objectUrl(file.checksum)
+        sources[el.checksum] = el.kind === 'video' ? STREAM_SOURCE_PREFIX + url : url
+      }
     }
     return sources
   }
 
   /** Presigned addresses expire; anything playing from one needs the manifest refreshed in time. */
-  private streamsAnything(slots: ManifestSlot[], streamed: Set<string>): boolean {
-    return streamed.size > 0 || slots.some((s) => s.elements.some((el) => el.kind === 'video'))
+  private streamsAnything(slots: ManifestSlot[], unstored: Set<string>): boolean {
+    return unstored.size > 0 || slots.some((s) => s.elements.some((el) => el.kind === 'video' && !this.stored(el)))
   }
 
   private async applyManifest(manifest: Manifest) {
@@ -498,38 +514,41 @@ export class PlayerEngine {
     // Download everything missing BEFORE switching over, so the screen never shows a gap while a
     // file is still arriving.
     const all = slots.flatMap((s) => s.elements)
-    const files = all.filter((el) => !playsFromNetwork(el))
+    const files: StoredFile[] = []
+    for (const el of all) {
+      const file = this.stored(el)
+      if (file && !files.some((f) => f.checksum === file.checksum)) files.push(file)
+    }
+    // Stored files that couldn't be stored after all, and so play from their address.
     const streamed = new Set<string>()
-    const missing: ManifestElement[] = []
+    const missing: StoredFile[] = []
     if (this.cache.available) {
-      for (const el of files) {
-        if (!missing.some((m) => m.checksum === el.checksum) && !(await this.cache.isCached(el.checksum, el.bytes))) {
-          missing.push(el)
-        }
+      for (const file of files) {
+        if (!(await this.cache.isCached(file.checksum, file.bytes))) missing.push(file)
       }
     } else {
       // Nowhere to keep a file: everything plays from its address, and nothing is announced as
       // "preparing" because nothing is being prepared.
-      for (const el of files) streamed.add(el.checksum)
+      for (const file of files) streamed.add(file.checksum)
     }
 
     let fetched = 0
-    for (const el of missing) {
+    for (const file of missing) {
       this.state.set({
         kind: 'preparing', deviceName, done: fetched, total: missing.length,
-        currentFile: `${el.kind} · ${Math.floor(el.bytes / 1_048_576)} MB`,
+        currentFile: `${file.kind} · ${Math.floor(file.bytes / 1_048_576)} MB`,
       })
       try {
-        console.info(TAG, `downloading ${el.checksum} (${el.bytes} bytes)`)
-        await this.cache.download(el.checksum, el.url, el.bytes)
+        console.info(TAG, `downloading ${file.checksum} (${file.bytes} bytes)`)
+        await this.cache.download(file.checksum, file.url, file.bytes)
       } catch (e) {
         // Where Android skips a slot whose file failed to download, a browser has a better
         // option: play it straight from its address. The usual cause here is storage the
         // browser refused (quota) or a bucket that doesn't allow this origin to read it, and
         // neither is a reason for a blank slot while the network is up.
-        console.error(TAG, `download failed for ${el.id}; streaming it instead`, e)
+        console.error(TAG, `download failed for ${file.checksum}; streaming it instead`, e)
         this.setError(`download: ${(e as Error).message} — streaming instead`)
-        streamed.add(el.checksum)
+        streamed.add(file.checksum)
       }
       fetched++
     }
@@ -556,7 +575,7 @@ export class PlayerEngine {
     this.state.set({ kind: 'playing', slots, shuffle: manifest.playlist?.shuffle ?? false, sources })
 
     // Evict only after the new set is safely stored.
-    await this.cache.evictExcept(files.filter((el) => !streamed.has(el.checksum)).map((el) => el.checksum))
+    await this.cache.evictExcept(files.filter((f) => !streamed.has(f.checksum)).map((f) => f.checksum))
     await this.refreshCachedBytes()
   }
 
@@ -590,16 +609,37 @@ export class PlayerEngine {
   }
 }
 
+export interface StoredFile {
+  kind: string
+  checksum: string
+  url: string
+  bytes: number
+}
+
+/** Marks a source that playback must feed to MediaSource rather than set as a video's `src`. */
+export const STREAM_SOURCE_PREFIX = 'mse:'
+
 /**
- * What is never downloaded, only played from its address: a website, and every video.
+ * The file an element keeps on the screen for offline play, or null when it only ever plays from
+ * its address.
  *
- * Video is the one real departure from the Android player, which caches everything. A smart TV's
- * browser hands video to the TV's own media player, and that player can open an address but not
- * a file kept inside the browser — a cached video there is a black screen (seen on Samsung Tizen).
- * Pictures are drawn by the browser itself, so they cache and play offline as before.
+ * - A picture: the file itself.
+ * - A website: nothing — it loads live.
+ * - A video: its streaming copy (fragmented MP4, made at upload by the backend's
+ *   services/video_streams.py), fed to the browser through Media Source Extensions. Never the
+ *   original: a smart TV's browser hands a plain video file to the TV's own player, which can't
+ *   open one stored inside the browser — a black screen on a Samsung Tizen TV. MediaSource is
+ *   what TV browsers do play from memory (it's how YouTube runs on them). A video whose copy
+ *   isn't ready yet, or whose codecs this browser's MediaSource refuses, plays from its address.
  */
-export function playsFromNetwork(element: ManifestElement): boolean {
-  return element.kind === KIND_WEB || element.kind === 'video'
+export function storedFile(el: ManifestElement, canPlayStream: (mime: string) => boolean): StoredFile | null {
+  if (el.kind === KIND_WEB) return null
+  if (el.kind === 'video') {
+    if (!el.stream_url || !el.stream_checksum || !el.stream_bytes || !el.stream_mime) return null
+    if (!canPlayStream(el.stream_mime)) return null
+    return { kind: el.kind, checksum: el.stream_checksum, url: el.stream_url, bytes: el.stream_bytes }
+  }
+  return { kind: el.kind, checksum: el.checksum, url: el.url, bytes: el.bytes }
 }
 
 /** Prefers the real multi-element slots, falling back to one-element slots built from `items`

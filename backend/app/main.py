@@ -29,6 +29,10 @@ TAGS_METADATA = [
 async def lifespan(app: FastAPI):
     # Migrations run on startup, so a deploy applies its own schema changes.
     run_migrations()
+    # Videos uploaded before streaming copies existed, or interrupted by a restart.
+    from app.services import video_streams
+
+    video_streams.enqueue_missing()
     yield
 
 
