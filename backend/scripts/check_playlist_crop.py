@@ -64,6 +64,11 @@ def client_for(uid: uuid.UUID) -> TestClient:
     return c
 
 
+def owner_account_id(user_id):
+    with Session(engine) as s:
+        return s.get(User, user_id).account_id
+
+
 def main() -> None:
     cleanup()
     with Session(engine) as s:
@@ -153,6 +158,39 @@ def main() -> None:
           (els[2]["x"], els[2]["y"]) == (-0.1, -0.1), str(els[2]))
     check("scene duration defaults to its one video's length (rounded)",
           body["items"][0]["duration_seconds"] == 42, str(body["items"][0]["duration_seconds"]))
+
+    print("\na scene's background round-trips and reaches the manifest")
+    body = o.put(f"/playlists/{pid}/items", json={"items": [
+        {"elements": [{"media_id": str(vid), "x": 0.3, "width": 0.4}], "background": "blur"},
+        {"elements": [{"media_id": str(img)}]},
+    ]}).json()
+    check("background round-trips", body["items"][0]["background"] == "blur", str(body["items"][0].get("background")))
+    check("background defaults to black", body["items"][1]["background"] == "black")
+    check("an unknown background is refused",
+          o.put(f"/playlists/{pid}/items", json={"items": [{"elements": [], "background": "sparkles"}]}).status_code == 422)
+    from app.models import Device
+    from app.services import device_sync
+    with Session(engine) as s:
+        device = Device(account_id=owner_account_id(owner_id), name="bg", playlist_id=uuid.UUID(pid))
+        s.add(device)
+        s.commit()
+        s.refresh(device)
+        manifest = device_sync.build_manifest(s, device, version="v")
+        before = device_sync.compute_version(s, device)
+        check("the manifest slot carries the background",
+              [slot.background for slot in manifest.slots] == ["blur", "black"])
+        check("a video element carries its thumbnail as the poster",
+              manifest.slots[0].elements[0].poster_url is not None)
+        check("a picture carries no poster", manifest.slots[1].elements[0].poster_url is None)
+        o.put(f"/playlists/{pid}/items", json={"items": [
+            {"elements": [{"media_id": str(vid), "x": 0.3, "width": 0.4}], "background": "black"},
+            {"elements": [{"media_id": str(img)}]},
+        ]})
+        s.expire_all()
+        check("changing only the background changes the manifest version",
+              device_sync.compute_version(s, device) != before)
+        s.delete(s.get(Device, device.id))
+        s.commit()
 
     print("\nan empty scene is legal")
     body = o.put(f"/playlists/{pid}/items", json={"items": [{"elements": []}]}).json()

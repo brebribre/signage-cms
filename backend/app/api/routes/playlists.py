@@ -66,6 +66,7 @@ def _item(item: PlaylistItem, elements: list[tuple[PlaylistItemElement, Media | 
         position=item.position,
         duration_seconds=item.duration_seconds,
         is_enabled=item.is_enabled,
+        background=item.background,
         elements=[_element(el, media) for el, media in elements],
     )
 
@@ -155,6 +156,7 @@ def replace_items(
                 ItemSpec(
                     duration_seconds=i.duration_seconds,
                     is_enabled=i.is_enabled,
+                    background=i.background,
                     elements=[
                         ElementSpec(
                             media_id=el.media_id,

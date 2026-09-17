@@ -120,9 +120,11 @@ def get_manifest(device: CurrentDevice, session: DbSession, request: Request) ->
                         stream_bytes=el.stream_bytes,
                         stream_checksum=el.stream_checksum,
                         stream_mime=el.stream_mime,
+                        poster_url=el.poster_url,
                     )
                     for el in slot.elements
                 ],
+                background=slot.background,
             )
             for slot in manifest.slots
             if slot.elements

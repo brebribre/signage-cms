@@ -27,9 +27,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -271,6 +275,10 @@ fun PlaybackSurface(
             val parentWidth = maxWidth
             val parentHeight = maxHeight
 
+            SceneBackground.blurSource(slot)?.let { source ->
+                BlurredBackground(source, fileFor, Modifier.zIndex(-2f))
+            }
+
             for (poolIndex in 0 until poolSize) {
                 val element = videoElementsInSlot.getOrNull(poolIndex)
                 val boxModifier = if (element != null) {
@@ -350,6 +358,33 @@ fun PlaybackSurface(
         }
     }
 }
+
+/**
+ * The picture behind a blurred scene (see [SceneBackground]): the source image's cached file, or
+ * a video's thumbnail — never the video again, which would need a second hardware decoder.
+ *
+ * Decoded tiny on purpose, then stretched: that alone reads as a blur on every Android version.
+ * `Modifier.blur` smooths it further where the platform supports it (API 31+) and is a no-op
+ * below. Dimmed so the scene stands out, and scaled up so soft edges fall outside the screen.
+ */
+@Composable
+private fun BlurredBackground(source: ManifestElement, fileFor: (ManifestElement) -> File, modifier: Modifier) {
+    val context = LocalContext.current
+    val data: Any = if (source.kind == "image") fileFor(source) else source.posterUrl ?: return
+    AsyncImage(
+        model = coil.request.ImageRequest.Builder(context).data(data).size(BLUR_DECODE_SIZE_PX).build(),
+        contentDescription = null,
+        contentScale = ContentScale.Crop,
+        colorFilter = ColorFilter.tint(Color.Black.copy(alpha = 0.25f), BlendMode.SrcAtop),
+        modifier = modifier
+            .fillMaxSize()
+            .graphicsLayer { scaleX = 1.15f; scaleY = 1.15f }
+            .blur(24.dp),
+    )
+}
+
+/** Longest side, in pixels, a blurred background is decoded at. */
+private const val BLUR_DECODE_SIZE_PX = 96
 
 /**
  * A website, shown live. It leaves composition with its slot, so it loads fresh each time the

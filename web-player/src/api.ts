@@ -44,6 +44,8 @@ export interface ManifestElement {
   stream_checksum?: string | null
   /** Includes codecs, e.g. `video/mp4; codecs="avc1.64001f,mp4a.40.2"`. */
   stream_mime?: string | null
+  /** A video's thumbnail — what a blurred scene background shows for it. */
+  poster_url?: string | null
 }
 
 export const KIND_WEB = 'web'
@@ -52,6 +54,9 @@ export interface ManifestSlot {
   id: string
   duration_seconds: number
   elements: ManifestElement[]
+  /** "black" (the default, also for a backend that predates it) or "blur" — see
+   *  sceneBackground.ts. */
+  background?: string
 }
 
 export interface ManifestItem {

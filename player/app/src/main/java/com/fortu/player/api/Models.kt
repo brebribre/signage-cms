@@ -92,6 +92,9 @@ data class ManifestElement(
     @SerialName("crop_x") val cropX: Float? = null,
     @SerialName("crop_y") val cropY: Float? = null,
     @SerialName("crop_zoom") val cropZoom: Float? = null,
+    /** A video's thumbnail — what a blurred scene background shows for it
+     *  (see playback/SceneBackground.kt). Null for anything else, or an older backend. */
+    @SerialName("poster_url") val posterUrl: String? = null,
 )
 
 /** A website element: shown live in a WebView, never downloaded or cached. */
@@ -104,6 +107,9 @@ data class ManifestSlot(
     val id: String,
     @SerialName("duration_seconds") val durationSeconds: Int,
     val elements: List<ManifestElement> = emptyList(),
+    /** "black", or "blur": a blurred copy of the scene's largest picture or video fills what the
+     *  elements don't cover. Defaulted to black, which is what every older build shows. */
+    val background: String = "black",
 )
 
 /** The screen's weekly power window — same day bitmask (bit 0 = Monday) and `HH:MM` local

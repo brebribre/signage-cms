@@ -9,6 +9,7 @@ import {
   type PlayReport,
 } from './api'
 import type { MediaStore } from './mediaCache'
+import { blurSource, posterKey } from './sceneBackground'
 import { decide, parseInstantMillis, resolveZone } from './powerPlan'
 import type { TokenStore } from './store'
 
@@ -467,10 +468,25 @@ export class PlayerEngine {
     return true
   }
 
-  /** Keyed by the element's own checksum, which is what playback looks up. A stored video's
-   *  value is prefixed [STREAM_SOURCE_PREFIX]: it is fed to MediaSource, never set as `src`. */
+  /** A blurred scene's video thumbnail, stored so the background survives going offline. Its
+   *  size isn't known in advance, hence 0 (see MediaStore.isCached). */
+  private posterFile(slot: ManifestSlot): StoredFile | null {
+    const source = blurSource(slot)
+    if (!source || source.kind !== 'video' || !source.poster_url) return null
+    return { kind: 'thumbnail', checksum: posterKey(source), url: source.poster_url, bytes: 0 }
+  }
+
+  /** Keyed by the element's own checksum, which is what playback looks up — or by
+   *  [posterKey] for a blurred scene's video thumbnail. A stored video's value is prefixed
+   *  [STREAM_SOURCE_PREFIX]: it is fed to MediaSource, never set as `src`. */
   private async sourcesFor(slots: ManifestSlot[], unstored: Set<string>): Promise<Record<string, string>> {
     const sources: Record<string, string> = {}
+    for (const slot of slots) {
+      const poster = this.posterFile(slot)
+      if (!poster || sources[poster.checksum]) continue
+      const stored = !unstored.has(poster.checksum) && (await this.cache.isCached(poster.checksum, 0))
+      sources[poster.checksum] = stored ? await this.cache.objectUrl(poster.checksum) : poster.url
+    }
     for (const el of slots.flatMap((s) => s.elements)) {
       if (sources[el.checksum]) continue
       const file = this.stored(el)
@@ -515,8 +531,8 @@ export class PlayerEngine {
     // file is still arriving.
     const all = slots.flatMap((s) => s.elements)
     const files: StoredFile[] = []
-    for (const el of all) {
-      const file = this.stored(el)
+    const candidates = [...all.map((el) => this.stored(el)), ...slots.map((slot) => this.posterFile(slot))]
+    for (const file of candidates) {
       if (file && !files.some((f) => f.checksum === file.checksum)) files.push(file)
     }
     // Stored files that couldn't be stored after all, and so play from their address.

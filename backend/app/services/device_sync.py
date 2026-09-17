@@ -95,6 +95,7 @@ def compute_version(session: Session, device: Device, now: datetime | None = Non
                     str(item.id),
                     item.duration_seconds,
                     item.position,
+                    item.background.value,
                     [
                         (
                             str(el.id),
@@ -159,6 +160,9 @@ class ManifestElement:
     stream_bytes: int | None = None
     stream_checksum: str | None = None
     stream_mime: str | None = None
+    #: A video's thumbnail — what a blurred scene background shows for it (see
+    #: models.playlist.SceneBackground). None for pictures, websites and videos without one.
+    poster_url: str | None = None
 
 
 @dataclass
@@ -166,6 +170,7 @@ class ManifestSlot:
     id: uuid.UUID
     duration_seconds: int
     elements: list[ManifestElement]
+    background: str = "black"
 
 
 @dataclass
@@ -263,9 +268,15 @@ def build_manifest(session: Session, device: Device, *, version: str) -> Manifes
                     stream_bytes=media.stream_size_bytes if media and media.stream_key else None,
                     stream_checksum=media.stream_checksum if media and media.stream_key else None,
                     stream_mime=media.stream_mime if media and media.stream_key else None,
+                    poster_url=(
+                        storage.presign_get(media.thumbnail_key, settings.device_presign_ttl_seconds)
+                        if media and media.kind == MediaKind.VIDEO and media.thumbnail_key
+                        else None
+                    ),
                 )
                 for el, media in elements
             ],
+            background=item.background.value,
         )
         for item, elements in rows
     ]

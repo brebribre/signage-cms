@@ -249,6 +249,27 @@ describe('sync', () => {
     expect(engine.debug.value.lastError).toBe('video broke')
   })
 
+  it('a blurred scene whose largest element is a video stores its thumbnail for the background', async () => {
+    const m = manifest()
+    Object.assign(m.slots![1], { background: 'blur' })
+    Object.assign(m.slots![1].elements[0], { poster_url: 'https://r2/b-thumb' })
+    api.manifest = m
+    start()
+    await tick(0)
+    expect(cache.log).toContain('download poster:b')
+    const s = engine.state.value as Extract<typeof engine.state.value, { kind: 'playing' }>
+    expect(s.sources['poster:b']).toBe('blob:poster:b')
+  })
+
+  it('a black scene stores no thumbnail', async () => {
+    const m = manifest()
+    Object.assign(m.slots![1].elements[0], { poster_url: 'https://r2/b-thumb' })
+    api.manifest = m
+    start()
+    await tick(0)
+    expect(cache.log.some((l) => l.includes('poster'))).toBe(false)
+  })
+
   it('a website element plays without downloading anything', async () => {
     api.manifest = manifest({
       slots: [{ id: 'w', duration_seconds: 30, elements: [{ id: 'we', kind: 'web', url: 'https://example.com', checksum: 'web-x', bytes: 0 }] }],

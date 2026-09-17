@@ -42,7 +42,8 @@ export class CacheStorageMedia implements MediaStore {
     if (!this.available) return false
     const res = await (await this.open()).match(keyFor(checksum))
     // Size as well as existence, like MediaCache.kt: a partial write must never pass for a file.
-    return !!res && Number(res.headers.get(BYTES_HEADER)) === bytes
+    // A size of 0 means "not known in advance" (a video thumbnail): stored at all is enough.
+    return !!res && (bytes === 0 || Number(res.headers.get(BYTES_HEADER)) === bytes)
   }
 
   async download(checksum: string, url: string, bytes: number): Promise<void> {
@@ -59,11 +60,11 @@ export class CacheStorageMedia implements MediaStore {
     const blob = await res.blob()
     // Read fully before it is stored, so an interrupted transfer can never be mistaken for a
     // complete one — the counterpart of MediaCache.kt's `.part` file and rename.
-    if (blob.size !== bytes) throw new Error(`download incomplete: ${blob.size} of ${bytes} bytes`)
+    if (bytes !== 0 && blob.size !== bytes) throw new Error(`download incomplete: ${blob.size} of ${bytes} bytes`)
     await (await this.open()).put(
       keyFor(checksum),
       new Response(blob, {
-        headers: { 'Content-Type': blob.type || 'application/octet-stream', [BYTES_HEADER]: String(bytes) },
+        headers: { 'Content-Type': blob.type || 'application/octet-stream', [BYTES_HEADER]: String(blob.size) },
       }),
     )
   }

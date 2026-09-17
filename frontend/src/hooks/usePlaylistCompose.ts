@@ -8,6 +8,7 @@ function toItemWrite(item: PlaylistItemRead): ItemWrite {
   return {
     duration_seconds: item.duration_seconds,
     is_enabled: item.is_enabled,
+    background: item.background,
     elements: item.elements.map((e) => ({
       media_id: e.media?.id ?? null,
       web_url: e.web_url,

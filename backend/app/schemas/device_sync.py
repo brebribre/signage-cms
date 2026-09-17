@@ -56,12 +56,19 @@ class ManifestElement(BaseModel):
     stream_bytes: int | None = None
     stream_checksum: str | None = None
     stream_mime: str | None = None
+    # A video's thumbnail, for a blurred scene background (see ManifestSlot.background). The
+    # playing video is never duplicated for it: that would need a second hardware decoder.
+    poster_url: str | None = None
 
 
 class ManifestSlot(BaseModel):
     id: uuid.UUID
     duration_seconds: int
     elements: list[ManifestElement]
+    # "black", or "blur": behind the elements, a blurred copy of the scene's largest picture or
+    # video (biggest box by area, bottom-most on a tie) fills the screen. Players that predate
+    # it show black, which is exactly what they showed before.
+    background: str = "black"
 
 
 class ManifestItem(BaseModel):

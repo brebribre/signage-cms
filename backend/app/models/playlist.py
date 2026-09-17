@@ -24,6 +24,19 @@ class ItemFit(StrEnum):
     STRETCH = "stretch"
 
 
+class SceneBackground(StrEnum):
+    """What shows wherever a scene's elements don't cover the screen — a portrait video placed
+    on a landscape screen, say."""
+
+    BLACK = "black"
+    # A blurred, zoomed-in copy of the scene's largest picture or video, filling the screen
+    # behind it. For a video that is its thumbnail, not the video itself: a second copy of a
+    # playing video would need a second hardware decoder, which most TVs and signage boxes
+    # don't have. Which element counts as "largest" is decided the same way everywhere (CMS
+    # preview, web player, Android player): biggest box by area, bottom-most on a tie.
+    BLUR = "blur"
+
+
 class Playlist(SQLModel, table=True):
     """An ordered list of media with a duration per slot."""
 
@@ -75,6 +88,10 @@ class PlaylistItem(SQLModel, table=True):
     # Take a slot out of rotation without losing its elements. Restoring it is then one click
     # rather than rebuilding the scene from memory.
     is_enabled: bool = Field(default=True)
+    background: SceneBackground = Field(
+        default=SceneBackground.BLACK,
+        sa_column=enum_column(SceneBackground, nullable=False, server_default=SceneBackground.BLACK.value),
+    )
 
 
 class PlaylistItemElement(SQLModel, table=True):

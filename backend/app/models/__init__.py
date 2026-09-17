@@ -11,7 +11,7 @@ from app.models.device import Device, DeviceAccess, DeviceOrientation, DevicePla
 from app.models.device_setting import DeviceSetting
 from app.models.events import DeviceEvent, EventLevel, PlayEvent
 from app.models.media import Media, MediaKind, MediaStatus
-from app.models.playlist import ItemFit, Playlist, PlaylistItem, PlaylistItemElement
+from app.models.playlist import ItemFit, Playlist, PlaylistItem, PlaylistItemElement, SceneBackground
 from app.models.player_rollout import PlayerRollout
 from app.models.schedule import ALL_DAYS, WEEKDAYS, WEEKENDS, Schedule
 from app.models.user import User, UserRole
@@ -35,6 +35,7 @@ __all__ = [
     "Playlist",
     "PlaylistItem",
     "PlaylistItemElement",
+    "SceneBackground",
     "PlayerRollout",
     "Schedule",
     "ALL_DAYS",

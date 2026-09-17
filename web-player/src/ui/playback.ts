@@ -1,5 +1,6 @@
 import { KIND_WEB, type ManifestElement, type ManifestSlot } from '../api'
 import { STREAM_SOURCE_PREFIX } from '../engine'
+import { blurSource, posterKey } from '../sceneBackground'
 import { feedStream, type StreamFeed } from './streamFeed'
 
 /**
@@ -152,6 +153,10 @@ export class PlaybackSurface {
     const width = this.root.clientWidth
     const height = this.root.clientHeight
 
+    // A blurred scene's background goes in first, so every element paints over it.
+    const background = this.blurredBackground(slot, width)
+    if (background) layer.appendChild(background)
+
     slot.elements.forEach((element, z) => {
       const box = document.createElement('div')
       box.className = 'el'
@@ -222,6 +227,28 @@ export class PlaybackSurface {
         finishOnce(`${this.nameOf(slot.elements[0])}: did not finish in time`)
       })
     }
+  }
+
+  /**
+   * The picture behind a blurred scene (see sceneBackground.ts): the source image itself, or a
+   * video's thumbnail — never the video again, which would need a second hardware decoder most
+   * TVs don't have. Blurred in proportion to the screen, dimmed so the scene stands out, and
+   * scaled up a little so the blur's soft edges fall outside the screen.
+   */
+  private blurredBackground(slot: ManifestSlot, stageWidth: number): HTMLElement | null {
+    const source = blurSource(slot)
+    if (!source) return null
+    const url = source.kind === 'image'
+      ? this.sources[source.checksum] ?? source.url
+      : this.sources[posterKey(source)] ?? source.poster_url
+    if (!url) return null
+    const img = document.createElement('img')
+    img.className = 'blur-bg'
+    img.decoding = 'async'
+    img.style.filter = `blur(${Math.round(stageWidth * 0.03)}px) brightness(0.75)`
+    img.onerror = () => img.remove() // a missing thumbnail leaves plain black, as before
+    img.src = url
+    return img
   }
 
   private nameOf(element: ManifestElement) {

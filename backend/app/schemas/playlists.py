@@ -4,7 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from app.models import ItemFit, MediaKind
+from app.models import ItemFit, MediaKind, SceneBackground
 from app.services.playlists import MAX_CROP_ZOOM, MAX_ITEM_SECONDS, MIN_ITEM_SECONDS
 
 
@@ -48,6 +48,8 @@ class ItemWrite(BaseModel):
         default=None, ge=MIN_ITEM_SECONDS, le=MAX_ITEM_SECONDS
     )
     is_enabled: bool = True
+    # Behind anything the elements don't cover. See models.playlist.SceneBackground.
+    background: SceneBackground = SceneBackground.BLACK
     elements: list[ElementWrite] = Field(default_factory=list, max_length=20)
 
 
@@ -99,6 +101,7 @@ class ItemRead(BaseModel):
     position: int
     duration_seconds: int
     is_enabled: bool
+    background: SceneBackground
     elements: list[ElementRead]
 
 

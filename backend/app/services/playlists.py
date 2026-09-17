@@ -17,6 +17,7 @@ from app.models import (
     Playlist,
     PlaylistItem,
     PlaylistItemElement,
+    SceneBackground,
     User,
     UserRole,
 )
@@ -64,6 +65,7 @@ class ItemSpec:
     elements: list[ElementSpec] = field(default_factory=list)
     duration_seconds: int | None = None
     is_enabled: bool = True
+    background: SceneBackground = SceneBackground.BLACK
 
 
 class PlaylistNotFound(DomainError):
@@ -352,6 +354,7 @@ def replace_items(
             position=position,
             duration_seconds=spec.duration_seconds or default_duration(elements_media),
             is_enabled=spec.is_enabled,
+            background=spec.background,
         )
         session.add(item)
         for el in spec.elements:

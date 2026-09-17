@@ -10,6 +10,8 @@ import {
   rotationStyle,
 } from '@/utils/cropMath'
 import type { DraftElement } from '@/hooks/usePlaylistEditor'
+import type { SceneBackground } from '@/types/api'
+import { BLUR_IMAGE_STYLE, blurImageUrl, blurSource } from '@/utils/sceneBackground'
 
 /**
  * A device screen, drawn at its real aspect ratio and scaled to fit the space it is given —
@@ -31,9 +33,10 @@ const props = withDefaults(
     screenWidth: number
     screenHeight: number
     elements: DraftElement[]
+    background?: SceneBackground
     maxHeight?: number
   }>(),
-  { maxHeight: 420 },
+  { maxHeight: 420, background: 'black' },
 )
 
 /**
@@ -51,6 +54,13 @@ const frameStyle = computed(() => ({
 }))
 
 const sortedElements = computed(() => [...props.elements].sort((a, b) => a.zIndex - b.zIndex))
+
+/** The blurred picture behind the scene, when it has one — see utils/sceneBackground.ts. */
+const blurUrl = computed(() => {
+  if (props.background !== 'blur') return null
+  const source = blurSource(props.elements)
+  return source ? blurImageUrl(source) : null
+})
 
 /**
  * A website is laid out at the screen's real pixel size, then scaled down with the frame — so
@@ -144,6 +154,9 @@ function mediaStyle(el: DraftElement): CSSProperties {
       class="relative overflow-hidden bg-black outline-[10px] outline-solid outline-ink"
       :style="frameStyle"
     >
+      <div v-if="blurUrl" class="absolute inset-0 overflow-hidden" style="container-type: size">
+        <img :src="blurUrl" alt="" class="select-none" :style="BLUR_IMAGE_STYLE" />
+      </div>
       <div v-for="el in sortedElements" :key="el.key" :style="boxStyle(el)">
         <!-- Not clickable, like the screen itself. -->
         <iframe

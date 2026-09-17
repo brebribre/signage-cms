@@ -2,7 +2,7 @@ import { computed, onMounted, ref } from 'vue'
 
 import { ApiError } from '@/api/request'
 import { usePlaylistApi } from '@/api/usePlaylistApi'
-import type { ElementRead, ItemFit, MediaRead, PlaylistDetail, PlaylistItemRead } from '@/types/api'
+import type { ElementRead, ItemFit, MediaRead, PlaylistDetail, PlaylistItemRead, SceneBackground } from '@/types/api'
 import { websiteLabel } from '@/utils/websiteUrl'
 
 /** One element within a scene — a library file or a live website — positioned/sized/rotated
@@ -38,6 +38,7 @@ export interface DraftItem {
   key: string
   durationSeconds: number
   isEnabled: boolean
+  background: SceneBackground
   elements: DraftElement[]
 }
 
@@ -110,7 +111,9 @@ export function websiteToDraftElement(url: string, overrides: Partial<DraftEleme
  *  `draft` themselves (typically only once the canvas editor's first Apply gives it
  *  elements), so cancelling out of the editor never leaves a stray empty scene behind. */
 export function createEmptyItem(): DraftItem {
-  return { key: crypto.randomUUID(), durationSeconds: IMAGE_DEFAULT_SECONDS, isEnabled: true, elements: [] }
+  return {
+    key: crypto.randomUUID(), durationSeconds: IMAGE_DEFAULT_SECONDS, isEnabled: true, background: 'black', elements: [],
+  }
 }
 
 function toDraftElement(el: ElementRead): DraftElement {
@@ -160,7 +163,7 @@ export function usePlaylistEditor(id: string) {
   const snapshot = computed(() =>
     JSON.stringify(
       draft.value.map((d) => [
-        d.durationSeconds, d.isEnabled,
+        d.durationSeconds, d.isEnabled, d.background,
         d.elements.map((e) => [
           e.mediaId, e.webUrl, e.zIndex, e.x, e.y, e.width, e.height, e.fit,
           e.cropX, e.cropY, e.cropZoom, e.hasAudio, e.rotationDegrees,
@@ -180,6 +183,7 @@ export function usePlaylistEditor(id: string) {
       key: item.id,
       durationSeconds: item.duration_seconds,
       isEnabled: item.is_enabled,
+      background: item.background ?? 'black',
       elements: item.elements.map(toDraftElement),
     }
   }
@@ -214,6 +218,7 @@ export function usePlaylistEditor(id: string) {
             ? Math.max(1, Math.round(m.duration_seconds))
             : IMAGE_DEFAULT_SECONDS,
         isEnabled: true,
+        background: 'black',
         elements: [mediaToDraftElement(m)],
       })
     }
@@ -226,6 +231,7 @@ export function usePlaylistEditor(id: string) {
       key: crypto.randomUUID(),
       durationSeconds: WEB_DEFAULT_SECONDS,
       isEnabled: true,
+      background: 'black',
       elements: [websiteToDraftElement(url)],
     })
   }
@@ -251,6 +257,7 @@ export function usePlaylistEditor(id: string) {
           draft.value.map((d) => ({
             duration_seconds: d.durationSeconds,
             is_enabled: d.isEnabled,
+            background: d.background,
             elements: d.elements.map((e) => ({
               media_id: e.mediaId,
               web_url: e.webUrl,

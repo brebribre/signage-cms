@@ -23,7 +23,7 @@ import AppButton from '@/reusables/AppButton.vue'
 import AppInput from '@/reusables/AppInput.vue'
 import AppModal from '@/reusables/AppModal.vue'
 import MediaPicker from '@/reusables/MediaPicker.vue'
-import type { MediaRead } from '@/types/api'
+import type { MediaRead, SceneBackground } from '@/types/api'
 import ModalActions from '@/reusables/ModalActions.vue'
 import DurationPicker from '@/reusables/DurationPicker.vue'
 import OverflowMenu from '@/reusables/OverflowMenu.vue'
@@ -164,9 +164,10 @@ function startCreateCustom() {
   editingItem.value = createEmptyItem()
 }
 
-function applySceneEdit(elements: DraftElement[]) {
+function applySceneEdit(elements: DraftElement[], background: SceneBackground) {
   if (!editingItem.value) return
   editingItem.value.elements = elements
+  editingItem.value.background = background
   if (editingIsNew.value && elements.length) draft.value.push(editingItem.value)
   editingItem.value = null
 }
@@ -417,6 +418,7 @@ function sceneLabel(item: DraftItem): string {
           :screen-width="screen.width"
           :screen-height="screen.height"
           :elements="preview.current.value?.elements ?? []"
+          :background="preview.current.value?.background ?? 'black'"
         />
       </div>
     </template>

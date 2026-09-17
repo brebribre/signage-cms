@@ -117,11 +117,15 @@ export interface ElementRead {
   web_url: string | null
 }
 
+/** What shows wherever a scene's elements don't cover the screen. See utils/sceneBackground.ts. */
+export type SceneBackground = 'black' | 'blur'
+
 export interface PlaylistItemRead {
   id: string
   position: number
   duration_seconds: number
   is_enabled: boolean
+  background: SceneBackground
   elements: ElementRead[]
 }
 
@@ -164,6 +168,7 @@ export interface ElementWrite {
 export interface ItemWrite {
   duration_seconds?: number | null
   is_enabled?: boolean
+  background?: SceneBackground
   elements: ElementWrite[]
 }
 

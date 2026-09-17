@@ -26,7 +26,8 @@ import {
 import { mediaToDraftElement, websiteToDraftElement } from '@/hooks/usePlaylistEditor'
 import { normalizeWebsiteUrl, websiteLabel } from '@/utils/websiteUrl'
 import type { DraftElement, DraftItem } from '@/hooks/usePlaylistEditor'
-import type { MediaRead } from '@/types/api'
+import type { MediaRead, SceneBackground } from '@/types/api'
+import { BLUR_IMAGE_STYLE, SCENE_BACKGROUNDS, blurImageUrl, blurSource } from '@/utils/sceneBackground'
 import { useMediaUpload } from '@/hooks/useMediaUpload'
 import AppButton from '@/reusables/AppButton.vue'
 import ProgressBar from '@/reusables/ProgressBar.vue'
@@ -45,7 +46,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  apply: [elements: DraftElement[]]
+  apply: [elements: DraftElement[], background: SceneBackground]
   close: []
   /** A file uploaded from inside the scene still belongs in the library — the page that owns
    *  it prepends, so it is there next time without a refetch. */
@@ -90,6 +91,12 @@ function onPanelDrop(e: DragEvent) {
 
 // A local working copy — nothing here reaches the draft scene until Apply.
 const elements = ref<DraftElement[]>(props.item.elements.map((e) => ({ ...e })))
+const background = ref<SceneBackground>(props.item.background)
+const blurUrl = computed(() => {
+  if (background.value !== 'blur') return null
+  const source = blurSource(elements.value)
+  return source ? blurImageUrl(source) : null
+})
 const selectedKey = ref<string | null>(null)
 const selected = computed(() => elements.value.find((e) => e.key === selectedKey.value) ?? null)
 
@@ -489,7 +496,7 @@ function onCanvasDrop(e: DragEvent) {
 }
 
 function apply() {
-  emit('apply', elements.value)
+  emit('apply', elements.value, background.value)
 }
 </script>
 
@@ -645,6 +652,9 @@ function apply() {
                  is cut off here exactly as the device will cut it off. `pointer-events-none` so
                  a click on bare canvas still reaches the frame below and deselects. -->
             <div class="pointer-events-none absolute inset-0 overflow-hidden">
+              <div v-if="blurUrl" class="absolute inset-0 overflow-hidden" style="container-type: size">
+                <img :src="blurUrl" alt="" class="select-none" :style="BLUR_IMAGE_STYLE" draggable="false" />
+              </div>
               <div
                 v-for="el in elements"
                 :key="el.key"
@@ -866,7 +876,31 @@ function apply() {
               Delete
             </AppButton>
           </template>
-          <p v-else class="text-[13px] text-ink-subtle">Select an item on the canvas to edit it.</p>
+          <template v-else>
+            <p class="text-[13px] text-ink-subtle">Select an item on the canvas to edit it.</p>
+            <div class="flex flex-col gap-2">
+              <p class="text-[13px] text-ink-subtle">Background</p>
+              <div class="flex gap-2" role="radiogroup" aria-label="Background">
+                <AppButton
+                  v-for="option in SCENE_BACKGROUNDS"
+                  :key="option.value"
+                  :variant="background === option.value ? 'primary' : 'secondary'"
+                  size="sm"
+                  role="radio"
+                  :aria-checked="background === option.value"
+                  @click="background = option.value"
+                >
+                  {{ option.label }}
+                </AppButton>
+              </div>
+              <p class="text-[12px] text-ink-subtle">
+                Fills any part of the screen the scene doesn't cover.
+                <template v-if="background === 'blur'">
+                  Uses a blurred copy of the largest picture or video (a video's thumbnail).
+                </template>
+              </p>
+            </div>
+          </template>
         </div>
       </aside>
     </div>
