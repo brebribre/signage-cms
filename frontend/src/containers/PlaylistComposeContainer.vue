@@ -69,22 +69,26 @@ async function onSave() {
       </ul>
 
       <p v-if="libraryLoading && !library.length" class="text-sm text-ink-muted">Loading…</p>
-      <div
-        v-else-if="library.length"
-        class="grid max-h-60 grid-cols-3 gap-2 overflow-y-auto p-1 sm:grid-cols-5"
-      >
+      <!-- Scrolling lives on this wrapper, never on the grid, and every tile takes its height from
+           a padding spacer (a percentage of its own width) rather than `aspect-ratio`. Mobile
+           Safari sizes a height-limited scrolling grid's rows without honouring aspect-ratio on
+           tiles whose content is all absolutely positioned, so the rows collapsed and the
+           thumbnails piled on top of each other once the library outgrew the box. -->
+      <div v-else-if="library.length" class="max-h-60 overflow-y-auto overscroll-contain p-1">
+      <div class="grid grid-cols-3 content-start gap-2 sm:grid-cols-5">
         <button
           v-for="m in library"
           :key="m.id"
           type="button"
-          class="relative aspect-video overflow-hidden rounded-lg bg-raised transition-opacity duration-150"
+          class="relative block w-full overflow-hidden rounded-lg bg-raised transition-opacity duration-150"
           :class="order(m.id) ? 'ring-2 ring-ink ring-offset-2' : 'hover:opacity-80'"
           :title="m.filename"
           :aria-pressed="!!order(m.id)"
           @click="togglePick(m.id)"
         >
+          <span class="block pt-[56.25%]" aria-hidden="true" />
           <img v-if="m.thumbnail_url" :src="m.thumbnail_url" :alt="m.filename" class="absolute inset-0 size-full object-cover" loading="lazy" />
-          <span v-else class="flex size-full items-center justify-center truncate px-1 text-[11px] text-ink-subtle">
+          <span v-else class="absolute inset-0 flex items-center justify-center truncate px-1 text-[11px] text-ink-subtle">
             {{ m.filename }}
           </span>
           <span
@@ -95,6 +99,7 @@ async function onSave() {
             {{ order(m.id) }}
           </span>
         </button>
+      </div>
       </div>
 
       <AppAlert v-if="error" tone="danger">{{ error }}</AppAlert>

@@ -110,22 +110,30 @@ function confirm() {
                focus:border-ink focus:outline-none"
       />
 
+      <!-- Scrolling lives on this wrapper, never on the grid, and every tile takes its height from
+           a padding spacer (a percentage of its own width) rather than `aspect-ratio`. Mobile
+           Safari sizes a height-limited scrolling grid's rows without honouring aspect-ratio on
+           tiles whose content is all absolutely positioned, so the rows collapsed and the
+           thumbnails piled on top of each other once the library outgrew the box. -->
       <div
-        class="grid max-h-[55vh] grid-cols-2 gap-2 overflow-y-auto rounded-lg sm:grid-cols-4"
+        class="max-h-[55vh] overflow-y-auto overscroll-contain rounded-lg"
         :class="isDragOver ? 'outline outline-2 outline-dashed outline-ink' : ''"
       >
+      <div class="grid grid-cols-2 content-start gap-2 sm:grid-cols-4">
         <!-- Upload as a tile in the same grid, not a separate mode: adding a file you don't
              have yet is the same job as picking one you do. -->
         <button
           type="button"
-          class="flex aspect-video flex-col items-center justify-center gap-0.5 rounded-lg border
-                 border-dashed border-line-strong text-ink-muted transition-colors duration-200
-                 hover:border-ink hover:text-ink"
+          class="relative w-full rounded-lg border border-dashed border-line-strong text-ink-muted
+                 transition-colors duration-200 hover:border-ink hover:text-ink"
           @click="fileInput?.click()"
         >
-          <IconAddPhotoAlternateOutline class="size-5" />
-          <span class="text-[12px]">Upload</span>
-          <span class="text-[11px] text-ink-subtle">or drop files</span>
+          <span class="block pt-[56.25%]" aria-hidden="true" />
+          <span class="absolute inset-0 flex flex-col items-center justify-center gap-0.5">
+            <IconAddPhotoAlternateOutline class="size-5" />
+            <span class="text-[12px]">Upload</span>
+            <span class="text-[11px] text-ink-subtle">or drop files</span>
+          </span>
         </button>
         <input
           ref="fileInput" type="file" accept="image/*,video/*" multiple class="hidden"
@@ -133,23 +141,24 @@ function confirm() {
         />
 
         <!-- In progress, in the grid, where the finished tile will be. -->
-        <div
-          v-for="job in jobs" :key="job.id"
-          class="flex aspect-video flex-col justify-end rounded-lg bg-surface p-2"
-        >
-          <p class="truncate text-[12px] text-ink">{{ job.name }}</p>
-          <p v-if="job.error" class="truncate text-[11px] text-danger" :title="job.error">
-            {{ job.error }}
-          </p>
-          <ProgressBar v-else :value="job.progress" class="mt-1" />
+        <div v-for="job in jobs" :key="job.id" class="relative w-full rounded-lg bg-surface">
+          <span class="block pt-[56.25%]" aria-hidden="true" />
+          <div class="absolute inset-0 flex flex-col justify-end p-2">
+            <p class="truncate text-[12px] text-ink">{{ job.name }}</p>
+            <p v-if="job.error" class="truncate text-[11px] text-danger" :title="job.error">
+              {{ job.error }}
+            </p>
+            <ProgressBar v-else :value="job.progress" class="mt-1" />
+          </div>
         </div>
 
         <button
           v-for="m in filtered" :key="m.id"
           type="button"
-          class="relative aspect-video overflow-hidden rounded-lg bg-raised"
+          class="relative block w-full overflow-hidden rounded-lg bg-raised"
           @click="toggle(m.id)"
         >
+          <span class="block pt-[56.25%]" aria-hidden="true" />
           <img
             v-if="m.thumbnail_url" :src="m.thumbnail_url" :alt="m.filename"
             class="absolute inset-0 size-full object-cover"
@@ -165,6 +174,7 @@ function confirm() {
             <IconCheck class="size-6 text-white" />
           </span>
         </button>
+      </div>
       </div>
 
       <p v-if="isLoading" class="text-[13px] text-ink-muted">Loading library…</p>
