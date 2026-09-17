@@ -119,7 +119,7 @@ const STATUS_LABEL: Record<string, string> = {
           Clear
         </AppButton>
       </div>
-      <div v-for="job in jobs" :key="job.id" class="rounded-lg bg-surface p-3">
+      <div v-for="job in jobs" :key="job.id" class="rounded-2xl bg-canvas p-4">
         <div class="flex items-baseline justify-between gap-3">
           <p class="truncate text-sm text-ink">{{ job.name }}</p>
           <p class="shrink-0 text-[13px]" :class="job.status === 'failed' ? 'text-danger' : 'text-ink-muted'">
@@ -174,7 +174,7 @@ const STATUS_LABEL: Record<string, string> = {
         : 'Drop a file above to add it to the library.'"
     />
 
-    <div v-else class="grid grid-cols-2 gap-0.5 sm:grid-cols-3 lg:grid-cols-4">
+    <div v-else class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
       <MediaCard
         v-for="m in visible"
         :key="m.id"

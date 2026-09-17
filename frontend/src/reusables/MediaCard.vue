@@ -1,8 +1,8 @@
 <script setup lang="ts">
-/** The media itself and nothing else — a gallery tile, not a record. Square corners so a grid
- *  of them reads as one wall of content rather than a stack of cards; the only overlay is a
- *  play mark on videos, since a still frame alone can't say it moves. The filename survives
- *  only as alt/hover text. Presentational only: handed a URL, knows nothing about uploads.
+/** The media itself and nothing else — a gallery tile, not a record. Rounded like every other
+ *  card on the tinted page; the only overlay is a play mark on videos, since a still frame alone
+ *  can't say it moves. The filename survives only as alt/hover text. Presentational only: handed
+ *  a URL, knows nothing about uploads.
  *
  *  `selectable` turns the tile into a checkbox (the Media page's select mode): a round tick in
  *  the corner, and a brand outline and wash once chosen. A button either way, so it is
@@ -25,7 +25,7 @@ withDefaults(
 <template>
   <button
     type="button"
-    class="relative block w-full cursor-pointer overflow-hidden bg-raised transition-opacity duration-200
+    class="relative block w-full cursor-pointer overflow-hidden rounded-2xl bg-canvas transition-opacity duration-200
            ease-[cubic-bezier(0.4,0,0.2,1)] focus-visible:z-10 focus-visible:outline-2
            focus-visible:outline-offset-2 focus-visible:outline-brand-bright"
     :class="!selectable && 'hover:opacity-85'"
@@ -45,7 +45,7 @@ withDefaults(
     />
     <span
       v-if="kind === 'video'"
-      class="absolute top-1.5 left-1.5 flex size-6 items-center justify-center bg-ink/70 text-ink-inverse"
+      class="absolute top-2 left-2 flex size-6 items-center justify-center rounded-full bg-ink/70 text-ink-inverse"
       aria-hidden="true"
     >
       <IconPlayArrow class="size-4" />
@@ -54,11 +54,11 @@ withDefaults(
     <template v-if="selectable">
       <span
         v-if="selected"
-        class="absolute inset-0 bg-brand/25 ring-3 ring-brand ring-inset"
+        class="absolute inset-0 rounded-2xl bg-brand/25 ring-3 ring-brand ring-inset"
         aria-hidden="true"
       />
       <span
-        class="absolute top-1.5 right-1.5 flex size-6 items-center justify-center rounded-full border-2
+        class="absolute top-2 right-2 flex size-6 items-center justify-center rounded-full border-2
                transition-colors duration-150"
         :class="selected ? 'border-brand bg-brand text-ink-inverse' : 'border-white bg-ink/25 text-transparent'"
         aria-hidden="true"
