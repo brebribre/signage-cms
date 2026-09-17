@@ -1,18 +1,20 @@
 @import "tailwindcss";
 
 /*
-  Fortu CMS design tokens.
+  Paskall CMS design tokens.
 
   Taken from fortu.co.id rather than invented: Helvetica Neue, headings at weight 500 with
   -0.025em tracking at every size, pill buttons carrying a 1px border, and no shadows
   anywhere. Light mode only — there is no dark palette and no runtime theming, so
   `color-scheme: light` is declared and native controls follow it.
 
-  The system is monochrome by design, which has one real consequence worth stating: there
-  is no accent hue to mark what is active. Selection, focus and primary actions are
-  expressed with **ink fill and weight** instead of colour. A "selected" nav row is ink on
-  a tinted surface; a primary button is solid ink. Reaching for a colour here would break
-  the language rather than extend it.
+  Ink and surfaces stay monochrome — body text, cards and hairlines. What is *active or
+  primary* carries the brand blue instead: a selected nav row, a primary button, a chosen
+  filter. Both halves are needed. Colour everywhere would fight the content; colour nowhere
+  left the Paskall logo looking pasted onto someone else's app.
+
+  The blues are sampled from the logo itself (src/assets/paskall-logo.png): its gradient runs
+  #002f96 → #0076dd, and the mark's flat mass is #003399.
 */
 
 @theme {
@@ -27,6 +29,17 @@
   --color-canvas: #ffffff;
   --color-surface: #f9f9f9;
   --color-raised: #f2f2f2;
+
+  /* --- Brand. Straight off the logo: see the note above. --- */
+  /* The default: solid fills, active nav rows, primary buttons. */
+  --color-brand: #003399;
+  /* Hover/pressed — the gradient's dark end, so a button darkens rather than greys. */
+  --color-brand-strong: #002f96;
+  /* The gradient's bright end. Small accents and focus rings, never large fills: it is too
+     light against white for text at body size. */
+  --color-brand-bright: #0076dd;
+  /* A tint of --color-brand for the surface under a selected row. */
+  --color-brand-soft: #eef2fd;
 
   /* --- Ink --- */
   --color-ink: #101111;

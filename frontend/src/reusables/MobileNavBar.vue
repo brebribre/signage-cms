@@ -3,7 +3,7 @@
  * The sidebar is `hidden` below `lg` (see SidebarView.vue) — this is what replaces it. Same
  * structure as the sidebar, fitted to a phone: an ungrouped link is its own tab, and a category
  * is one tab that opens its pages in a small menu above the bar. Owners get Settings the same
- * way. Text weight/colour marks the active tab, the same language AppTabs uses.
+ * way. Weight and the brand blue mark the active tab, as in the sidebar.
  */
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -83,7 +83,7 @@ const TAB = 'flex w-full flex-1 flex-col items-center gap-0.5 px-1 py-2 text-[11
         v-if="tab.kind === 'link'"
         :to="{ name: tab.link.name }"
         :class="[TAB, 'text-ink-muted']"
-        active-class="!text-ink font-medium"
+        active-class="!text-brand font-medium"
       >
         <component :is="tab.link.icon" class="size-5" />
         {{ tab.link.label }}
@@ -92,7 +92,7 @@ const TAB = 'flex w-full flex-1 flex-col items-center gap-0.5 px-1 py-2 text-[11
       <div v-else class="flex flex-1">
         <button
           type="button"
-          :class="[TAB, inSection(tab.section) || openKey === tab.key ? 'font-medium text-ink' : 'text-ink-muted']"
+          :class="[TAB, inSection(tab.section) || openKey === tab.key ? 'font-medium text-brand' : 'text-ink-muted']"
           :aria-expanded="openKey === tab.key"
           aria-haspopup="menu"
           @click="toggle(tab.key)"
@@ -113,7 +113,7 @@ const TAB = 'flex w-full flex-1 flex-col items-center gap-0.5 px-1 py-2 text-[11
             :to="{ name: link.name }"
             class="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm text-ink-muted transition-colors
                    duration-150 hover:bg-surface hover:text-ink"
-            active-class="bg-raised !text-ink"
+            active-class="bg-brand-soft !text-brand font-medium"
             role="menuitem"
           >
             <component :is="link.icon" class="size-[18px] shrink-0" />

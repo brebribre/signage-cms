@@ -29,6 +29,11 @@ async function onLogout() {
 const LINK =
   'flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm text-ink transition-colors duration-150 ' +
   'hover:bg-surface hover:text-ink'
+
+/** The current page: brand text on a tint of it, and its icon in the same blue — the icon is
+ *  coloured through the link, since it is a child of the router-link that knows it is active. */
+const LINK_ACTIVE =
+  'bg-brand-soft hover:!bg-brand-soft !text-brand font-medium [&_svg]:!text-brand'
 </script>
 
 <template>
@@ -43,7 +48,7 @@ const LINK =
         <p v-if="section.title" class="px-2.5 pt-5 pb-1.5 text-[12px] text-ink-muted">{{ section.title }}</p>
         <ul class="flex flex-col gap-0.5">
           <li v-for="link in section.links" :key="link.name">
-            <router-link :to="{ name: link.name }" :class="LINK" active-class="bg-raised text-ink">
+            <router-link :to="{ name: link.name }" :class="LINK" :active-class="LINK_ACTIVE">
               <component :is="link.icon" class="size-[18px] shrink-0 text-ink-muted" />
               {{ link.label }}
             </router-link>
@@ -56,7 +61,7 @@ const LINK =
         <button
           type="button"
           class="w-full text-left"
-          :class="[LINK, inSettings && 'text-ink']"
+          :class="[LINK, inSettings && '!text-brand font-medium [&_svg]:!text-brand']"
           :aria-expanded="settingsOpen"
           @click="settingsOpen = !settingsOpen"
         >
@@ -73,7 +78,7 @@ const LINK =
               :to="{ name: link.name }"
               class="block rounded-lg px-2.5 py-1.5 text-sm text-ink transition-colors duration-150
                      hover:bg-surface hover:text-ink"
-              active-class="bg-raised text-ink"
+              :active-class="LINK_ACTIVE"
             >
               {{ link.label }}
             </router-link>
