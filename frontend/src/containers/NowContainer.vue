@@ -66,10 +66,13 @@ const needsPlaylist = computed(() => playlistsReady.value && !playlists.value.le
 const pairing = ref(false)
 async function onClaim(body: ClaimBody) {
   if (!(await claim(body))) return
-  // Held briefly so "connected" is actually seen before the dialog closes.
+  // Held briefly so "connected" is actually seen before the dialog closes — then on to the
+  // new screen's page, where what comes next (assigning content) actually happens.
   if (!claimError.value) {
     await new Promise((r) => setTimeout(r, 900))
     pairing.value = false
+    const id = connecting.value?.id
+    if (id) router.push({ name: 'device-detail', params: { id } })
   }
 }
 const { nowPlaying } = useNowPlaying(resolved, playlists)

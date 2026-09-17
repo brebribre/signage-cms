@@ -54,10 +54,14 @@ async function onClaim(body: ClaimBody) {
   const ok = await claim(body)
   if (!ok) return
   // Held briefly so "connected" is actually seen — closing the instant the promise resolves
-  // throws away the one piece of feedback that says the screen really started.
+  // throws away the one piece of feedback that says the screen really started. Then straight
+  // to the new screen's page: everything someone does next (assign a playlist, set its
+  // orientation, check it's playing) lives there, not in the list it just joined.
   if (!claimError.value) {
     await new Promise((r) => setTimeout(r, 900))
     pairing.value = false
+    const id = connecting.value?.id
+    if (id) router.push({ name: 'device-detail', params: { id } })
   }
 }
 </script>
