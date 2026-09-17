@@ -242,21 +242,62 @@ fun PreparingScreen(deviceName: String, done: Int, total: Int, currentFile: Stri
     }
 }
 
-/** Paired, but nothing assigned. A valid state for a new screen, not an error. */
+/**
+ * Paired, but nothing assigned. A valid state for a new screen, not an error — so it wears the
+ * same look as the pairing screen it follows: the brand gradient, the logo, the screen's name on
+ * the translucent card where the code was, and the same slow pulse to say it is alive and
+ * connected rather than frozen. What changes is the words: what to do next is in the CMS.
+ */
 @Composable
 fun IdleScreen(deviceName: String) {
     Box(
-        Modifier.fillMaxSize().background(Ink),
+        Modifier.fillMaxSize().background(BrandGradient),
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(deviceName, color = InkInverse, fontSize = 48.sp, fontWeight = FontWeight.Medium)
-            Text(
-                "No content assigned",
-                color = InkMuted,
-                fontSize = 22.sp,
-                modifier = Modifier.padding(top = 12.dp),
-            )
+            PaskallLogo(height = 44.dp)
+
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .padding(top = 36.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(Color.White.copy(alpha = 0.1f))
+                    .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(24.dp))
+                    .padding(horizontal = 48.dp, vertical = 22.dp),
+            ) {
+                Text(
+                    "No content assigned",
+                    color = OnBrandMuted,
+                    fontSize = 22.sp,
+                    fontFamily = Inter,
+                )
+                // The name is what someone in the CMS matches this screen by, so it gets the
+                // code's place and weight — smaller only because names run longer than codes.
+                Text(
+                    deviceName,
+                    color = Color.White,
+                    fontSize = 64.sp,
+                    fontFamily = Outfit,
+                    fontWeight = FontWeight.Medium,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(top = 28.dp),
+            ) {
+                PulsingDot()
+                Text(
+                    "Connected · assign a playlist in the CMS",
+                    color = OnBrandMuted,
+                    fontSize = 18.sp,
+                    fontFamily = Inter,
+                    modifier = Modifier.padding(start = 10.dp),
+                )
+            }
         }
     }
 }

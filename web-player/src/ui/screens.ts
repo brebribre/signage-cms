@@ -49,10 +49,19 @@ export function statusScreenHtml(s: StatusState): string {
       </div></div>`
     }
 
+    // Paired, nothing assigned — a valid state, not an error, so it wears the pairing screen's
+    // look: the screen's name on the card where the code was, the same pulse to say it's alive.
     case 'idle':
-      return `<div class="screen"><div class="col">
-        <div style="font-size:8.5vmin;font-weight:500">${esc(s.deviceName)}</div>
-        <div class="muted" style="font-size:4vmin;margin-top:2vmin">No content assigned</div>
+      return `<div class="screen screen-brand"><div class="col">
+        <img class="logo" src="${logoUrl}" alt="Paskall">
+        <div class="pair-card">
+          <div class="pair-label">No content assigned</div>
+          <div class="idle-name">${esc(s.deviceName)}</div>
+        </div>
+        <div class="row pair-status">
+          <span class="dot"></span>
+          <span>Connected · assign a playlist in the CMS</span>
+        </div>
       </div></div>`
 
     case 'trouble':
