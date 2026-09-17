@@ -176,39 +176,42 @@ describe('sync', () => {
     start()
     await tick(0)
     expect(engine.state.value.kind).toBe('playing')
-    expect(cache.log).toEqual(['download a', 'download b', 'evict except a,b'])
+    expect(cache.log).toEqual(['download a', 'evict except a'])
     const s = engine.state.value as Extract<typeof engine.state.value, { kind: 'playing' }>
-    expect(s.sources).toEqual({ a: 'blob:a', b: 'blob:b' })
+    expect(s.sources).toEqual({ a: 'blob:a', b: 'https://r2/b' })
   })
 
-  it('a file that fails to download streams from its address instead of leaving a gap', async () => {
+  it('a picture that fails to download streams from its address instead of leaving a gap', async () => {
     api.manifest = manifest()
-    cache.failing.add('b')
+    cache.failing.add('a')
     start()
     await tick(0)
     const s = engine.state.value as Extract<typeof engine.state.value, { kind: 'playing' }>
     expect(s.slots.map((x) => x.id)).toEqual(['s1', 's2'])
-    expect(s.sources.b).toBe('https://r2/b')
-    expect(cache.log).toContain('evict except a')
+    expect(s.sources.a).toBe('https://r2/a')
+    expect(cache.log).toContain('evict except ')
   })
 
-  it('on a browser that cannot play cached video, videos play from their address, cache kept as fallback', async () => {
+  it('videos are never downloaded: they play from their address, and keep the manifest fresh', async () => {
     api.manifest = manifest()
-    start({ streamVideos: () => true })
+    store.saveEtag('"v1"')
+    start()
     await tick(0)
-    const s = engine.state.value as Extract<typeof engine.state.value, { kind: 'playing' }>
-    expect(s.sources).toEqual({ a: 'blob:a', b: 'https://r2/b' })
-    expect(s.alternates).toEqual({ a: 'https://r2/a', b: 'blob:b' })
-    expect(cache.files.has('b')).toBe(true)
+    expect(cache.log.filter((l) => l.startsWith('download'))).toEqual(['download a'])
+    // Presigned addresses expire: after 4h the next poll asks for a whole manifest, not a 304.
+    const calls = api.manifestCalls.length
+    await tick(4 * 60 * 60 * 1000 + POLL_SECONDS * 1000)
+    expect(api.manifestCalls.slice(calls)).toContain(null)
   })
 
-  it('switching to streamed video fetches a whole manifest at once', async () => {
+  it('a restarted screen with a video in its loop fetches fresh addresses on the first poll', async () => {
+    store.saveManifestJson(JSON.stringify(manifest()))
+    store.saveEtag('"v1"')
+    cache.files.set('a', 100)
     api.manifest = manifest()
     start()
     await tick(0)
-    engine.refreshContent()
-    await tick(0)
-    expect(api.manifestCalls).toEqual([null, null])
+    expect(api.manifestCalls[0]).toBeNull()
   })
 
   it('an error stays on the debug overlay after later polls succeed', async () => {
@@ -259,7 +262,6 @@ describe('sync', () => {
     store.saveManifestJson(JSON.stringify(m))
     store.saveEtag('"v1"')
     cache.files.set('a', 100)
-    cache.files.set('b', 200)
     api.manifestError = new Error('offline')
     start()
     await tick(0)

@@ -99,10 +99,10 @@ set through the GraphQL API's `serviceInstanceUpdate(rootDirectory: "/web-player
 Settings → Source → Root directory in the dashboard. A screen reloads itself onto a new deploy
 within 5 minutes (it compares `RAILWAY_DEPLOYMENT_ID` from `/version.json`).
 
-**Offline caching needs one more R2 CORS origin** — add
-`https://web-player-production-cbfe.up.railway.app` to the bucket policy below. Until then web
-screens stream every file from R2 instead of caching it: they play fine, but stop if the venue's
-network drops.
+**Offline pictures need one more R2 CORS origin** — add
+`https://web-player-production-cbfe.up.railway.app` to the bucket policy below (done 2026-09-17).
+Without it web screens stream pictures from R2 instead of caching them. Videos always stream on
+web screens regardless — see `web-player/README.md`.
 
 ## The two CORS surfaces
 

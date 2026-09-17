@@ -15,8 +15,9 @@ port of `PlayerEngine.kt`, and the tests in `test/` mirror `PlayerEngineTest.kt`
   clock. Off means a black screen with nothing decoding and the wake lock released.
 - **Settings**: rotation, volume and the touchscreen lock. (The app-lock PIN is hidden for web
   screens — there's no app to exit.)
-- **Offline**: files are cached in the browser and the player itself is cached by a service
-  worker, so a screen that reboots with no network plays its last content.
+- **Offline**: pictures are cached in the browser and the player itself by a service worker, so
+  a screen that loses its network keeps showing its pictures. **Videos always play from R2** and
+  need the network — see the table below.
 
 ## Where it differs, and why
 
@@ -28,6 +29,7 @@ port of `PlayerEngine.kt`, and the tests in `test/` mirror `PlayerEngineTest.kt`
 | Rotation | `requestedOrientation` | The page draws itself turned 90° when the setting doesn't match the panel's shape. |
 | Brightness | Not offered by the CMS yet | Not possible from a browser. |
 | Websites | WebView | `<iframe>` — sites that forbid being framed (`X-Frame-Options`) won't show. |
+| Video files | Downloaded and played offline | Played straight from R2, never downloaded. TV browsers hand video to the TV's own player, which can open an address but not a file stored inside the browser — cached videos were a black screen on a Samsung Tizen TV. Without network, video slides are skipped and pictures keep looping. |
 | Sound | Always | Browsers block autoplay with sound until someone interacts; the player falls back to muted and reports it. Enable autoplay in the TV browser's settings. |
 
 ## Setting up a screen
@@ -53,12 +55,12 @@ use the TV's kiosk/URL-launcher mode, or install the page as an app where the br
 server, content version, cache, wake lock and last error, with **Check for update** and
 **Reload player**. (A corner hold on top of a website element doesn't reach the page — use a key.)
 
-### Offline caching needs R2 CORS
+### Offline pictures need R2 CORS
 
-Downloads go straight from the browser to R2, so the bucket's CORS policy must allow the web
-player's origin (R2 → `fortu-cms` → Settings → CORS Policy — add it to `AllowedOrigins`, with
-`GET`). Without it the player still plays everything, streaming each file from its URL — it just
-can't keep playing if the network drops. The debug overlay's **last error** says so.
+Picture downloads go straight from the browser to R2, so the bucket's CORS policy must allow the
+web player's origin (R2 → `fortu-cms` → Settings → CORS Policy — add it to `AllowedOrigins`, with
+`GET`). Without it pictures stream from R2 like videos: everything still plays, but nothing
+survives the network dropping. Videos don't need CORS — they're never downloaded.
 
 ## Development
 
