@@ -37,9 +37,6 @@ async function onClaim(body: ClaimBody) {
   <div class="flex flex-col gap-6">
     <PageTitle title="Devices" :subtitle="`${items.length} screen${items.length === 1 ? '' : 's'}`">
       <template #actions>
-        <AppButton variant="secondary" size="sm" @click="router.push({ name: 'campaigns' })">
-          Campaigns
-        </AppButton>
         <AppButton size="sm" @click="pairing = true">Add screen</AppButton>
       </template>
     </PageTitle>
