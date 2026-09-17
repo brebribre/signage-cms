@@ -39,7 +39,7 @@ async function onClaim(body: ClaimBody) {
     <PageTitle title="Devices" :subtitle="`${items.length} screen${items.length === 1 ? '' : 's'}`">
       <template #actions>
         <AppButton size="sm" @click="pairing = true">
-          <IconAdd class="size-4" aria-hidden="true" />
+          <IconAdd class="size-4 transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] group-hover:rotate-90 motion-reduce:transition-none" aria-hidden="true" />
           Add screen
         </AppButton>
       </template>
@@ -55,7 +55,7 @@ async function onClaim(body: ClaimBody) {
     >
       <template #actions>
         <AppButton size="sm" @click="pairing = true">
-          <IconAdd class="size-4" aria-hidden="true" />
+          <IconAdd class="size-4 transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] group-hover:rotate-90 motion-reduce:transition-none" aria-hidden="true" />
           Add screen
         </AppButton>
       </template>

@@ -54,7 +54,7 @@ async function onCreate() {
     <PageTitle title="Playlists" :subtitle="`${items.length} playlist${items.length === 1 ? '' : 's'}`">
       <template #actions>
         <AppButton size="sm" @click="adding = true">
-          <IconAdd class="size-4" aria-hidden="true" />
+          <IconAdd class="size-4 transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] group-hover:rotate-90 motion-reduce:transition-none" aria-hidden="true" />
           New playlist
         </AppButton>
       </template>
@@ -70,7 +70,7 @@ async function onCreate() {
     >
       <template #actions>
         <AppButton size="sm" @click="adding = true">
-          <IconAdd class="size-4" aria-hidden="true" />
+          <IconAdd class="size-4 transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] group-hover:rotate-90 motion-reduce:transition-none" aria-hidden="true" />
           New playlist
         </AppButton>
       </template>
