@@ -31,6 +31,7 @@ import SceneEditor from '@/reusables/SceneEditor.vue'
 import ScreenPreview from '@/reusables/ScreenPreview.vue'
 import PageTitle from '@/reusables/PageTitle.vue'
 import type { DraftElement, DraftItem } from '@/hooks/usePlaylistEditor'
+import { useSortableList } from '@/hooks/useSortableList'
 import { returnLabel, safeReturnPath } from '@/utils/returnTo'
 import { normalizeWebsiteUrl } from '@/utils/websiteUrl'
 
@@ -51,7 +52,9 @@ const preview = usePlaylistPreview(() => draft.value)
 
 const picking = ref(false)
 const confirmingDelete = ref(false)
-const dragFrom = ref<number | null>(null)
+/** Drag to reorder — see useSortableList. */
+const listRef = ref<HTMLElement | null>(null)
+const { dragging, onRowPointerDown, onHandlePointerDown, onHandleKeydown } = useSortableList({ list: listRef, move })
 
 // The full-page canvas editor. `editingIsNew` tracks whether `editingItem` is still just a
 // candidate — it only lands in `draft` once Apply gives it at least one element, so
@@ -96,14 +99,6 @@ function confirmWebsite() {
   addingWebsite.value = false
 }
 
-/** Reorders the moment the dragged row crosses into another row, rather than waiting for
- *  drop — so the list visibly snaps into its new order while the user is still dragging. */
-function onDragEnter(to: number) {
-  if (dragFrom.value === null || dragFrom.value === to) return
-  move(dragFrom.value, to)
-  dragFrom.value = to
-}
-
 /** Set when this playlist was opened from the deploy flow's "New playlist" — Save then takes
  *  people straight back there with this playlist picked. See DeployContainer's detour. */
 const returnTo = safeReturnPath(route.query.returnTo)
@@ -125,33 +120,6 @@ async function onDelete() {
   }
   if (returnTo) backToReturn()
   else router.push({ name: 'playlists' })
-}
-
-/**
- * Touch reordering. HTML5 drag-and-drop never fires for a finger, so on touch screens the handle
- * drives it with pointer events instead: the row under the finger is found by position, and the
- * list reorders the moment the finger crosses into it — the same behaviour as the desktop drag,
- * through the same `onDragEnter`. The handle is `touch-none` so the page doesn't scroll instead.
- */
-function onHandlePointerDown(e: PointerEvent, index: number) {
-  if (e.pointerType === 'mouse') return
-  e.preventDefault()
-  dragFrom.value = index
-  // Keeps move/up events coming to the handle even when the finger slides off it. Best-effort:
-  // the drag still works without it, so a browser refusing capture mustn't abort the drag.
-  try {
-    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
-  } catch {
-    /* no capture — events still arrive while the finger is over the list */
-  }
-}
-function onHandlePointerMove(e: PointerEvent) {
-  if (e.pointerType === 'mouse' || dragFrom.value === null) return
-  const row = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>('li[data-row-index]')
-  if (row) onDragEnter(Number(row.dataset.rowIndex))
-}
-function endTouchDrag(e: PointerEvent) {
-  if (e.pointerType !== 'mouse') dragFrom.value = null
 }
 
 function startEditScene(row: DraftItem) {
@@ -247,41 +215,36 @@ function sceneLabel(item: DraftItem): string {
       <!-- Items and Add media share one column, so the button sits exactly as far below the last
            item as the items sit from each other. An empty playlist is just the button. -->
       <div class="flex flex-col gap-2">
-      <ul v-if="draft.length" class="flex flex-col gap-2">
+      <ul v-if="draft.length" ref="listRef" class="relative flex flex-col gap-2">
         <li
           v-for="(row, index) in draft"
           :key="row.key"
-          draggable="true"
-          :data-row-index="index"
+          :data-sort-key="row.key"
           class="flex cursor-pointer items-center gap-3 rounded-xl bg-surface p-3 transition-colors duration-200"
           :class="[
             // opacity < 1 promotes the row to its own stacking context, so its ⋮ menu needs an
             // explicit z-index here or it loses to AddMediaMenu's (later in the DOM, also
             // positioned) stacking context on DOM order alone and renders underneath it.
             !row.isEnabled && 'relative z-10 opacity-50',
-            dragFrom === index && 'bg-raised',
+            // Lifted while held: above its neighbours, tinted, and outlined in brand.
+            dragging === index && 'relative z-30 cursor-grabbing bg-canvas ring-2 ring-brand',
             preview.current.value?.key === row.key && 'bg-raised ring-2 ring-ink',
           ]"
-          @dragstart="dragFrom = index"
-          @dragover.prevent
-          @dragenter.prevent="onDragEnter(index)"
-          @drop.prevent
-          @dragend="dragFrom = null"
+          @pointerdown="onRowPointerDown($event, index)"
           @click="preview.select(row)"
         >
           <div class="flex min-w-0 flex-1 items-center gap-3">
-            <!-- The drag handle. Desktop drags the whole row natively; on touch the handle itself
-                 drives the reorder (see onHandlePointerDown). -->
+            <!-- The drag handle: any pointer drags from here (a finger only from here, so a swipe
+                 on the row still scrolls), and ↑/↓ move the row from the keyboard. -->
             <button
               type="button"
               class="-ml-1 flex size-8 shrink-0 cursor-grab touch-none items-center justify-center rounded-md
-                     text-ink-subtle select-none"
-              aria-label="Drag to reorder"
+                     text-ink-subtle select-none hover:bg-raised hover:text-ink focus-visible:outline-2
+                     focus-visible:outline-brand-bright active:cursor-grabbing"
+              :aria-label="`Move scene ${index + 1} of ${draft.length}. Drag, or use the up and down arrow keys.`"
               @click.stop
-              @pointerdown="onHandlePointerDown($event, index)"
-              @pointermove="onHandlePointerMove"
-              @pointerup="endTouchDrag"
-              @pointercancel="endTouchDrag"
+              @pointerdown.stop="onHandlePointerDown($event, index)"
+              @keydown="onHandleKeydown($event, index)"
             >
               <IconDragIndicator class="size-4" aria-hidden="true" />
             </button>
