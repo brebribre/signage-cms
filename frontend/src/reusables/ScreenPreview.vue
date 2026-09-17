@@ -112,11 +112,9 @@ function targetAspect(el: DraftElement): number {
  * *effective* (post-rotation) aspect ratio, and the innermost media element is the only
  * thing that actually rotates, via `rotationStyle`'s container-query sizing.
  *
- * `contain`/`stretch`: a simpler, approximate composition — plain `object-fit` plus a CSS
- * `rotate()` on the media element directly, with no effective-dimension swap. No element
- * produced by the current editor (SceneEditor.vue always writes `fit: 'cover'`) can combine
- * a non-cover fit with a non-zero rotation, so this path only exists for legacy data and
- * doesn't need the full treatment.
+ * `contain`/`stretch`: the wrapper is the whole box, and the media inside is rotated the same
+ * way, then letterboxed (`contain`, what media added to a playlist gets) or stretched by
+ * `object-fit`. Its letterbox is transparent, so a blurred scene background shows through.
  */
 function wrapperStyle(el: DraftElement): CSSProperties {
   if (!el.mediaWidth || !el.mediaHeight) return {}
@@ -128,18 +126,12 @@ function wrapperStyle(el: DraftElement): CSSProperties {
     )
     return { position: 'absolute', ...cropRectToStyle(rect), ...ROTATION_WRAPPER_STYLE } as CSSProperties
   }
-  return { position: 'absolute', inset: 0 }
+  return { position: 'absolute', inset: 0, ...ROTATION_WRAPPER_STYLE } as CSSProperties
 }
 
 function mediaStyle(el: DraftElement): CSSProperties {
   if (el.fit === 'cover') return rotationStyle(el.rotationDegrees) as CSSProperties
-  const FIT_TO_CSS = { contain: 'contain', stretch: 'fill' } as const
-  return {
-    objectFit: FIT_TO_CSS[el.fit as 'contain' | 'stretch'],
-    width: '100%',
-    height: '100%',
-    transform: el.rotationDegrees ? `rotate(${el.rotationDegrees}deg)` : undefined,
-  }
+  return { ...rotationStyle(el.rotationDegrees), objectFit: el.fit === 'stretch' ? 'fill' : 'contain' } as CSSProperties
 }
 </script>
 

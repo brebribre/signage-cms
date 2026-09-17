@@ -357,12 +357,23 @@ const EDGE_CURSOR: Record<Edge, string> = { n: 'ns-resize', s: 'ns-resize', e: '
 
 function cropWrapperStyle(el: DraftElement) {
   if (!el.mediaWidth || !el.mediaHeight) return {}
+  if (el.fit !== 'cover') return { position: 'absolute' as const, inset: 0, ...ROTATION_WRAPPER_STYLE }
   const rect = currentCropRect(el, el.cropX ?? 0.5, el.cropY ?? 0.5)
   return { position: 'absolute' as const, ...cropRectToStyle(rect), ...ROTATION_WRAPPER_STYLE }
 }
 
 function mediaStyle(el: DraftElement) {
-  return rotationStyle(el.rotationDegrees)
+  if (el.fit === 'cover') return rotationStyle(el.rotationDegrees)
+  return { ...rotationStyle(el.rotationDegrees), objectFit: el.fit === 'stretch' ? 'fill' : 'contain' } as const
+}
+
+/** Fit shows the whole media inside its box (letterboxed, with the scene background showing
+ *  through); Fill covers the box and can be cropped. Stretch isn't offered here — it only
+ *  exists for older data — but an element that has it keeps it until switched. */
+function setFit(fit: 'contain' | 'cover') {
+  if (!selected.value) return
+  selected.value.fit = fit
+  if (fit !== 'cover') cropMode.value = false
 }
 
 // --- Right panel: rotate, crop (pan on-canvas + zoom here), mute/unmute for video, delete. ---
@@ -828,6 +839,29 @@ function apply() {
             </form>
 
             <div v-else class="flex flex-col gap-2">
+              <p class="text-[13px] text-ink-subtle">Size</p>
+              <div class="flex gap-2" role="radiogroup" aria-label="Size">
+                <AppButton
+                  :variant="selected.fit === 'contain' ? 'primary' : 'secondary'" size="sm"
+                  role="radio" :aria-checked="selected.fit === 'contain'"
+                  @click="setFit('contain')"
+                >
+                  Fit
+                </AppButton>
+                <AppButton
+                  :variant="selected.fit === 'cover' ? 'primary' : 'secondary'" size="sm"
+                  role="radio" :aria-checked="selected.fit === 'cover'"
+                  @click="setFit('cover')"
+                >
+                  Fill
+                </AppButton>
+              </div>
+              <p class="text-[12px] text-ink-subtle">
+                {{ selected.fit === 'cover' ? 'Covers its box; crop to choose what shows.' : 'Shows all of it; the scene background fills the rest.' }}
+              </p>
+            </div>
+
+            <div v-if="selected.kind !== 'web'" class="flex flex-col gap-2">
               <p class="text-[13px] text-ink-subtle">Transform</p>
               <div class="flex flex-wrap gap-2">
                 <AppButton variant="secondary" size="sm" @click="rotateSelected">
@@ -836,7 +870,8 @@ function apply() {
                 </AppButton>
                 <AppButton
                   :variant="cropMode ? 'primary' : 'secondary'" size="sm"
-                  :disabled="!selected.mediaWidth"
+                  :disabled="!selected.mediaWidth || selected.fit !== 'cover'"
+                  :title="selected.fit !== 'cover' ? 'Crop applies to Fill' : undefined"
                   @click="cropMode = !cropMode"
                 >
                   <IconCrop class="size-4" />

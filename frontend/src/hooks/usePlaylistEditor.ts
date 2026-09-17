@@ -217,9 +217,12 @@ export function usePlaylistEditor(id: string) {
           m.kind === 'video' && m.duration_seconds
             ? Math.max(1, Math.round(m.duration_seconds))
             : IMAGE_DEFAULT_SECONDS,
+        // Whole media, never cropped, with a blurred copy filling the rest of the screen: the
+        // playlist may run on portrait and landscape screens alike, and this looks right on
+        // both without anyone arranging it. Placement by hand is the scene editor's job.
         isEnabled: true,
-        background: 'black',
-        elements: [mediaToDraftElement(m)],
+        background: 'blur',
+        elements: [mediaToDraftElement(m, { fit: 'contain' })],
       })
     }
   }

@@ -54,7 +54,13 @@ export function usePlaylistCompose() {
       if (opts.mediaIds.length) {
         await api.replaceItems(id, [
           ...existing,
-          ...opts.mediaIds.map((media_id): ItemWrite => ({ duration_seconds: null, elements: [{ media_id }] })),
+          // Whole media over a blurred background — the same default as adding media in the
+          // playlist editor (usePlaylistEditor.addMedia).
+          ...opts.mediaIds.map((media_id): ItemWrite => ({
+            duration_seconds: null,
+            background: 'blur',
+            elements: [{ media_id, fit: 'contain' }],
+          })),
         ])
       }
       createdId = null

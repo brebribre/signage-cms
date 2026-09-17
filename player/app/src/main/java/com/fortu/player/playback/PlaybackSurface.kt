@@ -565,7 +565,11 @@ private fun PooledVideoSurface(
                 val layout =
                     if (useSurfaceView) R.layout.pooled_player_view_surface else R.layout.pooled_player_view
                 (LayoutInflater.from(ctx).inflate(layout, null) as PlayerView).apply {
-                    setBackgroundColor(android.graphics.Color.BLACK)
+                    // Transparent, not black: a video that fits whole letterboxes inside its box,
+                    // and a blurred scene background must show through the bars. The surface
+                    // itself is sized to the video, so nothing else changes; a black scene still
+                    // looks black because the scene behind is.
+                    setBackgroundColor(android.graphics.Color.TRANSPARENT)
                     player = exo
                 }
             },
