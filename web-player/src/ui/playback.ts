@@ -320,9 +320,13 @@ export class PlaybackSurface {
         feed = null
         if (useStored) {
           video.dataset.source = 'saved copy'
-          feed = feedStream(video, src.slice(STREAM_SOURCE_PREFIX.length), element.stream_mime!, (reason) => {
-            fallBack(reason)
-          })
+          feed = feedStream(
+            video,
+            src.slice(STREAM_SOURCE_PREFIX.length),
+            element.stream_mime!,
+            (reason) => { fallBack(reason) },
+            { loop },
+          )
         } else {
           video.dataset.source = 'network'
           video.src = element.url
@@ -337,18 +341,18 @@ export class PlaybackSurface {
         return true
       }
 
-      // MediaSource can't simply rewind past what it has dropped, so looping and restarting both
-      // start the feed over; a network video just seeks.
-      video.loop = loop && !stored
+      // Loops in place, stored copy or not: the browser jumps back to the start of what's already
+      // buffered, with no new source and so no blank frame between loops. (Rebuilding the feed at
+      // every loop is what used to flash a one-video playlist.) If a long video's start was dropped
+      // to save memory, the feed puts it back as the jump happens — see feedStream's `loop`.
+      video.loop = loop
       video.onended = () => {
         if (onFinished) onFinished(null)
         else if (loop) {
-          // Some TV browsers ignore `loop` for certain files and stop on the last frame instead.
-          if (useStored) start()
-          else {
-            video.currentTime = 0
-            this.play(video)
-          }
+          // Some TV browsers ignore `loop` for certain files and stop on the last frame instead:
+          // do the same jump by hand.
+          video.currentTime = 0
+          this.play(video)
         }
       }
       video.onerror = () => {

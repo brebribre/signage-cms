@@ -74,6 +74,12 @@ export function feedStream(
   blobUrl: string,
   mime: string,
   onError: (reason: string) => void,
+  options: {
+    /** The video loops (the caller sets `video.loop`). When it wraps back to the start and that
+     *  part is no longer buffered — dropped to make room in a long video — the start is fed again,
+     *  in place, rather than the whole MediaSource being rebuilt, which flashes the picture. */
+    loop?: boolean
+  } = {},
 ): StreamFeed {
   let stopped = false
   let failed = false
@@ -104,32 +110,45 @@ export function feedStream(
       target.addEventListener(event, done)
     })
 
+  let blob: Blob | null = null
+  let segments: Array<[number, number]> = []
+  let buffer: SourceBuffer | null = null
+  /** A feed pass in progress, so a loop can't start a second one alongside it. */
+  let feeding: Promise<void> | null = null
+
   const run = async () => {
     await waitFor(mediaSource, 'sourceopen', 10_000)
     if (stopped) return
     if (mediaSource.readyState !== 'open') throw new Error('MediaSource never opened')
 
-    const blob = await (await fetch(blobUrl)).blob()
-    const segments = segmentsOf(await topLevelBoxes(blob))
-    const buffer = mediaSource.addSourceBuffer(mime)
+    blob = await (await fetch(blobUrl)).blob()
+    segments = segmentsOf(await topLevelBoxes(blob))
+    buffer = mediaSource.addSourceBuffer(mime)
+    await (feeding = feed().finally(() => { feeding = null }))
+  }
 
+  /** One pass over the file: every fragment in order, holding back while plenty is buffered
+   *  ahead. Already-buffered fragments are simply appended again, which is harmless. */
+  const feed = async () => {
+    const file = blob!
+    const sb = buffer!
     const append = (bytes: ArrayBuffer) =>
       new Promise<void>((resolve, reject) => {
         const onEnd = () => { cleanup(); resolve() }
         const onErr = () => { cleanup(); reject(new Error('the browser rejected a piece of the video')) }
         const cleanup = () => {
-          buffer.removeEventListener('updateend', onEnd)
-          buffer.removeEventListener('error', onErr)
+          sb.removeEventListener('updateend', onEnd)
+          sb.removeEventListener('error', onErr)
         }
-        buffer.addEventListener('updateend', onEnd)
-        buffer.addEventListener('error', onErr)
-        buffer.appendBuffer(bytes)
+        sb.addEventListener('updateend', onEnd)
+        sb.addEventListener('error', onErr)
+        sb.appendBuffer(bytes)
       })
 
     const bufferedAhead = () => {
       const t = video.currentTime
-      for (let i = 0; i < buffer.buffered.length; i++) {
-        if (buffer.buffered.start(i) <= t + 0.5 && buffer.buffered.end(i) >= t) return buffer.buffered.end(i) - t
+      for (let i = 0; i < sb.buffered.length; i++) {
+        if (sb.buffered.start(i) <= t + 0.5 && sb.buffered.end(i) >= t) return sb.buffered.end(i) - t
       }
       return 0
     }
@@ -137,7 +156,7 @@ export function feedStream(
     for (const [start, end] of segments) {
       while (!stopped && bufferedAhead() > BUFFER_AHEAD_SECONDS) await waitFor(video, 'timeupdate', 1_000)
       if (stopped) return
-      const bytes = await blob.slice(start, end).arrayBuffer()
+      const bytes = await file.slice(start, end).arrayBuffer()
       if (stopped) return
       try {
         await append(bytes)
@@ -145,21 +164,36 @@ export function feedStream(
         // Buffer full: drop what has already played, then try the same piece again once.
         if ((e as DOMException)?.name !== 'QuotaExceededError' || video.currentTime <= KEEP_BEHIND_SECONDS) throw e
         await new Promise<void>((resolve) => {
-          buffer.addEventListener('updateend', () => resolve(), { once: true })
-          buffer.remove(0, video.currentTime - KEEP_BEHIND_SECONDS)
+          sb.addEventListener('updateend', () => resolve(), { once: true })
+          sb.remove(0, video.currentTime - KEEP_BEHIND_SECONDS)
         })
         await append(bytes)
       }
     }
-    if (!stopped && mediaSource.readyState === 'open') mediaSource.endOfStream()
+    if (!stopped && mediaSource.readyState === 'open' && !sb.updating) mediaSource.endOfStream()
   }
 
   run().catch((e) => fail((e as Error)?.message || String(e)))
+
+  // Looping: the browser seeks back to the start itself (video.loop). Nearly always the start is
+  // still buffered and nothing needs doing; only if it was dropped does a new pass feed it again.
+  const onSeeking = () => {
+    if (stopped || !options.loop || !buffer || feeding) return
+    const t = video.currentTime
+    for (let i = 0; i < buffer.buffered.length; i++) {
+      if (buffer.buffered.start(i) <= t + 0.1 && buffer.buffered.end(i) > t) return
+    }
+    feeding = feed()
+      .catch((e) => fail((e as Error)?.message || String(e)))
+      .finally(() => { feeding = null })
+  }
+  video.addEventListener('seeking', onSeeking)
 
   return {
     destroy() {
       if (stopped) return
       stopped = true
+      video.removeEventListener('seeking', onSeeking)
       URL.revokeObjectURL(sourceUrl)
     },
   }
