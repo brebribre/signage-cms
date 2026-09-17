@@ -129,6 +129,11 @@ input, textarea, select, button {
   }
 }
 
-*, *::before, *::after {
-  touch-action: manipulation;
+/* No double-tap-to-zoom delay on taps. In the base layer, not unlayered: an unlayered rule beats
+   every Tailwind utility, so it silently overrode `touch-none` on the scene editor's canvas,
+   elements and handles — a finger drag there scrolled the page instead of moving the element. */
+@layer base {
+  *, *::before, *::after {
+    touch-action: manipulation;
+  }
 }

@@ -162,6 +162,21 @@ const frameWidthPx = computed(() => {
 })
 const frameOuterStyle = computed(() => ({ width: `min(100%, ${frameWidthPx.value}px)` }))
 let stageObserver: ResizeObserver | null = null
+const lockedScrollers: { el: HTMLElement; overflow: string; overscroll: string }[] = []
+onMounted(() => {
+  for (const el of [document.documentElement, document.body, document.getElementById('main')]) {
+    if (!el) continue
+    lockedScrollers.push({ el, overflow: el.style.overflow, overscroll: el.style.overscrollBehavior })
+    el.style.overflow = 'hidden'
+    el.style.overscrollBehavior = 'none'
+  }
+})
+onUnmounted(() => {
+  for (const { el, overflow, overscroll } of lockedScrollers.splice(0)) {
+    el.style.overflow = overflow
+    el.style.overscrollBehavior = overscroll
+  }
+})
 onMounted(() => {
   stageObserver = new ResizeObserver(([entry]) => {
     const style = getComputedStyle(entry.target)
@@ -506,18 +521,33 @@ function setFit(fit: 'contain' | 'cover') {
 
 // --- Right panel: rotate, crop (pan on-canvas + zoom here), mute/unmute for video, delete. ---
 
-/** Rotating 90°/270° swaps what's tall and what's wide, so the box swaps with it — a
- *  centered swap, not just a resize, so the box doesn't jump. Without this, a wide box stays
- *  wide after rotating its content upright, cropping most of it away against the now-mismatched
- *  aspect ratio. */
+/** A quarter turn clockwise, like turning the picture on the table: the same size, around its own
+ *  centre.
+ *
+ *  The box's width and height are fractions of the canvas's width and height, and the canvas isn't
+ *  square — so swapping the two *fractions* would change the box's real size and shape (a 16:9
+ *  screen made every rotated box smaller and squarer). What swaps is the real length: the new width
+ *  is the old height measured against the canvas width, and vice versa. The crop turns with the
+ *  picture, so the same part of it stays in view. */
 function rotateSelected() {
   const el = selected.value
   if (!el) return
+  const aspect = canvasAspect.value
   const cx = el.x + el.width / 2
   const cy = el.y + el.height / 2
-  ;[el.width, el.height] = [el.height, el.width]
-  el.x = cx - el.width / 2
-  el.y = cy - el.height / 2
+  const width = el.height / aspect
+  const height = el.width * aspect
+  el.width = width
+  el.height = height
+  el.x = cx - width / 2
+  el.y = cy - height / 2
+  // A point at (x, y) in the picture as shown sits at (1 − y, x) after a clockwise quarter turn.
+  if (el.cropX != null || el.cropY != null) {
+    const cropX = el.cropX ?? 0.5
+    const cropY = el.cropY ?? 0.5
+    el.cropX = 1 - cropY
+    el.cropY = cropX
+  }
   el.rotationDegrees = (el.rotationDegrees + 90) % 360
 }
 
@@ -648,7 +678,9 @@ function apply() {
 </script>
 
 <template>
-  <div class="flex h-full flex-col">
+  <!-- overscroll-none: a gesture that reaches the end of anything in here stops there, rather than
+       carrying on into the page behind the editor. -->
+  <div class="flex h-full flex-col overscroll-none">
     <div class="flex shrink-0 items-center justify-between gap-3 border-b border-line px-3 py-2.5 sm:px-6 sm:py-3">
       <div class="flex min-w-0 items-center gap-3">
         <AppButton variant="ghost" size="sm" @click="emit('close')">
@@ -693,7 +725,7 @@ function apply() {
         :class="[
           isWide
             ? 'w-64 shrink-0 border-r p-3'
-            : 'fixed inset-x-0 bottom-0 z-50 max-h-[60dvh] rounded-t-2xl border-t bg-canvas px-4 pt-2 pb-[calc(1rem_+_env(safe-area-inset-bottom))]',
+            : 'fixed inset-x-0 bottom-0 z-50 max-h-[60dvh] touch-pan-y overscroll-contain rounded-t-2xl border-t bg-canvas px-4 pt-2 pb-[calc(1rem_+_env(safe-area-inset-bottom))]',
           isPanelDragOver ? 'border-ink bg-surface' : 'border-line',
         ]"
         @dragenter.prevent="onPanelDragEnter"
@@ -800,7 +832,8 @@ function apply() {
       <!-- Canvas -->
       <div
         ref="stageRef"
-        class="flex min-w-0 flex-1 items-center justify-center overflow-hidden bg-surface p-4 lg:overflow-auto lg:p-6"
+        class="flex min-w-0 flex-1 touch-none items-center justify-center overflow-hidden bg-surface p-4 select-none
+               lg:touch-auto lg:overflow-auto lg:p-6"
         :class="!isWide && 'pb-4'"
         @click.self="select(null)"
       >
@@ -941,7 +974,7 @@ function apply() {
         class="flex flex-col overflow-y-auto border-line"
         :class="isWide
           ? 'w-72 shrink-0 border-l'
-          : 'fixed inset-x-0 bottom-0 z-50 max-h-[60dvh] rounded-t-2xl border-t bg-canvas pb-[env(safe-area-inset-bottom)]'"
+          : 'fixed inset-x-0 bottom-0 z-50 max-h-[60dvh] touch-pan-y overscroll-contain rounded-t-2xl border-t bg-canvas pb-[env(safe-area-inset-bottom)]'"
       >
         <div v-if="!isWide" class="flex items-center justify-between px-4 pt-3">
           <p class="text-base text-ink">{{ selected ? 'Edit' : 'Scene' }}</p>
@@ -1112,7 +1145,7 @@ function apply() {
       </aside>
 
       <!-- Behind an open sheet: tapping outside it closes it. -->
-      <div v-if="!isWide && sheet" class="fixed inset-0 z-40 bg-ink/30" aria-hidden="true" @click="closeSheet" />
+      <div v-if="!isWide && sheet" class="fixed inset-0 z-40 touch-none bg-ink/30" aria-hidden="true" @click="closeSheet" />
     </div>
 
     <!-- Crop on a narrow screen: the zoom slider sits just above the toolbar, so the canvas stays
@@ -1136,7 +1169,7 @@ function apply() {
          be done to the selection when something is. Scrolls sideways when the tools outgrow it. -->
     <nav
       v-if="!isWide"
-      class="flex shrink-0 gap-1 overflow-x-auto border-t border-line bg-canvas px-2 pt-1.5 pb-[calc(0.375rem_+_env(safe-area-inset-bottom))]"
+      class="flex shrink-0 touch-pan-x gap-1 overflow-x-auto overscroll-contain border-t border-line bg-canvas px-2 pt-1.5 pb-[calc(0.375rem_+_env(safe-area-inset-bottom))]"
       aria-label="Scene tools"
     >
       <template v-if="!selected">
