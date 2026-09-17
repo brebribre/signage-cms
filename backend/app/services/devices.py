@@ -194,6 +194,10 @@ def claim(
     _record_claim_attempt(user.id)
 
     code = pairing_code.strip().upper().replace(" ", "")
+    mock = _mock_pairing_code()
+    if mock and code == mock:
+        return _claim_mock_screen(session, user=user, name=name, location=location)
+
     device = session.exec(
         select(Device).where(Device.pairing_code == code, Device.account_id.is_(None))
     ).first()
@@ -213,6 +217,52 @@ def claim(
 
     session.commit()
     session.refresh(device)
+    return device
+
+
+def _mock_pairing_code() -> str | None:
+    """The local-development mock code, normalised like a typed one — or None.
+
+    Refused outright when cookies are secure: that is always true on the deployed backend
+    (DEPLOY.md) and never locally, so a stray MOCK_PAIRING_CODE on Railway still does nothing.
+    """
+    settings = get_settings()
+    raw = settings.mock_pairing_code.strip().upper().replace(" ", "")
+    if not raw:
+        return None
+    if settings.cookie_secure:
+        logger.warning("MOCK_PAIRING_CODE is set but cookies are secure (production?) — ignoring it")
+        return None
+    return raw
+
+
+def _claim_mock_screen(session: Session, *, user: User, name: str, location: str) -> Device:
+    """A screen with nothing behind it, for trying the CMS without hardware: claimed, paired and
+    seen just now, so "Add screen" reports it connected at once. It never checks in again, so it
+    shows offline a couple of minutes later, like a real screen that was switched off."""
+    now = utcnow()
+    device = Device(
+        account_id=user.account_id,
+        created_by=user.id,
+        name=name.strip() or "Mock screen",
+        location=location.strip(),
+        platform=DevicePlatform.WEB,
+        # A real hash of a token nobody holds, so the column stays unique and nothing can
+        # authenticate as this screen.
+        token_hash=hash_token(secrets.token_urlsafe(32)),
+        paired_at=now,
+        last_seen_at=now,
+        screen_width=1920,
+        screen_height=1080,
+        app_version="mock",
+        orientation=DeviceOrientation.LANDSCAPE,
+    )
+    session.add(device)
+    if user.role == UserRole.MANAGER:
+        session.add(DeviceAccess(user_id=user.id, device_id=device.id))
+    session.commit()
+    session.refresh(device)
+    logger.info("mock screen %s created for account %s", device.id, user.account_id)
     return device
 
 

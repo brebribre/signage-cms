@@ -225,6 +225,25 @@ def main() -> None:
     check("an Android screen (empty pair body) is still android",
           o.get(f"/devices/{device_id}").json()["platform"] == "android")
 
+    print("\nthe local mock pairing code")
+    settings.mock_pairing_code = "mock tv"
+    settings.cookie_secure = False
+    device_service._claim_attempts.clear()
+    first = o.post("/devices/claim", json={"pairing_code": "MOCKTV", "name": "Mock one"})
+    second = o.post("/devices/claim", json={"pairing_code": "mocktv", "name": "Mock two"})
+    check("it is accepted, typed any way", first.status_code == 201 and second.status_code == 201,
+          f"{first.status_code} {second.status_code}")
+    check("every claim is a new screen", first.json()["id"] != second.json()["id"])
+    check("it is connected at once", first.json()["paired_at"] is not None and first.json()["last_seen_at"] is not None)
+    settings.cookie_secure = True
+    check("it is refused when cookies are secure (production)",
+          o.post("/devices/claim", json={"pairing_code": "MOCKTV", "name": "x"}).status_code == 404)
+    settings.mock_pairing_code = ""
+    settings.cookie_secure = False
+    for d in (first.json(), second.json()):
+        o.delete(f"/devices/{d['id']}")
+    device_service._claim_attempts.clear()
+
     print("\ndelete")
     check("deleting a screen returns 204", o.delete(f"/devices/{device_id}").status_code == 204)
     check("...and it is gone", o.get(f"/devices/{device_id}").status_code == 404)

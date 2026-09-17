@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     # --- Devices (Phase 8) ---
     pairing_code_ttl_seconds: int = 900
     device_poll_seconds: int = 30
+    # Local development only: a code "Add screen" always accepts, creating a mock screen with no
+    # device behind it. See services/devices.py::claim — ignored whenever cookie_secure is on.
+    mock_pairing_code: str = ""
 
     # --- MQTT push prototype (see app/infra/mqtt.py) ---
     # Off by default — a device still gets everything from its next poll regardless, since
