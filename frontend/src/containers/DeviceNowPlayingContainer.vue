@@ -1,15 +1,34 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 
 import { usePlaylistApi } from '@/api/usePlaylistApi'
 import { useDeviceResolution } from '@/hooks/useDeviceResolution'
 import AppAlert from '@/reusables/AppAlert.vue'
+import AppButton from '@/reusables/AppButton.vue'
 import AppCard from '@/reusables/AppCard.vue'
 import type { PlaylistDetail } from '@/types/api'
 
 const props = defineProps<{ deviceId: string }>()
 const { resolution, isLoading, error } = useDeviceResolution(props.deviceId)
 const playlistApi = usePlaylistApi()
+const router = useRouter()
+
+/** Assignment only ever happens in Campaigns — so the way out of "nothing playing" is the
+ *  deploy flow, with this screen already ticked. The same door for a screen whose playlist
+ *  came from somewhere other than a campaign (a default set before campaigns existed). */
+function assignInCampaigns() {
+  router.push({ name: 'deploy', query: { screen: props.deviceId } })
+}
+function openPlaylist() {
+  const id = resolution.value?.playlist_id
+  if (id) router.push({ name: 'playlist-detail', params: { id } })
+}
+function openCampaign() {
+  const id = resolution.value?.campaign_id
+  if (id) router.push({ name: 'campaign-detail', params: { id } })
+  else assignInCampaigns()
+}
 
 const playlist = ref<PlaylistDetail | null>(null)
 
@@ -45,7 +64,7 @@ const thumbnails = computed(() =>
     <AppAlert v-if="error" tone="danger">{{ error }}</AppAlert>
     <p v-if="isLoading" class="text-sm text-ink-muted">Loading…</p>
 
-    <AppCard v-else-if="resolution?.playlist_id">
+    <AppCard v-else-if="resolution?.playlist_id" class="flex flex-col gap-4">
       <div class="flex items-center gap-4">
         <div class="min-w-0 flex-1">
           <p class="truncate text-sm text-ink">{{ playlist?.name ?? '—' }}</p>
@@ -72,10 +91,19 @@ const thumbnails = computed(() =>
           </div>
         </div>
       </div>
+      <!-- Edit the loop itself, or the rule that put it here. A playlist that arrived without a
+           campaign (a default from before campaigns) can only be changed by making one. -->
+      <div class="flex flex-wrap gap-2">
+        <AppButton size="sm" variant="secondary" @click="openPlaylist">Open playlist</AppButton>
+        <AppButton size="sm" variant="secondary" @click="openCampaign">
+          {{ resolution.campaign_id ? 'Open campaign' : 'Assign in Campaigns' }}
+        </AppButton>
+      </div>
     </AppCard>
 
-    <AppCard v-else>
+    <AppCard v-else class="flex flex-wrap items-center justify-between gap-3">
       <p class="text-sm text-ink-muted">No playlist assigned</p>
+      <AppButton size="sm" @click="assignInCampaigns">Assign a playlist</AppButton>
     </AppCard>
   </div>
 </template>

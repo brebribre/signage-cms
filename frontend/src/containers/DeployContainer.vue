@@ -510,6 +510,14 @@ if (returning && restored) {
 // Drop the return marker so a reload doesn't try to restore a draft that's already gone.
 if (returning) router.replace({ path: route.path })
 
+// Arriving from a screen's own page ("Assign a playlist"): that screen starts ticked, so the
+// first step is already done rather than a list to hunt through. Only for a fresh deploy — a
+// restored draft or an existing campaign already knows its screens.
+const fromScreen = typeof route.query.screen === 'string' ? route.query.screen : null
+if (fromScreen && !isEdit && !(returning && restored) && !isSelected(fromScreen)) {
+  selectedIds.value.push(fromScreen)
+}
+
 watch(campaign, (c) => {
   // Once only: saving writes the result back into `campaign`, which must not reset the form.
   if (!c || hydrated) return
