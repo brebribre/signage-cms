@@ -151,6 +151,8 @@ export function usePlaylistEditor(id: string) {
 
   const playlist = ref<PlaylistDetail | null>(null)
   const draft = ref<DraftItem[]>([])
+  /** The name as edited, saved with everything else by Save. */
+  const draftName = ref('')
   const isLoading = ref(false)
   const isSaving = ref(false)
   const error = ref<string | null>(null)
@@ -171,7 +173,9 @@ export function usePlaylistEditor(id: string) {
       ]),
     ),
   )
-  const isDirty = computed(() => snapshot.value !== savedSnapshot.value)
+  const itemsDirty = computed(() => snapshot.value !== savedSnapshot.value)
+  const nameDirty = computed(() => !!playlist.value && draftName.value.trim() !== playlist.value.name)
+  const isDirty = computed(() => itemsDirty.value || nameDirty.value)
 
   const totalSeconds = computed(() =>
     draft.value.filter((d) => d.isEnabled).reduce((sum, d) => sum + d.durationSeconds, 0),
@@ -191,6 +195,7 @@ export function usePlaylistEditor(id: string) {
   function adopt(detail: PlaylistDetail) {
     playlist.value = detail
     draft.value = detail.items.map(toDraft)
+    draftName.value = detail.name
     savedSnapshot.value = snapshot.value
   }
 
@@ -254,6 +259,15 @@ export function usePlaylistEditor(id: string) {
     isSaving.value = true
     saveError.value = null
     try {
+      if (!draftName.value.trim()) draftName.value = playlist.value?.name ?? ''
+      if (nameDirty.value) {
+        const updated = await api.update(id, { name: draftName.value.trim() })
+        // Recorded now, so a failure saving the scenes below doesn't send the name again.
+        if (playlist.value) playlist.value.name = updated.name
+        draftName.value = updated.name
+      }
+      // Scenes are only sent when they changed: sending them again would reload every screen.
+      if (!itemsDirty.value) return true
       adopt(
         await api.replaceItems(
           id,
@@ -288,21 +302,6 @@ export function usePlaylistEditor(id: string) {
     }
   }
 
-  /** Saved straight away, apart from Save: a name is a label, not a change screens will play. */
-  async function rename(name: string): Promise<boolean> {
-    name = name.trim()
-    if (!name || name === playlist.value?.name) return true
-    saveError.value = null
-    try {
-      const updated = await api.update(id, { name })
-      if (playlist.value) playlist.value.name = updated.name
-      return true
-    } catch (e) {
-      saveError.value = e instanceof ApiError ? e.message : 'Could not rename'
-      return false
-    }
-  }
-
   async function setShuffle(shuffle: boolean) {
     try {
       const updated = await api.update(id, { shuffle })
@@ -327,8 +326,8 @@ export function usePlaylistEditor(id: string) {
   onMounted(refresh)
 
   return {
-    playlist, draft, isLoading, isSaving, isDirty, error, saveError, deleteError,
+    playlist, draft, draftName, isLoading, isSaving, isDirty, error, saveError, deleteError,
     totalSeconds, enabledCount,
-    addMedia, addWebsite, removeAt, move, save, rename, setShuffle, remove, refresh,
+    addMedia, addWebsite, removeAt, move, save, setShuffle, remove, refresh,
   }
 }

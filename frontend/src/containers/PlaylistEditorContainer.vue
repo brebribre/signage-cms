@@ -41,8 +41,8 @@ const router = useRouter()
 const id = String(route.params.id)
 
 const {
-  playlist, draft, isLoading, isSaving, isDirty, error, saveError, deleteError,
-  totalSeconds, enabledCount, addMedia, addWebsite, removeAt, move, save, rename, setShuffle, remove,
+  playlist, draft, draftName, isLoading, isSaving, isDirty, error, saveError, deleteError,
+  totalSeconds, enabledCount, addMedia, addWebsite, removeAt, move, save, setShuffle, remove,
 } = usePlaylistEditor(id)
 const { items: library, isLoading: libraryLoading, prepend } = useMedia()
 const { items: devices } = useDevices()
@@ -51,14 +51,15 @@ const { presetId, isCustom, customWidth, customHeight, screen, deviceOptions } =
   useScreenPresets(devices)
 const preview = usePlaylistPreview(() => draft.value)
 
-// Renaming, in place on the title. Enter or leaving the field saves; Escape puts it back.
+// Renaming, in place on the title. Enter or leaving the field keeps the new name for Save, like
+// any other change to the playlist; Escape puts back the name it had before this edit.
 const renaming = ref(false)
 const nameInput = ref('')
 const nameField = ref<HTMLInputElement | null>(null)
 const renameButton = ref<HTMLButtonElement | null>(null)
 
 async function startRename() {
-  nameInput.value = playlist.value?.name ?? ''
+  nameInput.value = draftName.value
   renaming.value = true
   await nextTick()
   nameField.value?.select()
@@ -67,7 +68,8 @@ async function startRename() {
 async function finishRename(keep: boolean) {
   if (!renaming.value) return
   renaming.value = false
-  if (keep) await rename(nameInput.value)
+  // An emptied name isn't a name: keep the one it had.
+  if (keep && nameInput.value.trim()) draftName.value = nameInput.value.trim()
   await nextTick()
   renameButton.value?.focus()
 }
@@ -212,10 +214,10 @@ function sceneLabel(item: DraftItem): string {
             type="button"
             class="group -mx-2 max-w-full rounded-lg px-2 text-left transition-colors duration-150
                    hover:bg-canvas focus-visible:outline-2 focus-visible:outline-brand-bright"
-            :aria-label="`Rename ${playlist.name}`"
+            :aria-label="`Rename ${draftName}`"
             @click="startRename"
           >
-            {{ playlist.name }}
+            {{ draftName }}
             <!-- Inline, so it follows the last word when the name wraps. -->
             <IconEdit
               class="ml-1 inline size-5 align-[-0.1em] text-ink-subtle transition-colors group-hover:text-ink sm:size-6"
