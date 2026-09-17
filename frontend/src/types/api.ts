@@ -32,6 +32,8 @@ export interface SignupBody {
   display_name: string
   email?: string | null
   account_name?: string | null
+  /** IANA name — becomes the account's default timezone. Omitted means UTC. */
+  timezone?: string | null
 }
 
 export interface LoginBody {

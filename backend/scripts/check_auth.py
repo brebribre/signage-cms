@@ -59,6 +59,7 @@ def main() -> None:
         "display_name": "Owner",
         "email": f"{PREFIX}-Owner@Example.COM",
         "account_name": f"{PREFIX} account",
+        "timezone": "Asia/Jakarta",
     })
     check("signup returns 201", r.status_code == 201, str(r.status_code))
     body = r.json()
@@ -67,6 +68,8 @@ def main() -> None:
     check("first user is the owner", body["user"]["role"] == "owner")
     check("an account was created with them", body["account"]["name"] == f"{PREFIX} account")
     check("owner device_ids is null (means: all)", body["device_ids"] is None)
+    check("the timezone given becomes the account's default", body["account"]["default_timezone"] == "Asia/Jakarta",
+          body["account"].get("default_timezone"))
     check("signup sets a session cookie", settings.session_cookie_name in r.cookies)
     # TestClient keeps a cookie jar across requests, so the client that just signed up is
     # authenticated from here on. Anything asserting anonymous behaviour must clear it, or
@@ -92,6 +95,17 @@ def main() -> None:
         "username": f"{PREFIX}-weak", "password": "short", "display_name": "Weak",
     })
     check("password under 8 chars is 422", r.status_code == 422, str(r.status_code))
+    r = anon.post("/auth/signup", json={
+        "username": f"{PREFIX}-tz", "password": PASSWORD, "display_name": "Bad zone", "timezone": "Mars/Olympus",
+    })
+    check("an unknown timezone is 422", r.status_code == 422, str(r.status_code))
+    r = anon.post("/auth/signup", json={
+        "username": f"{PREFIX}-notz", "password": PASSWORD, "display_name": "No zone",
+        "account_name": f"{PREFIX} no zone",  # prefixed, so cleanup() removes it
+    })
+    check("no timezone still signs up, on UTC",
+          r.status_code == 201 and r.json()["account"]["default_timezone"] == "UTC", r.text[:120])
+    anon.cookies.clear()
 
     print("\npassword storage")
     with Session(engine) as s:

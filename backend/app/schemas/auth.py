@@ -15,6 +15,18 @@ class SignupRequest(BaseModel):
     display_name: str = Field(min_length=1, max_length=100)
     email: EmailStr | None = None
     account_name: str | None = Field(default=None, max_length=100)
+    # IANA name — the account's default timezone (Settings → General). Optional, so a client that
+    # doesn't send it still signs up, on UTC. An unknown name is refused rather than dropped.
+    timezone: str | None = Field(default=None, min_length=1, max_length=64)
+
+    @field_validator("timezone")
+    @classmethod
+    def _valid_timezone(cls, value: str | None) -> str | None:
+        from app.services.accounts import valid_timezone
+
+        if value is not None and not valid_timezone(value):
+            raise ValueError("unknown timezone")
+        return value
 
     @field_validator("username")
     @classmethod

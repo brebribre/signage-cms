@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { useAuth } from '@/hooks/useAuth'
 import AppAlert from '@/reusables/AppAlert.vue'
 import AppButton from '@/reusables/AppButton.vue'
 import AppInput from '@/reusables/AppInput.vue'
+import AppSelect from '@/reusables/AppSelect.vue'
+import { browserZone, zoneOptions } from '@/utils/timezones'
 
 const props = defineProps<{ mode: 'login' | 'signup' }>()
 
@@ -18,6 +20,13 @@ const password = ref('')
 const username = ref('')
 const displayName = ref('')
 const accountName = ref('')
+/** Pre-filled with where this browser is, which is right for almost everyone signing up; it
+ *  becomes the account's default timezone (Settings → General). */
+const here = browserZone()
+const timezone = ref(here ?? 'UTC')
+const timezoneOptions = computed(() =>
+  zoneOptions(here).map((z) => ({ value: z, label: z, hint: z === here ? 'this browser' : undefined })),
+)
 
 async function onSubmit() {
   const ok =
@@ -28,6 +37,7 @@ async function onSubmit() {
           password: password.value,
           display_name: displayName.value,
           account_name: accountName.value || null,
+          timezone: timezone.value,
         })
   if (!ok) return
   // Signing up or in, you land on Overview: the fleet at a glance, and for a new account the
@@ -65,6 +75,10 @@ async function onSubmit() {
         label="Account name"
         hint="Optional — the organisation these screens belong to"
       />
+      <div class="flex flex-col gap-1.5">
+        <label for="signup-timezone" class="text-[13px] text-ink-muted">Timezone</label>
+        <AppSelect id="signup-timezone" v-model="timezone" :options="timezoneOptions" />
+      </div>
     </template>
 
     <AppInput

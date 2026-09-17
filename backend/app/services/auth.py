@@ -45,8 +45,10 @@ def signup(
     display_name: str,
     email: str | None = None,
     account_name: str | None = None,
+    timezone: str | None = None,
 ) -> User:
-    """Create an account and its owner together.
+    """Create an account and its owner together. `timezone` becomes the account's default
+    (Settings → General); already validated by the request schema.
 
     One transaction: an account with no owner is unreachable forever, and a user with no
     account cannot own anything.
@@ -59,7 +61,7 @@ def signup(
     if email and get_by_email(session, email) is not None:
         raise EmailTaken(email)
 
-    account = Account(name=account_name or f"{display_name}'s account")
+    account = Account(name=account_name or f"{display_name}'s account", default_timezone=timezone or "UTC")
     session.add(account)
     session.flush()  # assigns account.id without committing
 

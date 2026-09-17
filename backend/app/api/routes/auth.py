@@ -67,6 +67,7 @@ def signup(body: SignupRequest, response: Response, session: DbSession) -> MeRes
             display_name=body.display_name,
             email=body.email,
             account_name=body.account_name,
+            timezone=body.timezone,
         )
     except UsernameTaken:
         raise HTTPException(status.HTTP_409_CONFLICT, "That username is taken") from None
