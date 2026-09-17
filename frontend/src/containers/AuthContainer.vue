@@ -30,10 +30,9 @@ async function onSubmit() {
           account_name: accountName.value || null,
         })
   if (!ok) return
-  // A new account has nothing in it yet, so it starts on Overview, whose first-step prompts say
-  // what to do first (pair a screen, build a playlist). Signing in goes where it always has.
-  const home = props.mode === 'login' ? { name: 'media' } : { name: 'now' }
-  router.push((route.query.next as string) || home)
+  // Signing up or in, you land on Overview: the fleet at a glance, and for a new account the
+  // first-step prompts that say what to do first. A ?next= link still wins.
+  router.push((route.query.next as string) || { name: 'now' })
 }
 </script>
 

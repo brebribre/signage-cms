@@ -119,8 +119,10 @@ router.beforeEach(async (to) => {
   if (!to.meta.public && !isSignedIn.value) {
     return { name: 'login', query: { next: to.fullPath } }
   }
+  // Already signed in: the sign-in and sign-up pages have nothing to offer, so go where signing
+  // in would have taken you.
   if (to.meta.public && isSignedIn.value) {
-    return { name: 'media' }
+    return { name: 'now' }
   }
   // Hiding the nav entry is a courtesy; this is the client-side half of the enforcement,
   // and the server refuses these routes regardless.
