@@ -25,7 +25,10 @@
      recognisable single property of the brand. */
   --tracking-heading: -0.025em;
 
-  /* --- Surfaces, page -> card -> inset, ascending tint --- */
+  /* --- Surfaces --- */
+  /* The page behind the cards. Slightly cool rather than neutral grey, so it sits under the
+     brand blue without looking dusty; deep enough that a white card reads as sitting on it. */
+  --color-page: #f1f3f7;
   --color-canvas: #ffffff;
   --color-surface: #f9f9f9;
   --color-raised: #f2f2f2;

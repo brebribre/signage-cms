@@ -42,10 +42,10 @@ const { relativeTime } = useFormat()
     :type="selectable ? 'button' : undefined"
     :disabled="selectable ? disabled : undefined"
     :aria-pressed="selectable ? selected : undefined"
-    class="block w-full rounded-xl p-4 text-left transition-colors duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]"
+    class="block w-full rounded-2xl border p-4 text-left transition-colors duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]"
     :class="[
-      props.selected ? 'bg-raised ring-2 ring-ink ring-inset' : 'bg-surface',
-      props.disabled ? 'cursor-not-allowed opacity-40' : 'cursor-pointer hover:bg-raised',
+      props.selected ? 'border-brand bg-brand-soft ring-1 ring-brand ring-inset' : 'border-line bg-canvas',
+      props.disabled ? 'cursor-not-allowed opacity-40' : 'cursor-pointer hover:bg-surface',
     ]"
   >
     <div class="flex items-center gap-4 sm:gap-6">

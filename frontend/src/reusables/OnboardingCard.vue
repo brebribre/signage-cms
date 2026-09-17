@@ -11,7 +11,7 @@ const emit = defineEmits<{ action: [] }>()
 </script>
 
 <template>
-  <div class="flex flex-col items-start gap-5 rounded-xl bg-surface p-6 sm:flex-row sm:items-center sm:p-8">
+  <div class="flex flex-col items-start gap-5 rounded-2xl border border-line bg-canvas p-6 sm:flex-row sm:items-center sm:p-8">
     <span class="flex size-14 shrink-0 items-center justify-center rounded-full bg-brand text-ink-inverse">
       <component :is="icon" class="size-7" />
     </span>

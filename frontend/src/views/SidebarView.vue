@@ -33,7 +33,10 @@ async function onLogout() {
       </div>
     </header>
 
-    <main class="min-w-0 flex-1 overflow-y-auto">
+    <!-- The page itself is tinted and the cards on it are white — the inverse of what this app
+         did before, and what gives a dashboard its layered look. The sidebar stays white so the
+         content area reads as the thing you are working in. -->
+    <main class="min-w-0 flex-1 overflow-y-auto bg-page">
       <div class="mx-auto max-w-5xl px-4 py-8 sm:px-8">
         <!-- Keyed by path only where a route asks for it (see router meta.keyByPath): elsewhere
              the component is reused across param changes, as it always was. -->

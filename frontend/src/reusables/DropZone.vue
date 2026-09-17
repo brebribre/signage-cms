@@ -28,7 +28,7 @@ function onPick(e: Event) {
   <div
     class="flex flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-10
            text-center transition-colors duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]"
-    :class="isOver ? 'border-ink bg-raised' : 'border-line-strong bg-surface'"
+    :class="isOver ? 'border-brand bg-brand-soft' : 'border-line-strong bg-canvas'"
     @dragover.prevent="isOver = true"
     @dragleave.prevent="isOver = false"
     @drop.prevent="onDrop"

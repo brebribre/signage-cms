@@ -45,7 +45,9 @@ const LINK_ACTIVE =
 
     <div class="flex-1 overflow-y-auto px-3 py-3">
       <template v-for="section in sections" :key="section.title ?? 'top'">
-        <p v-if="section.title" class="px-2.5 pt-5 pb-1.5 text-[12px] text-ink-muted">{{ section.title }}</p>
+        <p v-if="section.title" class="px-2.5 pt-5 pb-1.5 text-[11px] tracking-wide text-ink-subtle uppercase">
+          {{ section.title }}
+        </p>
         <ul class="flex flex-col gap-0.5">
           <li v-for="link in section.links" :key="link.name">
             <router-link :to="{ name: link.name }" :class="LINK" :active-class="LINK_ACTIVE">
@@ -57,7 +59,7 @@ const LINK_ACTIVE =
       </template>
 
       <template v-if="isOwner">
-        <p class="px-2.5 pt-5 pb-1.5 text-[12px] text-ink-muted">Account</p>
+        <p class="px-2.5 pt-5 pb-1.5 text-[11px] tracking-wide text-ink-subtle uppercase">Account</p>
         <button
           type="button"
           class="w-full text-left"

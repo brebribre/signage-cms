@@ -12,7 +12,6 @@ import { useMedia } from '@/hooks/useMedia'
 import { useNowPlaying } from '@/hooks/useNowPlaying'
 import { usePlaylists } from '@/hooks/usePlaylists'
 import AppAlert from '@/reusables/AppAlert.vue'
-import AppCard from '@/reusables/AppCard.vue'
 import AppModal from '@/reusables/AppModal.vue'
 import DeviceCard from '@/reusables/DeviceCard.vue'
 import EmptyState from '@/reusables/EmptyState.vue'
@@ -20,6 +19,7 @@ import FilterChip from '@/reusables/FilterChip.vue'
 import OnboardingCard from '@/reusables/OnboardingCard.vue'
 import PageTitle from '@/reusables/PageTitle.vue'
 import PairScreenForm from '@/reusables/PairScreenForm.vue'
+import StatCard from '@/reusables/StatCard.vue'
 import type { ClaimBody } from '@/types/api'
 
 /**
@@ -33,6 +33,8 @@ const {
   isSaving: claiming, claimError, connecting, claim,
 } = useDevices()
 const { devices: health, storage, offline, withErrors, isLoading: healthLoading } = useFleetHealth()
+/** Everything the health endpoint doesn't count as offline — the hero card's line of context. */
+const online = computed(() => health.value.filter((d) => d.is_online))
 const { items: playlists, isLoading: playlistsLoading, error: playlistsError } = usePlaylists()
 const { items: media, isLoading: mediaLoading, error: mediaError } = useMedia()
 
@@ -132,31 +134,29 @@ function quotaPercent(used: number, quota: number | null): number | null {
     </div>
 
     <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      <AppCard>
-        <p class="text-[13px] text-ink-muted">Screens</p>
-        <p class="mt-0.5 text-2xl">{{ devices.length }}</p>
-      </AppCard>
-      <AppCard>
-        <p class="text-[13px] text-ink-muted">Offline</p>
-        <p class="mt-0.5 text-2xl" :class="offline.length ? 'text-danger' : 'text-ink'">
-          {{ offline.length }}
-        </p>
-      </AppCard>
-      <AppCard>
-        <p class="text-[13px] text-ink-muted">Reporting errors</p>
-        <p class="mt-0.5 text-2xl" :class="withErrors.length ? 'text-danger' : 'text-ink'">
-          {{ withErrors.length }}
-        </p>
-      </AppCard>
-      <AppCard>
-        <p class="text-[13px] text-ink-muted">Storage</p>
-        <p class="mt-0.5 text-2xl">{{ storage ? bytes(storage.used_bytes) : '—' }}</p>
-        <p v-if="storage?.quota_bytes" class="text-[13px] text-ink-muted">
-          of {{ bytes(storage.quota_bytes) }}
-          ({{ quotaPercent(storage.used_bytes, storage.quota_bytes) }}%)
-        </p>
-        <p v-else-if="storage" class="text-[13px] text-ink-subtle">no quota set</p>
-      </AppCard>
+      <!-- One coloured card per row, and it is the figure the page is about. -->
+      <StatCard
+        label="Screens" :value="devices.length" tone="brand" openable
+        :hint="devices.length ? `${online.length} online now` : 'None paired yet'"
+        @open="router.push({ name: 'devices' })"
+      />
+      <StatCard
+        label="Offline" :value="offline.length" :tone="offline.length ? 'danger' : 'plain'"
+        :openable="offline.length > 0" hint="No check-in recently"
+        @open="filter = 'offline'"
+      />
+      <StatCard
+        label="Reporting errors" :value="withErrors.length" :tone="withErrors.length ? 'danger' : 'plain'"
+        :openable="withErrors.length > 0" hint="In the last 24 hours"
+        @open="filter = 'errors'"
+      />
+      <StatCard
+        label="Storage" :value="storage ? bytes(storage.used_bytes) : '—'" openable
+        :hint="storage?.quota_bytes
+          ? `of ${bytes(storage.quota_bytes)} (${quotaPercent(storage.used_bytes, storage.quota_bytes)}%)`
+          : 'No quota set'"
+        @open="router.push({ name: 'media' })"
+      />
     </div>
 
     <div class="flex flex-wrap gap-2">

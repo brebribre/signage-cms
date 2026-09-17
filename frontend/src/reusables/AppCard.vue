@@ -1,11 +1,8 @@
 <script setup lang="ts">
 /**
- * Cards carry no border. The surface tint is what separates a card from the page; an
- * outline on top of it states the same thing twice and turns a stack of cards into a grid
- * of boxes. fortu.co.id uses no shadows at all, so neither does this.
- *
- * An interactive card therefore cannot signal hover by brightening its edge — it deepens
- * its surface instead.
+ * A white card on the page's tint, with a hairline to hold its shape where it happens to sit on
+ * white (inside a dialog). No shadows anywhere in this system, so depth is the tint and nothing
+ * else. An interactive card deepens on hover.
  */
 withDefaults(defineProps<{ interactive?: boolean; padded?: boolean }>(), {
   interactive: false,
@@ -15,8 +12,8 @@ withDefaults(defineProps<{ interactive?: boolean; padded?: boolean }>(), {
 
 <template>
   <div
-    class="rounded-xl bg-surface transition-colors duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]"
-    :class="[padded && 'p-4', interactive && 'cursor-pointer hover:bg-raised']"
+    class="rounded-2xl border border-line bg-canvas transition-colors duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]"
+    :class="[padded && 'p-4', interactive && 'cursor-pointer hover:bg-surface']"
   >
     <slot />
   </div>
