@@ -27,7 +27,7 @@ const emit = defineEmits<{ open: [] }>()
     class="relative flex flex-col justify-between rounded-2xl p-4 transition-colors duration-200"
     :class="tone === 'brand'
       ? 'bg-linear-to-br from-brand-strong to-brand-bright text-ink-inverse'
-      : 'border border-line bg-canvas'"
+      : 'bg-canvas'"
   >
     <div class="flex items-start justify-between gap-2">
       <p class="text-[13px]" :class="tone === 'brand' ? 'text-ink-inverse/80' : 'text-ink-muted'">

@@ -3,7 +3,7 @@ defineProps<{ title: string; description?: string }>()
 </script>
 
 <template>
-  <div class="flex flex-col items-center justify-center rounded-2xl border border-line bg-canvas px-6 py-16 text-center">
+  <div class="flex flex-col items-center justify-center rounded-2xl bg-canvas px-6 py-16 text-center">
     <h3 class="text-lg text-ink">{{ title }}</h3>
     <p v-if="description" class="mt-1 max-w-sm text-sm text-ink-muted">{{ description }}</p>
     <div class="mt-4"><slot name="actions" /></div>
