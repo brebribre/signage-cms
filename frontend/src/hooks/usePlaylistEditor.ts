@@ -288,13 +288,18 @@ export function usePlaylistEditor(id: string) {
     }
   }
 
-  async function rename(name: string) {
-    if (!name.trim() || name === playlist.value?.name) return
+  /** Saved straight away, apart from Save: a name is a label, not a change screens will play. */
+  async function rename(name: string): Promise<boolean> {
+    name = name.trim()
+    if (!name || name === playlist.value?.name) return true
+    saveError.value = null
     try {
       const updated = await api.update(id, { name })
       if (playlist.value) playlist.value.name = updated.name
+      return true
     } catch (e) {
       saveError.value = e instanceof ApiError ? e.message : 'Could not rename'
+      return false
     }
   }
 

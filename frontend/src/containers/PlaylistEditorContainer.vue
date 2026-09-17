@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { nextTick, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import IconDeleteOutline from '~icons/material-symbols/delete-outline'
 import IconDragIndicator from '~icons/material-symbols/drag-indicator'
 import IconEditSquareOutline from '~icons/material-symbols/edit-square-outline'
+import IconEdit from '~icons/material-symbols/edit-outline'
 import IconClose from '~icons/material-symbols/close'
 import IconCheck from '~icons/material-symbols/check'
 import IconVisibility from '~icons/material-symbols/visibility'
@@ -41,7 +42,7 @@ const id = String(route.params.id)
 
 const {
   playlist, draft, isLoading, isSaving, isDirty, error, saveError, deleteError,
-  totalSeconds, enabledCount, addMedia, addWebsite, removeAt, move, save, setShuffle, remove,
+  totalSeconds, enabledCount, addMedia, addWebsite, removeAt, move, save, rename, setShuffle, remove,
 } = usePlaylistEditor(id)
 const { items: library, isLoading: libraryLoading, prepend } = useMedia()
 const { items: devices } = useDevices()
@@ -49,6 +50,27 @@ const { duration } = useFormat()
 const { presetId, isCustom, customWidth, customHeight, screen, deviceOptions } =
   useScreenPresets(devices)
 const preview = usePlaylistPreview(() => draft.value)
+
+// Renaming, in place on the title. Enter or leaving the field saves; Escape puts it back.
+const renaming = ref(false)
+const nameInput = ref('')
+const nameField = ref<HTMLInputElement | null>(null)
+const renameButton = ref<HTMLButtonElement | null>(null)
+
+async function startRename() {
+  nameInput.value = playlist.value?.name ?? ''
+  renaming.value = true
+  await nextTick()
+  nameField.value?.select()
+}
+
+async function finishRename(keep: boolean) {
+  if (!renaming.value) return
+  renaming.value = false
+  if (keep) await rename(nameInput.value)
+  await nextTick()
+  renameButton.value?.focus()
+}
 
 const picking = ref(false)
 const confirmingDelete = ref(false)
@@ -171,6 +193,35 @@ function sceneLabel(item: DraftItem): string {
         :title="playlist.name"
         :subtitle="`${enabledCount} item${enabledCount === 1 ? '' : 's'} · ${duration(totalSeconds)} loop`"
       >
+        <template #title>
+          <input
+            v-if="renaming"
+            ref="nameField"
+            v-model="nameInput"
+            aria-label="Playlist name"
+            maxlength="120"
+            class="-mx-2 w-full min-w-0 rounded-lg bg-canvas px-2 tracking-[inherit] text-ink outline-2
+                   outline-brand focus:outline"
+            @keydown.enter.prevent="finishRename(true)"
+            @keydown.esc.prevent="finishRename(false)"
+            @blur="finishRename(true)"
+          />
+          <button
+            v-else
+            ref="renameButton"
+            type="button"
+            class="group -mx-2 flex max-w-full items-center gap-2 rounded-lg px-2 text-left transition-colors
+                   duration-150 hover:bg-canvas focus-visible:outline-2 focus-visible:outline-brand-bright"
+            :aria-label="`Rename ${playlist.name}`"
+            @click="startRename"
+          >
+            <span class="truncate">{{ playlist.name }}</span>
+            <IconEdit
+              class="size-5 shrink-0 text-ink-subtle transition-colors group-hover:text-ink sm:size-6"
+              aria-hidden="true"
+            />
+          </button>
+        </template>
         <template #actions>
           <div class="flex items-center gap-2">
             <AppButton variant="danger" size="sm" @click="confirmingDelete = true">
