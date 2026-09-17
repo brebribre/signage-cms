@@ -341,8 +341,15 @@ def set_forced_update(
         raise UnknownRelease(version)
 
     device.forced_update_version = release.version
-    # None = next check-in. A time in the past behaves the same; a future one waits.
-    device.forced_update_at = scheduled_at
+    # "Now" is stored as now rather than as None: the time doubles as the offer's identity on
+    # the player side (see schemas.device_sync.UpdateInfo.requested_at), which is what lets
+    # pinning the same version again act as "retry now" instead of being ignored until the
+    # screen's backoff expires. A future time waits; anything else means the next check-in.
+    device.forced_update_at = scheduled_at or utcnow()
+    # A fresh attempt starts with a clean slate: whatever the screen said about the last one
+    # ("failed: no space", or a stale "downloading" from a build that never landed) must not
+    # be read as being about this one.
+    _reset_update_report(device)
     session.add(device)
     session.commit()
     session.refresh(device)
@@ -357,12 +364,25 @@ def set_forced_update(
     return device
 
 
+def _reset_update_report(device: Device) -> None:
+    device.update_state = None
+    device.update_version = None
+    device.update_progress_pct = None
+    device.update_detail = None
+    device.update_reported_at = None
+
+
 def clear_forced_update(session: Session, *, device: Device) -> Device:
-    """Cancel a single-device update before the screen has picked it up. Once it has (see
-    `device_sync.record_heartbeat`, which clears this the moment the screen confirms it), a
-    later call here would be a no-op anyway — there is nothing left pending to cancel."""
+    """Cancel a single-device update before the screen has picked it up, or dismiss what the
+    screen last reported about one ("failed", "installed"). Once a pin has been picked up (see
+    `device_sync.record_heartbeat`, which clears it the moment the screen confirms it), there
+    is nothing pending left to cancel — but the report is still worth being able to clear, or
+    a screen would wear last month's failure forever. A download already under way on the
+    screen is not interrupted: the screen has no channel to be told, and it will report again
+    as it goes, which is the honest thing for the page to show."""
     device.forced_update_version = None
     device.forced_update_at = None
+    _reset_update_report(device)
     session.add(device)
     session.commit()
     session.refresh(device)

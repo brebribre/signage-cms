@@ -8,6 +8,7 @@ import com.fortu.player.api.ManifestElement
 import com.fortu.player.api.ManifestItem
 import com.fortu.player.api.PairPollResponse
 import com.fortu.player.api.PairStartResponse
+import com.fortu.player.api.UpdateStatusReport
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import java.io.File
@@ -28,6 +29,22 @@ interface PlayerApi {
     /** Null when the server answered 304 — nothing changed. */
     fun fetchManifest(token: String, etag: String?): Manifest?
     fun heartbeat(token: String, body: HeartbeatRequest): HeartbeatResponse
+    /** Best effort — a report that fails to send is logged and dropped, never retried: the
+     *  next one supersedes it, and a failure here must not be able to fail the update. */
+    fun reportUpdateStatus(token: String, body: UpdateStatusReport)
+}
+
+/**
+ * How handing an APK to the system went — the synchronous half of an install. The system's
+ * own verdict (it rejected the file, there was no space) arrives later, by broadcast: see
+ * `kiosk/UpdateResultReceiver`.
+ */
+sealed class InstallResult {
+    /** Downloaded, verified and committed to the installer; the app restarts when it lands. */
+    object HandedOver : InstallResult()
+    /** Never reached the installer. [reason] is for an operator to read, on the CMS and the
+     *  screen — "download failed after 3 attempts: timeout", "this screen isn't Device Owner". */
+    data class Failed(val reason: String) : InstallResult()
 }
 
 interface TokenStore {

@@ -15,7 +15,7 @@ from datetime import datetime
 from sqlmodel import Session, select
 
 from app.config import get_settings
-from app.models import Device, DevicePlatform, ItemFit, Media, MediaKind, Playlist, PlaylistItem, PlaylistItemElement
+from app.models import Device, DevicePlatform, DeviceUpdateState, EventLevel, ItemFit, Media, MediaKind, Playlist, PlaylistItem, PlaylistItemElement
 from app.models.base import utcnow
 from app.infra import storage
 from app.services import device_settings
@@ -299,6 +299,11 @@ def build_manifest(session: Session, device: Device, *, version: str) -> Manifes
 class AvailableUpdate:
     version: str
     url: str
+    #: The APK's size — for a real download percentage on the screen, and for resuming.
+    bytes: int | None = None
+    #: When this offer was made; the player's failure backoff is keyed on it, so re-issuing an
+    #: offer from the CMS is a fresh attempt. See `schemas.device_sync.UpdateInfo`.
+    requested_at: datetime | None = None
 
 
 def available_update(session: Session, device: Device) -> AvailableUpdate | None:
@@ -339,6 +344,8 @@ def available_update(session: Session, device: Device) -> AvailableUpdate | None
             return AvailableUpdate(
                 version=release.version,
                 url=storage.presign_get(release.key, settings.device_presign_ttl_seconds),
+                bytes=release.size_bytes,
+                requested_at=device.forced_update_at,
             )
 
     rollout = player_rollouts.active_rollout(session)
@@ -348,11 +355,63 @@ def available_update(session: Session, device: Device) -> AvailableUpdate | None
         return None
 
     settings = get_settings()
+    # One HEAD per heartbeat that actually carries an offer — the common case (nothing to
+    # install) returns above without touching R2. Worth it: the size is what turns "installing…"
+    # into "43% of 18 MB" on both the screen and the CMS.
+    release = player_releases.find_release(rollout.version)
     return AvailableUpdate(
         version=rollout.version,
         # The same long TTL as media: an APK is a large file over the same bad venue wifi.
         url=storage.presign_get(rollout.apk_key, settings.device_presign_ttl_seconds),
+        bytes=release.size_bytes if release else None,
+        requested_at=rollout.scheduled_at,
     )
+
+
+# How long a "downloading"/"installing" report is trusted before the CMS treats it as stale.
+# Longer than the player's own read timeout plus its in-attempt retries, so a screen that is
+# genuinely still working is never called stuck; the player reports at least every few seconds
+# while it is. Exposed for the frontend's own copy of this threshold to be checked against.
+UPDATE_REPORT_STALE_SECONDS = 180
+
+
+def record_update_status(
+    session: Session,
+    *,
+    device: Device,
+    version: str,
+    state: DeviceUpdateState,
+    progress_pct: int | None,
+    detail: str | None,
+) -> None:
+    """The screen's own account of an install in progress — the whole reason the Screens page
+    can now say "downloading, 43%" or "failed: not enough free space" instead of "pending".
+
+    Counts as liveness too: the player's poll loop is blocked for the whole download, so
+    without this the CMS would show a screen going amber precisely while it was doing what it
+    was asked to. A failure is also written to the event log, so it survives being replaced by
+    the next attempt's report and shows up under Errors & logs a week later.
+    """
+    now = utcnow()
+    device.last_seen_at = now
+    device.update_state = state
+    device.update_version = version
+    device.update_progress_pct = progress_pct
+    device.update_detail = detail
+    device.update_reported_at = now
+    session.add(device)
+    session.commit()
+
+    if state == DeviceUpdateState.FAILED:
+        from app.services import operations
+
+        operations.record_event(
+            session,
+            device=device,
+            level=EventLevel.ERROR,
+            message=f"Update to {version} failed: {detail or 'no reason given'}",
+        )
+        logger.warning("device %s (%s) update to %s failed: %s", device.id, device.name, version, detail)
 
 
 def record_heartbeat(
@@ -369,7 +428,8 @@ def record_heartbeat(
     """Update liveness. Errors are logged, not stored — Phase 14 gives them a table if a
     device health page is ever built; until then they only need to be visible to whoever is
     watching the logs during setup."""
-    device.last_seen_at = utcnow()
+    now = utcnow()
+    device.last_seen_at = now
     if app_version is not None:
         device.app_version = app_version
         # A one-shot pin, not a standing one — see Device.forced_update_version. Once the
@@ -379,6 +439,15 @@ def record_heartbeat(
         if device.forced_update_version and device.forced_update_version == app_version:
             device.forced_update_version = None
             device.forced_update_at = None
+        # Success is decided here, not reported: installing an update kills the process that
+        # would report it. The first heartbeat from the new build is the proof — whether the
+        # screen had got as far as reporting "installing", or the report never reached us.
+        if device.update_version == app_version and device.update_state != DeviceUpdateState.INSTALLED:
+            device.update_state = DeviceUpdateState.INSTALLED
+            device.update_version = app_version
+            device.update_progress_pct = 100
+            device.update_detail = None
+            device.update_reported_at = now
     if screen_width is not None:
         device.screen_width = screen_width
     if screen_height is not None:

@@ -32,8 +32,9 @@ class PlayerEngineTest {
         store: FakeStore = FakeStore(),
         cache: FakeCache = FakeCache(),
         canSelfUpdate: () -> Boolean = { false },
-        installUpdate: (String) -> Boolean = { true },
-        consumeInstallFailure: () -> Boolean = { false },
+        installUpdate: (com.fortu.player.api.UpdateInfo, (Long, Long?) -> Unit) -> InstallResult =
+            { _, _ -> InstallResult.HandedOver },
+        consumeInstallFailure: () -> String? = { null },
         push: PushClient = NoopPushClient,
         warmMedia: suspend (java.io.File, String) -> Unit = { _, _ -> },
     ) = PlayerEngine(
@@ -535,7 +536,7 @@ class PlayerEngineTest {
         val e = engine(
             api = api, store = store,
             canSelfUpdate = { false },
-            installUpdate = { installs++; true },
+            installUpdate = { _, _ -> installs++; InstallResult.HandedOver },
         )
         val job = launch { e.run() }
         advanceTimeBy(35_000)
@@ -560,7 +561,7 @@ class PlayerEngineTest {
         val e = engine(
             api = api, store = store,
             canSelfUpdate = { true },
-            installUpdate = { installs++; false },
+            installUpdate = { _, _ -> installs++; InstallResult.Failed("download failed: timeout") },
         )
         val job = launch { e.run() }
         advanceTimeBy(180_000)
@@ -589,8 +590,8 @@ class PlayerEngineTest {
         val e = engine(
             api = api, store = store,
             canSelfUpdate = { true },
-            installUpdate = { installs++; rejected = true; true },
-            consumeInstallFailure = { rejected.also { rejected = false } },
+            installUpdate = { _, _ -> installs++; rejected = true; InstallResult.HandedOver },
+            consumeInstallFailure = { if (rejected) { rejected = false; "not enough free space" } else null },
         )
         val job = launch { e.run() }
         advanceTimeBy(180_000)
@@ -615,7 +616,7 @@ class PlayerEngineTest {
         val e = engine(
             api = api, store = store,
             canSelfUpdate = { true },
-            installUpdate = { installs++; false },
+            installUpdate = { _, _ -> installs++; InstallResult.Failed("download failed: timeout") },
         )
         val job = launch { e.run() }
         advanceTimeBy(35_000)
@@ -628,6 +629,186 @@ class PlayerEngineTest {
         advanceTimeBy(35_000)
 
         assertEquals("2.0.1 is a different download than the one that just failed", 2, installs)
+        job.cancelAndJoin()
+    }
+
+    @Test
+    fun `download progress and the hand-off are reported to the server`() = runTest {
+        // The CMS's whole view of an install comes from these reports — before they existed
+        // it could only say "pending" until the version happened to change.
+        val store = FakeStore(storedToken = "t")
+        val api = FakeApi().apply {
+            manifest = manifest()
+            heartbeatResponse = com.fortu.player.api.HeartbeatResponse(
+                version = "v1",
+                update = com.fortu.player.api.UpdateInfo("2.0.0", "https://fake/app.apk", bytes = 1000),
+            )
+        }
+        val e = engine(
+            api = api, store = store,
+            canSelfUpdate = { true },
+            installUpdate = { _, onProgress ->
+                onProgress(500, 1000)
+                onProgress(1000, 1000)
+                InstallResult.HandedOver
+            },
+        )
+        val job = launch { e.run() }
+        advanceTimeBy(1_000)
+
+        val reports = api.updateReports.map { Triple(it.state, it.progressPct, it.version) }
+        assertEquals(
+            listOf(
+                Triple("downloading", 0, "2.0.0"),
+                Triple("downloading", 50, "2.0.0"),
+                Triple("downloading", 100, "2.0.0"),
+                Triple("installing", 100, "2.0.0"),
+            ),
+            reports,
+        )
+        assertEquals(UpdatePhase.INSTALLING, e.debug.value.update?.phase)
+        job.cancelAndJoin()
+    }
+
+    @Test
+    fun `a failed download tells the server why`() = runTest {
+        val store = FakeStore(storedToken = "t")
+        val api = FakeApi().apply {
+            manifest = manifest()
+            heartbeatResponse = com.fortu.player.api.HeartbeatResponse(
+                version = "v1",
+                update = com.fortu.player.api.UpdateInfo("2.0.0", "https://fake/app.apk"),
+            )
+        }
+        val e = engine(
+            api = api, store = store,
+            canSelfUpdate = { true },
+            installUpdate = { _, _ -> InstallResult.Failed("download failed after 3 attempts (timeout)") },
+        )
+        val job = launch { e.run() }
+        advanceTimeBy(1_000)
+
+        val last = api.updateReports.last()
+        assertEquals("failed", last.state)
+        assertEquals("download failed after 3 attempts (timeout)", last.detail)
+        assertEquals(UpdatePhase.FAILED, e.debug.value.update?.phase)
+        job.cancelAndJoin()
+    }
+
+    @Test
+    fun `a report that cannot be sent does not fail the update`() = runTest {
+        // The report is about the update; it must never be able to break it.
+        var installs = 0
+        val store = FakeStore(storedToken = "t")
+        val api = FakeApi().apply {
+            manifest = manifest()
+            heartbeatResponse = com.fortu.player.api.HeartbeatResponse(
+                version = "v1",
+                update = com.fortu.player.api.UpdateInfo("2.0.0", "https://fake/app.apk"),
+            )
+            updateReportThrows = java.io.IOException("cms unreachable")
+        }
+        val e = engine(
+            api = api, store = store,
+            canSelfUpdate = { true },
+            installUpdate = { _, _ -> installs++; InstallResult.HandedOver },
+        )
+        val job = launch { e.run() }
+        advanceTimeBy(1_000)
+
+        assertEquals(1, installs)
+        assertEquals(UpdatePhase.INSTALLING, e.debug.value.update?.phase)
+        job.cancelAndJoin()
+    }
+
+    @Test
+    fun `the same version offered again from the CMS is retried at once, mid-cooldown`() = runTest {
+        // "Retry now" on the Screens page re-issues the pin with a fresh requested_at. The
+        // unchanged offer on every heartbeat after a failure still waits out the cooldown.
+        var installs = 0
+        val store = FakeStore(storedToken = "t")
+        val api = FakeApi().apply {
+            manifest = manifest()
+            heartbeatResponse = com.fortu.player.api.HeartbeatResponse(
+                version = "v1",
+                update = com.fortu.player.api.UpdateInfo(
+                    "2.0.0", "https://fake/app.apk", requestedAt = "2026-09-17T10:00:00Z",
+                ),
+            )
+        }
+        val e = engine(
+            api = api, store = store,
+            canSelfUpdate = { true },
+            installUpdate = { _, _ -> installs++; InstallResult.Failed("boom") },
+        )
+        val job = launch { e.run() }
+        advanceTimeBy(65_000)
+        assertEquals("the unchanged offer backs off", 1, installs)
+
+        api.heartbeatResponse = com.fortu.player.api.HeartbeatResponse(
+            version = "v1",
+            update = com.fortu.player.api.UpdateInfo(
+                "2.0.0", "https://fake/app.apk", requestedAt = "2026-09-17T10:05:00Z",
+            ),
+        )
+        advanceTimeBy(35_000)
+
+        assertEquals("a re-issued offer is a new request", 2, installs)
+        job.cancelAndJoin()
+    }
+
+    @Test
+    fun `a screen that cannot self-install says so to the server, once`() = runTest {
+        // From the CMS, "pending forever" and "will never happen" otherwise look the same —
+        // and only one of them is fixed by waiting.
+        val store = FakeStore(storedToken = "t")
+        val api = FakeApi().apply {
+            manifest = manifest()
+            heartbeatResponse = com.fortu.player.api.HeartbeatResponse(
+                version = "v1",
+                update = com.fortu.player.api.UpdateInfo("2.0.0", "https://fake/app.apk"),
+            )
+        }
+        val e = engine(api = api, store = store, canSelfUpdate = { false })
+        val job = launch { e.run() }
+        advanceTimeBy(100_000)
+
+        assertEquals(1, api.updateReports.size)
+        assertEquals("failed", api.updateReports[0].state)
+        assertEquals(PlayerEngine.NOT_DEVICE_OWNER_REASON, api.updateReports[0].detail)
+        assertNull("not a banner-worthy failure on screen", e.debug.value.update)
+        job.cancelAndJoin()
+    }
+
+    @Test
+    fun `an installer rejection reaches the server without waiting for a heartbeat`() = runTest {
+        var rejected = false
+        val store = FakeStore(storedToken = "t")
+        val api = FakeApi().apply {
+            manifest = manifest()
+            heartbeatResponse = com.fortu.player.api.HeartbeatResponse(
+                version = "v1",
+                update = com.fortu.player.api.UpdateInfo("2.0.0", "https://fake/app.apk"),
+            )
+        }
+        val e = engine(
+            api = api, store = store,
+            canSelfUpdate = { true },
+            installUpdate = { _, _ -> InstallResult.HandedOver },
+            consumeInstallFailure = { if (rejected) { rejected = false; "not enough free space" } else null },
+        )
+        val job = launch { e.run() }
+        advanceTimeBy(1_000)
+        assertEquals("installing", api.updateReports.last().state)
+
+        // The broadcast lands; the ViewModel forwards it straight away.
+        rejected = true
+        e.onInstallVerdict()
+
+        val last = api.updateReports.last()
+        assertEquals("failed", last.state)
+        assertEquals("not enough free space", last.detail)
+        assertEquals(UpdatePhase.FAILED, e.debug.value.update?.phase)
         job.cancelAndJoin()
     }
 
@@ -659,7 +840,7 @@ class PlayerEngineTest {
         val e = engine(
             api = api, store = store,
             canSelfUpdate = { true },
-            installUpdate = { installs++; false },
+            installUpdate = { _, _ -> installs++; InstallResult.Failed("download failed: timeout") },
         )
         val job = launch { e.run() }
         advanceTimeBy(35_000)
@@ -683,7 +864,7 @@ class PlayerEngineTest {
         val e = engine(
             api = api, store = FakeStore(storedToken = "t"),
             canSelfUpdate = { false },
-            installUpdate = { installs++; true },
+            installUpdate = { _, _ -> installs++; InstallResult.HandedOver },
         )
 
         e.checkForUpdateNow()

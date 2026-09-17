@@ -20,6 +20,7 @@ from app.schemas.device_sync import (
     ManifestResponse,
     ManifestSlot,
     UpdateInfo,
+    UpdateStatusReport,
 )
 from app.services import device_sync, operations
 
@@ -158,5 +159,32 @@ def heartbeat(body: HeartbeatRequest, device: CurrentDevice, session: DbSession)
     update = device_sync.available_update(session, device)
     return HeartbeatResponse(
         version=device_sync.compute_version(session, device),
-        update=UpdateInfo(version=update.version, url=update.url) if update else None,
+        update=(
+            UpdateInfo(
+                version=update.version,
+                url=update.url,
+                bytes=update.bytes,
+                requested_at=update.requested_at,
+            )
+            if update
+            else None
+        ),
     )
+
+
+@router.post("/update-status", status_code=status.HTTP_204_NO_CONTENT)
+def update_status(body: UpdateStatusReport, device: CurrentDevice, session: DbSession) -> Response:
+    """How the install of a player build is going, in the screen's own words — posted every
+    few seconds while it downloads, once when it hands the APK to the installer, and with the
+    reason if anything goes wrong. Its own route rather than a field on the heartbeat: a
+    heartbeat's response carries the update offer, and a progress report must never be able
+    to trigger a second install of the thing it is reporting on."""
+    device_sync.record_update_status(
+        session,
+        device=device,
+        version=body.version,
+        state=body.state,
+        progress_pct=body.progress_pct,
+        detail=body.detail,
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

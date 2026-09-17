@@ -10,6 +10,7 @@ import com.fortu.player.api.ManifestPlaylist
 import com.fortu.player.api.ManifestSlot
 import com.fortu.player.api.PairPollResponse
 import com.fortu.player.api.PairStartResponse
+import com.fortu.player.api.UpdateStatusReport
 import com.fortu.player.api.UnauthorizedException
 import java.io.File
 import java.io.IOException
@@ -87,6 +88,15 @@ class FakeApi : PlayerApi {
         heartbeats += body
         heartbeatThrows?.let { throw it }
         return heartbeatResponse
+    }
+
+    /** Every update-status report, in order — what the CMS would have seen. */
+    val updateReports = mutableListOf<UpdateStatusReport>()
+    var updateReportThrows: Exception? = null
+
+    override fun reportUpdateStatus(token: String, body: UpdateStatusReport) {
+        updateReports += body
+        updateReportThrows?.let { throw it }
     }
 }
 

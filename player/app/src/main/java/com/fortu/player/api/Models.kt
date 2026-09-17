@@ -212,7 +212,35 @@ data class HeartbeatRequest(
 )
 
 @Serializable
-data class UpdateInfo(val version: String, val url: String)
+data class UpdateInfo(
+    val version: String,
+    val url: String,
+    /** The APK's size, when the server knows it — a real percentage while downloading, the
+     *  offset to resume a partial download from, and a check that the whole file arrived
+     *  before it is handed to the installer. */
+    val bytes: Long? = null,
+    /** When this offer was made (ISO-8601). Part of the offer's identity for backoff: the
+     *  same version re-issued from the CMS ("Retry now") carries a new time and is tried at
+     *  once, while the unchanged offer seen on every heartbeat after a failure waits out the
+     *  cooldown. See `PlayerEngine.maybeSelfUpdate`. */
+    @SerialName("requested_at") val requestedAt: String? = null,
+)
+
+/**
+ * What this screen tells the CMS about an install as it goes — `POST /device/update-status`.
+ * Before this existed the whole lifecycle lived in the debug overlay and logcat, and the CMS
+ * could only ever say "pending" until the version happened to change.
+ */
+@Serializable
+data class UpdateStatusReport(
+    val version: String,
+    /** "downloading", "installing" or "failed". Success is never reported: installing kills
+     *  this process, and the next heartbeat's `app_version` is the proof. */
+    val state: String,
+    @SerialName("progress_pct") val progressPct: Int? = null,
+    /** In words meant for the operator: "not enough free space", "download timed out". */
+    val detail: String? = null,
+)
 
 @Serializable
 data class HeartbeatResponse(

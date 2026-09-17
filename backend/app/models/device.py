@@ -13,6 +13,21 @@ class DeviceOrientation(StrEnum):
     PORTRAIT = "portrait"
 
 
+class DeviceUpdateState(StrEnum):
+    """Where a player update stands on a screen, as the screen itself last reported it.
+
+    The vocabulary every device-management product converges on (Mender, Alibaba IoT, Android
+    Enterprise): the states an operator actually has to tell apart. "Pending" is deliberately
+    not one of them — it is derived (an update is offered and nothing has been reported for it
+    yet), not reported, so it can never go stale on a screen that never heard the offer.
+    """
+
+    DOWNLOADING = "downloading"
+    INSTALLING = "installing"
+    INSTALLED = "installed"
+    FAILED = "failed"
+
+
 class DevicePlatform(StrEnum):
     """Which player a screen runs. Declared by the screen itself when it asks for a pairing
     code — it is the only party that knows. Decides whether player APK rollouts apply to it:
@@ -104,6 +119,25 @@ class Device(SQLModel, table=True):
     # time holds it back until then (the screen keeps following the fleet meanwhile), so one
     # screen's update can be scheduled the same way a fleet rollout can. Cleared with the pin.
     forced_update_at: datetime | None = Field(default=None, sa_column=tz_column(nullable=True))
+
+    # --- Reported by the device while it installs a player build ---
+    # The screen posts these as it goes (POST /device/update-status): downloading with a
+    # percentage, installing, and — the one that matters most — failed, with the reason in its
+    # own words ("not enough free space", "download timed out"). Before this the whole
+    # lifecycle lived in the player's debug overlay and logcat, and the CMS could only ever say
+    # "pending" until the version happened to change. `installed` is set here, by
+    # record_heartbeat, the moment a heartbeat reports the target version — the process that
+    # installs an update is killed by that install, so the device cannot report its own
+    # success. All five belong together and are reset together (set/clear_forced_update).
+    update_state: DeviceUpdateState | None = Field(
+        default=None, sa_column=enum_column(DeviceUpdateState, nullable=True)
+    )
+    #: The build the report is about — compared against `app_version` and the pin, never
+    #: assumed to be either: a fleet rollout produces these reports too, with no pin at all.
+    update_version: str | None = Field(default=None, max_length=32)
+    update_progress_pct: int | None = Field(default=None)
+    update_detail: str | None = Field(default=None, max_length=500)
+    update_reported_at: datetime | None = Field(default=None, sa_column=tz_column(nullable=True))
 
     created_at: datetime = Field(default_factory=utcnow, sa_column=tz_column(nullable=False))
 

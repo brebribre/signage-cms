@@ -10,6 +10,8 @@ import com.fortu.player.api.ManifestSlot
 import com.fortu.player.api.PlayReport
 import com.fortu.player.api.KIND_WEB
 import com.fortu.player.api.UnauthorizedException
+import com.fortu.player.api.UpdateInfo
+import com.fortu.player.api.UpdateStatusReport
 import com.fortu.player.power.PowerPlan
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -131,6 +133,27 @@ data class DebugInfo(
      *  before any check has happened yet. Separate from [lastError], which is sync/poll
      *  failures — conflating the two made a successful "up to date" read as an error. */
     val updateStatus: String? = null,
+    /** The same thing, structured — what the on-screen banner (`ui/Screens.kt`'s
+     *  `UpdateBanner`) draws while an install is under way or has just failed. Null when no
+     *  update is in flight. */
+    val update: UpdateProgress? = null,
+)
+
+enum class UpdatePhase { DOWNLOADING, INSTALLING, FAILED }
+
+/** Where an install stands, for the screen itself to show — mirrors what is reported to the
+ *  CMS (see [PlayerEngine.reportUpdate]), so someone standing at the screen and someone at
+ *  the CMS see the same story. */
+data class UpdateProgress(
+    val version: String,
+    val phase: UpdatePhase,
+    /** 0–100 while downloading, when the size is known. */
+    val percent: Int? = null,
+    val doneBytes: Long = 0,
+    val totalBytes: Long? = null,
+    /** The reason, when [phase] is FAILED. */
+    val detail: String? = null,
+    val atMillis: Long = 0,
 )
 
 
@@ -149,14 +172,17 @@ class PlayerEngine(
     private val apiBaseUrl: String,
     /** Injected so tests can assert on it without a device-owner check. */
     private val canSelfUpdate: () -> Boolean = { false },
-    private val installUpdate: (String) -> Boolean = { false },
-    /** Whether the system rejected the install we last handed over — see
+    /** Downloads and hands the APK to the system, calling back with (bytes so far, total)
+     *  as it goes — `kiosk/SelfUpdater`. Blocking; only ever called on [io]. */
+    private val installUpdate: (UpdateInfo, (Long, Long?) -> Unit) -> InstallResult =
+        { _, _ -> InstallResult.Failed("no installer") },
+    /** Why the system rejected the install we last handed over, if it did — see
      *  `kiosk/UpdateResultReceiver`. `PackageInstaller` answers by broadcast long after
-     *  [installUpdate] has returned true, so without folding that verdict back in here a
-     *  rejected update never starts the retry backoff and the screen re-downloads the same
-     *  doomed APK on every heartbeat, forever. Injected rather than read from `UpdateOutcome`
-     *  directly, like everything else Android-shaped in this class. */
-    private val consumeInstallFailure: () -> Boolean = { false },
+     *  [installUpdate] has returned, so without folding that verdict back in here a rejected
+     *  update never starts the retry backoff and the screen re-downloads the same doomed APK
+     *  on every heartbeat, forever. Null when there is nothing new to collect. Injected rather
+     *  than read from `UpdateOutcome` directly, like everything else Android-shaped here. */
+    private val consumeInstallFailure: () -> String? = { null },
     /** The real side effects of volume/brightness (`AudioManager`, `Settings.System`) live in
      *  `kiosk/DeviceSettingsApplier.kt`, not here — same reasoning as `installUpdate` above:
      *  this class has no Android dependencies, so anything that needs one is a callback. */
@@ -211,18 +237,22 @@ class PlayerEngine(
     private var screenWidth = 0
     private var screenHeight = 0
 
-    /** The version a self-update last failed for, and when — so a failure backs off instead
-     *  of re-downloading the APK on every 30-second heartbeat forever, but still gets retried
-     *  after [UPDATE_RETRY_COOLDOWN_MILLIS] rather than silently giving up until someone
-     *  physically restarts the screen. A *different* version (a newer rollout, or a rollback)
-     *  is always attempted immediately, cooldown or not — it is a different download, not a
-     *  repeat of the one that just failed. */
+    /** The offer a self-update last failed for (see [offerKey]), and when — so a failure backs
+     *  off instead of re-downloading the APK on every 30-second heartbeat forever, but still
+     *  gets retried after [UPDATE_RETRY_COOLDOWN_MILLIS] rather than silently giving up until
+     *  someone physically restarts the screen. A *different* offer — a newer rollout, a
+     *  rollback, or the same version re-issued from the CMS as "Retry now" — is always
+     *  attempted immediately, cooldown or not. */
     private var lastFailedUpdate: Pair<String, Long>? = null
 
-    /** The version handed to the installer and not yet ruled on. Held because the rejection
+    /** The offer handed to the installer and not yet ruled on. Held because the rejection
      *  that comes back by broadcast doesn't name a version, and [lastFailedUpdate] is keyed
      *  by one. */
-    private var pendingUpdate: String? = null
+    private var pendingUpdate: UpdateInfo? = null
+
+    /** The version this screen has already told the CMS it cannot install (not Device Owner).
+     *  Once per version, not once per heartbeat: the offer comes back on every one. */
+    private var reportedUnsupportedFor: String? = null
 
     /** When the current schedule window ends, as epoch millis. The poll interval is
      *  shortened to land on it. */
@@ -430,7 +460,7 @@ class PlayerEngine(
                         reportedSettings = currentSettings().ifEmpty { null },
                     ),
                 )
-                res.update?.let { maybeSelfUpdate(it.version, it.url) }
+                res.update?.let { maybeSelfUpdate(token, it) }
 
                 if (etag != null && "\"${res.version}\"" != etag) {
                     // Version moved under us — loop again soon rather than waiting a full
@@ -686,63 +716,90 @@ class PlayerEngine(
     }
 
     /**
-     * Install a published build over ourselves, if this screen is provisioned to do so —
-     * called both off the regular heartbeat (cooldown-gated, see [maybeSelfUpdate]) and from
-     * [checkForUpdateNow] (a human standing at the screen, who does not want to hear "try
-     * again in ten minutes").
+     * Install a published build over ourselves — called both off the regular heartbeat
+     * (cooldown-gated, see [maybeSelfUpdate]) and from [checkForUpdateNow] (a human standing
+     * at the screen, who does not want to hear "try again in ten minutes").
      *
-     * Silently declines on anything that isn't Device Owner. That is not a failure worth
-     * surfacing on screen: a sideloaded or development install simply updates by hand, and
-     * the alternative — the system's confirmation dialog — would park the screen on a prompt
-     * nobody is standing in front of.
+     * Everything that happens is said twice: to the screen (the banner, the debug overlay) and
+     * to the CMS ([reportUpdate]) — the two places someone might be looking, neither of which
+     * could previously tell a download crawling over bad wifi from one that had failed an
+     * hour ago. Progress reports to the CMS are throttled; the screen sees every byte.
      */
-    private fun performInstall(version: String, url: String) {
-        Log.i(TAG, "installing update $version")
-        // Only what is true so far: the install is handed to the system here, and the system
-        // answers later by broadcast (see kiosk/UpdateResultReceiver). Claiming "installed" at
-        // this point is what made a rejected update look like one still in progress.
-        _debug.update { it.copy(updateStatus = "installing update $version…") }
-        val ok = installUpdate(url)
-        if (ok) {
+    private fun performInstall(token: String, update: UpdateInfo) {
+        Log.i(TAG, "installing update ${update.version}")
+        pendingUpdate = update
+        lastFailedUpdate = null
+        setUpdateProgress(UpdateProgress(update.version, UpdatePhase.DOWNLOADING, percent = 0, totalBytes = update.bytes, atMillis = clock()))
+        reportUpdate(token, update.version, "downloading", 0, null)
+
+        var lastReportedPct = 0
+        var lastReportAt = clock()
+        val result = installUpdate(update) { done, total ->
+            val pct = total?.takeIf { it > 0 }?.let { ((done * 100) / it).toInt().coerceIn(0, 100) }
+            setUpdateProgress(UpdateProgress(update.version, UpdatePhase.DOWNLOADING, pct, done, total, atMillis = clock()))
+            // Every few percent or every few seconds, whichever comes first — enough for a
+            // moving number on the CMS, and for its "no news for a while" check to stay
+            // quiet as long as bytes are still arriving, however slowly.
+            val now = clock()
+            if (pct != null && (pct - lastReportedPct >= UPDATE_REPORT_STEP_PCT || now - lastReportAt >= UPDATE_REPORT_INTERVAL_MILLIS)) {
+                lastReportedPct = pct
+                lastReportAt = now
+                reportUpdate(token, update.version, "downloading", pct, null)
+            }
+        }
+        when (result) {
             // Handed over, not landed: whether it installs is answered later, by broadcast.
-            pendingUpdate = version
-            lastFailedUpdate = null
-        } else {
-            pendingUpdate = null
-            lastFailedUpdate = version to System.currentTimeMillis()
-            _debug.update { it.copy(updateStatus = "update $version failed — see logcat") }
+            // Claiming "installed" at this point is what made a rejected update look like one
+            // still in progress.
+            InstallResult.HandedOver -> {
+                setUpdateProgress(UpdateProgress(update.version, UpdatePhase.INSTALLING, 100, atMillis = clock()))
+                reportUpdate(token, update.version, "installing", 100, null)
+            }
+            is InstallResult.Failed -> {
+                pendingUpdate = null
+                lastFailedUpdate = offerKey(update) to clock()
+                setUpdateProgress(UpdateProgress(update.version, UpdatePhase.FAILED, detail = result.reason, atMillis = clock()))
+                reportUpdate(token, update.version, "failed", null, result.reason)
+            }
         }
     }
 
-    /** Called off every heartbeat response. Backs off a failed version for
+    /** Called off every heartbeat response. Backs off a failed offer for
      *  [UPDATE_RETRY_COOLDOWN_MILLIS] instead of hammering the same failing download — see
      *  [checkForUpdateNow] for the version a person can trigger on demand, which skips this. */
-    private fun maybeSelfUpdate(version: String, url: String) {
+    private fun maybeSelfUpdate(token: String, update: UpdateInfo) {
         // Collect the installer's verdict on the *previous* hand-off before deciding anything:
         // it arrives by broadcast, long after the call that started that install returned, so
-        // this is the first moment the engine can learn the attempt actually failed.
-        if (consumeInstallFailure()) {
-            pendingUpdate?.let { lastFailedUpdate = it to System.currentTimeMillis() }
-            pendingUpdate = null
-        }
+        // this is one of the two moments the engine can learn the attempt actually failed
+        // (the other is [onInstallVerdict], which does not wait for a heartbeat).
+        collectInstallVerdict(token)
+
         if (!canSelfUpdate()) {
-            Log.i(TAG, "update $version available but this device cannot install silently")
+            Log.i(TAG, "update ${update.version} available but this device cannot install silently")
+            // Not a failure worth a banner on screen — a sideloaded or development install
+            // simply updates by hand — but very much one worth telling the CMS, where "pending
+            // forever" and "will never happen" otherwise look the same.
+            if (reportedUnsupportedFor != update.version) {
+                reportedUnsupportedFor = update.version
+                _debug.update { it.copy(updateStatus = "${update.version} available, but this screen can't self-install") }
+                reportUpdate(token, update.version, "failed", null, NOT_DEVICE_OWNER_REASON)
+            }
             return
         }
         val lastFailure = lastFailedUpdate
-        if (lastFailure != null && lastFailure.first == version &&
-            System.currentTimeMillis() - lastFailure.second < UPDATE_RETRY_COOLDOWN_MILLIS
+        if (lastFailure != null && lastFailure.first == offerKey(update) &&
+            clock() - lastFailure.second < UPDATE_RETRY_COOLDOWN_MILLIS
         ) {
             // Say so rather than returning in silence: from the screen, a backed-off retry and
             // an update that is doing nothing at all look identical.
             val waitSeconds =
-                (UPDATE_RETRY_COOLDOWN_MILLIS - (System.currentTimeMillis() - lastFailure.second)) / 1000
+                (UPDATE_RETRY_COOLDOWN_MILLIS - (clock() - lastFailure.second)) / 1000
             _debug.update {
-                it.copy(updateStatus = "update $version failed — retrying in ${waitSeconds}s")
+                it.copy(updateStatus = "update ${update.version} failed — retrying in ${waitSeconds}s")
             }
             return
         }
-        performInstall(version, url)
+        performInstall(token, update)
     }
 
     /**
@@ -784,12 +841,59 @@ class PlayerEngine(
                         _debug.update {
                             it.copy(updateStatus = "${update.version} available, but this screen can't self-install")
                         }
-                    else -> performInstall(update.version, update.url)
+                    else -> performInstall(token, update)
                 }
             }
         } catch (e: Exception) {
             Log.w(TAG, "manual update check failed", e)
             _debug.update { it.copy(updateStatus = "check failed: ${e.message}") }
+        }
+    }
+
+    /**
+     * The installer has just ruled on the last hand-off (`UpdateOutcome.failures` fired). Acts
+     * on it now — backoff, banner, and the reason sent to the CMS — instead of at the next
+     * heartbeat, which could be most of a poll interval away with the CMS saying "installing"
+     * the whole time. Idempotent with the heartbeat path: whichever collects the verdict first
+     * gets it, the other finds nothing.
+     */
+    suspend fun onInstallVerdict() {
+        val token = store.token() ?: return
+        withContext(io) { collectInstallVerdict(token) }
+    }
+
+    private fun collectInstallVerdict(token: String) {
+        val reason = consumeInstallFailure() ?: return
+        val rejected = pendingUpdate ?: return
+        pendingUpdate = null
+        lastFailedUpdate = offerKey(rejected) to clock()
+        setUpdateProgress(UpdateProgress(rejected.version, UpdatePhase.FAILED, detail = reason, atMillis = clock()))
+        reportUpdate(token, rejected.version, "failed", null, reason)
+    }
+
+    /** Version plus when it was offered: the same version offered again later (the CMS's
+     *  "Retry now" re-issues the pin with a fresh time) is a new offer, not a repeat. An older
+     *  server sends no time, which degrades to keying on version alone — exactly as before. */
+    private fun offerKey(update: UpdateInfo) = "${update.version}@${update.requestedAt ?: ""}"
+
+    private fun setUpdateProgress(progress: UpdateProgress) {
+        val text = when (progress.phase) {
+            UpdatePhase.DOWNLOADING ->
+                "downloading ${progress.version}" + (progress.percent?.let { " · $it%" } ?: "…")
+            UpdatePhase.INSTALLING -> "installing update ${progress.version}…"
+            UpdatePhase.FAILED -> "update ${progress.version} failed — ${progress.detail}"
+        }
+        _debug.update { it.copy(update = progress, updateStatus = text) }
+    }
+
+    /** Best effort, never fatal: the update must not be able to fail because a report about it
+     *  couldn't be sent, and the next report supersedes a lost one anyway. Blocking; only ever
+     *  called from [io]. */
+    private fun reportUpdate(token: String, version: String, state: String, pct: Int?, detail: String?) {
+        try {
+            api.reportUpdateStatus(token, UpdateStatusReport(version, state, pct, detail))
+        } catch (e: Exception) {
+            Log.w(TAG, "update status report ($state) not delivered: ${e.message}")
         }
     }
 
@@ -841,6 +945,15 @@ class PlayerEngine(
          *  APK on every 30-second heartbeat forever, short enough that a transient failure
          *  recovers on its own well within a support call. */
         const val UPDATE_RETRY_COOLDOWN_MILLIS = 10 * 60 * 1000L
+
+        /** How often download progress is sent to the CMS — see [performInstall]. */
+        const val UPDATE_REPORT_STEP_PCT = 5
+        const val UPDATE_REPORT_INTERVAL_MILLIS = 3_000L
+
+        /** Said once per offered version, so the CMS can tell "can't" from "hasn't yet". Kept
+         *  here rather than in `kiosk/SelfUpdater` so the JVM tests can assert on it. */
+        const val NOT_DEVICE_OWNER_REASON =
+            "this screen isn't provisioned as Device Owner, so it can't install updates by itself"
 
         /** Consecutive 401s before a screen gives up its pairing. Three confirms a genuine
          *  revocation rather than one stray rejection costing somebody a trip to the screen. */

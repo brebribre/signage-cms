@@ -1,8 +1,9 @@
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 
 import { ApiError } from '@/api/request'
 import { useDeviceApi } from '@/api/useDeviceApi'
 import type { DeviceRead, DeviceUpdateBody } from '@/types/api'
+import { describeUpdate } from '@/utils/updateStatus'
 
 export function useDeviceDetail(id: string) {
   const api = useDeviceApi()
@@ -116,7 +117,57 @@ export function useDeviceDetail(id: string) {
     }
   }
 
+  /**
+   * While a software update is in flight — pinned and unacknowledged, downloading, installing —
+   * the page keeps asking, so the percentage moves and a failure shows the moment the screen
+   * reports it, rather than whenever someone thinks to reload. Quick at first, when things are
+   * expected to move; slower once it's been a while, since a screen still downloading at minute
+   * six over bad wifi is not going to change much in two seconds. A finished update (failed,
+   * installed, scheduled for later) is still watched, just slowly: a screen retries a failed
+   * install by itself after ten minutes, and the page should notice when it does. Stops by
+   * itself once there is nothing to show, or the page is left.
+   */
+  const UPDATE_POLL_FAST_MS = 2_500
+  const UPDATE_POLL_SLOW_MS = 10_000
+  const UPDATE_POLL_IDLE_MS = 15_000
+  const UPDATE_POLL_SLOW_AFTER_MS = 5 * 60_000
+  const updateWatch = computed<'off' | 'idle' | 'busy'>(() => {
+    const view = device.value ? describeUpdate(device.value) : null
+    return view ? (view.busy ? 'busy' : 'idle') : 'off'
+  })
+  let updatePollTimer: ReturnType<typeof setTimeout> | null = null
+  let updatePollStartedAt = 0
+
+  function stopUpdatePoll() {
+    if (updatePollTimer !== null) clearTimeout(updatePollTimer)
+    updatePollTimer = null
+  }
+
+  function scheduleUpdatePoll() {
+    stopUpdatePoll()
+    const mode = updateWatch.value
+    if (mode === 'off') return
+    const delay =
+      mode === 'idle' ? UPDATE_POLL_IDLE_MS
+      : Date.now() - updatePollStartedAt > UPDATE_POLL_SLOW_AFTER_MS ? UPDATE_POLL_SLOW_MS
+      : UPDATE_POLL_FAST_MS
+    updatePollTimer = setTimeout(async () => {
+      await refresh(true)
+      scheduleUpdatePoll()
+    }, delay)
+  }
+
+  watch(
+    updateWatch,
+    (mode, previous) => {
+      if (mode === 'busy' && previous !== 'busy') updatePollStartedAt = Date.now()
+      scheduleUpdatePoll()
+    },
+    { immediate: true },
+  )
+
   onMounted(refresh)
+  onUnmounted(stopUpdatePoll)
 
   return {
     device, isLoading, isSaving, error, saveError, saveSucceeded, probeState,

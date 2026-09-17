@@ -4,7 +4,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from app.models import DeviceOrientation, ItemFit, MediaKind
+from app.models import DeviceOrientation, DeviceUpdateState, ItemFit, MediaKind
 
 
 class ManifestDevice(BaseModel):
@@ -151,6 +151,15 @@ class UpdateInfo(BaseModel):
 
     version: str
     url: str
+    # The APK's size, so the screen can show a real percentage while it downloads, resume a
+    # partial download from the right offset, and refuse to hand a short file to the installer.
+    # Older players ignore it.
+    bytes: int | None = None
+    # When this particular offer was made — the pin's start time, or the fleet rollout's. The
+    # player keys its failure backoff on version *and* this, so re-issuing the same version from
+    # the CMS ("Retry now") is a fresh request that skips the ten-minute cooldown, while the
+    # unchanged offer it sees on every heartbeat after a failure still backs off as before.
+    requested_at: datetime | None = None
 
 
 class HeartbeatResponse(BaseModel):
@@ -161,3 +170,17 @@ class HeartbeatResponse(BaseModel):
     # null in the overwhelmingly common case: updates unconfigured, or the screen already
     # runs the published build.
     update: UpdateInfo | None = None
+
+
+class UpdateStatusReport(BaseModel):
+    """What the screen says about the build it is installing, posted as it goes — see
+    `Device.update_state` for why each state exists. `installed` is never reported here: the
+    process installing an update is killed by that install, so success is derived server-side
+    from the next heartbeat's `app_version` instead."""
+
+    version: str = Field(min_length=1, max_length=32)
+    state: DeviceUpdateState
+    progress_pct: int | None = Field(default=None, ge=0, le=100)
+    # Free text in the screen's own words, meant to be shown to an operator verbatim —
+    # "not enough free space", "download failed: timed out after 3 attempts".
+    detail: str | None = Field(default=None, max_length=500)

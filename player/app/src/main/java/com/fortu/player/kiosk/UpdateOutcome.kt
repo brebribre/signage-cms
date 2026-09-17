@@ -1,7 +1,9 @@
 package com.fortu.player.kiosk
 
-import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 
 /**
@@ -21,22 +23,29 @@ object UpdateOutcome {
     /** Human-readable, and shown verbatim in the debug overlay's `update` row. */
     val last: StateFlow<String?> = _last
 
-    /** Whether the install the engine last handed over came back rejected. Separate from the
-     *  message because the engine acts on it (by backing the version off) rather than reading
-     *  it, and a boolean it can consume exactly once is the whole contract. */
-    private val failed = AtomicBoolean(false)
+    /** The reason the install the engine last handed over came back rejected, until the engine
+     *  collects it. Held as the message rather than a flag: the reason is exactly what the CMS
+     *  needs to show, and the engine is the only thing with a device token to send it with. */
+    private val failure = AtomicReference<String?>(null)
+
+    private val _failures = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
+    /** Fires when a rejection lands, so the engine can act on it now rather than on its next
+     *  heartbeat — up to 30 seconds later, during which the CMS still says "installing". */
+    val failures: SharedFlow<Unit> = _failures
 
     fun report(message: String) {
         _last.value = message
     }
 
-    /** Both at once: say so on screen, and leave a flag for the engine to pick up. */
+    /** Both at once: say so on screen, and leave the reason for the engine to pick up. */
     fun reportFailure(message: String) {
-        failed.set(true)
+        failure.set(message)
         report(message)
+        _failures.tryEmit(Unit)
     }
 
-    /** True at most once per failure — a second caller (or a second heartbeat) must not see a
-     *  rejection that has already started a backoff, or the cooldown would keep resetting. */
-    fun consumeFailure(): Boolean = failed.getAndSet(false)
+    /** The reason, at most once per failure — a second caller (or a second heartbeat) must not
+     *  see a rejection that has already started a backoff, or the cooldown would keep resetting. */
+    fun consumeFailure(): String? = failure.getAndSet(null)
 }

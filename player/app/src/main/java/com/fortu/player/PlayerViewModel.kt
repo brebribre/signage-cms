@@ -45,7 +45,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         appVersion = BuildConfig.VERSION_NAME,
         apiBaseUrl = BuildConfig.API_BASE_URL,
         canSelfUpdate = { SelfUpdater.isSupported(app) },
-        installUpdate = { url -> SelfUpdater.downloadAndInstall(app, api.http, url) },
+        installUpdate = { update, onProgress -> SelfUpdater.downloadAndInstall(app, api.http, update, onProgress) },
         consumeInstallFailure = { UpdateOutcome.consumeFailure() },
         applySettings = { settings -> DeviceSettingsApplier.apply(app, settings) },
         currentSettings = { DeviceSettingsApplier.currentSettings(app) },
@@ -127,5 +127,10 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         if (started) return
         started = true
         viewModelScope.launch(Dispatchers.IO) { engine.run() }
+        // The installer's rejection arrives by broadcast; forward it the moment it does, so the
+        // CMS hears "failed: no space" now rather than on the next heartbeat.
+        viewModelScope.launch(Dispatchers.IO) {
+            UpdateOutcome.failures.collect { engine.onInstallVerdict() }
+        }
     }
 }

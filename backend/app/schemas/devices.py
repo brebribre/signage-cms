@@ -3,7 +3,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from app.models import DeviceOrientation, DevicePlatform
+from app.models import DeviceOrientation, DevicePlatform, DeviceUpdateState
 
 
 class DeviceRead(BaseModel):
@@ -25,6 +25,15 @@ class DeviceRead(BaseModel):
     forced_update_version: str | None
     # When that pinned update may start; None means on the screen's next check-in.
     forced_update_at: datetime | None = None
+    # What the screen itself last said about installing a build — see Device.update_state.
+    # All None until a screen running a player new enough to report has been offered one.
+    # Read alongside `forced_update_version`: a pin with no report yet is "pending", a report
+    # for a version other than the pin is about an earlier attempt or a fleet rollout.
+    update_state: DeviceUpdateState | None = None
+    update_version: str | None = None
+    update_progress_pct: int | None = None
+    update_detail: str | None = None
+    update_reported_at: datetime | None = None
 
 
 class PairStartRequest(BaseModel):

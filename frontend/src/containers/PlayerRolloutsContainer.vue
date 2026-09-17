@@ -18,6 +18,7 @@ import DeviceCard from '@/reusables/DeviceCard.vue'
 import EmptyState from '@/reusables/EmptyState.vue'
 import ModalActions from '@/reusables/ModalActions.vue'
 import type { DeviceRead, PlayerReleaseRead, PlayerRolloutRead } from '@/types/api'
+import { describeUpdate } from '@/utils/updateStatus'
 
 const { releases, rollouts, isLoading, isSaving, error, schedule, cancel, pinDevices, cancelPin } = usePlayerRollouts()
 const { items: allDevices, resolved, refresh: refreshDevices } = useDevices()
@@ -29,8 +30,27 @@ const { nowPlaying } = useNowPlaying(resolved, playlists)
 const { bytes, date, dateTime } = useFormat()
 
 const activeRollout = computed(() => rollouts.value.find((r) => r.is_active) ?? null)
-/** Screens with an update of their own still waiting to install — otherwise invisible from here. */
-const pendingPins = computed(() => devices.value.filter((d) => d.forced_update_version))
+/** Screens with an update of their own still waiting to install, under way, or just failed —
+ *  otherwise invisible from here. A fleet rollout's failures show up here too: the screen reports
+ *  them the same way, pin or no pin, and "3 screens still on 1.1.9" says nothing about why. */
+const pendingPins = computed(() =>
+  devices.value.filter((d) => {
+    const v = describeUpdate(d)
+    return !!v && v.kind !== 'installed'
+  }),
+)
+/** One line per screen: what's happening to it, from its own reports. */
+function updateLine(d: DeviceRead): string {
+  const v = describeUpdate(d)
+  if (!v) return ''
+  switch (v.kind) {
+    case 'downloading': return `Downloading${v.percent !== null ? ` · ${v.percent}%` : ''}`
+    case 'installing': return 'Installing'
+    case 'stalled': return 'No news from the screen'
+    case 'failed': return `Failed: ${d.update_detail ?? 'no reason given'}`
+    default: return pinWhen(d)
+  }
+}
 
 /** How many screens report running each version — what's actually out there, rather than what
  *  the fleet rollout says should be. A screen that has never reported a version isn't counted. */
@@ -189,10 +209,18 @@ const ROW = 'flex items-center gap-3 px-4 py-2.5'
           <li v-for="d in pendingPins" :key="d.id" :class="ROW">
             <span class="min-w-0 flex-1 truncate text-sm text-ink">{{ d.name || 'Unnamed screen' }}</span>
             <span class="shrink-0 text-[13px] tabular-nums text-ink-muted">
-              {{ d.app_version ?? '?' }} → {{ d.forced_update_version }}
+              {{ d.app_version ?? '?' }} → {{ d.forced_update_version ?? d.update_version }}
             </span>
-            <span class="hidden w-40 shrink-0 truncate text-right text-[13px] text-ink-subtle sm:inline">{{ pinWhen(d) }}</span>
-            <AppButton variant="ghost" size="sm" @click="confirmingPin = d">Cancel</AppButton>
+            <span
+              class="hidden w-56 shrink-0 truncate text-right text-[13px] sm:inline"
+              :class="describeUpdate(d)?.tone === 'danger' ? 'text-danger' : 'text-ink-subtle'"
+              :title="updateLine(d)"
+            >
+              {{ updateLine(d) }}
+            </span>
+            <AppButton variant="ghost" size="sm" @click="confirmingPin = d">
+              {{ describeUpdate(d)?.kind === 'failed' ? 'Dismiss' : 'Cancel' }}
+            </AppButton>
           </li>
         </ul>
       </section>

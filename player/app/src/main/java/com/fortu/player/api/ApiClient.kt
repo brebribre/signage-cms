@@ -91,4 +91,19 @@ class ApiClient(
             return json.decodeFromString(res.body!!.string())
         }
     }
+
+    override fun reportUpdateStatus(token: String, body: UpdateStatusReport) {
+        val req = Request.Builder()
+            .url("$baseUrl/device/update-status")
+            .header("Authorization", "Bearer $token")
+            .post(
+                json.encodeToString(UpdateStatusReport.serializer(), body)
+                    .toRequestBody("application/json".toMediaType())
+            )
+            .build()
+        http.newCall(req).execute().use { res ->
+            if (res.code == 401) throw UnauthorizedException()
+            if (!res.isSuccessful) throw IOException("update status failed: HTTP ${res.code}")
+        }
+    }
 }

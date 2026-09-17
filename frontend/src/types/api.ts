@@ -203,7 +203,20 @@ export interface DeviceRead {
   forced_update_version: string | null
   /** When that pinned update takes effect — null means on the screen's next check-in. */
   forced_update_at: string | null
+  /** What the screen itself last said about installing a build — null until a screen running
+   *  a player new enough to report has been offered one. Read alongside `forced_update_version`
+   *  (see utils/updateStatus.ts): a pin with no report yet is "pending"; a report can also be
+   *  about a fleet rollout, with no pin at all. `installed` is set by the server the moment the
+   *  screen heartbeats with the target version — a screen can't report its own success. */
+  update_state: DeviceUpdateState | null
+  update_version: string | null
+  update_progress_pct: number | null
+  /** The reason, in the screen's own words, when `update_state` is 'failed'. */
+  update_detail: string | null
+  update_reported_at: string | null
 }
+
+export type DeviceUpdateState = 'downloading' | 'installing' | 'installed' | 'failed'
 
 export interface ClaimBody {
   pairing_code: string

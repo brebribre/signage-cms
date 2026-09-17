@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.fillMaxSize
@@ -52,6 +53,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.fortu.player.DebugInfo
+import com.fortu.player.UpdatePhase
+import com.fortu.player.UpdateProgress
 import com.fortu.player.R
 
 // Paskall's palette — the same tokens as the CMS (frontend/src/style.css) and the web player.
@@ -309,6 +312,75 @@ fun TroubleScreen(deviceName: String?, message: String, apiHost: String, attempt
 fun StartingScreen() {
     Box(Modifier.fillMaxSize().background(BrandGradient), contentAlignment = Alignment.Center) {
         PaskallLogo(height = 44.dp)
+    }
+}
+
+/**
+ * A player update, as it happens, over whatever is on screen: a small card at the bottom with
+ * the phase, a bar while the APK downloads, and the reason if it failed. The on-screen half of
+ * the status the CMS shows for the same install — before this the only way to tell a download
+ * crawling over bad wifi from one that had failed was to hold the corner for the debug overlay.
+ * Deliberately small and low on the screen: content keeps playing behind it.
+ */
+@Composable
+fun UpdateBanner(progress: UpdateProgress) {
+    val title = when (progress.phase) {
+        UpdatePhase.DOWNLOADING -> "Updating to ${progress.version}"
+        UpdatePhase.INSTALLING -> "Installing ${progress.version}"
+        UpdatePhase.FAILED -> "Update to ${progress.version} failed"
+    }
+    val detail = when (progress.phase) {
+        UpdatePhase.DOWNLOADING -> {
+            val pct = progress.percent?.let { "$it%" } ?: "Downloading"
+            val size = progress.totalBytes?.let {
+                " · %.1f of %.1f MB".format(progress.doneBytes / 1_048_576.0, it / 1_048_576.0)
+            } ?: ""
+            pct + size
+        }
+        UpdatePhase.INSTALLING -> "The player restarts by itself in a moment"
+        UpdatePhase.FAILED -> progress.detail ?: "It will be retried shortly"
+    }
+    Box(Modifier.fillMaxSize().padding(28.dp), contentAlignment = Alignment.BottomCenter) {
+        Column(
+            modifier = Modifier
+                .width(440.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(Color(0xE6101111))
+                .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(16.dp))
+                .padding(horizontal = 22.dp, vertical = 16.dp),
+        ) {
+            Text(
+                title,
+                color = if (progress.phase == UpdatePhase.FAILED) Color(0xFFFF8A80) else InkInverse,
+                fontSize = 18.sp,
+                fontFamily = Inter,
+                fontWeight = FontWeight.Medium,
+            )
+            if (progress.phase == UpdatePhase.DOWNLOADING) {
+                val pct = progress.percent
+                if (pct != null) {
+                    LinearProgressIndicator(
+                        progress = { pct / 100f },
+                        color = InkInverse,
+                        trackColor = InkMuted.copy(alpha = 0.3f),
+                        modifier = Modifier.padding(top = 12.dp).fillMaxWidth().height(4.dp),
+                    )
+                } else {
+                    LinearProgressIndicator(
+                        color = InkInverse,
+                        trackColor = InkMuted.copy(alpha = 0.3f),
+                        modifier = Modifier.padding(top = 12.dp).fillMaxWidth().height(4.dp),
+                    )
+                }
+            }
+            Text(
+                detail,
+                color = InkMuted,
+                fontSize = 14.sp,
+                fontFamily = Inter,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+        }
     }
 }
 

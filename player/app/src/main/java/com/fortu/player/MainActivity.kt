@@ -34,6 +34,7 @@ import com.fortu.player.ui.PairingScreen
 import com.fortu.player.ui.PreparingScreen
 import com.fortu.player.ui.StartingScreen
 import com.fortu.player.ui.TroubleScreen
+import com.fortu.player.ui.UpdateBanner
 import kotlinx.coroutines.delay
 import kotlin.math.hypot
 
@@ -203,6 +204,19 @@ class MainActivity : ComponentActivity() {
                         onPlaybackError = vm::reportError,
                     )
                 }
+                // A small card at the bottom while a build downloads or installs, and for a
+                // couple of minutes after a failure — the on-screen half of what the CMS
+                // shows for the same install, so nobody at the screen is left guessing either.
+                val update = debug.update
+                var bannerVisible by remember(update) { mutableStateOf(update != null) }
+                LaunchedEffect(update) {
+                    if (update?.phase == UpdatePhase.FAILED) {
+                        delay(UPDATE_FAILURE_BANNER_MILLIS)
+                        bannerVisible = false
+                    }
+                }
+                if (update != null && bannerVisible) UpdateBanner(update)
+
                 if (showDebug) {
                     DebugOverlay(
                         debug,
@@ -247,6 +261,9 @@ class MainActivity : ComponentActivity() {
         const val LONG_PRESS_MILLIS = 900L
         const val LONG_PRESS_SLOP_DP = 24f
         const val HIDDEN_CORNER_FRACTION = 0.2f
+        /** How long a failed update stays announced on screen. Long enough to be read by
+         *  whoever is walking over; the debug overlay keeps the reason after that. */
+        const val UPDATE_FAILURE_BANNER_MILLIS = 120_000L
     }
 
     private fun exitKiosk() {

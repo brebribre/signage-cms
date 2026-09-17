@@ -248,6 +248,29 @@ screen's version *differs* from the published one, not only when it's older. Tha
 if a release breaks playback across a wall of screens, the fix has to be a config change rather
 than a visit to each one.
 
+### Watching it happen
+
+An update is never silent on either side. The screen shows a small card at the bottom while it
+downloads (with a percentage) and installs, and for two minutes after a failure, with the
+reason. The same story reaches the CMS as it happens (`POST /device/update-status`): the
+screen's page under Screens shows *waiting for the screen to check in → downloading 43% →
+installing → updated*, or *failed* with the reason and a **Retry now** button, and Settings →
+Software updates lists every screen with an update in flight or failed. The debug overlay
+(hold the top-left corner) keeps the last status line either way.
+
+"Waiting" says why it's waiting: the screen is offline, or it's checking in but not starting —
+which almost always means it isn't Device Owner (see below), and the screen tells the CMS so
+the first time it's offered a build it can't take.
+
+### Bad wifi
+
+The download is built for venue networks that drop for a few seconds at a time. It resumes
+from where it stopped (HTTP `Range`) three times in a row before giving up, keeps the partial
+file across the longer ten-minute backoff so the next attempt continues rather than restarts,
+checks the size against what the server said before handing anything to the installer, and
+reports progress often enough that the CMS can tell "slow" from "stuck" — a screen that has
+said nothing for three minutes is shown as having gone quiet, not as still downloading.
+
 ### What protects you from a bad push
 
 - **Blank config publishes nothing.** `PLAYER_LATEST_VERSION` is empty by default, so a
@@ -255,8 +278,11 @@ than a visit to each one.
 - **Version is read from the APK**, not typed. A mismatch between the published string and the
   binary's real `versionName` would make every screen reinstall on every heartbeat forever;
   `publish_player_apk.py` refuses to guess and errors out instead.
-- **One install attempt per app run.** A failing install is not retried until the app restarts,
-  so a bad APK cannot become a 30-second re-download loop.
+- **A failed attempt backs off.** The same offer isn't retried for ten minutes, so a bad APK
+  cannot become a 30-second re-download loop — but a *new* offer (a different version, or the
+  same one re-issued from the CMS with **Retry now**) is tried immediately.
+- **Every failure is explained**, on the screen and in the CMS: the installer's own reason
+  (no space, rejected signature, downgrade) or the download's (timed out after three attempts).
 - **A screen that has never reported its version is offered nothing** — pushing blind risks
   exactly that loop.
 - **Non-owner devices decline.** `SelfUpdater.downloadAndInstall()` refuses to run rather than
