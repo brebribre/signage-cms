@@ -2,24 +2,56 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import IconDeleteOutline from '~icons/material-symbols/delete-outline'
+import IconUpload from '~icons/material-symbols/upload'
 
+import { useFleetHealth } from '@/hooks/useFleetHealth'
+import { useFormat } from '@/hooks/useFormat'
 import { useMedia } from '@/hooks/useMedia'
 import { useMediaUpload } from '@/hooks/useMediaUpload'
 import AppAlert from '@/reusables/AppAlert.vue'
 import AppButton from '@/reusables/AppButton.vue'
 import AppModal from '@/reusables/AppModal.vue'
 import DropZone from '@/reusables/DropZone.vue'
-import EmptyState from '@/reusables/EmptyState.vue'
 import FilterChip from '@/reusables/FilterChip.vue'
 import MediaCard from '@/reusables/MediaCard.vue'
 import ModalActions from '@/reusables/ModalActions.vue'
 import PageTitle from '@/reusables/PageTitle.vue'
 import ProgressBar from '@/reusables/ProgressBar.vue'
+import StatCard from '@/reusables/StatCard.vue'
 import { ACCEPTED_MEDIA, SUPPORTED_FILE_TYPES } from '@/utils/mediaTypes'
 
 const router = useRouter()
 const { items, visible, counts, filter, isLoading, error, prepend, removeMany } = useMedia()
 const { jobs, active, isUploading, add, dismiss, clearFinished } = useMediaUpload(prepend)
+const { storage } = useFleetHealth()
+const { bytes, duration, dimensions } = useFormat()
+
+// --- The figures along the top ---
+
+const totalBytes = computed(() => items.value.reduce((sum, m) => sum + m.size_bytes, 0))
+const videoSeconds = computed(() =>
+  items.value.reduce((sum, m) => sum + (m.kind === 'video' ? (m.duration_seconds ?? 0) : 0), 0),
+)
+const storageHint = computed(() => {
+  if (!storage.value) return 'Across the account'
+  if (!storage.value.quota_bytes) return 'No quota set'
+  const pct = Math.min(100, Math.round((storage.value.used_bytes / storage.value.quota_bytes) * 100))
+  return `of ${bytes(storage.value.quota_bytes)} (${pct}%)`
+})
+
+/** The line under a tile's name: a video's resolution, a picture's, and its size either way. */
+function metaFor(m: { width: number | null; height: number | null; size_bytes: number }): string {
+  const size = bytes(m.size_bytes)
+  return m.width && m.height ? `${dimensions(m.width, m.height)} · ${size}` : size
+}
+
+/** The header's Upload button — the drop zone's own picker, reachable without scrolling to it. */
+const fileInput = ref<HTMLInputElement | null>(null)
+function onPicked(e: Event) {
+  const input = e.target as HTMLInputElement
+  if (input.files?.length) add(Array.from(input.files))
+  input.value = ''
+}
 
 // --- Selecting several, to delete them together ---
 
@@ -98,7 +130,28 @@ const STATUS_LABEL: Record<string, string> = {
 
 <template>
   <div class="flex flex-col gap-6">
-    <PageTitle title="Media" :subtitle="`${counts.all} file${counts.all === 1 ? '' : 's'}`" />
+    <PageTitle title="Media" subtitle="Pictures and videos your screens can play.">
+      <template #actions>
+        <AppButton @click="fileInput?.click()">
+          <IconUpload class="size-4" aria-hidden="true" />
+          Upload
+        </AppButton>
+      </template>
+    </PageTitle>
+    <input ref="fileInput" type="file" multiple class="hidden" :accept="ACCEPTED_MEDIA" @change="onPicked" />
+
+    <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <StatCard label="Files" :value="counts.all" tone="brand" :hint="`${bytes(totalBytes)} in total`" />
+      <StatCard
+        label="Images" :value="counts.image" :openable="counts.image > 0 && filter !== 'image'"
+        hint="Shown for a set time" @open="filter = 'image'"
+      />
+      <StatCard
+        label="Videos" :value="counts.video" :openable="counts.video > 0 && filter !== 'video'"
+        :hint="counts.video ? `${duration(videoSeconds)} of video` : 'None yet'" @open="filter = 'video'"
+      />
+      <StatCard label="Storage" :value="storage ? bytes(storage.used_bytes) : bytes(totalBytes)" :hint="storageHint" />
+    </div>
 
     <DropZone
       :accept="ACCEPTED_MEDIA"
@@ -108,18 +161,16 @@ const STATUS_LABEL: Record<string, string> = {
     />
 
     <!-- Upload queue. Two run at once; the rest wait. -->
-    <div v-if="jobs.length" class="flex flex-col gap-2">
+    <section v-if="jobs.length" class="flex flex-col gap-2 rounded-2xl bg-canvas p-4 sm:p-5" aria-label="Uploads">
       <div class="flex items-center justify-between">
-        <p class="text-[13px] text-ink-muted">
-          {{ isUploading ? `Uploading ${active.length}…` : 'Finished' }}
-        </p>
+        <h2 class="text-base">{{ isUploading ? `Uploading ${active.length}…` : 'Uploads finished' }}</h2>
         <!-- Successful rows remove themselves; this only ever clears failures the user has
              already read. -->
         <AppButton v-if="!isUploading" variant="ghost" size="sm" @click="clearFinished">
           Clear
         </AppButton>
       </div>
-      <div v-for="job in jobs" :key="job.id" class="rounded-lg bg-surface p-3">
+      <div v-for="job in jobs" :key="job.id" class="rounded-xl bg-surface p-3">
         <div class="flex items-baseline justify-between gap-3">
           <p class="truncate text-sm text-ink">{{ job.name }}</p>
           <p class="shrink-0 text-[13px]" :class="job.status === 'failed' ? 'text-danger' : 'text-ink-muted'">
@@ -133,59 +184,64 @@ const STATUS_LABEL: Record<string, string> = {
           Dismiss
         </AppButton>
       </div>
-    </div>
+    </section>
 
-    <div class="flex flex-wrap items-center gap-2">
-      <FilterChip :active="filter === 'all'" :count="counts.all" @click="filter = 'all'">All</FilterChip>
-      <FilterChip :active="filter === 'image'" :count="counts.image" @click="filter = 'image'">Images</FilterChip>
-      <FilterChip :active="filter === 'video'" :count="counts.video" @click="filter = 'video'">Videos</FilterChip>
-      <div class="ml-auto">
-        <AppButton v-if="!selecting" variant="secondary" size="sm" :disabled="!counts.all" @click="startSelecting">
-          Select
-        </AppButton>
-        <AppButton v-else variant="ghost" size="sm" @click="toggleAll">
-          {{ allVisibleSelected ? 'Clear all' : 'Select all' }}
-        </AppButton>
+    <!-- The library itself: one panel holding its filters, selection and files. -->
+    <section class="flex flex-col gap-4 rounded-2xl bg-canvas p-4 sm:p-5" aria-labelledby="library-heading">
+      <div class="flex flex-wrap items-center gap-2">
+        <h2 id="library-heading" class="mr-2 text-lg">Library</h2>
+        <FilterChip :active="filter === 'all'" :count="counts.all" @click="filter = 'all'">All</FilterChip>
+        <FilterChip :active="filter === 'image'" :count="counts.image" @click="filter = 'image'">Images</FilterChip>
+        <FilterChip :active="filter === 'video'" :count="counts.video" @click="filter = 'video'">Videos</FilterChip>
+        <div class="ml-auto">
+          <AppButton v-if="!selecting" variant="secondary" size="sm" :disabled="!counts.all" @click="startSelecting">
+            Select
+          </AppButton>
+          <AppButton v-else variant="ghost" size="sm" @click="toggleAll">
+            {{ allVisibleSelected ? 'Clear all' : 'Select all' }}
+          </AppButton>
+        </div>
       </div>
-    </div>
 
-    <AppAlert v-if="deleteResult && deleteResult.failed.length" tone="danger">
-      <p>
-        {{ deleteResult.deleted ? `Deleted ${deleteResult.deleted}. ` : '' }}{{ deleteResult.failed.length }}
-        couldn't be deleted — still selected below:
-      </p>
-      <ul class="mt-1 list-disc pl-5">
-        <li v-for="f in deleteResult.failed" :key="f.filename">{{ f.filename }}: {{ f.reason }}</li>
-      </ul>
-    </AppAlert>
-    <AppAlert v-else-if="deleteResult">
-      Deleted {{ deleteResult.deleted }} file{{ deleteResult.deleted === 1 ? '' : 's' }}.
-    </AppAlert>
+      <AppAlert v-if="deleteResult && deleteResult.failed.length" tone="danger">
+        <p>
+          {{ deleteResult.deleted ? `Deleted ${deleteResult.deleted}. ` : '' }}{{ deleteResult.failed.length }}
+          couldn't be deleted — still selected below:
+        </p>
+        <ul class="mt-1 list-disc pl-5">
+          <li v-for="f in deleteResult.failed" :key="f.filename">{{ f.filename }}: {{ f.reason }}</li>
+        </ul>
+      </AppAlert>
+      <AppAlert v-else-if="deleteResult">
+        Deleted {{ deleteResult.deleted }} file{{ deleteResult.deleted === 1 ? '' : 's' }}.
+      </AppAlert>
 
-    <AppAlert v-if="error" tone="danger">{{ error }}</AppAlert>
+      <AppAlert v-if="error" tone="danger">{{ error }}</AppAlert>
 
-    <p v-if="isLoading" class="text-sm text-ink-muted">Loading…</p>
+      <p v-if="isLoading" class="py-10 text-center text-sm text-ink-muted">Loading…</p>
 
-    <EmptyState
-      v-else-if="!visible.length"
-      title="Nothing here yet"
-      :description="counts.all
-        ? 'No files of this type. Try a different filter.'
-        : 'Drop a file above to add it to the library.'"
-    />
+      <div v-else-if="!visible.length" class="py-12 text-center">
+        <p class="text-base text-ink">Nothing here yet</p>
+        <p class="mt-1 text-sm text-ink-muted">
+          {{ counts.all ? 'No files of this type. Try a different filter.' : 'Upload a file, or drop one above.' }}
+        </p>
+      </div>
 
-    <div v-else class="grid grid-cols-2 gap-0.5 sm:grid-cols-3 lg:grid-cols-4">
-      <MediaCard
-        v-for="m in visible"
-        :key="m.id"
-        :filename="m.filename"
-        :kind="m.kind"
-        :thumbnail-url="m.thumbnail_url"
-        :selectable="selecting"
-        :selected="selected.has(m.id)"
-        @click="onTile(m.id)"
-      />
-    </div>
+      <div v-else class="grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-3 lg:grid-cols-4">
+        <MediaCard
+          v-for="m in visible"
+          :key="m.id"
+          :filename="m.filename"
+          :kind="m.kind"
+          :thumbnail-url="m.thumbnail_url"
+          :meta="metaFor(m)"
+          :badge="m.kind === 'video' && m.duration_seconds != null ? duration(m.duration_seconds) : undefined"
+          :selectable="selecting"
+          :selected="selected.has(m.id)"
+          @click="onTile(m.id)"
+        />
+      </div>
+    </section>
 
     <!-- The selection's actions, pinned to the bottom of the page while selecting, so they stay
          in reach however far down the library you scrolled to pick. -->
