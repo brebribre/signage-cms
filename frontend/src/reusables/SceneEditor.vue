@@ -230,6 +230,45 @@ onMounted(() => {
 })
 onUnmounted(() => canvasObserver?.disconnect())
 
+// --- Floating controls on the canvas, Canva-style: a pill with Delete above the selected element
+// and a round Rotate button below it. They go on the other side when there isn't room, sit inside
+// the element when there's room on neither side, and are held on the canvas horizontally. Hidden
+// while the element is being dragged, resized or cropped, so they never get in the way. ---
+
+const FLOAT_GAP = 12
+/** Height a floating control needs, plus its gap — room required on a side before it goes there. */
+const FLOAT_ROOM = 48
+const floatingHidden = computed(() => dragging.value || !!resizingCorner.value || !!resizingEdge.value || cropMode.value)
+
+const floating = computed(() => {
+  const el = selected.value
+  const width = canvasWidth.value
+  if (!el || !width) return null
+  const height = width / canvasAspect.value
+  const top = el.y * height
+  const bottom = (el.y + el.height) * height
+  const center = Math.min(Math.max((el.x + el.width / 2) * width, 28), width - 28)
+  const roomAbove = top >= FLOAT_ROOM
+  const roomBelow = height - bottom >= FLOAT_ROOM
+
+  type Place = { left: string; top: string; transform: string }
+  const above = (stack: number): Place => ({ left: `${center}px`, top: `${top}px`, transform: `translate(-50%, calc(-100% - ${FLOAT_GAP + stack}px))` })
+  const below = (stack: number): Place => ({ left: `${center}px`, top: `${bottom}px`, transform: `translate(-50%, ${FLOAT_GAP + stack}px)` })
+
+  let pill: Place
+  let rotate: Place
+  if (roomAbove || roomBelow) {
+    // Both on one side when only one side has room: the rotate button nearest, the pill beyond it.
+    pill = roomAbove ? above(0) : below(FLOAT_ROOM)
+    rotate = roomBelow ? below(0) : above(FLOAT_ROOM)
+  } else {
+    // An element taller than the canvas: keep both inside it, at its visible top and bottom.
+    pill = { left: `${center}px`, top: `${Math.max(top, 0)}px`, transform: `translate(-50%, ${FLOAT_GAP}px)` }
+    rotate = { left: `${center}px`, top: `${Math.min(bottom, height)}px`, transform: `translate(-50%, calc(-100% - ${FLOAT_GAP}px))` }
+  }
+  return { pill, rotate }
+})
+
 function webFrameStyle(el: DraftElement) {
   const { width, height } = props.referenceScreen
   return {
@@ -955,6 +994,40 @@ function apply() {
                   @pointercancel.stop="onEdgeHandlePointerUp"
                 />
               </div>
+
+              <template v-if="selected && floating && !floatingHidden">
+                <div
+                  class="pointer-events-auto absolute z-[1000] flex items-center gap-0.5 rounded-full bg-canvas p-1 ring-1 ring-line"
+                  :style="floating.pill"
+                  @pointerdown.stop
+                  @click.stop
+                >
+                  <button
+                    type="button"
+                    class="flex size-9 items-center justify-center rounded-full text-ink transition-colors duration-150
+                           hover:bg-surface hover:text-danger focus-visible:outline-2 focus-visible:outline-brand-bright"
+                    title="Delete"
+                    aria-label="Delete element"
+                    @click="deleteSelected"
+                  >
+                    <IconDeleteOutline class="size-5" />
+                  </button>
+                </div>
+                <button
+                  v-if="selected.kind !== 'web'"
+                  type="button"
+                  class="pointer-events-auto absolute z-[1000] flex size-9 items-center justify-center rounded-full bg-canvas
+                         text-ink ring-1 ring-line transition-colors duration-150 hover:bg-surface
+                         focus-visible:outline-2 focus-visible:outline-brand-bright"
+                  :style="floating.rotate"
+                  title="Rotate"
+                  aria-label="Rotate a quarter turn"
+                  @pointerdown.stop
+                  @click.stop="rotateSelected"
+                >
+                  <IconRotateRight class="size-5" />
+                </button>
+              </template>
             </div>
 
             <div
@@ -1203,9 +1276,6 @@ function apply() {
           >
             <IconCrop class="size-6" aria-hidden="true" />Crop
           </button>
-          <button type="button" :class="TOOL" @click="rotateSelected">
-            <IconRotateRight class="size-6" aria-hidden="true" />Rotate
-          </button>
           <button
             v-if="selected.kind === 'video'"
             type="button" :class="TOOL"
@@ -1220,9 +1290,6 @@ function apply() {
         </button>
         <button type="button" :class="TOOL" @click="sheet = 'edit'">
           <IconLayersOutline class="size-6" aria-hidden="true" />Layers
-        </button>
-        <button type="button" :class="[TOOL, '!text-danger']" @click="deleteSelected">
-          <IconDeleteOutline class="size-6" aria-hidden="true" />Delete
         </button>
         <button type="button" :class="[TOOL, '!text-brand']" @click="select(null)">
           <IconCheck class="size-6" aria-hidden="true" />Done
