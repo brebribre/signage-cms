@@ -5,6 +5,7 @@ import { useRouter } from 'vue-router'
 import IconPlaylistPlay from '~icons/material-symbols/playlist-play'
 import IconTv from '~icons/material-symbols/tv-outline'
 
+import { useCampaigns } from '@/hooks/useCampaigns'
 import { useDevices } from '@/hooks/useDevices'
 import { useFleetHealth } from '@/hooks/useFleetHealth'
 import { useFormat } from '@/hooks/useFormat'
@@ -36,6 +37,9 @@ const { devices: health, storage, offline, withErrors, isLoading: healthLoading 
 /** Everything the health endpoint doesn't count as offline — the hero card's line of context. */
 const online = computed(() => health.value.filter((d) => d.is_online))
 const { items: playlists, isLoading: playlistsLoading, error: playlistsError } = usePlaylists()
+const { items: campaigns } = useCampaigns()
+/** Distinct screens covered by any campaign — a screen in two campaigns counts once. */
+const campaignScreens = computed(() => new Set(campaigns.value.flatMap((c) => c.device_ids)).size)
 const { items: media, isLoading: mediaLoading, error: mediaError } = useMedia()
 
 // --- First steps: a big prompt for whatever the account doesn't have yet ---
@@ -140,10 +144,14 @@ function quotaPercent(used: number, quota: number | null): number | null {
         :hint="devices.length ? `${online.length} online now` : 'None paired yet'"
         @open="router.push({ name: 'devices' })"
       />
+      <!-- How many campaigns there are, and how far they reach: distinct screens across all of
+           them, since one screen can sit in several. -->
       <StatCard
-        label="Offline" :value="offline.length" :tone="offline.length ? 'danger' : 'plain'"
-        :openable="offline.length > 0" hint="No check-in recently"
-        @open="filter = 'offline'"
+        label="Campaigns" :value="campaigns.length" openable
+        :hint="campaigns.length
+          ? `Across ${campaignScreens} screen${campaignScreens === 1 ? '' : 's'}`
+          : 'None yet'"
+        @open="router.push({ name: 'campaigns' })"
       />
       <StatCard
         label="Reporting errors" :value="withErrors.length" :tone="withErrors.length ? 'danger' : 'plain'"
