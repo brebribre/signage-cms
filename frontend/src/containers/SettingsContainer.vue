@@ -1,6 +1,7 @@
 <script setup lang="ts">
 /**
- * Settings: one page, its sections as tabs. Owner-only, like everything in it.
+ * Settings: one page, its sections as tabs. Everyone gets General (Log out lives there); the
+ * rest is owner-only.
  *
  * Each tab is its own route (/settings/users, /settings/updates) rendered in the router-view
  * below, not local state — so a tab can be linked to, survives a reload, and Back steps between
@@ -9,19 +10,23 @@
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import { useAuth } from '@/hooks/useAuth'
 import AppTabs from '@/reusables/AppTabs.vue'
 import PageTitle from '@/reusables/PageTitle.vue'
 
 const route = useRoute()
 const router = useRouter()
 
-const TABS = [
-  { value: 'settings-general', label: 'General' },
-  { value: 'settings-users', label: 'User management' },
-  { value: 'settings-updates', label: 'Software updates' },
-] as const
+const { isOwner } = useAuth()
 
-const current = computed(() => String(route.name ?? TABS[0].value))
+const ALL_TABS = [
+  { value: 'settings-general', label: 'General', ownerOnly: false },
+  { value: 'settings-users', label: 'User management', ownerOnly: true },
+  { value: 'settings-updates', label: 'Software updates', ownerOnly: true },
+]
+const tabs = computed(() => ALL_TABS.filter((t) => isOwner.value || !t.ownerOnly))
+
+const current = computed(() => String(route.name ?? tabs.value[0].value))
 
 function open(name: string) {
   if (name !== current.value) router.push({ name })
@@ -30,8 +35,12 @@ function open(name: string) {
 
 <template>
   <div class="flex flex-col gap-6">
-    <PageTitle title="Settings" subtitle="Account defaults, your team, and the player software on your screens." />
-    <AppTabs :items="TABS" :model-value="current" @update:model-value="open" />
+    <PageTitle
+      title="Settings"
+      :subtitle="isOwner ? 'Account defaults, your team, and the player software on your screens.' : undefined"
+    />
+    <!-- One tab is no choice at all. -->
+    <AppTabs v-if="tabs.length > 1" :items="tabs" :model-value="current" @update:model-value="open" />
     <router-view />
   </div>
 </template>

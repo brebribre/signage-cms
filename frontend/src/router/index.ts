@@ -94,14 +94,13 @@ const router = createRouter({
           path: 'settings',
           name: 'settings',
           component: () => import('@/containers/SettingsContainer.vue'),
-          meta: { ownerOnly: true },
+          // Open to everyone for General, where Log out lives; the other tabs are owner-only.
           redirect: { name: 'settings-general' },
           children: [
             {
               path: 'general',
               name: 'settings-general',
               component: () => import('@/containers/GeneralSettingsContainer.vue'),
-              meta: { ownerOnly: true },
             },
             {
               path: 'users',
