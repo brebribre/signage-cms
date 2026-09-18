@@ -18,10 +18,10 @@ import PageTitle from '@/reusables/PageTitle.vue'
 import PairScreenForm from '@/reusables/PairScreenForm.vue'
 import DeviceCardSkeleton from '@/reusables/DeviceCardSkeleton.vue'
 import SkeletonList from '@/reusables/SkeletonList.vue'
-import type { ClaimBody } from '@/types/api'
+import type { ClaimBody, DeviceOrientation } from '@/types/api'
 
 const router = useRouter()
-const { items, resolved, isLoading, isSaving, error, claimError, connecting, claim } = useDevices()
+const { items, resolved, isLoading, isSaving, error, claimError, connecting, claim, setOrientation } = useDevices()
 const { items: playlists } = usePlaylists()
 const { nowPlaying } = useNowPlaying(resolved, playlists)
 // Online/offline comes from the same fleet health Overview uses, so the two pages always agree.
@@ -51,18 +51,18 @@ const visible = computed(() => {
 const pairing = ref(false)
 
 async function onClaim(body: ClaimBody) {
-  const ok = await claim(body)
-  if (!ok) return
-  // Held briefly so "connected" is actually seen — closing the instant the promise resolves
-  // throws away the one piece of feedback that says the screen really started. Then straight
-  // to the new screen's page: everything someone does next (assign a playlist, set its
-  // orientation, check it's playing) lives there, not in the list it just joined.
-  if (!claimError.value) {
-    await new Promise((r) => setTimeout(r, 900))
-    pairing.value = false
-    const id = connecting.value?.id
-    if (id) router.push({ name: 'device-detail', params: { id } })
-  }
+  // Once connected the form asks how the screen is mounted; onPairDone finishes from there.
+  await claim(body)
+}
+
+/** The last step of pairing: save the mounting (unless skipped), then straight to the new
+ *  screen's page — everything someone does next (assign a playlist, check it's playing) lives
+ *  there, not in the list it just joined. */
+async function onPairDone(orientation: DeviceOrientation | null) {
+  const id = connecting.value?.id
+  if (id && orientation && !(await setOrientation(id, orientation))) return
+  pairing.value = false
+  if (id) router.push({ name: 'device-detail', params: { id } })
 }
 </script>
 
@@ -136,7 +136,8 @@ async function onClaim(body: ClaimBody) {
     <AppModal v-if="pairing" title="Add a screen" @close="pairing = false">
       <PairScreenForm
         :is-saving="isSaving" :claim-error="claimError" :connecting="connecting"
-        @submit="onClaim" @cancel="pairing = false"
+        @submit="onClaim"
+        @done="onPairDone" @cancel="pairing = false"
       />
     </AppModal>
   </div>

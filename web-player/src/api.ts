@@ -96,7 +96,9 @@ export interface ManifestSettings {
 
 export interface Manifest {
   version: string
-  device: { name: string; orientation: string; timezone?: string | null }
+  /** `orientation` is the old portrait/landscape word; `rotation` (0/90/180/270, clockwise)
+   *  is what newer backends send and what the stage is actually turned by. */
+  device: { name: string; orientation: string; rotation?: number | null; timezone?: string | null }
   /** null is a valid state — a newly paired screen with nothing assigned yet. */
   playlist?: { id: string; name: string; shuffle: boolean } | null
   items?: ManifestItem[]

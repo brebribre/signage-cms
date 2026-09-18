@@ -2,7 +2,7 @@ import { onMounted, ref } from 'vue'
 
 import { ApiError } from '@/api/request'
 import { useDeviceApi } from '@/api/useDeviceApi'
-import type { ClaimBody, DeviceRead, DeviceResolutionRead } from '@/types/api'
+import type { ClaimBody, DeviceOrientation, DeviceRead, DeviceResolutionRead } from '@/types/api'
 
 /** The screen list: loading, claiming a new one, and what each screen is playing right now.
  *  Playlist assignment itself lives entirely in Campaigns — this hook only reads the result. */
@@ -85,7 +85,20 @@ export function useDevices() {
     }
   }
 
+  /** The last step of pairing: how the screen just connected is mounted. Its own call rather
+   *  than part of the claim, since the screen has to exist before anything can be set on it. */
+  async function setOrientation(deviceId: string, orientation: DeviceOrientation): Promise<boolean> {
+    try {
+      await api.update(deviceId, { orientation })
+      await refresh()
+      return true
+    } catch (e) {
+      claimError.value = e instanceof ApiError ? e.message : 'Could not save the orientation'
+      return false
+    }
+  }
+
   onMounted(refresh)
 
-  return { items, resolved, isLoading, isSaving, error, claimError, connecting, refresh, claim }
+  return { items, resolved, isLoading, isSaving, error, claimError, connecting, refresh, claim, setOrientation }
 }

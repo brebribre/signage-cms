@@ -7,6 +7,7 @@ import { computed } from 'vue'
 
 import wordmarkUrl from '@/assets/paskall-wordmark.png'
 import type { DeviceRead } from '@/types/api'
+import { isPortrait } from '@/utils/orientation'
 
 const props = withDefaults(defineProps<{ device: DeviceRead; size?: number }>(), { size: 88 })
 
@@ -17,7 +18,7 @@ const box = computed(() => {
   const d = props.device
   const ratio = d.screen_width && d.screen_height
     ? d.screen_width / d.screen_height
-    : d.orientation === 'portrait' ? 9 / 16 : 16 / 9
+    : isPortrait(d.orientation) ? 9 / 16 : 16 / 9
   const clamped = Math.min(Math.max(ratio, 0.4), 2.4)
   const width = clamped >= 1 ? props.size : Math.round(props.size * clamped)
   const height = clamped >= 1 ? Math.round(props.size / clamped) : props.size

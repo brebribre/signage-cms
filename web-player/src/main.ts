@@ -113,25 +113,49 @@ async function boot() {
 
   // --- Orientation --------------------------------------------------------------------------
 
-  /** Set per screen in the CMS. A browser cannot turn the panel itself, so when the configured
-   *  orientation disagrees with the panel's shape the whole stage is drawn turned a quarter,
-   *  as a TV mounted on its side needs. Before the first manifest the panel is left as it is —
-   *  a pairing code reads fine either way. */
-  let rotated = false
+  /** Set per screen in the CMS as a rotation in degrees (0/90/180/270, clockwise) — or, from an
+   *  older backend, the word portrait/landscape. A browser cannot turn the panel itself, so the
+   *  whole stage is drawn turned by whatever is left after the panel's own shape is accounted
+   *  for: a panel that already reports portrait pixels needs a quarter less. Before the first
+   *  manifest the panel is left as it is — a pairing code reads fine either way. */
+  let turn = 0
+  function wantedDegrees(): number | null {
+    const wanted = engine.orientation.value
+    if (!wanted) return null
+    if (wanted === 'portrait') return 90
+    if (wanted === 'landscape') return 0
+    const n = Number(wanted)
+    return Number.isFinite(n) ? ((Math.round(n / 90) * 90) % 360 + 360) % 360 : null
+  }
   function applyOrientation() {
     const vw = window.innerWidth
     const vh = window.innerHeight
-    const wanted = engine.orientation.value
-    rotated = !!wanted && (wanted === 'portrait') !== vh > vw
-    Object.assign(stage.style, rotated
-      ? { width: `${vh}px`, height: `${vw}px`, transform: `translateX(${vw}px) rotate(90deg)` }
-      : { width: '100%', height: '100%', transform: '' })
+    const wanted = wantedDegrees()
+    const panel = vh > vw ? 90 : 0
+    turn = wanted === null ? 0 : ((wanted - panel) % 360 + 360) % 360
+    const quarter = turn === 90 || turn === 270
+    Object.assign(stage.style, {
+      width: quarter ? `${vh}px` : '100%',
+      height: quarter ? `${vw}px` : '100%',
+      transform:
+        turn === 90 ? `translateX(${vw}px) rotate(90deg)`
+        : turn === 180 ? `translate(${vw}px, ${vh}px) rotate(180deg)`
+        : turn === 270 ? `translateY(${vh}px) rotate(-90deg)`
+        : '',
+    })
     surface.relayout()
   }
 
   /** A viewport point in the stage's own coordinates — the inverse of the rotation above. */
   function toStage(x: number, y: number) {
-    return rotated ? { x: y, y: window.innerWidth - x } : { x, y }
+    const vw = window.innerWidth
+    const vh = window.innerHeight
+    switch (turn) {
+      case 90: return { x: y, y: vw - x }
+      case 180: return { x: vw - x, y: vh - y }
+      case 270: return { x: vh - y, y: x }
+      default: return { x, y }
+    }
   }
 
   // --- Rendering ----------------------------------------------------------------------------
@@ -335,7 +359,7 @@ async function boot() {
       engine.debug.value,
       {
         player: `${__PLAYER_VERSION__} · ${navigator.userAgent.match(/(Tizen|Web0S|webOS|Android|CrOS|Windows|Mac OS X|Linux)/)?.[1] ?? 'browser'}`,
-        screen: `${window.innerWidth}×${window.innerHeight} @${window.devicePixelRatio || 1}x${rotated ? ' · rotated' : ''}`,
+        screen: `${window.innerWidth}×${window.innerHeight} @${window.devicePixelRatio || 1}x${turn ? ` · turned ${turn}°` : ''}`,
         video: surface.videoStatus(),
         'wake lock': wakeLockState,
         'full screen': !fullscreenSupported ? 'not supported by this browser'

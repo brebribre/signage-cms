@@ -42,7 +42,7 @@ import ScreenShape from '@/reusables/ScreenShape.vue'
 import StepIndicator from '@/reusables/StepIndicator.vue'
 import WeekTimeline from '@/reusables/WeekTimeline.vue'
 import { ALL_DAYS, DAY_BITS, WEEKDAYS, WEEKENDS } from '@/types/api'
-import type { CampaignRuleRead, ClaimBody, PlaylistSummary } from '@/types/api'
+import type { CampaignRuleRead, ClaimBody, DeviceOrientation, PlaylistSummary } from '@/types/api'
 import { crossesMidnight, toMinutes, windowLength, windowsOverlap } from '@/utils/scheduleMath'
 import type { TimelineSlot, TimeWindow } from '@/utils/scheduleMath'
 
@@ -68,7 +68,7 @@ const furthest = ref(isEdit ? STEPS.length - 1 : 0)
 
 const {
   items: devices, resolved, isLoading: devicesLoading, error: devicesError,
-  isSaving: claiming, claimError, connecting, claim,
+  isSaving: claiming, claimError, connecting, claim, setOrientation,
 } = useDevices()
 
 
@@ -115,12 +115,15 @@ const pairing = ref(false)
 async function onClaim(body: ClaimBody) {
   if (!(await claim(body))) return
   // Pairing from here means "I want to deploy to this one" — select it rather than making
-  // them find it in the list they just added it to.
+  // them find it in the list they just added it to. The form then asks how the screen is
+  // mounted; onPairDone closes it.
   if (connecting.value && !isSelected(connecting.value.id)) selectedIds.value.push(connecting.value.id)
-  if (!claimError.value) {
-    await new Promise((r) => setTimeout(r, 900))
-    pairing.value = false
-  }
+}
+
+async function onPairDone(orientation: DeviceOrientation | null) {
+  const id = connecting.value?.id
+  if (id && orientation && !(await setOrientation(id, orientation))) return
+  pairing.value = false
 }
 
 // --- 2. Schedule ---
@@ -1002,7 +1005,8 @@ const BOUND_TIME_INPUT =
     <AppModal v-if="pairing" title="Add a screen" @close="pairing = false">
       <PairScreenForm
         :is-saving="claiming" :claim-error="claimError" :connecting="connecting"
-        @submit="onClaim" @cancel="pairing = false"
+        @submit="onClaim"
+        @done="onPairDone" @cancel="pairing = false"
       />
     </AppModal>
 

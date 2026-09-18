@@ -15,6 +15,7 @@ import AppCard from '@/reusables/AppCard.vue'
 import AppSwitch from '@/reusables/AppSwitch.vue'
 import { ALL_DAYS, DAY_BITS, WEEKDAYS, WEEKENDS } from '@/types/api'
 import type { DeviceOrientation, DevicePlatform, DeviceUpdateBody } from '@/types/api'
+import { ORIENTATIONS } from '@/utils/orientation'
 
 const props = defineProps<{
   deviceId: string
@@ -59,8 +60,8 @@ type SettingSpec =
 const SETTINGS: SettingSpec[] = [
   {
     key: ORIENTATION_KEY, label: 'Rotation', kind: 'select',
-    options: [{ value: 'landscape', label: 'Landscape' }, { value: 'portrait', label: 'Portrait' }],
-    description: 'How the panel is mounted. The screen turns as soon as it picks this up.',
+    options: ORIENTATIONS.map((o) => ({ value: o.value, label: `${o.label} · ${o.hint}` })),
+    description: 'How the panel is mounted, as the turn applied to what it shows. The screen turns as soon as it picks this up.',
   },
   {
     key: 'volume', label: 'Volume', kind: 'slider', min: 0, max: 100, unit: '%',

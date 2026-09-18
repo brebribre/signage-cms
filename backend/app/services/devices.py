@@ -264,7 +264,7 @@ def _claim_mock_screen(session: Session, *, user: User, name: str, location: str
         screen_width=1920,
         screen_height=1080,
         app_version="mock",
-        orientation=DeviceOrientation.LANDSCAPE,
+        orientation=DeviceOrientation.DEG_0,
     )
     session.add(device)
     if user.role == UserRole.MANAGER:

@@ -9,8 +9,31 @@ from app.models.base import enum_column, tz_column, utcnow
 
 
 class DeviceOrientation(StrEnum):
-    LANDSCAPE = "landscape"
-    PORTRAIT = "portrait"
+    """How the panel is mounted, as the rotation the player applies to its content: 0 is the
+    panel's own landscape, 90 turns content a quarter clockwise for a panel stood on its right
+    side, 180 is a panel hung upside down, 270 a panel stood on its left side. Degrees rather
+    than portrait/landscape because the two portrait mountings are different rotations, and a
+    totem mounted the other way round showed its content upside down with no way to say so.
+    """
+
+    DEG_0 = "0"
+    DEG_90 = "90"
+    DEG_180 = "180"
+    DEG_270 = "270"
+
+    @property
+    def degrees(self) -> int:
+        return int(self.value)
+
+    @property
+    def is_portrait(self) -> bool:
+        return self in (DeviceOrientation.DEG_90, DeviceOrientation.DEG_270)
+
+    @property
+    def legacy_name(self) -> str:
+        """"portrait"/"landscape" — what players before rotation-in-degrees understand. Still
+        sent in the manifest beside the degrees, so an older build keeps turning the right way."""
+        return "portrait" if self.is_portrait else "landscape"
 
 
 class DeviceUpdateState(StrEnum):
@@ -88,11 +111,12 @@ class Device(SQLModel, table=True):
     # clock, so this is what makes "until 11am" mean the same thing in two cities. UTC is a
     # safe default rather than a guess at the operator's locale.
     timezone: str = Field(default="UTC")
-    # Portrait by default: the fleet this is built for is tall totems, and a freshly-paired
-    # screen should look right before anyone configures it. Set per device in the CMS, and
-    # the player applies it at runtime rather than being locked at build time.
+    # Portrait (90) by default: the fleet this is built for is tall totems, and a freshly-paired
+    # screen should look right before anyone configures it. Asked for at the end of pairing,
+    # changeable per device in the CMS, and applied by the player at runtime rather than being
+    # locked at build time.
     orientation: DeviceOrientation = Field(
-        default=DeviceOrientation.PORTRAIT,
+        default=DeviceOrientation.DEG_90,
         sa_column=enum_column(DeviceOrientation, nullable=False),
     )
 

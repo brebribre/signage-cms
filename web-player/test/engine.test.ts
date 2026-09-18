@@ -347,6 +347,17 @@ describe('sync', () => {
     expect(engine.debug.value.droppedFrames).toBe(4)
   })
 
+  it('rotation in degrees wins over the old orientation word when both are sent', async () => {
+    api.manifest = manifest({ device: { name: 'Lobby', orientation: 'portrait', rotation: 270, timezone: 'Asia/Jakarta' } })
+    start()
+    await tick(0)
+    expect(engine.orientation.value).toBe('270')
+    api.manifest = manifest({ device: { name: 'Lobby', orientation: 'landscape', timezone: 'Asia/Jakarta' } })
+    api.manifest.version = 'v2'
+    await tick(POLL_SECONDS * 1000)
+    expect(engine.orientation.value).toBe('landscape')
+  })
+
   it('one 401 does not unpair a working screen', async () => {
     api.manifest = manifest()
     start()

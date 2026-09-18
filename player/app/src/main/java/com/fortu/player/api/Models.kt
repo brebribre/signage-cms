@@ -29,7 +29,11 @@ data class PairPollResponse(
 @Serializable
 data class ManifestDevice(
     val name: String,
+    /** "portrait"/"landscape" — what this field meant before [rotation] existed. */
     val orientation: String,
+    /** 0, 90, 180 or 270: the turn to apply to content, clockwise. Null from a backend that
+     *  predates it, in which case [orientation] decides. */
+    val rotation: Int? = null,
     /** IANA name the CMS schedules this screen in — the power schedule is evaluated on it.
      *  Defaulted for version skew: an older backend sends none, and the screen falls back to
      *  its own system timezone. */

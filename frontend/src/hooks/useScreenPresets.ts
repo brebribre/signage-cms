@@ -2,6 +2,7 @@ import { computed, ref, watch } from 'vue'
 import type { Ref } from 'vue'
 
 import type { DeviceRead } from '@/types/api'
+import { isPortrait as isPortraitOrientation } from '@/utils/orientation'
 
 export interface ScreenPreset {
   id: string
@@ -73,7 +74,7 @@ export function useScreenPresets(devices?: Ref<DeviceRead[]>) {
   function orientedSize(d: DeviceRead): { width: number; height: number } {
     const long = Math.max(d.screen_width!, d.screen_height!)
     const short = Math.min(d.screen_width!, d.screen_height!)
-    return d.orientation === 'portrait' ? { width: short, height: long } : { width: long, height: short }
+    return isPortraitOrientation(d.orientation) ? { width: short, height: long } : { width: long, height: short }
   }
 
   const deviceOptions = computed(() =>

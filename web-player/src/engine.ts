@@ -441,7 +441,8 @@ export class PlayerEngine {
   private adoptSettings(manifest: Manifest) {
     const settings = manifest.settings ?? {}
     this.deviceTimezone = manifest.device.timezone ?? null
-    this.orientation.set(manifest.device.orientation)
+    // Degrees when the backend sends them, the old word otherwise — main.ts reads either.
+    this.orientation.set(manifest.device.rotation != null ? String(manifest.device.rotation) : manifest.device.orientation)
     this.settings.set(settings)
     this.opts.applySettings?.(settings)
     // Straight away, not on the next power check: a "Turn off now" lands with its manifest.

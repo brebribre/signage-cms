@@ -23,7 +23,7 @@ import PairScreenForm from '@/reusables/PairScreenForm.vue'
 import StatCard from '@/reusables/StatCard.vue'
 import DeviceCardSkeleton from '@/reusables/DeviceCardSkeleton.vue'
 import SkeletonList from '@/reusables/SkeletonList.vue'
-import type { ClaimBody } from '@/types/api'
+import type { ClaimBody, DeviceOrientation } from '@/types/api'
 
 /**
  * Overview: the fleet at a glance — summary figures, filters, and every screen as the same card
@@ -33,7 +33,7 @@ import type { ClaimBody } from '@/types/api'
 const router = useRouter()
 const {
   items: devices, resolved, isLoading: devicesLoading, error: devicesError,
-  isSaving: claiming, claimError, connecting, claim,
+  isSaving: claiming, claimError, connecting, claim, setOrientation,
 } = useDevices()
 const { devices: health, storage, offline, withErrors, isLoading: healthLoading } = useFleetHealth()
 /** Everything the health endpoint doesn't count as offline — the hero card's line of context. */
@@ -65,15 +65,15 @@ const needsPlaylist = computed(() => playlistsReady.value && !playlists.value.le
 
 const pairing = ref(false)
 async function onClaim(body: ClaimBody) {
-  if (!(await claim(body))) return
-  // Held briefly so "connected" is actually seen before the dialog closes — then on to the
-  // new screen's page, where what comes next (assigning content) actually happens.
-  if (!claimError.value) {
-    await new Promise((r) => setTimeout(r, 900))
-    pairing.value = false
-    const id = connecting.value?.id
-    if (id) router.push({ name: 'device-detail', params: { id } })
-  }
+  // Once connected the form asks how the screen is mounted; onPairDone finishes from there.
+  await claim(body)
+}
+
+async function onPairDone(orientation: DeviceOrientation | null) {
+  const id = connecting.value?.id
+  if (id && orientation && !(await setOrientation(id, orientation))) return
+  pairing.value = false
+  if (id) router.push({ name: 'device-detail', params: { id } })
 }
 const { nowPlaying } = useNowPlaying(resolved, playlists)
 const { bytes } = useFormat()
@@ -213,7 +213,8 @@ function quotaPercent(used: number, quota: number | null): number | null {
     <AppModal v-if="pairing" title="Add a screen" @close="pairing = false">
       <PairScreenForm
         :is-saving="claiming" :claim-error="claimError" :connecting="connecting"
-        @submit="onClaim" @cancel="pairing = false"
+        @submit="onClaim"
+        @done="onPairDone" @cancel="pairing = false"
       />
     </AppModal>
   </div>

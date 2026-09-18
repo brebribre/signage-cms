@@ -635,7 +635,9 @@ class PlayerEngine(
 
     private fun adoptSettings(manifest: Manifest) {
         deviceTimezone = manifest.device.timezone
-        _orientation.value = manifest.device.orientation
+        // Degrees when the backend sends them; the old portrait/landscape word otherwise. The
+        // UI maps either (MainActivity), so a player and a backend can be updated in any order.
+        _orientation.value = manifest.device.rotation?.toString() ?: manifest.device.orientation
         _settings.value = manifest.settings
         applySettings(manifest.settings)
         // Straight away, not on the next power check: a "Turn off now" should land with the

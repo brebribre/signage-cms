@@ -269,11 +269,18 @@ adb shell dpm set-device-owner \
       <div class="section-body">
         <p class="lede">
           Orientation is set per screen in the CMS, not during installation. The same
-          installed app supports both portrait and landscape screens.
+          installed app supports every way a panel can be mounted.
         </p>
         <p class="lede">
-          New screens default to portrait. To change orientation, update it on the screen's
-          page in the CMS. The change takes effect on the screen's next check-in. No
+          It is a rotation in degrees, clockwise from the panel's own landscape: 0&deg; is
+          landscape, 90&deg; portrait with the top on the right, 180&deg; landscape upside
+          down, 270&deg; portrait with the top on the left. The two portrait values matter:
+          a totem stood on the other side needs the other one, or everything shows upside
+          down.
+        </p>
+        <p class="lede">
+          The CMS asks for it the moment a screen connects. To change it later, use the
+          screen's Settings tab. The change takes effect on the screen's next check-in. No
           reinstall is required.
         </p>
       </div>

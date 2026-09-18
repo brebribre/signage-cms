@@ -69,6 +69,7 @@ def get_manifest(device: CurrentDevice, session: DbSession, request: Request) ->
         device=ManifestDevice(
             name=manifest.device_name,
             orientation=manifest.device_orientation,
+            rotation=manifest.device_rotation,
             timezone=manifest.device_timezone,
         ),
         playlist=ManifestPlaylist(**manifest.playlist.__dict__) if manifest.playlist else None,

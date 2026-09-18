@@ -9,7 +9,11 @@ from app.models import DeviceOrientation, DeviceUpdateState, ItemFit, MediaKind
 
 class ManifestDevice(BaseModel):
     name: str
-    orientation: DeviceOrientation
+    # "portrait"/"landscape" — kept for players that predate rotation in degrees; they read
+    # nothing else and keep turning the right way.
+    orientation: str
+    # 0, 90, 180 or 270: the rotation to apply — see DeviceOrientation. Newer players use this.
+    rotation: int = 90
     # IANA name the screen's schedules are expressed in — the player evaluates its power
     # schedule on it. An older player ignores the key.
     timezone: str = "UTC"

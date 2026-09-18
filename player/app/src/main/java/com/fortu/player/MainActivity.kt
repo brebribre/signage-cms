@@ -152,9 +152,14 @@ class MainActivity : ComponentActivity() {
                     // Before the first manifest arrives, leave it to the hardware: a pairing
                     // code is legible either way, and forcing a guess would make the screen
                     // visibly flip once the real value lands.
+                    // Degrees are the rotation of the content, clockwise, from the panel's own
+                    // landscape: 90 and 270 are the two ways a totem can be stood on its side,
+                    // which "portrait" alone could never tell apart.
                     val target = when (orientation) {
-                        "portrait" -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-                        "landscape" -> ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                        "0", "landscape" -> ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                        "90", "portrait" -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                        "180" -> ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE
+                        "270" -> ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT
                         else -> null
                     } ?: return@LaunchedEffect
                     // Lock Task Mode (Device Owner builds only — see KioskPolicy.apply)

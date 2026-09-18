@@ -185,7 +185,8 @@ export interface ItemWrite {
 
 // --- Devices ---
 
-export type DeviceOrientation = 'landscape' | 'portrait'
+/** Rotation of the content, clockwise from the panel's own landscape — see utils/orientation.ts. */
+export type DeviceOrientation = '0' | '90' | '180' | '270'
 
 /** Which player the screen runs. A web screen updates by reloading the deployed web player,
  *  so software rollouts (APKs) never apply to it. */

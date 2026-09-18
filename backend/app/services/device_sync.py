@@ -188,7 +188,9 @@ class ManifestPlaylist:
 class Manifest:
     version: str
     device_name: str
+    #: "portrait"/"landscape", for players that predate `device_rotation`.
     device_orientation: str
+    device_rotation: int
     playlist: ManifestPlaylist | None
     slots: list[ManifestSlot]
     #: Name of the schedule currently overriding the default, or None when the device is
@@ -221,7 +223,8 @@ def build_manifest(session: Session, device: Device, *, version: str) -> Manifes
         return Manifest(
             version=version,
             device_name=device.name,
-            device_orientation=device.orientation.value,
+            device_orientation=device.orientation.legacy_name,
+            device_rotation=device.orientation.degrees,
             device_timezone=scheduling.device_zone(device).key,
             playlist=None,
             slots=[],
@@ -287,7 +290,8 @@ def build_manifest(session: Session, device: Device, *, version: str) -> Manifes
     return Manifest(
         version=version,
         device_name=device.name,
-        device_orientation=device.orientation.value,
+        device_orientation=device.orientation.legacy_name,
+        device_rotation=device.orientation.degrees,
         device_timezone=scheduling.device_zone(device).key,
         playlist=ManifestPlaylist(id=playlist.id, name=playlist.name, shuffle=playlist.shuffle)
         if playlist
