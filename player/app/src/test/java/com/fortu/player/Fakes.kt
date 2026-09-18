@@ -159,8 +159,10 @@ class FakeCache : MediaStore {
     var lastEvictKeep: Collection<String>? = null
 
     override fun isCached(checksum: String, bytes: Long) = checksum in cached
-    override fun download(checksum: String, url: String) {
+    override fun download(checksum: String, url: String, onProgress: (Long) -> Unit) {
         if (checksum == downloadThrowsFor) throw IOException("download failed")
+        onProgress(500)
+        onProgress(1000)
         downloaded += checksum
         cached += checksum
     }

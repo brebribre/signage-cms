@@ -37,6 +37,9 @@ class PlayerEngineTest {
         consumeInstallFailure: () -> String? = { null },
         push: PushClient = NoopPushClient,
         warmMedia: suspend (java.io.File, String) -> Unit = { _, _ -> },
+        // Virtual time, like everything else here: the stall watchdog, download speed and the
+        // update backoff all read the clock, and a wall clock would make them untestable.
+        clock: () -> Long = { testScheduler.currentTime },
     ) = PlayerEngine(
         api = api,
         store = store,
@@ -51,6 +54,7 @@ class PlayerEngineTest {
         // virtual time and assertions never race real threads.
         io = UnconfinedTestDispatcher(testScheduler),
         push = push,
+        clock = clock,
     )
 
     // --- pairing --------------------------------------------------------------------------
@@ -270,6 +274,32 @@ class PlayerEngineTest {
         val next = api.heartbeats.last().playback
         assertEquals("a delta, not a running total", 0, next?.droppedFrames)
         assertEquals("the decoder is a fact about the box, not the beat", "OMX.test.avc", next?.decoder)
+        job.cancelAndJoin()
+    }
+
+    @Test
+    fun `a loop that stops reporting plays is restarted, and one that keeps playing is left alone`() = runTest {
+        val store = FakeStore(storedToken = "t")
+        // Like the real server: 304 on every poll while nothing changes. The fake's default of
+        // re-sending the manifest would re-apply it (and so re-arm the watchdog) every 30s.
+        val api = FakeApi().apply { manifest = manifest(items = listOf(item("a"), item("b"))); honourEtag = true }
+        val e = engine(api = api, store = store)
+        val job = launch { e.run() }
+        advanceTimeBy(1_000)
+        val playing = e.state.value as PlayerState.Playing
+        assertEquals(0, playing.generation)
+
+        // Plays keep arriving: generation stays put across many polls.
+        repeat(6) {
+            e.reportPlay(playing.slots[0], 0, 10)
+            advanceTimeBy(30_000)
+        }
+        assertEquals(0, (e.state.value as PlayerState.Playing).generation)
+
+        // Silence for longer than any slot could last: the surface is rebuilt and the CMS told.
+        advanceTimeBy(4 * 60_000)
+        assertEquals(1, (e.state.value as PlayerState.Playing).generation)
+        assertTrue(api.heartbeats.any { beat -> beat.errors.any { it.contains("stalled") } })
         job.cancelAndJoin()
     }
 

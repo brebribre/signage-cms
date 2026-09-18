@@ -30,7 +30,7 @@ class MediaCache(context: Context, private val client: OkHttpClient) : com.fortu
     }
 
     @Throws(IOException::class)
-    override fun download(checksum: String, url: String) {
+    override fun download(checksum: String, url: String, onProgress: (Long) -> Unit) {
         val target = fileFor(checksum)
         // Write to a temp file and rename only on success, so an interrupted download can
         // never be mistaken for a complete one.
@@ -38,7 +38,19 @@ class MediaCache(context: Context, private val client: OkHttpClient) : com.fortu
         val req = Request.Builder().url(url).get().build()
         client.newCall(req).execute().use { res ->
             if (!res.isSuccessful) throw IOException("download failed: HTTP ${res.code}")
-            tmp.outputStream().use { out -> res.body!!.byteStream().copyTo(out) }
+            tmp.outputStream().use { out ->
+                val buffer = ByteArray(64 * 1024)
+                var written = 0L
+                res.body!!.byteStream().use { input ->
+                    while (true) {
+                        val n = input.read(buffer)
+                        if (n == -1) break
+                        out.write(buffer, 0, n)
+                        written += n
+                        onProgress(written)
+                    }
+                }
+            }
         }
         if (!tmp.renameTo(target)) {
             tmp.delete()

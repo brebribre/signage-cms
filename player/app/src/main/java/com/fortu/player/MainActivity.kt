@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -193,17 +194,21 @@ class MainActivity : ComponentActivity() {
                     is PlayerState.Pairing -> PairingScreen(s.code, s.error)
                     is PlayerState.Claimed -> ClaimedScreen(s.deviceName)
                     is PlayerState.Preparing ->
-                        PreparingScreen(s.deviceName, s.done, s.total, s.currentFile)
+                        PreparingScreen(s.deviceName, s.doneBytes, s.totalBytes, s.currentFile, s.bytesPerSecond)
                     is PlayerState.Idle -> IdleScreen(s.deviceName)
                     is PlayerState.Trouble ->
                         TroubleScreen(s.deviceName, s.message, s.apiHost, s.attempts)
-                    is PlayerState.Playing -> PlaybackSurface(
-                        slots = s.slots,
-                        fileFor = vm::localFileFor,
-                        onPlayed = vm::reportPlay,
-                        onPlaybackError = vm::reportError,
-                        onVideoStats = vm::reportVideoStats,
-                    )
+                    // Keyed on the generation so the engine's stall watchdog can rebuild the
+                    // whole surface — timers, players and all — by bumping one number.
+                    is PlayerState.Playing -> key(s.generation) {
+                        PlaybackSurface(
+                            slots = s.slots,
+                            fileFor = vm::localFileFor,
+                            onPlayed = vm::reportPlay,
+                            onPlaybackError = vm::reportError,
+                            onVideoStats = vm::reportVideoStats,
+                        )
+                    }
                 }
                 // A small card at the bottom while a build downloads or installs, and for a
                 // couple of minutes after a failure — the on-screen half of what the CMS

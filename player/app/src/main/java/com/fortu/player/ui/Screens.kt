@@ -206,38 +206,82 @@ fun ClaimedScreen(deviceName: String) {
     }
 }
 
-/** Downloading content before the first frame, with real progress — a large video over venue
- *  wifi takes long enough that a blank screen reads as broken. */
+/**
+ * Downloading content before the first frame — in the same look as pairing and idle, since it
+ * is the third thing a screen shows before it plays. One bar for the whole job, in bytes, so it
+ * creeps through a big video instead of sitting still until the file lands; the speed beside
+ * it is what tells whoever is watching that a slow bar is slow wifi, not a stuck screen.
+ */
 @Composable
-fun PreparingScreen(deviceName: String, done: Int, total: Int, currentFile: String?) {
-    Box(Modifier.fillMaxSize().background(Ink), contentAlignment = Alignment.Center) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(horizontal = 64.dp),
-        ) {
-            Text(deviceName, color = InkInverse, fontSize = 34.sp, fontWeight = FontWeight.Medium)
-            Text(
-                "Preparing content",
-                color = InkMuted,
-                fontSize = 20.sp,
-                modifier = Modifier.padding(top = 8.dp),
-            )
+fun PreparingScreen(
+    deviceName: String,
+    doneBytes: Long,
+    totalBytes: Long,
+    currentFile: String?,
+    bytesPerSecond: Long?,
+) {
+    Box(Modifier.fillMaxSize().background(BrandGradient), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            PaskallLogo(height = 44.dp)
 
-            LinearProgressIndicator(
-                progress = { if (total > 0) done.toFloat() / total else 0f },
-                color = InkInverse,
-                trackColor = InkMuted.copy(alpha = 0.3f),
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
-                    .padding(top = 28.dp)
-                    .fillMaxWidth(0.5f)
-                    .height(4.dp),
-            )
-            Text(
-                "$done of $total" + (currentFile?.let { " · $it" } ?: ""),
-                color = InkSubtle,
-                fontSize = 15.sp,
-                modifier = Modifier.padding(top = 14.dp),
-            )
+                    .padding(top = 36.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(Color.White.copy(alpha = 0.1f))
+                    .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(24.dp))
+                    .padding(horizontal = 48.dp, vertical = 26.dp)
+                    .width(520.dp),
+            ) {
+                Text("Preparing content", color = OnBrandMuted, fontSize = 22.sp, fontFamily = Inter)
+
+                if (totalBytes > 0) {
+                    LinearProgressIndicator(
+                        progress = { (doneBytes.toFloat() / totalBytes).coerceIn(0f, 1f) },
+                        color = Color.White,
+                        trackColor = Color.White.copy(alpha = 0.22f),
+                        modifier = Modifier.padding(top = 20.dp).fillMaxWidth().height(6.dp),
+                    )
+                } else {
+                    LinearProgressIndicator(
+                        color = Color.White,
+                        trackColor = Color.White.copy(alpha = 0.22f),
+                        modifier = Modifier.padding(top = 20.dp).fillMaxWidth().height(6.dp),
+                    )
+                }
+
+                val amount = "%.1f of %.1f MB".format(doneBytes / 1_048_576.0, totalBytes / 1_048_576.0)
+                val speed = bytesPerSecond?.let { " · %.1f MB/s".format(it / 1_048_576.0) } ?: ""
+                Text(
+                    amount + speed,
+                    color = Color.White,
+                    fontSize = 26.sp,
+                    fontFamily = Outfit,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(top = 14.dp),
+                )
+                if (currentFile != null) {
+                    Text(
+                        currentFile,
+                        color = OnBrandMuted,
+                        fontSize = 15.sp,
+                        fontFamily = Inter,
+                        modifier = Modifier.padding(top = 6.dp),
+                    )
+                }
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 28.dp)) {
+                PulsingDot()
+                Text(
+                    deviceName,
+                    color = OnBrandMuted,
+                    fontSize = 18.sp,
+                    fontFamily = Inter,
+                    modifier = Modifier.padding(start = 10.dp),
+                )
+            }
         }
     }
 }

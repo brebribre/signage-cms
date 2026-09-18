@@ -86,7 +86,9 @@ interface TokenStore {
  *  triple, so one cache serves both without either type knowing about the other. */
 interface MediaStore {
     fun isCached(checksum: String, bytes: Long): Boolean
-    fun download(checksum: String, url: String)
+    /** [onProgress] is called with the bytes written so far, as they land — what makes the
+     *  preparing screen's bar move within a file rather than only between files. */
+    fun download(checksum: String, url: String, onProgress: (bytesSoFar: Long) -> Unit = {})
     fun evictExcept(keep: Collection<String>)
     fun cachedBytes(): Long
     /** The local file a checksum lives (or will live) at — exposed so warm-up work (decoding
@@ -96,11 +98,12 @@ interface MediaStore {
 }
 
 fun MediaStore.isCached(item: ManifestItem): Boolean = isCached(item.checksum, item.bytes)
-fun MediaStore.download(item: ManifestItem) = download(item.checksum, item.url)
+fun MediaStore.download(item: ManifestItem, onProgress: (Long) -> Unit = {}) = download(item.checksum, item.url, onProgress)
 /** A website element has nothing to download — it is loaded live — so it always counts as ready. */
 fun MediaStore.isCached(element: ManifestElement): Boolean =
     element.kind == KIND_WEB || isCached(element.checksum, element.bytes)
-fun MediaStore.download(element: ManifestElement) = download(element.checksum, element.url)
+fun MediaStore.download(element: ManifestElement, onProgress: (Long) -> Unit = {}) =
+    download(element.checksum, element.url, onProgress)
 fun MediaStore.fileFor(element: ManifestElement): File = fileFor(element.checksum)
 
 /**

@@ -16,8 +16,11 @@ android {
         // WebView/codec behaviour on anything actually shipping.
         minSdk = 24
         targetSdk = 35
-        versionCode = 21
-        versionName = "1.2.0"
+        // Overridable for a test install over a screen (or emulator) that already carries a higher
+        // test build: ./gradlew assembleRelease -PversionCode=200 -PversionName=1.2.0-emu. A real
+        // release never passes these; it edits the two numbers here.
+        versionCode = (project.findProperty("versionCode") as String?)?.toInt() ?: 23
+        versionName = (project.findProperty("versionName") as String?) ?: "1.2.2"
 
         // The API base URL is compiled in, not configured on the device — a screen with no
         // keyboard cannot be asked to type one. Override per build:
@@ -25,6 +28,10 @@ android {
         val apiBaseUrl = (project.findProperty("apiBaseUrl") as String?)
             ?: "https://signage-cms-production.up.railway.app"
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
+        // Plain HTTP is only ever allowed for a build that was explicitly pointed at a plain-HTTP
+        // backend (a developer's own machine). The production address is HTTPS, so a production
+        // build keeps Android's default of refusing cleartext — the same property decides both.
+        manifestPlaceholders["usesCleartextTraffic"] = apiBaseUrl.startsWith("http://").toString()
 
         // Push prototype (see PushClient / MqttPushClient). Defaults to the real deployed
         // broker, same reasoning as apiBaseUrl above — per-device credentials (each

@@ -59,9 +59,13 @@ sealed interface PlayerState {
      *  during a large download and looks broken rather than busy. */
     data class Preparing(
         val deviceName: String,
-        val done: Int,
-        val total: Int,
+        /** Bytes landed so far across every file still to fetch, and the total — one bar that
+         *  creeps up through a big video rather than jumping once per file. */
+        val doneBytes: Long,
+        val totalBytes: Long,
         val currentFile: String?,
+        /** Measured over the last few seconds; null until there is enough to say. */
+        val bytesPerSecond: Long?,
     ) : PlayerState
 
     /** Paired but nothing assigned. A valid state, not an error. */
@@ -80,6 +84,9 @@ sealed interface PlayerState {
     data class Playing(
         val slots: List<ManifestSlot>,
         val shuffle: Boolean,
+        /** Bumped by the stall watchdog (see [PlayerEngine.restartIfStalled]) to make the UI
+         *  rebuild its playback surface from scratch — the same content, a fresh loop. */
+        val generation: Int = 0,
     ) : PlayerState {
         /** Every element across every slot, flattened — what most cache/count logic actually
          *  wants, since it does not care which slot an element belongs to. */
@@ -165,6 +172,29 @@ data class UpdateProgress(
     val atMillis: Long = 0,
 )
 
+
+/**
+ * Download speed as a person expects to read it: bytes over the last few seconds, not since
+ * the start (which drags for minutes after one slow patch) and not the last chunk (which
+ * flickers). Samples are (bytes so far, when); the rate is taken across whatever the window
+ * holds once it spans a second.
+ */
+class DownloadSpeed(private val clock: () -> Long, private val windowMillis: Long = 3_000L) {
+    private val samples = ArrayDeque<Pair<Long, Long>>()
+
+    fun record(bytesSoFar: Long, nowMillis: Long = clock()) {
+        samples.addLast(bytesSoFar to nowMillis)
+        while (samples.size > 1 && nowMillis - samples.first().second > windowMillis) samples.removeFirst()
+    }
+
+    fun bytesPerSecond(nowMillis: Long = clock()): Long? {
+        val first = samples.firstOrNull() ?: return null
+        val last = samples.last()
+        val elapsed = last.second - first.second
+        if (elapsed < 1_000L || last.first < first.first) return null
+        return (last.first - first.first) * 1000 / elapsed
+    }
+}
 
 /**
  * The player's whole state machine, with no Android dependencies.
@@ -274,6 +304,11 @@ class PlayerEngine(
 
     /** Errors observed since the last heartbeat, reported the same way. */
     private val pendingErrors = java.util.Collections.synchronizedList(mutableListOf<String>())
+
+    /** When the playback surface last said a slot finished (or playback last (re)started) —
+     *  what the stall watchdog compares against. See [restartIfStalled]. */
+    @Volatile private var lastPlayAt = 0L
+    private var playbackGeneration = 0
 
     /** Dropped video frames since the last heartbeat, and the decoder that dropped them —
      *  see [reportVideoStats]. */
@@ -489,6 +524,7 @@ class PlayerEngine(
                     ),
                 )
                 res.update?.let { maybeSelfUpdate(token, it) }
+                restartIfStalled()
 
                 if (etag != null && "\"${res.version}\"" != etag) {
                     // Version moved under us — loop again soon rather than waiting a full
@@ -669,9 +705,11 @@ class PlayerEngine(
         if (playable.isEmpty()) return
 
         Log.i(TAG, "restored ${playable.size} cached slots from disk")
+        lastPlayAt = clock()
         _state.value = PlayerState.Playing(
             playable,
             manifest.playlist?.shuffle ?: false,
+            playbackGeneration,
         )
         _debug.update {
             it.copy(deviceName = manifest.device.name, version = manifest.version,
@@ -709,25 +747,39 @@ class PlayerEngine(
         // multi-element slot is not ready until every layer in it is.
         val allElements = slots.flatMap { it.elements }
         val missing = allElements.filter { !cache.isCached(it) }
-        // Only announce preparing when there is genuinely something to fetch — a routine poll
-        // that changes nothing must not flash a progress screen over content that is playing.
-        if (missing.isNotEmpty()) {
+        // One bar for the whole job, in bytes: a 40 MB video and a 40 KB logo are not two equal
+        // steps, and a bar that moves within a file is what says "still going" on slow wifi.
+        val totalBytes = missing.sumOf { it.bytes }.coerceAtLeast(0)
+        val speed = DownloadSpeed(clock)
+        var completedBytes = 0L
+        var lastShownAt = 0L
+        fun showPreparing(current: ManifestElement?, inFlight: Long, force: Boolean = false) {
+            val now = clock()
+            // Progress arrives per 64 KB chunk; the screen doesn't need every one of them.
+            if (!force && now - lastShownAt < PREPARING_REFRESH_MILLIS) return
+            lastShownAt = now
             _state.value = PlayerState.Preparing(
-                manifest.device.name, 0, missing.size, null,
+                manifest.device.name,
+                doneBytes = (completedBytes + inFlight).coerceAtMost(totalBytes),
+                totalBytes = totalBytes,
+                currentFile = current?.let { "${it.kind} · ${it.bytes / 1_048_576} MB" },
+                bytesPerSecond = speed.bytesPerSecond(now),
             )
         }
-        var fetched = 0
+        // Only announce preparing when there is genuinely something to fetch — a routine poll
+        // that changes nothing must not flash a progress screen over content that is playing.
+        if (missing.isNotEmpty()) showPreparing(null, 0, force = true)
 
         for (element in allElements) {
             if (!cache.isCached(element)) {
                 Log.i(TAG, "downloading ${element.checksum} (${element.bytes} bytes)")
-                _state.value = PlayerState.Preparing(
-                    manifest.device.name, fetched, missing.size,
-                    "${element.kind} · ${element.bytes / 1_048_576} MB",
-                )
+                showPreparing(element, 0, force = true)
                 try {
                     val startedAt = clock()
-                    cache.download(element)
+                    cache.download(element) { got ->
+                        speed.record(completedBytes + got, clock())
+                        showPreparing(element, got)
+                    }
                     noteDownload(element.bytes, clock() - startedAt)
                 } catch (e: Exception) {
                     Log.e(TAG, "download failed for ${element.id}", e)
@@ -735,7 +787,9 @@ class PlayerEngine(
                     // Keep going: one bad element should not stop the rest of the loop from
                     // updating. The player skips any slot still missing one.
                 }
-                fetched++
+                completedBytes += element.bytes
+                speed.record(completedBytes, clock())
+                showPreparing(element, 0, force = true)
             }
         }
 
@@ -753,8 +807,8 @@ class PlayerEngine(
         for (element in toWarm) {
             if (missing.isNotEmpty()) {
                 _state.value = PlayerState.Preparing(
-                    manifest.device.name, missing.size, missing.size,
-                    "getting ${element.kind} ready",
+                    manifest.device.name, totalBytes, totalBytes,
+                    "getting ${element.kind} ready", null,
                 )
             }
             runCatching { warmMedia(cache.fileFor(element), element.kind) }
@@ -764,9 +818,11 @@ class PlayerEngine(
         if (playable.isEmpty()) {
             _state.value = PlayerState.Idle(manifest.device.name)
         } else {
+            lastPlayAt = clock()
             _state.value = PlayerState.Playing(
                 playable,
                 manifest.playlist?.shuffle ?: false,
+                playbackGeneration,
             )
         }
 
@@ -961,6 +1017,7 @@ class PlayerEngine(
      *  contained, all sharing the same timing, since every element in a slot is on screen for
      *  exactly the same window. */
     fun reportPlay(slot: ManifestSlot, startedAtMillis: Long, seconds: Int) {
+        lastPlayAt = clock()
         synchronized(pendingPlays) {
             for (element in slot.elements) {
                 if (pendingPlays.size >= MAX_PENDING_PLAYS) pendingPlays.removeAt(0)
@@ -980,6 +1037,33 @@ class PlayerEngine(
                 )
             }
         }
+    }
+
+    /**
+     * The watchdog for the loop itself. A multi-slot playlist reports a play every time a slot
+     * finishes; if none has been reported for far longer than any slot could last, the loop has
+     * stopped advancing while the app is otherwise alive — a screen showing the same picture
+     * for an hour, heartbeating as if nothing were wrong. Seen on a real box with a two-second
+     * picture loop. Whatever the cause, the recovery is the same: bump [PlayerState.Playing]'s
+     * generation, which makes the UI rebuild its playback surface from scratch with the same
+     * content — and say so to the CMS, so it is at least counted.
+     *
+     * Checked off the poll loop, so at most once per poll interval. A one-slot playlist reports
+     * on its own timer, and a single-video slot may legitimately run to the watchdog cap, so
+     * the threshold is the longest slot or that cap, plus a generous grace.
+     */
+    internal fun restartIfStalled() {
+        val playing = _state.value as? PlayerState.Playing ?: return
+        if (playing.slots.isEmpty()) return
+        val longestSlotMillis = playing.slots.maxOf { it.durationSeconds } * 1000L
+        val threshold = maxOf(longestSlotMillis, SINGLE_VIDEO_CAP_MILLIS) + STALL_GRACE_MILLIS
+        val silentFor = clock() - lastPlayAt
+        if (silentFor < threshold) return
+        Log.w(TAG, "playback stalled — no slot finished for ${silentFor / 1000}s; restarting the surface")
+        reportError("playback stalled for ${silentFor / 1000}s — restarted the loop")
+        playbackGeneration++
+        lastPlayAt = clock()
+        _state.value = playing.copy(generation = playbackGeneration)
     }
 
     /**
@@ -1052,6 +1136,16 @@ class PlayerEngine(
         // Matches the server's per-heartbeat cap, so a full buffer sends in one go.
         const val MAX_PENDING_PLAYS = 50
         const val MAX_PENDING_ERRORS = 20
+
+        /** How often the preparing screen is refreshed while bytes are landing. */
+        const val PREPARING_REFRESH_MILLIS = 250L
+
+        /** Mirrors the playback surface's own cap on a single video (its DEFAULT_VIDEO_CAP_SECONDS
+         *  plus slack), so the stall watchdog never fires on a video that is merely long. */
+        const val SINGLE_VIDEO_CAP_MILLIS = 95_000L
+        /** Slack on top of the longest anything could legitimately take before the loop is
+         *  declared stalled — comfortably more than a slow decode, far less than a shift. */
+        const val STALL_GRACE_MILLIS = 60_000L
 
         /** A download is only measured when it is at least this big and took at least this
          *  long — anything smaller is dominated by connection setup, not the link. */

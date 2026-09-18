@@ -50,6 +50,10 @@ itself — use `10.0.2.2`, which is how the emulator reaches your host:
 ./gradlew assembleDebug -PapiBaseUrl=http://10.0.2.2:8001
 ```
 
+A plain-`http://` address also switches on cleartext traffic for that build — release variant
+included, so a build for a Device Owner emulator can talk to a local backend. The production
+address is HTTPS, so a normal release build keeps refusing plain HTTP as Android intends.
+
 ---
 
 ## Deploying to a real screen
@@ -247,6 +251,12 @@ same command** pointing at an earlier version already in R2 — updates are offe
 screen's version *differs* from the published one, not only when it's older. That's deliberate:
 if a release breaks playback across a wall of screens, the fix has to be a config change rather
 than a visit to each one.
+
+One exception keeps that from biting: a rollout that is merely *older* than the build a screen
+already runs — scheduled before that build was even uploaded — is not offered to it. Uploading
+a build does not roll it out, so without this a screen moved ahead of the fleet (a per-screen
+update, a fresh install) would be told to downgrade on every check-in until someone rolled the
+newer build out. A real rollback is always scheduled after the build it replaces, and still wins.
 
 ### Watching it happen
 

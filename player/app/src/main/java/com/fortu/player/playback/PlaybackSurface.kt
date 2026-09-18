@@ -25,10 +25,10 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.BlendMode
@@ -173,21 +173,32 @@ fun PlaybackSurface(
         startedAt = now
     }
 
+    // The timers below, and the video end-listeners further down, outlive any one composition.
+    // A coroutine launched while on slot 0 keeps running through the recomposition a new
+    // manifest causes — and the `advance()` in its closure still points at the *old* `index`
+    // state, the one `remember(slots)` just replaced. Writing that advances nothing anyone
+    // reads, and no new timer starts either, because its keys (the slot's id, index 0) are the
+    // same as the old one's. That is how a two-second picture loop froze on a real screen for
+    // good: a playlist edit landed while it was on its first scene. So callers always reach the
+    // newest closure, and every timer is also keyed on the playlist it was started for.
+    val currentAdvance by rememberUpdatedState({ advance() })
+    val currentReport by rememberUpdatedState({ report() })
+
     // A plain duration timer for everything else — pictures (as always), an empty slot (should
     // not happen, but must not hang forever if it does), and any multi-element slot (new):
     // with more than one thing on screen, the CMS-authored duration is the only unambiguous
     // "this slot is over" signal.
     if (onlySlot) {
-        LaunchedEffect(slot.id) {
+        LaunchedEffect(slots, slot.id) {
             while (true) {
                 delay(slot.durationSeconds * 1000L)
-                report()
+                currentReport()
             }
         }
     } else if (singleVideo == null) {
-        LaunchedEffect(slot.id, index) {
+        LaunchedEffect(slots, slot.id, index) {
             delay(slot.durationSeconds * 1000L)
-            advance()
+            currentAdvance()
         }
     }
 
@@ -298,7 +309,7 @@ fun PlaybackSurface(
                             element = element,
                             file = element?.let(fileFor),
                             loop = loop,
-                            onEnded = if (!loop) ::advance else ({}),
+                            onEnded = if (!loop) ({ currentAdvance() }) else ({}),
                             onError = onPlaybackError,
                             onStalled = { replacePoolMember(poolIndex) },
                             useSurfaceView = useSurfaceView,
@@ -383,24 +394,58 @@ private fun newPooledPlayer(context: Context, onVideoStats: (Int, String?) -> Un
  * The picture behind a blurred scene (see [SceneBackground]): the source image's cached file, or
  * a video's thumbnail — never the video again, which would need a second hardware decoder.
  *
- * Decoded tiny on purpose, then stretched: that alone reads as a blur on every Android version.
- * `Modifier.blur` smooths it further where the platform supports it (API 31+) and is a no-op
- * below. Dimmed so the scene stands out, and scaled up so soft edges fall outside the screen.
+ * Two things here are deliberately the boring way round, after a real box kept showing the
+ * *previous* scene's blur under the current picture while the emulator switched correctly:
+ *
+ * - **A fresh painter per picture** (`key(data)`), not one painter handed a new request. The
+ *   foreground picture already gets that — its `Crossfade` is keyed by file — and it switched
+ *   fine on the same box; the background, sharing one `AsyncImagePainter` whose request was
+ *   swapped, did not.
+ * - **Blurred on the CPU, as a software bitmap**, instead of a hardware bitmap drawn through a
+ *   `RenderEffect` layer (`Modifier.blur`). That path is GPU-specific by nature — fine on an
+ *   emulator, not something to depend on across cheap signage SoCs — and at 96 pixels the CPU
+ *   version costs nothing. Resampling down and up twice reads as a wide gaussian at screen
+ *   size on every Android version, including those below 12 where `Modifier.blur` was a no-op.
+ *
+ * Dimmed so the scene stands out, and scaled up so soft edges fall outside the screen.
  */
 @Composable
 private fun BlurredBackground(source: ManifestElement, fileFor: (ManifestElement) -> File, modifier: Modifier) {
     val context = LocalContext.current
     val data: Any = if (source.kind == "image") fileFor(source) else source.posterUrl ?: return
-    AsyncImage(
-        model = coil.request.ImageRequest.Builder(context).data(data).size(BLUR_DECODE_SIZE_PX).build(),
-        contentDescription = null,
-        contentScale = ContentScale.Crop,
-        colorFilter = ColorFilter.tint(Color.Black.copy(alpha = 0.25f), BlendMode.SrcAtop),
-        modifier = modifier
-            .fillMaxSize()
-            .graphicsLayer { scaleX = 1.15f; scaleY = 1.15f }
-            .blur(24.dp),
-    )
+    key(data) {
+        AsyncImage(
+            model = coil.request.ImageRequest.Builder(context)
+                .data(data)
+                .size(BLUR_DECODE_SIZE_PX)
+                .allowHardware(false)
+                .transformations(SoftBlur)
+                .build(),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            colorFilter = ColorFilter.tint(Color.Black.copy(alpha = 0.25f), BlendMode.SrcAtop),
+            modifier = modifier
+                .fillMaxSize()
+                .graphicsLayer { scaleX = 1.15f; scaleY = 1.15f },
+        )
+    }
+}
+
+/** Blur by resampling: down to a quarter and back up with filtering, twice. See
+ *  [BlurredBackground] for why not `Modifier.blur`. */
+private object SoftBlur : coil.transform.Transformation {
+    override val cacheKey: String = "soft-blur-v1"
+
+    override suspend fun transform(input: android.graphics.Bitmap, size: coil.size.Size): android.graphics.Bitmap {
+        var bitmap = input
+        repeat(2) {
+            val small = android.graphics.Bitmap.createScaledBitmap(
+                bitmap, maxOf(2, bitmap.width / 4), maxOf(2, bitmap.height / 4), true,
+            )
+            bitmap = android.graphics.Bitmap.createScaledBitmap(small, input.width, input.height, true)
+        }
+        return bitmap
+    }
 }
 
 /** Longest side, in pixels, a blurred background is decoded at. */
@@ -500,6 +545,12 @@ private fun PooledVideoSurface(
 ) {
     val active = element != null && file != null
 
+    // Read at call time, never captured: the listener and the watchdog below outlive the
+    // composition that created them (see PlaybackSurface's note on stale closures).
+    val onEndedNow by rememberUpdatedState(onEnded)
+    val onErrorNow by rememberUpdatedState(onError)
+    val onStalledNow by rememberUpdatedState(onStalled)
+
     // Guarantees exactly one advance per slot however playback ends — naturally, by error, or
     // by the watchdog below. Without it a video that errors *and* times out would skip two
     // slots. Meaningless (and harmless) whenever `loop` is true: nothing here calls it then.
@@ -515,8 +566,8 @@ private fun PooledVideoSurface(
     fun finishOnce(reason: String?) {
         if (finished) return
         finished = true
-        reason?.let(onError)
-        onEnded()
+        reason?.let { onErrorNow(it) }
+        onEndedNow()
     }
 
     // `exo` is in this key for exactly one reason: a stall-recovery replacement (see
@@ -547,7 +598,7 @@ private fun PooledVideoSurface(
                 if (!active) return
                 Log.e("FortuPlayer", "playback failed for ${file?.name}", error)
                 val message = "${file?.name}: ${error.errorCodeName}"
-                if (loop) onError(message) else finishOnce(message)
+                if (loop) onErrorNow(message) else finishOnce(message)
             }
         }
         exo.addListener(listener)
@@ -571,7 +622,7 @@ private fun PooledVideoSurface(
         delay(DEFAULT_VIDEO_CAP_SECONDS * 1000L + STALL_GRACE_MILLIS)
         if (!finished) {
             Log.w("FortuPlayer", "video did not finish within ${DEFAULT_VIDEO_CAP_SECONDS}s — advancing and retiring its decoder")
-            onStalled()
+            onStalledNow()
             finishOnce("${file?.name}: did not finish in time")
         }
     }

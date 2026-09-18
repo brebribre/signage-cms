@@ -55,7 +55,18 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                 // Same ImageLoader `AsyncImage` reads from by default (PlaybackSurface never
                 // supplies its own) — this decodes into its memory cache, so the real display
                 // later is a cache hit instead of a fresh decode.
-                "image" -> { app.imageLoader.execute(ImageRequest.Builder(app).data(file).build()); Unit }
+                // Decoded at the screen's size, not the file's: a phone photo is 12 megapixels
+                // and 48 MB as a bitmap, which no element will ever draw at, and warming every
+                // picture at that size is how a cheap box runs out of memory mid-loop. What
+                // AsyncImage asks for is at most the screen, and Coil serves a smaller request
+                // from a larger cached bitmap, so this still makes the first show a cache hit.
+                "image" -> {
+                    val request = ImageRequest.Builder(app).data(file)
+                        .apply { if (screenWidth > 0 && screenHeight > 0) size(screenWidth, screenHeight) }
+                        .build()
+                    app.imageLoader.execute(request)
+                    Unit
+                }
                 // No equivalent single "decode once" step for video — reading it primes the
                 // OS's own page cache, which is most of what makes a second read faster than
                 // the first. A bounded buffer: some videos run tens of MB, not worth holding
@@ -91,7 +102,13 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
      *  configured PIN, or null/blank when exit isn't guarded. */
     val settings = engine.settings
 
-    fun setScreenSize(w: Int, h: Int) = engine.setScreenSize(w, h)
+    private var screenWidth = 0
+    private var screenHeight = 0
+    fun setScreenSize(w: Int, h: Int) {
+        screenWidth = w
+        screenHeight = h
+        engine.setScreenSize(w, h)
+    }
     fun setKioskState(description: String) = engine.setKioskState(description)
     fun reportPlay(slot: ManifestSlot, startedAtMillis: Long, seconds: Int) =
         engine.reportPlay(slot, startedAtMillis, seconds)
