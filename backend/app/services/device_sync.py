@@ -357,6 +357,8 @@ def available_update(session: Session, device: Device) -> AvailableUpdate | None
         return None
     if device.app_version == rollout.version:
         return None
+    if _is_stale_rollout(rollout, running=device.app_version):
+        return None
 
     settings = get_settings()
     # One HEAD per heartbeat that actually carries an offer — the common case (nothing to
@@ -370,6 +372,31 @@ def available_update(session: Session, device: Device) -> AvailableUpdate | None
         bytes=release.size_bytes if release else None,
         requested_at=rollout.scheduled_at,
     )
+
+
+def _is_stale_rollout(rollout, *, running: str) -> bool:
+    """Whether the fleet rollout is simply older than what this screen already runs — as
+    opposed to a deliberate rollback.
+
+    The rule "offer whatever is live, even if older" exists so a rollback can be a rollout.
+    But it also means a screen moved ahead of the fleet (a per-screen pin to a newer build,
+    or a fresh install) is told to *downgrade* on every check-in for as long as nobody rolls
+    the newer build out — Android refuses the downgrade, so the screen re-downloads and fails
+    every ten minutes. The tell is time: a real rollback is scheduled *after* the newer build
+    was published; a rollout that predates the newer build is just stale. Decided from the
+    build's upload time in R2; a build R2 doesn't know (a dev install) can't be judged, and is
+    offered the rollout as before."""
+    release = player_releases.find_release(running)
+    if release is None:
+        return False
+    uploaded_at = datetime.fromisoformat(release.uploaded_at)
+    if rollout.scheduled_at >= uploaded_at:
+        return False
+    logger.info(
+        "not offering rollout %s to a screen on %s: the rollout predates that build (a rollback "
+        "would be scheduled after it)", rollout.version, running,
+    )
+    return True
 
 
 # How long a "downloading"/"installing" report is trusted before the CMS treats it as stale.
