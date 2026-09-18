@@ -37,7 +37,9 @@ class FakeCache implements MediaStore {
   failing = new Set<string>()
   log: string[] = []
   async isCached(checksum: string, bytes: number) { return this.files.get(checksum) === bytes }
-  async download(checksum: string, _url: string, bytes: number) {
+  async download(checksum: string, _url: string, bytes: number, onProgress?: (n: number) => void) {
+    onProgress?.(Math.floor(bytes / 2))
+    onProgress?.(bytes)
     this.log.push(`download ${checksum}`)
     if (this.failing.has(checksum)) throw new Error('boom')
     this.files.set(checksum, bytes)

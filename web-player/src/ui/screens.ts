@@ -39,13 +39,26 @@ export function statusScreenHtml(s: StatusState): string {
         <div class="muted" style="font-size:4vmin;margin-top:1.8vmin">${esc(s.deviceName)}</div>
       </div></div>`
 
+    // Downloading before the first frame, in the same look as pairing and idle: one bar for the
+    // whole job in bytes, and the speed beside it — a slow bar with a speed is slow wifi, a slow
+    // bar without one looks stuck.
     case 'preparing': {
-      const pct = s.total > 0 ? Math.round((s.done / s.total) * 100) : 0
-      return `<div class="screen"><div class="col" style="width:100%">
-        <div style="font-size:6vmin;font-weight:500">${esc(s.deviceName)}</div>
-        <div class="muted" style="font-size:3.6vmin;margin-top:1.4vmin">Preparing content</div>
-        <div class="progress"><div style="width:${pct}%"></div></div>
-        <div class="subtle" style="font-size:2.7vmin;margin-top:2.5vmin">${s.done} of ${s.total}${s.currentFile ? ` · ${esc(s.currentFile)}` : ''}</div>
+      const pct = s.totalBytes > 0 ? Math.min(100, Math.round((s.doneBytes / s.totalBytes) * 100)) : 0
+      const mb = (n: number) => (n / 1_048_576).toFixed(1)
+      const amount = `${mb(s.doneBytes)} of ${mb(s.totalBytes)} MB`
+      const speed = s.bytesPerSecond ? ` · ${mb(s.bytesPerSecond)} MB/s` : ''
+      return `<div class="screen screen-brand"><div class="col">
+        <img class="logo" src="${logoUrl}" alt="Paskall">
+        <div class="pair-card prep-card">
+          <div class="pair-label">Preparing content</div>
+          <div class="progress progress-brand${s.totalBytes > 0 ? '' : ' indeterminate'}"><div style="width:${pct}%"></div></div>
+          <div class="prep-amount">${esc(amount + speed)}</div>
+          ${s.currentFile ? `<div class="prep-file">${esc(s.currentFile)}</div>` : ''}
+        </div>
+        <div class="row pair-status">
+          <span class="dot"></span>
+          <span>${esc(s.deviceName)}</span>
+        </div>
       </div></div>`
     }
 

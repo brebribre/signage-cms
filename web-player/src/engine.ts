@@ -33,7 +33,17 @@ export type PlayerState =
    *  CMS pointed at different servers, and this is the only place that is visible. */
   | { kind: 'pairing'; code: string; apiHost: string; error: string | null; checks: number }
   | { kind: 'claimed'; deviceName: string }
-  | { kind: 'preparing'; deviceName: string; done: number; total: number; currentFile: string | null }
+  | {
+      kind: 'preparing'
+      deviceName: string
+      /** Bytes landed so far across every file still to fetch, and the total — one bar that
+       *  creeps up through a big video rather than jumping once per file. */
+      doneBytes: number
+      totalBytes: number
+      currentFile: string | null
+      /** Measured over the last few seconds; null until there is enough to say. */
+      bytesPerSecond: number | null
+    }
   | { kind: 'idle'; deviceName: string }
   | { kind: 'trouble'; deviceName: string | null; message: string; apiHost: string; attempts: number }
   /** `sources` maps each element's checksum to the URL playback loads it from — the cached copy
@@ -603,16 +613,32 @@ export class PlayerEngine {
       for (const file of files) streamed.add(file.checksum)
     }
 
-    let fetched = 0
-    for (const file of missing) {
+    // One bar for the whole job, in bytes — see PlayerEngine.kt's applyManifest.
+    const totalBytes = missing.reduce((n, f) => n + Math.max(0, f.bytes), 0)
+    const speed = new DownloadSpeed(() => this.clock())
+    let completedBytes = 0
+    let lastShownAt = 0
+    const showPreparing = (current: StoredFile | null, inFlight: number, force = false) => {
+      const now = this.clock()
+      if (!force && now - lastShownAt < PREPARING_REFRESH_MILLIS) return
+      lastShownAt = now
       this.state.set({
-        kind: 'preparing', deviceName, done: fetched, total: missing.length,
-        currentFile: `${file.kind} · ${Math.floor(file.bytes / 1_048_576)} MB`,
+        kind: 'preparing', deviceName,
+        doneBytes: Math.min(totalBytes, completedBytes + inFlight), totalBytes,
+        currentFile: current ? `${current.kind} · ${Math.floor(current.bytes / 1_048_576)} MB` : null,
+        bytesPerSecond: speed.bytesPerSecond(now),
       })
+    }
+    if (missing.length) showPreparing(null, 0, true)
+    for (const file of missing) {
+      showPreparing(file, 0, true)
       try {
         console.info(TAG, `downloading ${file.checksum} (${file.bytes} bytes)`)
         const startedAt = this.clock()
-        await this.cache.download(file.checksum, file.url, file.bytes)
+        await this.cache.download(file.checksum, file.url, file.bytes, (got) => {
+          speed.record(completedBytes + got, this.clock())
+          showPreparing(file, got)
+        })
         this.noteDownload(file.bytes, this.clock() - startedAt)
       } catch (e) {
         // Where Android skips a slot whose file failed to download, a browser has a better
@@ -623,7 +649,9 @@ export class PlayerEngine {
         this.setError(`download: ${(e as Error).message} — streaming instead`)
         streamed.add(file.checksum)
       }
-      fetched++
+      completedBytes += Math.max(0, file.bytes)
+      speed.record(completedBytes, this.clock())
+      showPreparing(file, 0, true)
     }
     this.streamingSince = this.streamsAnything(slots, streamed) ? this.clock() : null
 
@@ -636,7 +664,7 @@ export class PlayerEngine {
       if (el.kind !== 'image' || seen.has(el.checksum)) continue
       seen.add(el.checksum)
       if (missing.length) {
-        this.state.set({ kind: 'preparing', deviceName, done: missing.length, total: missing.length, currentFile: `getting ${el.kind} ready` })
+        this.state.set({ kind: 'preparing', deviceName, doneBytes: totalBytes, totalBytes, currentFile: `getting ${el.kind} ready`, bytesPerSecond: null })
       }
       try {
         await this.opts.warmMedia?.(sources[el.checksum], el.kind)
@@ -738,6 +766,33 @@ export const POLL_SECONDS = 10
 export const MIN_POLL_MILLIS = 2_000
 /** How often power is re-checked when no change is due sooner. */
 export const POWER_CHECK_MILLIS = 30_000
+/** How often the preparing screen is refreshed while bytes are landing. */
+export const PREPARING_REFRESH_MILLIS = 250
+
+/**
+ * Download speed as a person expects to read it: bytes over the last few seconds, not since
+ * the start (which drags for minutes after one slow patch) and not the last chunk (which
+ * flickers). The rate is taken across whatever the window holds once it spans a second.
+ */
+export class DownloadSpeed {
+  private samples: Array<[bytes: number, at: number]> = []
+  constructor(private readonly clock: () => number, private readonly windowMillis = 3_000) {}
+
+  record(bytesSoFar: number, now = this.clock()) {
+    this.samples.push([bytesSoFar, now])
+    while (this.samples.length > 1 && now - this.samples[0][1] > this.windowMillis) this.samples.shift()
+  }
+
+  bytesPerSecond(_now = this.clock()): number | null {
+    if (!this.samples.length) return null
+    const [firstBytes, firstAt] = this.samples[0]
+    const [lastBytes, lastAt] = this.samples[this.samples.length - 1]
+    const elapsed = lastAt - firstAt
+    if (elapsed < 1_000 || lastBytes < firstBytes) return null
+    return Math.round(((lastBytes - firstBytes) * 1000) / elapsed)
+  }
+}
+
 /** A download is only measured when it is at least this big and took at least this long. */
 export const MIN_MEASURED_DOWNLOAD_BYTES = 1_048_576
 export const MIN_MEASURED_DOWNLOAD_MILLIS = 1_000

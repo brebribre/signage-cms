@@ -14,7 +14,9 @@ export interface MediaStore {
   /** False when this browser cannot store files at all — see [CacheStorageMedia.available]. */
   readonly available: boolean
   isCached(checksum: string, bytes: number): Promise<boolean>
-  download(checksum: string, url: string, bytes: number): Promise<void>
+  /** [onProgress] is called with the bytes received so far as they land, so the preparing
+   *  screen's bar moves within a file rather than only between files. */
+  download(checksum: string, url: string, bytes: number, onProgress?: (bytesSoFar: number) => void): Promise<void>
   /** A URL playback can use for a cached file. Callers check [isCached] first. */
   objectUrl(checksum: string): Promise<string>
   evictExcept(keep: Iterable<string>): Promise<void>
@@ -46,7 +48,7 @@ export class CacheStorageMedia implements MediaStore {
     return !!res && (bytes === 0 || Number(res.headers.get(BYTES_HEADER)) === bytes)
   }
 
-  async download(checksum: string, url: string, bytes: number): Promise<void> {
+  async download(checksum: string, url: string, bytes: number, onProgress?: (bytesSoFar: number) => void): Promise<void> {
     if (!this.available) throw new Error('this browser cannot store files (not a secure context)')
     let res: Response
     try {
@@ -57,7 +59,7 @@ export class CacheStorageMedia implements MediaStore {
       throw new Error("couldn't fetch the file — is this player's address in the R2 bucket's CORS policy?")
     }
     if (!res.ok) throw new Error(`download failed: HTTP ${res.status}`)
-    const blob = await res.blob()
+    const blob = await readWithProgress(res, onProgress)
     // Read fully before it is stored, so an interrupted transfer can never be mistaken for a
     // complete one — the counterpart of MediaCache.kt's `.part` file and rename.
     if (bytes !== 0 && blob.size !== bytes) throw new Error(`download incomplete: ${blob.size} of ${bytes} bytes`)
@@ -106,4 +108,22 @@ export class CacheStorageMedia implements MediaStore {
     }
     return total
   }
+}
+
+/** The body as a Blob, reporting bytes as they arrive. Falls back to a plain read where the
+ *  browser offers no streaming body (older TV browsers), in which case progress is only the end. */
+async function readWithProgress(res: Response, onProgress?: (bytesSoFar: number) => void): Promise<Blob> {
+  const type = res.headers.get('Content-Type') || 'application/octet-stream'
+  const reader = onProgress && res.body ? res.body.getReader() : null
+  if (!reader) return res.blob()
+  const chunks: BlobPart[] = []
+  let received = 0
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    chunks.push(value)
+    received += value.byteLength
+    onProgress!(received)
+  }
+  return new Blob(chunks, { type })
 }
