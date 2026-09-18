@@ -84,7 +84,7 @@ def _detail(session, playlist: Playlist, rows) -> PlaylistDetail:
         created_at=playlist.created_at,
         updated_at=playlist.updated_at,
         items=items,
-        used_by=[n or "Unnamed screen" for n in playlist_service.devices_using(session, playlist.id)],
+        used_by=[n or "Unnamed screen" for n in playlist_service.screens_reached(session, playlist.id)],
     )
 
 

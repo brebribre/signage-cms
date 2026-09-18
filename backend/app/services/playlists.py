@@ -391,6 +391,19 @@ def devices_using(session: Session, playlist_id: uuid.UUID) -> list[str]:
     )
 
 
+def screens_reached(session: Session, playlist_id: uuid.UUID) -> list[str]:
+    """Every screen a save of this playlist would change, by name: the ones pointed at it
+    directly and the ones a campaign or schedule puts it on. The list the editor shows and the
+    publish confirmation names — a playlist that only reaches screens through a campaign rule is
+    just as live as one assigned by hand, and showing it as unused invited a careless edit."""
+    from app.services import schedules as schedule_service
+
+    names = list(dict.fromkeys(
+        list(devices_using(session, playlist_id)) + list(schedule_service.devices_scheduling(session, playlist_id))
+    ))
+    return names
+
+
 def remove(session: Session, *, user: User, playlist_id: uuid.UUID) -> None:
     """Refuse while a screen is pointed at it."""
     playlist = _owned(session, user, playlist_id)

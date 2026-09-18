@@ -26,6 +26,7 @@ import AppModal from '@/reusables/AppModal.vue'
 import MediaPicker from '@/reusables/MediaPicker.vue'
 import type { MediaRead, SceneBackground } from '@/types/api'
 import ModalActions from '@/reusables/ModalActions.vue'
+import PublishConfirmModal from '@/reusables/PublishConfirmModal.vue'
 import DurationPicker from '@/reusables/DurationPicker.vue'
 import OverflowMenu from '@/reusables/OverflowMenu.vue'
 import SceneEditor from '@/reusables/SceneEditor.vue'
@@ -137,6 +138,32 @@ async function saveAndReturn() {
   if (returnTo) router.push({ path: returnTo, query: { playlist: id } })
 }
 
+/**
+ * A playlist that is on screens right now is not a draft: Save is a publish, and gets one more
+ * question with the screens named. One that nobody is playing saves straight away.
+ */
+const confirmingPublish = ref(false)
+let publishAction: (() => Promise<unknown>) | null = null
+function requestSave(action: () => Promise<unknown>) {
+  if (!playlist.value?.used_by.length) return action()
+  publishAction = action
+  confirmingPublish.value = true
+}
+async function confirmPublish() {
+  const action = publishAction
+  publishAction = null
+  confirmingPublish.value = false
+  if (action) await action()
+}
+
+function onShuffle(event: Event) {
+  const box = event.target as HTMLInputElement
+  const next = box.checked
+  // Back to the saved value: the binding only re-renders once playlist.shuffle really changes.
+  box.checked = playlist.value?.shuffle ?? false
+  void requestSave(() => setShuffle(next))
+}
+
 async function onDelete() {
   if (!(await remove())) {
     confirmingDelete.value = false
@@ -233,11 +260,11 @@ function sceneLabel(item: DraftItem): string {
             </AppButton>
             <!-- Explicitly saved, never autosaved: rearranging a live playlist must not push
                  half-finished states onto a wall of screens. -->
-            <AppButton v-if="returnTo" size="sm" :loading="isSaving" @click="saveAndReturn">
+            <AppButton v-if="returnTo" size="sm" :loading="isSaving" @click="requestSave(saveAndReturn)">
               <IconCheck v-if="!isSaving" class="size-4" />
               Save and return
             </AppButton>
-            <AppButton v-else size="sm" :disabled="!isDirty" :loading="isSaving" @click="save">
+            <AppButton v-else size="sm" :disabled="!isDirty" :loading="isSaving" @click="requestSave(save)">
               <IconCheck v-if="!isSaving" class="size-4" />
               {{ isDirty ? 'Save' : 'Saved' }}
             </AppButton>
@@ -248,17 +275,20 @@ function sceneLabel(item: DraftItem): string {
       <AppAlert v-if="saveError" tone="danger">{{ saveError }}</AppAlert>
       <AppAlert v-if="deleteError" tone="danger">{{ deleteError }}</AppAlert>
       <AppAlert v-if="playlist.used_by.length">
-        Playing on {{ playlist.used_by.join(', ') }}. Saved changes reach the screens within 30
-        seconds.
+        On {{ playlist.used_by.join(', ') }}. Saving publishes: the screens pick up changes within
+        about 30 seconds.
       </AppAlert>
 
       <div class="flex items-center justify-between gap-4">
         <label class="flex items-center gap-2 text-sm text-ink-muted">
+          <!-- Shuffle applies at once rather than waiting for Save, so it gets the same publish
+               question when screens are on this playlist; the box shows the saved value until
+               the answer is yes. -->
           <input
             type="checkbox"
             :checked="playlist.shuffle"
             class="size-4 accent-ink"
-            @change="setShuffle(($event.target as HTMLInputElement).checked)"
+            @change="onShuffle($event)"
           />
           Shuffle
         </label>
@@ -473,6 +503,16 @@ function sceneLabel(item: DraftItem): string {
         </ModalActions>
       </form>
     </AppModal>
+
+    <PublishConfirmModal
+      v-if="confirmingPublish && playlist"
+      what="this playlist"
+      :screens="playlist.used_by"
+      action="Save and publish"
+      :loading="isSaving"
+      @confirm="confirmPublish"
+      @cancel="confirmingPublish = false"
+    />
 
     <AppModal v-if="confirmingDelete" title="Delete this playlist?" @close="confirmingDelete = false">
       <p class="text-sm text-ink-muted">

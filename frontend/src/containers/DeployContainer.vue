@@ -35,6 +35,7 @@ import DeviceCard from '@/reusables/DeviceCard.vue'
 import EmptyState from '@/reusables/EmptyState.vue'
 import MaybeModal from '@/reusables/MaybeModal.vue'
 import ModalActions from '@/reusables/ModalActions.vue'
+import PublishConfirmModal from '@/reusables/PublishConfirmModal.vue'
 import PageTitle from '@/reusables/PageTitle.vue'
 import PairScreenForm from '@/reusables/PairScreenForm.vue'
 import PlaylistPicker from '@/reusables/PlaylistPicker.vue'
@@ -362,6 +363,18 @@ async function onSave() {
   })
 }
 
+/** A campaign save is a publish: every screen in it changes within seconds. One more question,
+ *  with the screens named, before either the first deploy or an edit of a live one. */
+const confirmingPublish = ref(false)
+const publishScreens = computed(() =>
+  selectedIds.value.map((id) => devices.value.find((d) => d.id === id)?.name || 'Unnamed screen'),
+)
+async function confirmPublish() {
+  confirmingPublish.value = false
+  if (isEdit) await applyEdit()
+  else await onSave()
+}
+
 /** Editing is one page rather than three steps, so its Save checks everything the steps would
  *  have — and says what's missing instead of just refusing. Saving keeps you on the page. */
 const editError = ref<string | null>(null)
@@ -377,6 +390,10 @@ async function onSaveEdit() {
         ? (mode.value === 'playlist' ? 'Pick a playlist' : 'Fix the schedule first')
         : null
   if (editError.value) return
+  confirmingPublish.value = true
+}
+
+async function applyEdit() {
   await onSave()
   if (savedId.value && !saveError.value) {
     justSaved.value = true
@@ -995,7 +1012,7 @@ const BOUND_TIME_INPUT =
         <AppButton v-if="step < STEPS.length - 1" :disabled="step === 0 && !selectedIds.length" @click="advance">
           Next<IconArrowForward class="size-4" />
         </AppButton>
-        <AppButton v-else :disabled="!campaignName.trim()" :loading="isSaving" @click="onSave">
+        <AppButton v-else :disabled="!campaignName.trim()" :loading="isSaving" @click="confirmingPublish = true">
           <template v-if="isEdit"><IconCheck class="size-4" />Save changes</template>
           <template v-else><IconRocket class="size-4" />Deploy</template>
         </AppButton>
@@ -1024,5 +1041,14 @@ const BOUND_TIME_INPUT =
         <AppButton variant="danger" size="sm" :loading="isDeleting" @click="onDelete">Delete</AppButton>
       </ModalActions>
     </AppModal>
+    <PublishConfirmModal
+      v-if="confirmingPublish"
+      what="this campaign"
+      :screens="publishScreens"
+      :action="isEdit ? 'Save & Apply' : 'Deploy'"
+      :loading="isSaving"
+      @confirm="confirmPublish"
+      @cancel="confirmingPublish = false"
+    />
   </div>
 </template>
