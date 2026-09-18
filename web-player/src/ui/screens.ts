@@ -33,10 +33,19 @@ export function statusScreenHtml(s: StatusState): string {
         ${s.error ? `<div class="pair-status" style="margin-top:2vmin">${esc(s.error)}</div>` : ''}
       </div></div>`
 
+    // The pairing card again, with the screen's new name where the code was — one continuous
+    // moment rather than a cut to black.
     case 'claimed':
-      return `<div class="screen"><div class="col">
-        <div style="font-size:8vmin;font-weight:500">Connected</div>
-        <div class="muted" style="font-size:4vmin;margin-top:1.8vmin">${esc(s.deviceName)}</div>
+      return `<div class="screen screen-brand"><div class="col">
+        <img class="logo" src="${logoUrl}" alt="Paskall">
+        <div class="pair-card">
+          <div class="pair-label">This screen is now</div>
+          <div class="idle-name">${esc(s.deviceName)}</div>
+        </div>
+        <div class="row pair-status">
+          <span class="dot dot-still"></span>
+          <span>Connected</span>
+        </div>
       </div></div>`
 
     // Downloading before the first frame, in the same look as pairing and idle: one bar for the

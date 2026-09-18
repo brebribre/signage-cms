@@ -190,18 +190,46 @@ private fun PulsingDot() {
     )
 }
 
-/** Shown for a moment after a human claims the screen, so success is visible. */
+/** Shown for a moment after a human claims the screen, so success is visible — the pairing
+ *  screen's card again, with "Connected" where the code was and the screen's new name under it,
+ *  so the hand-off reads as one continuous moment rather than a cut to black. */
 @Composable
 fun ClaimedScreen(deviceName: String) {
-    Box(Modifier.fillMaxSize().background(Ink), contentAlignment = Alignment.Center) {
+    Box(Modifier.fillMaxSize().background(BrandGradient), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Connected", color = InkInverse, fontSize = 44.sp, fontWeight = FontWeight.Medium)
-            Text(
-                deviceName,
-                color = InkMuted,
-                fontSize = 22.sp,
-                modifier = Modifier.padding(top = 10.dp),
-            )
+            PaskallLogo(height = 44.dp)
+
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .padding(top = 36.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(Color.White.copy(alpha = 0.1f))
+                    .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(24.dp))
+                    .padding(horizontal = 48.dp, vertical = 22.dp),
+            ) {
+                Text("This screen is now", color = OnBrandMuted, fontSize = 22.sp, fontFamily = Inter)
+                Text(
+                    deviceName,
+                    color = Color.White,
+                    fontSize = 64.sp,
+                    fontFamily = Outfit,
+                    fontWeight = FontWeight.Medium,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 28.dp)) {
+                Box(Modifier.size(10.dp).background(InkInverse, CircleShape))
+                Text(
+                    "Connected",
+                    color = OnBrandMuted,
+                    fontSize = 18.sp,
+                    fontFamily = Inter,
+                    modifier = Modifier.padding(start = 10.dp),
+                )
+            }
         }
     }
 }

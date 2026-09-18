@@ -71,6 +71,8 @@ html, body {
 .row { display: flex; align-items: center; gap: 1.6vmin; }
 .dot { width: 1.6vmin; height: 1.6vmin; border-radius: 50%; background: var(--ink-inverse); animation: pulse 0.9s linear infinite alternate; }
 @keyframes pulse { from { opacity: 0.25; } to { opacity: 1; } }
+/* Connected: the same dot, settled — nothing left to wait for. */
+.dot-still { animation: none; opacity: 1; }
 .progress { width: 50%; height: 0.6vmin; background: rgba(125, 125, 125, 0.3); margin-top: 4.5vmin; overflow: hidden; }
 .progress > div { height: 100%; background: var(--ink-inverse); transition: width 0.3s; }
 /* The preparing screen's bar, on the brand card: white on translucent, and wide. */
