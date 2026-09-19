@@ -117,6 +117,16 @@ def pending_count(user: CurrentUser, session: DbSession) -> PendingCount:
     return PendingCount(count=review_service.pending_count(session, user=user))
 
 
+@router.get("/reviews/{review_id}", response_model=ReviewRead)
+def get_review(review_id: uuid.UUID, user: CurrentUser, session: DbSession) -> ReviewRead:
+    """One review with its full payload — what the review page previews. A manager can open
+    only their own; the owner any in the account."""
+    try:
+        return read(review_service.get(session, user=user, review_id=review_id))
+    except ReviewNotFound:
+        raise NOT_FOUND from None
+
+
 @router.post("/reviews/{review_id}/approve", response_model=ReviewRead)
 def approve(review_id: uuid.UUID, body: ReviewDecision, owner: RequireOwner, session: DbSession) -> ReviewRead:
     try:

@@ -193,6 +193,18 @@ function toDraftElement(el: ElementRead): DraftElement {
   }
 }
 
+/** A saved scene as the editor and the preview hold it. Exported for the review page, which
+ *  previews a saved playlist next to a proposed one through the same components. */
+export function readToDraft(item: PlaylistItemRead): DraftItem {
+  return {
+    key: item.id,
+    durationSeconds: item.duration_seconds,
+    isEnabled: item.is_enabled,
+    background: item.background ?? 'black',
+    elements: item.elements.map(toDraftElement),
+  }
+}
+
 export function usePlaylistEditor(id: string) {
   const api = usePlaylistApi()
 
@@ -235,15 +247,7 @@ export function usePlaylistEditor(id: string) {
   )
   const enabledCount = computed(() => draft.value.filter((d) => d.isEnabled).length)
 
-  function toDraft(item: PlaylistItemRead): DraftItem {
-    return {
-      key: item.id,
-      durationSeconds: item.duration_seconds,
-      isEnabled: item.is_enabled,
-      background: item.background ?? 'black',
-      elements: item.elements.map(toDraftElement),
-    }
-  }
+  const toDraft = readToDraft
 
   function adopt(detail: PlaylistDetail) {
     playlist.value = detail

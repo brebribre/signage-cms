@@ -7,6 +7,7 @@
  * waiting, and what happened to it" — only the buttons differ.
  */
 import { onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import IconCheck from '~icons/material-symbols/check'
 import IconClose from '~icons/material-symbols/close'
 import IconTv from '~icons/material-symbols/tv-outline'
@@ -25,7 +26,11 @@ import PageTitle from '@/reusables/PageTitle.vue'
 import SkeletonList from '@/reusables/SkeletonList.vue'
 import type { ReviewKind, ReviewRead, ReviewStatus } from '@/types/api'
 
+const router = useRouter()
 const { isOwner } = useAuth()
+function open(r: ReviewRead) {
+  router.push({ name: 'review-detail', params: { id: r.id } })
+}
 const { relativeTime } = useFormat()
 const { pending, decided, isLoading, error, actingOn, actionError, refresh, approve, reject, withdraw } = useReviews()
 
@@ -90,7 +95,7 @@ async function confirmReject() {
     <template v-else>
       <section v-if="pending.length" class="flex flex-col gap-2">
         <h2 class="text-sm text-ink-muted">Waiting</h2>
-        <AppCard v-for="r in pending" :key="r.id">
+        <AppCard v-for="r in pending" :key="r.id" interactive @click="open(r)">
           <div class="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
             <div class="min-w-0 flex-1">
               <p class="text-[13px] text-ink-subtle">
@@ -110,15 +115,15 @@ async function confirmReject() {
               <template v-if="isOwner">
                 <AppButton
                   variant="secondary" size="sm" :disabled="actingOn === r.id"
-                  @click="openReject(r)"
+                  @click.stop="openReject(r)"
                 >
                   <IconClose class="size-4" aria-hidden="true" />Reject
                 </AppButton>
-                <AppButton size="sm" :loading="actingOn === r.id" @click="approve(r.id)">
+                <AppButton size="sm" :loading="actingOn === r.id" @click.stop="approve(r.id)">
                   <IconCheck class="size-4" aria-hidden="true" />Approve
                 </AppButton>
               </template>
-              <AppButton v-else variant="secondary" size="sm" :loading="actingOn === r.id" @click="withdraw(r.id)">
+              <AppButton v-else variant="secondary" size="sm" :loading="actingOn === r.id" @click.stop="withdraw(r.id)">
                 Withdraw
               </AppButton>
             </div>
@@ -128,7 +133,7 @@ async function confirmReject() {
 
       <section v-if="decided.length" class="flex flex-col gap-2">
         <h2 class="text-sm text-ink-muted">Decided</h2>
-        <AppCard v-for="r in decided" :key="r.id">
+        <AppCard v-for="r in decided" :key="r.id" interactive @click="open(r)">
           <div class="flex flex-wrap items-start justify-between gap-x-6 gap-y-2">
             <div class="min-w-0 flex-1">
               <p class="text-[13px] text-ink-subtle">

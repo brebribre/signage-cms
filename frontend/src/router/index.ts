@@ -74,6 +74,12 @@ const router = createRouter({
           component: () => import('@/containers/ReviewsContainer.vue'),
         },
         {
+          path: 'reviews/:id',
+          name: 'review-detail',
+          component: () => import('@/containers/ReviewDetailContainer.vue'),
+          meta: { keyByPath: true },
+        },
+        {
           // Creating a campaign *is* the deploy flow — kept as a redirect so old links still land.
           path: 'campaigns/new',
           name: 'campaign-new',
