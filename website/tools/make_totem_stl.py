@@ -16,8 +16,8 @@ import pathlib
 import struct
 
 # --- The totem, in millimetres -------------------------------------------------------------
-PANEL_W, PANEL_H, PANEL_D = 620.0, 1780.0, 58.0
-BASE_W, BASE_H, BASE_D = 700.0, 62.0, 430.0
+PANEL_W, PANEL_H, PANEL_D = 900.0, 1780.0, 64.0
+BASE_W, BASE_H, BASE_D = 980.0, 64.0, 440.0
 WHEEL_R, WHEEL_W = 48.0, 34.0
 BASE_Y = 2 * WHEEL_R          # the base sits on top of the wheels
 PANEL_Y = BASE_Y + BASE_H     # and the panel rises out of the base

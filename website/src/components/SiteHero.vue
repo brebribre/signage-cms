@@ -1,10 +1,7 @@
 <script setup lang="ts">
-import { defineAsyncComponent } from 'vue'
 import IconArrowForward from '~icons/material-symbols/arrow-forward'
 
-/** Three.js is most of this page's JavaScript, so the totem is its own chunk: the hero's
- *  words paint first and the 3D arrives a moment later. */
-const SignageTotem = defineAsyncComponent(() => import('./SignageTotem.vue'))
+import HeroStage from './HeroStage.vue'
 
 /** What the product does, kept honest: no customer counts we do not have. */
 const FACTS = [
@@ -42,9 +39,9 @@ const FACTS = [
           </div>
         </div>
 
-        <!-- The thing itself, turning slowly, playing a loop. -->
+        <!-- The product in one gesture: pick a playlist, the screen changes. -->
         <div class="reveal lg:col-span-6">
-          <SignageTotem />
+          <HeroStage />
         </div>
       </div>
     </div>

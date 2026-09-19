@@ -11,24 +11,20 @@
  * render loop stops whenever the canvas is off screen or the tab is hidden. Anyone who has
  * asked for reduced motion gets a still frame and no rotation.
  */
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import * as THREE from 'three'
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js'
 
-/** What the screen plays. Swapped on a timer, drawn into a canvas, uploaded as a texture. */
-const SLIDES = [
-  { kind: 'text', title: 'Open until 9pm', sub: 'Kitchen closes at 8:30', from: '#002f96', to: '#0076dd' },
-  { kind: 'photo', src: '/shots/screen-totem.webp', title: 'Today’s special', sub: 'Ask at the counter' },
-  { kind: 'text', title: 'Now hiring', sub: 'Scan at reception', from: '#00184d', to: '#1f55c4' },
-  { kind: 'photo', src: '/shots/screen-lobby.webp', title: 'Welcome', sub: 'Wifi: guest' },
-] as const
+import { SLIDES } from '@/data/slides'
 
-const SLIDE_MS = 3200
-const FADE_MS = 650
+/** Which slide is on air. Owned by the hero, so the CMS panel beside the totem can change it. */
+const props = defineProps<{ active: number }>()
+
+const FADE_MS = 700
 /** The screen's pixel canvas. Its aspect decides how much of the panel the glass covers, so
  *  it is tuned to leave the same slab of black below the picture that a real totem has. */
-const TEX_W = 560
-const TEX_H = 1120
+const TEX_W = 600
+const TEX_H = 1080
 
 const host = ref<HTMLElement | null>(null)
 const failed = ref(false)
@@ -87,7 +83,7 @@ onMounted(() => {
 
   const images = new Map<string, HTMLImageElement>()
   for (const s of SLIDES) {
-    if (s.kind !== 'photo') continue
+    if (!s.src) continue
     const img = new Image()
     img.crossOrigin = 'anonymous'
     img.src = s.src
@@ -97,7 +93,7 @@ onMounted(() => {
   function drawSlide(slide: (typeof SLIDES)[number], alpha: number) {
     ctx.save()
     ctx.globalAlpha = alpha
-    if (slide.kind === 'photo') {
+    if (slide.src) {
       const img = images.get(slide.src)
       if (img?.complete && img.naturalWidth) {
         // Cover: fill the screen, crop the overflow, same as the product's own fit.
@@ -113,8 +109,8 @@ onMounted(() => {
       ctx.fillRect(0, TEX_H * 0.6, TEX_W, TEX_H * 0.4)
     } else {
       const g = ctx.createLinearGradient(0, 0, TEX_W, TEX_H)
-      g.addColorStop(0, slide.from)
-      g.addColorStop(1, slide.to)
+      g.addColorStop(0, slide.from ?? '#002f96')
+      g.addColorStop(1, slide.to ?? '#0076dd')
       ctx.fillStyle = g
       ctx.fillRect(0, 0, TEX_W, TEX_H)
     }
@@ -128,23 +124,21 @@ onMounted(() => {
     ctx.restore()
   }
 
-  let index = 0
-  let shownAt = performance.now()
+  // `shown` is what is on the glass; `previous` is what it is fading out of.
+  let shown = props.active
+  let previous = props.active
+  let changedAt = performance.now() - FADE_MS
   function paint(now: number) {
-    const since = now - shownAt
+    const since = now - changedAt
     ctx.clearRect(0, 0, TEX_W, TEX_H)
     ctx.fillStyle = '#000'
     ctx.fillRect(0, 0, TEX_W, TEX_H)
-    if (since < FADE_MS && !reduced) {
+    if (since < FADE_MS && !reduced && previous !== shown) {
       const t = since / FADE_MS
-      drawSlide(SLIDES[(index - 1 + SLIDES.length) % SLIDES.length], 1 - t)
-      drawSlide(SLIDES[index], t)
+      drawSlide(SLIDES[previous], 1 - t)
+      drawSlide(SLIDES[shown], t)
     } else {
-      drawSlide(SLIDES[index], 1)
-    }
-    if (since > SLIDE_MS) {
-      index = (index + 1) % SLIDES.length
-      shownAt = now
+      drawSlide(SLIDES[shown], 1)
     }
     texture.needsUpdate = true
   }
@@ -157,7 +151,9 @@ onMounted(() => {
   group.add(screen)
 
   // --- The chassis --------------------------------------------------------------------------
-  const body = new THREE.MeshStandardMaterial({ color: 0x14161a, roughness: 0.42, metalness: 0.55 })
+  // Deep navy with a metallic sheen rather than black: it belongs to the same palette as the
+  // band behind it, and the rim light draws its edges in brand blue.
+  const body = new THREE.MeshStandardMaterial({ color: 0x0c1d3f, roughness: 0.34, metalness: 0.72 })
   new STLLoader().load(
     '/models/totem.stl',
     (geometry) => {
@@ -175,10 +171,10 @@ onMounted(() => {
       group.add(mesh)
 
       // Fit the screen plane to the panel's face: the same proportions the generator used.
-      const PANEL_W = 620 * scale
+      const PANEL_W = 900 * scale
       const PANEL_H = 1780 * scale
-      const PANEL_Y = 158 * scale
-      const PANEL_D = 58 * scale
+      const PANEL_Y = 160 * scale
+      const PANEL_D = 64 * scale
       const bezel = PANEL_W * 0.045
       const w = PANEL_W - bezel * 2
       const h = w * (TEX_H / TEX_W)
@@ -204,6 +200,14 @@ onMounted(() => {
   }
   const start = () => { if (!raf) raf = requestAnimationFrame(tick) }
   const halt = () => { if (raf) { cancelAnimationFrame(raf); raf = 0 } }
+
+  watch(() => props.active, (next) => {
+    if (next === shown) return
+    previous = shown
+    shown = next
+    changedAt = performance.now()
+    start()
+  })
 
   const io = new IntersectionObserver(([e]) => {
     visible = e.isIntersecting
