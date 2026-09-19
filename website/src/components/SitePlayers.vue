@@ -3,6 +3,8 @@ import IconAndroid from '~icons/material-symbols/android'
 import IconLanguage from '~icons/material-symbols/language'
 import IconTv from '~icons/material-symbols/tv-outline'
 
+import DeviceFrame from './DeviceFrame.vue'
+
 const PLAYERS = [
   { icon: IconAndroid, title: 'Android player', text: 'For Android TV boxes and tablets. Plays up to 4K, updates itself over the air, and on a managed box switches the display off on schedule and keeps every other app out.' },
   { icon: IconTv, title: 'Smart TV browser', text: 'Samsung, LG, or any TV with a browser: open one address, press OK once, and the TV is a screen. Media is stored in the browser and plays through the TV’s own decoder.' },
@@ -35,15 +37,24 @@ const PLAYERS = [
             </li>
           </ul>
         </div>
-        <figure class="reveal lg:col-span-7">
-          <img
-            src="/shots/player-pairing.webp"
-            alt="The Paskall player's pairing screen: a six-letter code on the brand gradient"
-            class="block w-full rounded-2xl border border-white/15 shadow-[0_40px_100px_-30px_rgba(0,0,0,0.6)]"
-            loading="lazy" decoding="async"
-          />
-          <figcaption class="mt-3 text-center text-[13px] text-white/60">What a screen shows until you pair it.</figcaption>
-        </figure>
+        <!-- The same pairing screen on two shapes of hardware: a wall panel and a portrait
+             totem. That is the "any screen" claim, made with a picture. -->
+        <div class="reveal lg:col-span-7">
+          <div class="flex items-end justify-center gap-6 sm:gap-10">
+            <DeviceFrame
+              class="w-[62%] max-w-md"
+              src="/shots/player-pairing.webp"
+              alt="A wall-mounted screen showing the Paskall pairing code"
+            >Wall panel</DeviceFrame>
+            <DeviceFrame
+              class="w-[34%] max-w-[12rem]"
+              kind="totem"
+              src="/shots/player-pairing-portrait.webp"
+              alt="A portrait totem showing the Paskall pairing code"
+            >Portrait totem</DeviceFrame>
+          </div>
+          <p class="mt-6 text-center text-[13px] text-white/60">What a screen shows until you pair it.</p>
+        </div>
       </div>
     </div>
   </section>
