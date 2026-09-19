@@ -11,9 +11,10 @@ import type { TimelineSlot } from '@/utils/scheduleMath'
 
 const props = defineProps<{ slots: TimelineSlot[] }>()
 
-// Monochrome, like the rest of the system: ink down to mid grey, all readable against the light
-// grey "asleep" ground the bars sit on.
-const TONES = ['#101111', '#4d4d4d', '#7d7d7d', '#a8a8a8'] as const
+// What plays is the active thing on this page, so it carries the brand blues (the tokens in
+// style.css: brand, brand-bright, brand-hover, then a lighter tint of brand), all readable
+// against the light grey "asleep" ground the bars sit on.
+const TONES = ['#003399', '#0076dd', '#1f55c4', '#7fa1e6'] as const
 const toneOf = (i: number) => TONES[i % TONES.length]
 
 const pct = (minutes: number) => `${(minutes / DAY_MINUTES) * 100}%`

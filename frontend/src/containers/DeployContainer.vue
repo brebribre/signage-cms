@@ -176,7 +176,9 @@ const slots = ref<Slot[]>([newSlot('09:00', '17:00')])
 
 type Mode = 'playlist' | 'schedule'
 const MODES = [
-  { value: 'playlist', label: 'Playlist' },
+  // "Loop", not "Playlist": the choice is between one playlist looping all day and a
+  // schedule of playlists, and both sides of it are made of playlists.
+  { value: 'playlist', label: 'Loop' },
   { value: 'schedule', label: 'Schedule' },
 ] as const
 const mode = ref<Mode>('playlist')
@@ -761,26 +763,31 @@ const BOUND_TIME_INPUT =
       <!-- 2. Content. Editing shows it right on the page, titled Playlist rather than tucked into
            a dialog: changing what plays is the quick edit, and a schedule needs the room. -->
       <section v-if="isEdit || step === 1" class="flex flex-col gap-5">
-        <h2 v-if="isEdit" class="text-lg">Playlist</h2>
-        <div
-          class="inline-flex self-start rounded-full border border-line-strong p-0.5"
-          role="radiogroup" aria-label="What plays"
-        >
-          <button
-            v-for="m in MODES"
-            :key="m.value"
-            type="button"
-            role="radio"
-            :aria-checked="mode === m.value"
-            class="rounded-full px-4 py-1.5 text-[13px] transition-colors duration-150"
-            :class="mode === m.value ? 'bg-ink text-ink-inverse' : 'text-ink-muted hover:text-ink'"
-            @click="setMode(m.value)"
-          >
-            {{ m.label }}
-          </button>
-        </div>
+        <AppCard class="flex flex-col gap-4">
+          <!-- The card's header: what this is, and the one choice about it. Loop or Schedule is a
+               pill, selected in brand blue like every chosen filter in the app. -->
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <h2 v-if="isEdit" class="text-lg">Content</h2>
+            <div
+              class="inline-flex rounded-full border border-line-strong p-0.5"
+              role="radiogroup" aria-label="What plays"
+            >
+              <button
+                v-for="m in MODES"
+                :key="m.value"
+                type="button"
+                role="radio"
+                :aria-checked="mode === m.value"
+                class="rounded-full px-4 py-1.5 text-[13px] transition-colors duration-150"
+                :class="mode === m.value ? 'bg-brand text-ink-inverse' : 'text-ink-muted hover:text-ink'"
+                @click="setMode(m.value)"
+              >
+                {{ m.label }}
+              </button>
+            </div>
+          </div>
 
-        <AppCard v-if="mode === 'playlist'">
+          <template v-if="mode === 'playlist'">
           <div class="flex items-center gap-2">
             <PlaylistPicker
               v-model="playlistId"
@@ -804,11 +811,10 @@ const BOUND_TIME_INPUT =
               <IconEdit class="size-4" />Edit
             </AppButton>
           </div>
-          <p class="mt-2 text-[13px] text-ink-muted">Plays all day, every day.</p>
-          <p v-if="attempted && !playlistId" class="mt-1 text-[13px] text-danger">Pick a playlist</p>
-        </AppCard>
+          <p v-if="attempted && !playlistId" class="text-[13px] text-danger">Pick a playlist</p>
+          </template>
 
-        <template v-else>
+          <template v-else>
         <AppAlert v-if="mixedRanges">
           This campaign's rules had different dates — saving applies these to all of them.
         </AppAlert>
@@ -845,13 +851,12 @@ const BOUND_TIME_INPUT =
           <p v-if="dateError" class="text-[13px] text-danger">{{ dateError }}</p>
         </div>
 
-        <AppCard><WeekTimeline :slots="timelineSlots" /></AppCard>
+        <div class="rounded-xl bg-surface p-4"><WeekTimeline :slots="timelineSlots" /></div>
 
         <ul class="flex flex-col gap-2">
-          <li v-for="(s, i) in slots" :key="s.key">
-            <AppCard>
+          <li v-for="(s, i) in slots" :key="s.key" class="rounded-xl bg-surface p-4">
               <div class="flex items-center gap-2">
-                <span class="flex size-6 shrink-0 items-center justify-center rounded-full bg-raised text-[12px] text-ink-muted">
+                <span class="flex size-6 shrink-0 items-center justify-center rounded-full bg-brand-soft text-[12px] text-brand">
                   {{ i + 1 }}
                 </span>
                 <PlaylistPicker
@@ -916,7 +921,7 @@ const BOUND_TIME_INPUT =
                     :key="d.bit"
                     type="button"
                     class="size-7 rounded-full text-[11px] transition-colors duration-150"
-                    :class="s.days_of_week & d.bit ? 'bg-ink text-ink-inverse' : 'text-ink-muted hover:bg-raised'"
+                    :class="s.days_of_week & d.bit ? 'bg-brand text-ink-inverse' : 'text-ink-muted hover:bg-raised'"
                     :title="d.short"
                     :aria-pressed="!!(s.days_of_week & d.bit)"
                     @click="s.days_of_week ^= d.bit"
@@ -926,14 +931,14 @@ const BOUND_TIME_INPUT =
                 </div>
               </div>
               <p v-if="shownError(i)" class="mt-2 text-[13px] text-danger sm:pl-8">{{ shownError(i) }}</p>
-            </AppCard>
           </li>
         </ul>
 
         <AppButton variant="secondary" size="sm" class="self-start" @click="addSlot">
           <IconAdd class="size-4" />Add playlist
         </AppButton>
-        </template>
+          </template>
+        </AppCard>
       </section>
 
       <div v-if="isEdit" class="flex flex-wrap items-center justify-end gap-3 border-t border-line pt-6">
