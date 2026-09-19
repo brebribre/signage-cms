@@ -12,7 +12,7 @@ const year = new Date().getFullYear()
     <div class="relative mx-auto max-w-7xl px-5 pt-[calc(7vw+4rem)] pb-20 text-center sm:px-8 sm:pb-24">
       <h2 class="reveal text-3xl sm:text-5xl">Put your first screen on Paskall.</h2>
       <p class="reveal mx-auto mt-4 max-w-xl text-white/80">
-        Tell us how many screens and where they are. We set the account up, you type one code, and the wall is yours.
+        Tell us how many screens. We set the account up, you type one code.
       </p>
       <a
         href="mailto:hello@paskall.com?subject=Paskall%20access"

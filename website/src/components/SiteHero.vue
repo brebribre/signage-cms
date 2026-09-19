@@ -6,10 +6,10 @@ import BrowserFrame from './BrowserFrame.vue'
 /** The numbers a signage buyer actually weighs, kept honest: these are what the product does,
  *  not customer counts we don't have. */
 const FACTS = [
-  { value: '4K', label: 'Video, kept at full resolution' },
-  { value: '~30s', label: 'From save to every screen' },
-  { value: '0', label: 'Network needed to keep playing' },
-  { value: '3', label: 'Players: Android, smart TV, browser' },
+  { value: '4K', label: 'Video at full resolution' },
+  { value: '30s', label: 'From save to screen' },
+  { value: '0', label: 'Network needed to play' },
+  { value: '3', label: 'Ways to run a screen' },
 ]
 </script>
 
@@ -23,14 +23,13 @@ const FACTS = [
         <!-- Left-aligned, the way an infrastructure page opens: claim, sentence, two actions. -->
         <div class="lg:col-span-5">
           <p class="reveal inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3 py-1 text-[13px] text-white/90 backdrop-blur">
-            <span class="size-1.5 rounded-full bg-accent" /> Digital signage infrastructure
+            <span class="size-1.5 rounded-full bg-accent" /> Digital signage, run from one place
           </p>
           <h1 class="reveal mt-6 text-5xl leading-[1.05] text-white sm:text-6xl">
             Every screen you own, <span class="brand-text">playing what you meant.</span>
           </h1>
           <p class="reveal mt-6 text-lg leading-relaxed text-white/80">
-            Paskall turns Android boxes, smart TVs and any browser into one fleet you run from a single
-            dashboard. Build scenes, schedule campaigns, and let the screens look after themselves.
+            Android boxes, smart TVs and browsers, run as one fleet from a single dashboard.
           </p>
           <div class="reveal mt-8 flex flex-wrap items-center gap-3">
             <a href="#contact" class="inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm text-brand transition-colors hover:bg-white/90">

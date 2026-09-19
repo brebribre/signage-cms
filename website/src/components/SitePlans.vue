@@ -13,8 +13,8 @@ const PLANS = [
   <section id="plans" class="mx-auto max-w-6xl px-5 py-20 sm:px-8 sm:py-28">
     <div class="reveal max-w-2xl">
       <p class="text-[13px] uppercase tracking-wider text-brand">Plans</p>
-      <h2 class="mt-3 text-3xl sm:text-4xl">Priced per screen, like the screens are.</h2>
-      <p class="mt-4 text-ink-muted">Accounts are set up by us today, so every plan starts with a conversation. The shape is the same across the board: pay for screens, never for storage.</p>
+      <h2 class="mt-3 text-3xl sm:text-4xl">Priced per screen.</h2>
+      <p class="mt-4 text-ink-muted">Pay for screens, never for storage.</p>
     </div>
     <ul class="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       <li
