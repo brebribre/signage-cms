@@ -17,11 +17,31 @@ class PlaylistUpdate(BaseModel):
     shuffle: bool | None = None
 
 
+HEX_COLOUR = r"^#[0-9a-fA-F]{6}$"
+
+
+class TextStyle(BaseModel):
+    """How a text element looks. Every player draws it from these same few numbers, and the CMS
+    preview does too, so a scene reads the same everywhere. Unset fields take these defaults."""
+
+    # Font size as a fraction of the screen's height — 0.06 is a comfortable headline on any
+    # panel, whatever its resolution.
+    size: float = Field(default=0.06, ge=0.01, le=0.5)
+    color: str = Field(default="#FFFFFF", pattern=HEX_COLOUR)
+    weight: Literal["regular", "bold"] = "bold"
+    align: Literal["left", "center", "right"] = "center"
+    # A solid box behind the text, or none. Text on a busy photo needs one.
+    background: str | None = Field(default=None, pattern=HEX_COLOUR)
+
+
 class ElementWrite(BaseModel):
-    # Exactly one of these: a library file, or a website shown live (https only). Checked in
-    # services/playlists.py::replace_items, alongside the rest of a scene's rules.
+    # Exactly one of these three: a library file, a website shown live (https only), or a piece
+    # of text drawn by the player. Checked in services/playlists.py::replace_items, alongside
+    # the rest of a scene's rules.
     media_id: uuid.UUID | None = None
     web_url: str | None = Field(default=None, max_length=2048)
+    text: str | None = Field(default=None, max_length=2000)
+    text_style: TextStyle | None = None
     z_index: int = 0
     # Normalized against the scene's own frame, deliberately unbounded — see
     # PlaylistItemElement for why a design surface must allow partially-off-canvas elements.
@@ -91,9 +111,12 @@ class ElementRead(BaseModel):
     crop_zoom: float | None
     has_audio: bool
     rotation_degrees: int
-    # A file element carries `media`; a website element carries `web_url` instead.
+    # A file element carries `media`; a website element carries `web_url`; a text element
+    # carries `text` and `text_style`.
     media: ItemMedia | None
     web_url: str | None = None
+    text: str | None = None
+    text_style: TextStyle | None = None
 
 
 class ItemRead(BaseModel):

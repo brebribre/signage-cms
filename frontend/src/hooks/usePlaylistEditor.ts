@@ -3,7 +3,8 @@ import { computed, onMounted, ref } from 'vue'
 import { ApiError } from '@/api/request'
 import { usePlaylistApi } from '@/api/usePlaylistApi'
 import { useReviewBadge } from '@/hooks/useReviews'
-import type { ElementRead, ItemFit, MediaRead, PlaylistDetail, PlaylistItemRead, ReviewRead, SceneBackground } from '@/types/api'
+import type { ElementRead, ItemFit, MediaRead, PlaylistDetail, PlaylistItemRead, ReviewRead, SceneBackground, TextStyle } from '@/types/api'
+import { TEXT_DEFAULT_STYLE, textLabel } from '@/utils/textStyle'
 import { isPendingReview } from '@/types/api'
 import { websiteLabel } from '@/utils/websiteUrl'
 
@@ -15,8 +16,11 @@ export interface DraftElement {
   mediaId: string | null
   /** A website shown live, set instead of `mediaId`. `url` holds the same address. */
   webUrl: string | null
+  /** Text drawn by the player, set instead of both. `textStyle` is always set with it. */
+  text: string | null
+  textStyle: TextStyle | null
   filename: string
-  kind: 'image' | 'video' | 'web'
+  kind: 'image' | 'video' | 'web' | 'text'
   thumbnailUrl: string | null
   url: string
   mediaWidth: number | null
@@ -103,6 +107,8 @@ export function mediaToDraftElement(m: MediaRead, overrides: Partial<DraftElemen
     key: crypto.randomUUID(),
     mediaId: m.id,
     webUrl: null,
+    text: null,
+    textStyle: null,
     filename: m.filename,
     kind: m.kind,
     thumbnailUrl: m.thumbnail_url,
@@ -132,6 +138,8 @@ export function websiteToDraftElement(url: string, overrides: Partial<DraftEleme
     key: crypto.randomUUID(),
     mediaId: null,
     webUrl: url,
+    text: null,
+    textStyle: null,
     filename: websiteLabel(url),
     kind: 'web',
     thumbnailUrl: null,
@@ -178,11 +186,14 @@ function toDraftElement(el: ElementRead): DraftElement {
     hasAudio: el.has_audio,
     rotationDegrees: el.rotation_degrees,
   }
+  if (el.text != null) return textToDraftElement(el.text, el.text_style ?? undefined, placement)
   if (!el.media) return websiteToDraftElement(el.web_url ?? '', placement)
   return {
     ...placement,
     mediaId: el.media.id,
     webUrl: null,
+    text: null,
+    textStyle: null,
     filename: el.media.filename,
     kind: el.media.kind,
     thumbnailUrl: el.media.thumbnail_url,
@@ -190,6 +201,38 @@ function toDraftElement(el: ElementRead): DraftElement {
     mediaWidth: el.media.width,
     mediaHeight: el.media.height,
     mediaDuration: el.media.duration_seconds,
+  }
+}
+
+/** A fresh text element — the third kind, after a file and a website. Its box is whatever the
+ *  caller says; a new one from the scene editor starts centred and a few lines tall. */
+export function textToDraftElement(text: string, style: Partial<TextStyle> = {}, overrides: Partial<DraftElement> = {}): DraftElement {
+  const textStyle = { ...TEXT_DEFAULT_STYLE, ...style }
+  return {
+    key: crypto.randomUUID(),
+    mediaId: null,
+    webUrl: null,
+    text,
+    textStyle,
+    filename: textLabel(text),
+    kind: 'text',
+    thumbnailUrl: null,
+    url: '',
+    mediaWidth: null,
+    mediaHeight: null,
+    mediaDuration: null,
+    zIndex: 0,
+    x: 0.2,
+    y: 0.4,
+    width: 0.6,
+    height: 0.2,
+    fit: 'cover',
+    cropX: null,
+    cropY: null,
+    cropZoom: null,
+    hasAudio: false,
+    rotationDegrees: 0,
+    ...overrides,
   }
 }
 
@@ -337,6 +380,8 @@ export function usePlaylistEditor(id: string) {
             elements: d.elements.map((e) => ({
               media_id: e.mediaId,
               web_url: e.webUrl,
+              text: e.text,
+              text_style: e.text != null ? e.textStyle ?? TEXT_DEFAULT_STYLE : null,
               z_index: e.zIndex,
               x: e.x,
               y: e.y,

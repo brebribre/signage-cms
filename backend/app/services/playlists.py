@@ -52,6 +52,8 @@ class ElementSpec:
 
     media_id: uuid.UUID | None = None
     web_url: str | None = None
+    text: str | None = None
+    text_style: dict | None = None
     z_index: int = 0
     x: float = 0.0
     y: float = 0.0
@@ -270,14 +272,14 @@ def update(
     return playlist
 
 
-def default_duration(elements_media: list[Media | None]) -> int:
+def default_duration(elements_media: list[Media | None], *, has_web: bool = False) -> int:
     """A scene's default length: its one video element's own duration; else the website
-    default if it shows a website (`None` in the list); else the fixed image default (an
-    image-only scene, an empty scene, or one with no single canonical video)."""
+    default if it shows a website; else the fixed image default (an image-only or text scene,
+    an empty scene, or one with no single canonical video)."""
     videos = [m for m in elements_media if m and m.kind == MediaKind.VIDEO and m.duration_seconds]
     if len(videos) == 1:
         return max(MIN_ITEM_SECONDS, round(videos[0].duration_seconds))
-    if any(m is None for m in elements_media):
+    if has_web:
         return WEB_DEFAULT_SECONDS
     return IMAGE_DEFAULT_SECONDS
 
@@ -319,8 +321,15 @@ def replace_items(
         video_count = 0
         live_count = 0
         for el in spec.elements:
-            if (el.media_id is None) == (el.web_url is None):
-                raise InvalidItems("each element needs either a media file or a website address")
+            sources = sum(1 for v in (el.media_id, el.web_url, el.text) if v is not None)
+            if sources != 1:
+                raise InvalidItems("each element needs exactly one of: a media file, a website address, or text")
+            if el.text is not None:
+                if not el.text.strip():
+                    raise InvalidItems("a text element needs some text")
+                if el.has_audio or el.rotation_degrees:
+                    raise InvalidItems("sound and rotation don't apply to text")
+                continue
             if el.web_url is not None:
                 live_count += 1
                 if len(el.web_url) > 2048 or not is_web_url(el.web_url):
@@ -368,7 +377,9 @@ def replace_items(
             playlist_id=playlist_id,
             # Position comes from the array index; the client never sends one.
             position=position,
-            duration_seconds=spec.duration_seconds or default_duration(elements_media),
+            duration_seconds=spec.duration_seconds or default_duration(
+                elements_media, has_web=any(el.web_url is not None for el in spec.elements)
+            ),
             is_enabled=spec.is_enabled,
             background=spec.background,
         )
@@ -379,6 +390,8 @@ def replace_items(
                     playlist_item_id=item.id,
                     media_id=el.media_id,
                     web_url=el.web_url,
+                    text=el.text.strip() if el.text is not None else None,
+                    text_style=el.text_style,
                     z_index=el.z_index,
                     x=el.x,
                     y=el.y,

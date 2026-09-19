@@ -1,4 +1,4 @@
-import { KIND_WEB, type ManifestElement, type ManifestSlot } from '../api'
+import { KIND_TEXT, KIND_WEB, type ManifestElement, type ManifestSlot, type TextStyle } from '../api'
 import { STREAM_SOURCE_PREFIX } from '../engine'
 import { blurSource, posterKey } from '../sceneBackground'
 import { feedStream, type StreamFeed } from './streamFeed'
@@ -518,6 +518,8 @@ export class PlaybackSurface {
       return video
     }
 
+    if (element.kind === KIND_TEXT) return this.renderText(element)
+
     if (element.kind === KIND_WEB) {
       // Live, and usable by touch, like Android's WebView. A site that forbids being framed
       // (X-Frame-Options / frame-ancestors) shows the browser's own refusal page here — that is
@@ -531,6 +533,32 @@ export class PlaybackSurface {
 
     // A kind this build predates — nothing to render, but not a crash.
     return document.createElement('div')
+  }
+
+  /**
+   * Text, drawn the way the CMS preview draws it (frontend utils/textStyle.ts): the box carries
+   * the background, the words sit vertically centred, wrap inside the box, and are aligned as
+   * asked. The size is a fraction of the stage's height — the screen's own — not the box's.
+   */
+  private renderText(element: ManifestElement): HTMLElement {
+    const style: TextStyle = {
+      size: 0.06, color: '#FFFFFF', weight: 'bold', align: 'center', background: null,
+      ...(element.text_style ?? {}),
+    }
+    const px = Math.max(1, style.size * this.root.clientHeight)
+    const box = document.createElement('div')
+    box.className = 'text'
+    Object.assign(box.style, {
+      justifyContent: style.align === 'left' ? 'flex-start' : style.align === 'right' ? 'flex-end' : 'center',
+      padding: `${px * 0.25}px`,
+      background: style.background ?? 'transparent',
+      color: style.color,
+      fontSize: `${px}px`,
+      fontWeight: style.weight === 'bold' ? '700' : '400',
+      textAlign: style.align,
+    })
+    box.textContent = element.text ?? ''
+    return box
   }
 
   /** Browsers refuse to start a video with sound until someone has interacted with the page.

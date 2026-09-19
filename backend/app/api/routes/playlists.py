@@ -6,6 +6,7 @@ from app.api.deps import CurrentUser, DbSession
 from app.api.review_gate import needs_review, park
 from app.models import Media, Playlist, PlaylistItem, PlaylistItemElement, ReviewKind
 from app.schemas.playlists import (
+    TextStyle,
     ElementRead,
     ItemMedia,
     ItemRead,
@@ -58,6 +59,8 @@ def _element(element: PlaylistItemElement, media: Media | None) -> ElementRead:
         if media
         else None,
         web_url=element.web_url,
+        text=element.text,
+        text_style=element.text_style,
     )
 
 
@@ -168,6 +171,8 @@ def item_specs(body: ItemsWrite) -> list[ItemSpec]:
                 ElementSpec(
                     media_id=el.media_id,
                     web_url=el.web_url.strip() if el.web_url else None,
+                    text=el.text,
+                    text_style=el.text_style.model_dump() if el.text_style else (TextStyle().model_dump() if el.text is not None else None),
                     z_index=el.z_index,
                     x=el.x,
                     y=el.y,

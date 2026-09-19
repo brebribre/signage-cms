@@ -123,6 +123,8 @@ def get_manifest(device: CurrentDevice, session: DbSession, request: Request) ->
                         stream_checksum=el.stream_checksum,
                         stream_mime=el.stream_mime,
                         poster_url=el.poster_url,
+                        text=el.text,
+                        text_style=el.text_style,
                     )
                     for el in slot.elements
                 ],

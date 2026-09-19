@@ -1,4 +1,5 @@
 import {
+  KIND_TEXT,
   KIND_WEB,
   DisconnectedError,
   UnauthorizedError,
@@ -735,7 +736,7 @@ export const STREAM_SOURCE_PREFIX = 'mse:'
  *   isn't ready yet, or whose codecs this browser's MediaSource refuses, plays from its address.
  */
 export function storedFile(el: ManifestElement, canPlayStream: (mime: string) => boolean): StoredFile | null {
-  if (el.kind === KIND_WEB) return null
+  if (el.kind === KIND_WEB || el.kind === KIND_TEXT) return null
   if (el.kind === 'video') {
     if (!el.stream_url || !el.stream_checksum || !el.stream_bytes || !el.stream_mime) return null
     if (!canPlayStream(el.stream_mime)) return null

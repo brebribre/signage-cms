@@ -4,7 +4,7 @@ import { ApiError } from '@/api/request'
 import { usePlaylistApi } from '@/api/usePlaylistApi'
 import { useReviewApi } from '@/api/useReviewApi'
 import { useReviewBadge } from '@/hooks/useReviews'
-import { mediaToDraftElement, readToDraft, websiteToDraftElement } from '@/hooks/usePlaylistEditor'
+import { mediaToDraftElement, readToDraft, textToDraftElement, websiteToDraftElement } from '@/hooks/usePlaylistEditor'
 import type { DraftItem } from '@/hooks/usePlaylistEditor'
 import type { ElementWrite, ItemWrite, MediaRead, ReviewRead } from '@/types/api'
 
@@ -76,6 +76,7 @@ export function useReviewDetail(id: string, library: () => MediaRead[]) {
       hasAudio: el.has_audio ?? false,
       rotationDegrees: el.rotation_degrees ?? 0,
     }
+    if (el.text != null) return textToDraftElement(el.text, el.text_style ?? undefined, placement)
     if (el.web_url) return websiteToDraftElement(el.web_url, placement)
     const media = el.media_id ? byId.get(el.media_id) : undefined
     if (media) return mediaToDraftElement(media, placement)

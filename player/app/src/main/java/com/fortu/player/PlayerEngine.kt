@@ -9,6 +9,7 @@ import com.fortu.player.api.ManifestSettings
 import com.fortu.player.api.ManifestSlot
 import com.fortu.player.api.PlayReport
 import com.fortu.player.api.PlaybackReport
+import com.fortu.player.api.KIND_TEXT
 import com.fortu.player.api.KIND_WEB
 import com.fortu.player.api.DisconnectedException
 import com.fortu.player.api.UnauthorizedException
@@ -810,7 +811,7 @@ class PlayerEngine(
         // whatever was already on screen just keeps looping a little longer instead of
         // flashing a progress screen over content that is playing fine.
         // A website has no file to warm — it loads live when its slot comes up.
-        val toWarm = playable.flatMap { it.elements }.filter { it.kind != KIND_WEB }.distinctBy { it.checksum }
+        val toWarm = playable.flatMap { it.elements }.filter { it.kind != KIND_WEB && it.kind != KIND_TEXT }.distinctBy { it.checksum }
         for (element in toWarm) {
             if (missing.isNotEmpty()) {
                 _state.value = PlayerState.Preparing(
@@ -834,7 +835,7 @@ class PlayerEngine(
         }
 
         // Evict only after the new set is safely on disk.
-        cache.evictExcept(allElements.filter { it.kind != KIND_WEB }.map { it.checksum })
+        cache.evictExcept(allElements.filter { it.kind != KIND_WEB && it.kind != KIND_TEXT }.map { it.checksum })
         _debug.update { it.copy(cachedBytes = cache.cachedBytes()) }
     }
 

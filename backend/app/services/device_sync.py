@@ -35,6 +35,20 @@ def web_checksum(url: str) -> str:
     return "web-" + hashlib.sha256(url.encode()).hexdigest()
 
 
+def text_checksum(text: str, style: dict | None) -> str:
+    """The same for a text element: changes exactly when the words or their look do."""
+    payload = json.dumps({"text": text, "style": style or {}}, sort_keys=True)
+    return "text-" + hashlib.sha256(payload.encode()).hexdigest()
+
+
+def element_checksum(el: PlaylistItemElement, media: Media | None) -> str:
+    if media:
+        return media_service.playback_checksum(media)
+    if el.text is not None:
+        return text_checksum(el.text, el.text_style)
+    return web_checksum(el.web_url or "")
+
+
 def _enabled_items(
     session: Session, playlist_id: uuid.UUID
 ) -> list[tuple[PlaylistItem, list[tuple[PlaylistItemElement, Media | None]]]]:
@@ -103,7 +117,7 @@ def compute_version(session: Session, device: Device, now: datetime | None = Non
                             # The playable copy's identity once it exists (services/
                             # video_streams.py) — its arrival is what makes a screen fetch the
                             # smaller, normalised file in place of the original.
-                            media_service.playback_checksum(media) if media else web_checksum(el.web_url),
+                            element_checksum(el, media),
                             # A video's streaming copy appearing (services/video_streams.py)
                             # changes what a web screen caches and plays.
                             media.stream_checksum if media else None,
@@ -167,6 +181,9 @@ class ManifestElement:
     #: A video's thumbnail — what a blurred scene background shows for it (see
     #: models.playlist.SceneBackground). None for pictures, websites and videos without one.
     poster_url: str | None = None
+    #: A text element's words and look (schemas/playlists.py TextStyle). None otherwise.
+    text: str | None = None
+    text_style: dict | None = None
 
 
 @dataclass
@@ -243,7 +260,7 @@ def build_manifest(session: Session, device: Device, *, version: str) -> Manifes
                 ManifestElement(
                     id=el.id,
                     media_id=media.id if media else None,
-                    kind=media.kind.value if media else "web",
+                    kind=media.kind.value if media else ("text" if el.text is not None else "web"),
                     # 6 hours, not the CMS's shorter preview TTL: a screen may be pulling a
                     # large file over bad venue wifi. The checksum — not this URL — is the
                     # device's cache key, so a re-issued URL for unchanged content is never
@@ -252,9 +269,11 @@ def build_manifest(session: Session, device: Device, *, version: str) -> Manifes
                     url=(
                         storage.presign_get(media_service.playback_key(media), settings.device_presign_ttl_seconds)
                         if media
-                        else el.web_url
+                        else (el.web_url or "")
                     ),
-                    checksum=media_service.playback_checksum(media) if media else web_checksum(el.web_url),
+                    checksum=element_checksum(el, media),
+                    text=el.text,
+                    text_style=el.text_style,
                     bytes=media_service.playback_size_bytes(media) if media else 0,
                     z_index=el.z_index,
                     x=el.x,

@@ -15,6 +15,7 @@ import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
@@ -53,7 +54,9 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import coil.compose.AsyncImage
 import com.fortu.player.R
+import com.fortu.player.api.KIND_TEXT
 import com.fortu.player.api.KIND_WEB
+import com.fortu.player.api.TextStyle
 import com.fortu.player.api.ManifestElement
 import com.fortu.player.api.ManifestSlot
 import kotlinx.coroutines.delay
@@ -360,6 +363,7 @@ fun PlaybackSurface(
                                 }
                             }
                             KIND_WEB -> WebsiteElement(element.url, onPlaybackError)
+                            KIND_TEXT -> TextElement(element.text ?: "", element.textStyle ?: TextStyle(), parentHeight)
                             // A kind this build predates — nothing to render, but not a crash,
                             // and every other element in the slot still shows correctly.
                             else -> {}
@@ -454,6 +458,50 @@ private object SoftBlur : coil.transform.Transformation {
 
 /** Longest side, in pixels, a blurred background is decoded at. */
 private const val BLUR_DECODE_SIZE_PX = 96
+
+/**
+ * Text, drawn the way the CMS preview and the web player draw it: the box carries the
+ * background, the words sit vertically centred, wrap inside the box, and are aligned as asked.
+ * The size is a fraction of the *screen's* height ([stageHeight]), not the box's, so a scene
+ * reads the same on every panel.
+ */
+@Composable
+private fun TextElement(text: String, style: TextStyle, stageHeight: androidx.compose.ui.unit.Dp) {
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val fontSize = with(density) { (stageHeight * style.size).toSp() }
+    val padding = stageHeight * style.size * 0.25f
+    val colour = parseColour(style.color) ?: Color.White
+    val background = style.background?.let { parseColour(it) }
+    val align = when (style.align) {
+        "left" -> androidx.compose.ui.text.style.TextAlign.Start
+        "right" -> androidx.compose.ui.text.style.TextAlign.End
+        else -> androidx.compose.ui.text.style.TextAlign.Center
+    }
+    Box(
+        Modifier
+            .fillMaxSize()
+            .then(if (background != null) Modifier.background(background) else Modifier)
+            .padding(padding),
+        contentAlignment = when (style.align) {
+            "left" -> Alignment.CenterStart
+            "right" -> Alignment.CenterEnd
+            else -> Alignment.Center
+        },
+    ) {
+        Text(
+            text = text,
+            color = colour,
+            fontSize = fontSize,
+            lineHeight = fontSize * 1.2f,
+            fontWeight = if (style.weight == "bold") androidx.compose.ui.text.font.FontWeight.Bold else androidx.compose.ui.text.font.FontWeight.Normal,
+            textAlign = align,
+            softWrap = true,
+        )
+    }
+}
+
+private fun parseColour(hex: String): Color? =
+    runCatching { Color(android.graphics.Color.parseColor(hex)) }.getOrNull()
 
 /**
  * A website, shown live. It leaves composition with its slot, so it loads fresh each time the

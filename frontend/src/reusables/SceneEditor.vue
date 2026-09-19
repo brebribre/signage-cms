@@ -16,6 +16,11 @@ import IconLayersOutline from '~icons/material-symbols/layers-outline'
 import IconAddPhotoAlternateOutline from '~icons/material-symbols/add-photo-alternate-outline'
 import IconPhotoLibraryOutline from '~icons/material-symbols/photo-library-outline'
 import IconRotateRight from '~icons/material-symbols/rotate-right'
+import IconTextFields from '~icons/material-symbols/text-fields'
+import IconFormatAlignLeft from '~icons/material-symbols/format-align-left'
+import IconFormatAlignCenter from '~icons/material-symbols/format-align-center'
+import IconFormatAlignRight from '~icons/material-symbols/format-align-right'
+import IconFormatBold from '~icons/material-symbols/format-bold'
 import IconVideocam from '~icons/material-symbols/videocam'
 import IconVolumeOff from '~icons/material-symbols/volume-off'
 import IconVolumeUp from '~icons/material-symbols/volume-up'
@@ -33,8 +38,10 @@ import {
   liveBlockReason,
   liveBudget,
   mediaToDraftElement,
+  textToDraftElement,
   websiteToDraftElement,
 } from '@/hooks/usePlaylistEditor'
+import { TEXT_DEFAULT_STYLE, TEXT_PRESETS, textBoxStyle, textLabel } from '@/utils/textStyle'
 import { websiteLayoutScreen } from '@/utils/websiteLayout'
 import { normalizeWebsiteUrl, websiteLabel } from '@/utils/websiteUrl'
 import type { DraftElement, DraftItem } from '@/hooks/usePlaylistEditor'
@@ -138,13 +145,14 @@ const blurUrl = computed(() => {
 const selectedKey = ref<string | null>(null)
 const selected = computed(() => elements.value.find((e) => e.key === selectedKey.value) ?? null)
 
-const KIND_ICON = { image: IconImageOutline, video: IconVideocam, web: IconLanguage } as const
+const KIND_ICON = { image: IconImageOutline, video: IconVideocam, web: IconLanguage, text: IconTextFields } as const
 
 /** The left rail, Canva-style: pick a source, its panel opens beside it. Two for now; another
  *  source is one more entry here and one more branch in the panel below. */
 const PANELS = [
   { id: 'media', label: 'Media', icon: IconPhotoLibraryOutline },
   { id: 'website', label: 'Website', icon: IconLanguage },
+  { id: 'text', label: 'Text', icon: IconTextFields },
 ] as const
 type PanelId = (typeof PANELS)[number]['id']
 const panel = ref<PanelId>('media')
@@ -713,6 +721,33 @@ function addWebsite() {
   if (!isWide.value) closeSheet()
 }
 
+// --- Text: added from the toolbar at one of three sizes, edited in the right panel. A text box
+// starts wide and a few lines tall, centred; the words are the placeholder until typed over. ---
+
+function addText(size: number) {
+  const maxZ = Math.max(0, ...elements.value.map((e) => e.zIndex))
+  const height = Math.min(0.5, size * 3)
+  const el = textToDraftElement('Your text here', { size }, {
+    x: 0.2, y: Math.max(0, 0.5 - height / 2), width: 0.6, height, zIndex: maxZ + 1,
+  })
+  elements.value.push(el)
+  select(el.key)
+  if (!isWide.value) closeSheet()
+}
+
+/** The canvas frame's rendered height — text is sized as a fraction of it. */
+const canvasHeight = computed(() => canvasWidth.value / canvasAspect.value)
+function textStyleFor(el: DraftElement) {
+  return textBoxStyle(el.textStyle ?? TEXT_DEFAULT_STYLE, canvasHeight.value)
+}
+function onTextInput(el: DraftElement, event: Event) {
+  el.text = (event.target as HTMLTextAreaElement).value
+  el.filename = textLabel(el.text)
+}
+function setTextStyle(el: DraftElement, patch: Partial<NonNullable<DraftElement['textStyle']>>) {
+  el.textStyle = { ...(el.textStyle ?? TEXT_DEFAULT_STYLE), ...patch }
+}
+
 const selectedUrlDraft = ref('')
 const selectedUrlError = ref<string | null>(null)
 watch(selectedKey, () => {
@@ -847,7 +882,7 @@ function apply() {
           <span class="mx-auto mb-1 h-1 w-10 rounded-full bg-line-strong" aria-hidden="true" />
         </div>
         <div v-if="!isWide" class="mb-3 flex items-center justify-between">
-          <p class="text-base text-ink">{{ panel === 'media' ? 'Media' : 'Website' }}</p>
+          <p class="text-base text-ink">{{ panel === 'media' ? 'Media' : panel === 'website' ? 'Website' : 'Text' }}</p>
           <button type="button" class="rounded-full p-1.5 text-ink-muted hover:bg-surface" aria-label="Close" @click="closeSheet">
             <IconClose class="size-5" />
           </button>
@@ -919,6 +954,18 @@ function apply() {
           </ul>
         </template>
 
+        <div v-else-if="panel === 'text'" class="flex flex-col gap-2">
+          <p class="px-1 text-[13px] text-ink-muted">Add a text box, then type over it.</p>
+          <button
+            v-for="preset in TEXT_PRESETS" :key="preset.label" type="button"
+            class="rounded-lg bg-surface px-3 py-2.5 text-left text-ink transition-colors duration-150 hover:bg-raised"
+            :style="{ fontSize: `${12 + preset.size * 100}px`, fontWeight: preset.size > 0.06 ? 700 : 400 }"
+            @click="addText(preset.size)"
+          >
+            {{ preset.label }}
+          </button>
+        </div>
+
         <p v-else-if="liveBlockReason(budget, 'web')" class="rounded-lg bg-surface px-3 py-2 text-[13px] text-ink-muted">
           {{ liveBlockReason(budget, 'web') }}
         </p>
@@ -986,6 +1033,7 @@ function apply() {
                     referrerpolicy="no-referrer"
                     sandbox="allow-scripts allow-same-origin"
                   />
+                  <div v-else-if="el.kind === 'text'" :style="textStyleFor(el)">{{ el.text }}</div>
                   <template v-else-if="el.mediaWidth && el.mediaHeight">
                     <div :style="cropWrapperStyle(el)">
                       <img
@@ -1194,6 +1242,80 @@ function apply() {
               <p v-if="selectedUrlError" class="text-[12px] text-danger">{{ selectedUrlError }}</p>
             </form>
 
+            <template v-else-if="selected.kind === 'text' && selected.textStyle">
+              <label class="flex flex-col gap-1">
+                <span class="text-[13px] text-ink-subtle">Text</span>
+                <textarea
+                  :value="selected.text ?? ''"
+                  rows="4"
+                  maxlength="2000"
+                  aria-label="Text"
+                  class="rounded-md border border-line-strong bg-canvas px-2 py-1 text-[13px] text-ink
+                         focus:border-ink focus:outline-none"
+                  @input="onTextInput(selected, $event)"
+                />
+              </label>
+              <label class="flex flex-col gap-1">
+                <span class="flex justify-between text-[13px] text-ink-subtle">
+                  <span>Size</span><span class="tabular-nums">{{ Math.round(selected.textStyle.size * 100) }}% of the screen</span>
+                </span>
+                <input
+                  type="range" min="2" max="30" step="1"
+                  :value="Math.round(selected.textStyle.size * 100)"
+                  class="accent-ink"
+                  aria-label="Text size"
+                  @input="setTextStyle(selected, { size: Number(($event.target as HTMLInputElement).value) / 100 })"
+                />
+              </label>
+              <div class="flex flex-col gap-2">
+                <p class="text-[13px] text-ink-subtle">Style</p>
+                <div class="flex flex-wrap items-center gap-2">
+                  <AppButton
+                    :variant="selected.textStyle.weight === 'bold' ? 'primary' : 'secondary'" size="sm"
+                    :aria-pressed="selected.textStyle.weight === 'bold'" title="Bold"
+                    @click="setTextStyle(selected, { weight: selected.textStyle.weight === 'bold' ? 'regular' : 'bold' })"
+                  >
+                    <IconFormatBold class="size-4" />
+                  </AppButton>
+                  <div class="flex gap-1" role="radiogroup" aria-label="Alignment">
+                    <AppButton
+                      v-for="(icon, align) in { left: IconFormatAlignLeft, center: IconFormatAlignCenter, right: IconFormatAlignRight }"
+                      :key="align"
+                      :variant="selected.textStyle.align === align ? 'primary' : 'secondary'" size="sm"
+                      role="radio" :aria-checked="selected.textStyle.align === align" :title="`Align ${align}`"
+                      @click="setTextStyle(selected, { align })"
+                    >
+                      <component :is="icon" class="size-4" />
+                    </AppButton>
+                  </div>
+                </div>
+                <div class="flex flex-wrap items-center gap-3">
+                  <label class="flex items-center gap-1.5 text-[13px] text-ink-muted">
+                    <input
+                      type="color" :value="selected.textStyle.color" aria-label="Text colour"
+                      class="size-7 cursor-pointer rounded border border-line-strong bg-canvas p-0.5"
+                      @input="setTextStyle(selected, { color: ($event.target as HTMLInputElement).value.toUpperCase() })"
+                    />
+                    Colour
+                  </label>
+                  <label class="flex items-center gap-1.5 text-[13px] text-ink-muted">
+                    <input
+                      type="checkbox" :checked="!!selected.textStyle.background" class="size-3.5 accent-ink"
+                      aria-label="Background box"
+                      @change="setTextStyle(selected, { background: ($event.target as HTMLInputElement).checked ? '#000000' : null })"
+                    />
+                    Box
+                  </label>
+                  <input
+                    v-if="selected.textStyle.background"
+                    type="color" :value="selected.textStyle.background" aria-label="Box colour"
+                    class="size-7 cursor-pointer rounded border border-line-strong bg-canvas p-0.5"
+                    @input="setTextStyle(selected, { background: ($event.target as HTMLInputElement).value.toUpperCase() })"
+                  />
+                </div>
+              </div>
+            </template>
+
             <div v-else class="flex flex-col gap-2">
               <p class="text-[13px] text-ink-subtle">Size</p>
               <div class="flex gap-2" role="radiogroup" aria-label="Size">
@@ -1217,7 +1339,7 @@ function apply() {
               </p>
             </div>
 
-            <div v-if="selected.kind !== 'web'" class="flex flex-col gap-2">
+            <div v-if="selected.kind !== 'web' && selected.kind !== 'text'" class="flex flex-col gap-2">
               <p class="text-[13px] text-ink-subtle">Transform</p>
               <div class="flex flex-wrap gap-2">
                 <AppButton variant="secondary" size="sm" @click="rotateSelected">
@@ -1330,6 +1452,9 @@ function apply() {
         <button type="button" :class="TOOL" @click="openSources('website')">
           <IconLanguage class="size-6" aria-hidden="true" />Website
         </button>
+        <button type="button" :class="TOOL" @click="openSources('text')">
+          <IconTextFields class="size-6" aria-hidden="true" />Text
+        </button>
         <button v-if="elements.length" type="button" :class="TOOL" @click="sheet = 'edit'">
           <IconLayersOutline class="size-6" aria-hidden="true" />Layers
         </button>
@@ -1338,7 +1463,10 @@ function apply() {
         </button>
       </template>
       <template v-else>
-        <template v-if="selected.kind !== 'web'">
+        <button v-if="selected.kind === 'text'" type="button" :class="TOOL" @click="sheet = 'edit'">
+          <IconTextFields class="size-6" aria-hidden="true" />Edit text
+        </button>
+        <template v-else-if="selected.kind !== 'web'">
           <button
             type="button" :class="TOOL"
             :aria-pressed="selected.fit === 'cover'"

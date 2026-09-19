@@ -25,11 +25,14 @@ export interface PairPollResponse {
 export interface ManifestElement {
   id: string
   media_id?: string | null
-  /** "image", "video", or "web" — a website loaded live from `url`, nothing to download. */
+  /** "image", "video", "web" — a website loaded live from `url`, nothing to download — or
+   *  "text", drawn from `text` and `text_style` (url is empty). */
   kind: string
   url: string
   checksum: string
   bytes: number
+  text?: string | null
+  text_style?: TextStyle | null
   x?: number
   y?: number
   width?: number
@@ -49,6 +52,18 @@ export interface ManifestElement {
 }
 
 export const KIND_WEB = 'web'
+/** Text drawn by the player itself, from `text` and `text_style`. Nothing to download. */
+export const KIND_TEXT = 'text'
+
+/** How a text element looks — the backend's TextStyle. `size` is a fraction of the screen's
+ *  height, so a scene reads the same on every panel. Always complete for a text element. */
+export interface TextStyle {
+  size: number
+  color: string
+  weight: 'regular' | 'bold'
+  align: 'left' | 'center' | 'right'
+  background: string | null
+}
 
 export interface ManifestSlot {
   id: string

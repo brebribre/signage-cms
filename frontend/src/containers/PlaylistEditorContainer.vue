@@ -11,6 +11,7 @@ import IconVisibility from '~icons/material-symbols/visibility'
 import IconVisibilityOff from '~icons/material-symbols/visibility-off'
 import IconArrowBack from '~icons/material-symbols/arrow-back'
 import IconLanguage from '~icons/material-symbols/language'
+import IconTextFields from '~icons/material-symbols/text-fields'
 
 import { useAuth } from '@/hooks/useAuth'
 import { useDevices } from '@/hooks/useDevices'
@@ -355,6 +356,11 @@ function sceneLabel(item: DraftItem): string {
               />
               <IconLanguage
                 v-else-if="row.elements[0]?.kind === 'web'"
+                class="size-5 text-ink-muted"
+                :aria-label="sceneLabel(row)"
+              />
+              <IconTextFields
+                v-else-if="row.elements[0]?.kind === 'text'"
                 class="size-5 text-ink-muted"
                 :aria-label="sceneLabel(row)"
               />

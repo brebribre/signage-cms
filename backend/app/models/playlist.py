@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from enum import StrEnum
 
-from sqlalchemy import CheckConstraint, Column, ForeignKey, UniqueConstraint
+from sqlalchemy import JSON, CheckConstraint, Column, ForeignKey, UniqueConstraint
 from sqlmodel import Field, SQLModel
 
 from app.models.base import enum_column, tz_column, utcnow
@@ -107,14 +107,17 @@ class PlaylistItemElement(SQLModel, table=True):
     been burned by once, just relocated. Images have no decoder to contend for, so they're
     unlimited.
 
-    An element shows either a library file (`media_id`) or a live website (`web_url`) —
-    exactly one, enforced by the check constraint below.
+    An element shows a library file (`media_id`), a live website (`web_url`), or a piece of
+    text (`text`) — exactly one, enforced by the check constraint below.
     """
 
     __tablename__ = "playlist_item_elements"
     __table_args__ = (
         CheckConstraint(
-            "(media_id IS NULL) <> (web_url IS NULL)", name="ck_element_media_or_web_url"
+            "(CASE WHEN media_id IS NULL THEN 0 ELSE 1 END)"
+            " + (CASE WHEN web_url IS NULL THEN 0 ELSE 1 END)"
+            " + (CASE WHEN text IS NULL THEN 0 ELSE 1 END) = 1",
+            name="ck_element_one_source",
         ),
     )
 
@@ -135,6 +138,13 @@ class PlaylistItemElement(SQLModel, table=True):
     # A website shown live in this element's box — an iframe in the CMS, a WebView on the
     # screen. https only (see services/playlists.py). Set instead of `media_id`, never with it.
     web_url: str | None = Field(default=None)
+    # Text typed in the scene editor, shown by the players themselves — no file, nothing to
+    # download. Set instead of `media_id` and `web_url`. Its look is `text_style` (see
+    # schemas/playlists.py TextStyle): a size as a fraction of the screen's height so the same
+    # scene reads the same on a 1080p wall and a 4K one, a colour, a weight, an alignment and an
+    # optional background — the handful of controls Canva's text box has, no more.
+    text: str | None = Field(default=None)
+    text_style: dict | None = Field(default=None, sa_column=Column(JSON, nullable=True))
     # Paint order within the scene — higher draws on top. Not a unique/sequential constraint:
     # the editor just needs *a* stable order, and re-saving the whole list (same pattern as
     # position above) never has to renumber gaps.

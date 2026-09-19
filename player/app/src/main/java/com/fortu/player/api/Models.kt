@@ -99,7 +99,24 @@ data class ManifestElement(
     /** A video's thumbnail — what a blurred scene background shows for it
      *  (see playback/SceneBackground.kt). Null for anything else, or an older backend. */
     @SerialName("poster_url") val posterUrl: String? = null,
+    /** A [KIND_TEXT] element's words and look, drawn by the player itself. Null otherwise. */
+    val text: String? = null,
+    @SerialName("text_style") val textStyle: TextStyle? = null,
 )
+
+/** How a text element looks — the backend's TextStyle. [size] is a fraction of the screen's
+ *  height, so a scene reads the same on every panel. */
+@Serializable
+data class TextStyle(
+    val size: Float = 0.06f,
+    val color: String = "#FFFFFF",
+    val weight: String = "bold",
+    val align: String = "center",
+    val background: String? = null,
+)
+
+/** A text element: drawn from [ManifestElement.text], never downloaded or cached. */
+const val KIND_TEXT = "text"
 
 /** A website element: shown live in a WebView, never downloaded or cached. */
 const val KIND_WEB = "web"

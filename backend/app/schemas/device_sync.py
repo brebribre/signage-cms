@@ -32,12 +32,17 @@ class ManifestElement(BaseModel):
     #: filename from it — so the log stays authoritative rather than trusting a name the
     #: device made up. None for a website element.
     media_id: uuid.UUID | None = None
-    #: "image", "video", or "web" — a website, loaded live from `url` (nothing to download;
-    #: `checksum` is derived from the address and `bytes` is 0). Players older than 1.1.2 skip it.
+    #: "image", "video", "web" — a website, loaded live from `url` (nothing to download;
+    #: `checksum` is derived from the address and `bytes` is 0; players older than 1.1.2 skip
+    #: it) — or "text", drawn by the player from `text` and `text_style` (url is empty,
+    #: checksum derived from the words and the style; players older than 1.2.9 skip it).
     kind: str
     url: str
     checksum: str
     bytes: int
+    text: str | None = None
+    #: See schemas/playlists.py TextStyle. Always complete for a text element.
+    text_style: dict | None = None
     z_index: int
     x: float
     y: float

@@ -126,6 +126,9 @@ export interface ElementRead {
   /** A file element's media — null for a website element, which has `web_url` instead. */
   media: ItemMedia | null
   web_url: string | null
+  /** A text element's words and look — null for the other two kinds. */
+  text?: string | null
+  text_style?: TextStyle | null
 }
 
 /** What shows wherever a scene's elements don't cover the screen. See utils/sceneBackground.ts. */
@@ -159,10 +162,22 @@ export interface PlaylistDetail extends PlaylistSummary {
   used_by: string[]
 }
 
+/** How a text element looks — mirrors backend schemas/playlists.py TextStyle. `size` is a
+ *  fraction of the screen's height, so the same scene reads the same on every panel. */
+export interface TextStyle {
+  size: number
+  color: string
+  weight: 'regular' | 'bold'
+  align: 'left' | 'center' | 'right'
+  background: string | null
+}
+
 export interface ElementWrite {
-  /** Exactly one of these: a library file, or a website (https). */
+  /** Exactly one of these three: a library file, a website (https), or text. */
   media_id?: string | null
   web_url?: string | null
+  text?: string | null
+  text_style?: TextStyle | null
   z_index?: number
   x?: number
   y?: number

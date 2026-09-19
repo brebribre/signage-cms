@@ -12,6 +12,7 @@ import {
 import type { DraftElement } from '@/hooks/usePlaylistEditor'
 import type { SceneBackground } from '@/types/api'
 import { BLUR_IMAGE_STYLE, blurImageUrl, blurSource } from '@/utils/sceneBackground'
+import { TEXT_DEFAULT_STYLE, textBoxStyle } from '@/utils/textStyle'
 import { websiteLayoutScreen } from '@/utils/websiteLayout'
 
 /**
@@ -98,6 +99,12 @@ function webStyle(el: DraftElement): CSSProperties {
   }
 }
 
+/** The frame's rendered height, for text sized as a fraction of the screen. */
+const frameHeight = computed(() => frameWidth.value * (props.screenHeight / props.screenWidth))
+function textStyle(el: DraftElement): CSSProperties {
+  return textBoxStyle(el.textStyle ?? TEXT_DEFAULT_STYLE, frameHeight.value)
+}
+
 function boxStyle(el: DraftElement): CSSProperties {
   return {
     position: 'absolute',
@@ -171,6 +178,7 @@ function mediaStyle(el: DraftElement): CSSProperties {
           referrerpolicy="no-referrer"
           sandbox="allow-scripts allow-same-origin"
         />
+        <div v-else-if="el.kind === 'text'" :style="textStyle(el)">{{ el.text }}</div>
         <div v-else :style="wrapperStyle(el)">
           <video
             v-if="el.kind === 'video'"
@@ -196,7 +204,7 @@ function mediaStyle(el: DraftElement): CSSProperties {
         </div>
         <Transition leave-active-class="transition-opacity duration-200" leave-to-class="opacity-0">
           <div
-            v-if="el.kind !== 'web' && !arrived.has(el.url)"
+            v-if="el.kind !== 'web' && el.kind !== 'text' && !arrived.has(el.url)"
             class="preview-loading absolute inset-0 overflow-hidden bg-white/10"
             role="status"
             aria-label="Loading"
