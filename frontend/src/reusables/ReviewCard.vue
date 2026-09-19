@@ -2,7 +2,7 @@
 /**
  * One review in the list: who asked, what they changed, and the screens and playlists it
  * touches — enough to know whether to open it, never enough to decide from here. The same
- * card for a waiting review (one way in: "See the changes") and a decided one (its verdict
+ * card for a waiting review (one way in: "Review") and a decided one (its verdict
  * and the owner's note).
  */
 import IconChevronRight from '~icons/material-symbols/chevron-right'
@@ -13,30 +13,12 @@ import { useFormat } from '@/hooks/useFormat'
 import AppButton from '@/reusables/AppButton.vue'
 import AppCard from '@/reusables/AppCard.vue'
 import NamePills from '@/reusables/NamePills.vue'
-import type { ReviewKind, ReviewRead, ReviewStatus } from '@/types/api'
+import type { ReviewRead } from '@/types/api'
+import { REVIEW_KIND_LABEL as KIND_LABEL, REVIEW_STATUS as STATUS } from '@/utils/reviewLabels'
 
 defineProps<{ review: ReviewRead }>()
 const emit = defineEmits<{ open: [] }>()
 const { relativeTime } = useFormat()
-
-const KIND_LABEL: Record<ReviewKind, string> = {
-  playlist_items: 'Playlist change',
-  playlist_shuffle: 'Shuffle',
-  campaign_create: 'New campaign',
-  campaign_update: 'Campaign change',
-  campaign_delete: 'Campaign removal',
-  schedule_create: 'New schedule',
-  schedule_update: 'Schedule change',
-  schedule_delete: 'Schedule removal',
-  device_playlist: 'Screen assignment',
-}
-
-const STATUS: Record<ReviewStatus, { label: string; cls: string }> = {
-  pending: { label: 'Waiting', cls: 'bg-brand-soft text-brand' },
-  approved: { label: 'Approved', cls: 'bg-emerald-50 text-emerald-700' },
-  rejected: { label: 'Rejected', cls: 'bg-raised text-danger' },
-  withdrawn: { label: 'Withdrawn', cls: 'bg-raised text-ink-muted' },
-}
 
 /** Two letters for the avatar, the way the user list does it. */
 function initials(name: string): string {
@@ -77,17 +59,17 @@ function initials(name: string): string {
 
         <!-- Screens and playlists on their own rows, two names each and the rest counted, so
              a change to a whole venue reads the same size as a change to one screen. -->
-        <dl class="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-1.5">
-          <dt class="text-[12px] text-ink-subtle">Screens</dt>
-          <dd><NamePills :names="review.screens" :icon="IconTv" noun="screens" /></dd>
-          <dt class="text-[12px] text-ink-subtle">Playlists</dt>
-          <dd><NamePills :names="review.playlists" :icon="IconPlaylistPlay" noun="playlists" /></dd>
+        <dl class="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2.5 gap-y-1.5">
+          <dt class="flex" title="Screens"><IconTv class="size-4 text-ink-muted" aria-label="Screens" /></dt>
+          <dd><NamePills :names="review.screens" noun="screens" /></dd>
+          <dt class="flex" title="Playlists"><IconPlaylistPlay class="size-4 text-ink-muted" aria-label="Playlists" /></dt>
+          <dd><NamePills :names="review.playlists" noun="playlists" /></dd>
         </dl>
 
         <p v-if="review.note" class="text-[13px] text-ink-muted">“{{ review.note }}”</p>
 
-        <AppButton v-if="review.status === 'pending'" variant="ghost" size="sm" class="-ml-2 self-start" @click.stop="emit('open')">
-          {{ review.kind === 'playlist_items' ? 'See the changes and preview' : 'See the changes' }}
+        <AppButton v-if="review.status === 'pending'" size="sm" class="self-start" @click.stop="emit('open')">
+          Review
           <IconChevronRight class="size-4" aria-hidden="true" />
         </AppButton>
       </div>

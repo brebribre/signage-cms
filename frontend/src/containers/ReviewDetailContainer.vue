@@ -27,13 +27,15 @@ import { SCREEN_PRESETS, useScreenPresets } from '@/hooks/useScreenPresets'
 import AppAlert from '@/reusables/AppAlert.vue'
 import AppButton from '@/reusables/AppButton.vue'
 import AppModal from '@/reusables/AppModal.vue'
+import AppTabs from '@/reusables/AppTabs.vue'
 import ModalActions from '@/reusables/ModalActions.vue'
 import NamePills from '@/reusables/NamePills.vue'
 import PageTitle from '@/reusables/PageTitle.vue'
 import ScreenPreview from '@/reusables/ScreenPreview.vue'
 import SkeletonBlock from '@/reusables/SkeletonBlock.vue'
 import type { DraftItem } from '@/hooks/usePlaylistEditor'
-import type { CampaignRuleWrite, ReviewStatus } from '@/types/api'
+import type { CampaignRuleWrite } from '@/types/api'
+import { REVIEW_KIND_LABEL as KIND_LABEL, REVIEW_STATUS as STATUS } from '@/utils/reviewLabels'
 
 const route = useRoute()
 const router = useRouter()
@@ -44,19 +46,17 @@ const { relativeTime, duration } = useFormat()
 const { items: library } = useMedia()
 const { items: devices } = useDevices()
 const { items: playlists } = usePlaylists()
-const { review, proposed, current, currentName, isLoading, error, isActing, actionError, approve, reject, withdraw } =
+const { review, proposed, current, isLoading, error, isActing, actionError, approve, reject, withdraw } =
   useReviewDetail(id, () => library.value)
 const { presetId, isCustom, customWidth, customHeight, screen, deviceOptions } = useScreenPresets(devices)
 
-const STATUS: Record<ReviewStatus, { label: string; cls: string }> = {
-  pending: { label: 'Waiting', cls: 'bg-brand-soft text-brand' },
-  approved: { label: 'Approved', cls: 'bg-emerald-50 text-emerald-700' },
-  rejected: { label: 'Rejected', cls: 'bg-raised text-danger' },
-  withdrawn: { label: 'Withdrawn', cls: 'bg-raised text-ink-muted' },
-}
-
-// --- Playlist changes: Proposed and Current sides, one preview ---
+// --- Playlist changes: Before (the saved playlist) and After (the change), one preview.
+// After is what needs judging, so it opens first; Before is one tab away. ---
 const side = ref<'proposed' | 'current'>('proposed')
+const sideTabs = computed(() => [
+  ...(current.value ? [{ value: 'current', label: 'Before', badge: current.value.length }] : []),
+  { value: 'proposed', label: 'After', badge: proposed.value.length },
+])
 const shown = computed<DraftItem[]>(() => (side.value === 'current' ? current.value ?? [] : proposed.value))
 const preview = usePlaylistPreview(() => shown.value)
 watch(side, () => preview.select(shown.value[0] ?? { key: '' } as DraftItem))
@@ -124,35 +124,25 @@ async function confirmReject() {
       </PageTitle>
 
       <p class="-mt-4 text-[13px] text-ink-muted">
-        Sent by {{ review.requested_by_name }} {{ relativeTime(review.created_at) }}<template v-if="review.reviewed_at">
+        <span class="text-ink">{{ KIND_LABEL[review.kind] }}</span>
+        · sent by {{ review.requested_by_name }} {{ relativeTime(review.created_at) }}<template v-if="review.reviewed_at">
           · decided {{ relativeTime(review.reviewed_at) }}</template>
       </p>
       <AppAlert v-if="review.note">“{{ review.note }}”</AppAlert>
       <AppAlert v-if="actionError" tone="danger">{{ actionError }}</AppAlert>
 
-      <dl class="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-1.5">
-        <dt class="text-[13px] text-ink-muted">Screens</dt>
-        <dd><NamePills :names="review.screens" :icon="IconTv" noun="screens" :max="8" /></dd>
-        <dt class="text-[13px] text-ink-muted">Playlists</dt>
-        <dd><NamePills :names="review.playlists" :icon="IconPlaylistPlay" noun="playlists" :max="8" /></dd>
+      <dl class="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2.5 gap-y-1.5">
+        <dt class="flex" title="Screens"><IconTv class="size-4 text-ink-muted" aria-label="Screens" /></dt>
+        <dd><NamePills :names="review.screens" noun="screens" :max="8" /></dd>
+        <dt class="flex" title="Playlists"><IconPlaylistPlay class="size-4 text-ink-muted" aria-label="Playlists" /></dt>
+        <dd><NamePills :names="review.playlists" noun="playlists" :max="8" /></dd>
       </dl>
 
       <!-- A playlist change: the same list and preview as the playlist page, read-only, with the
            saved playlist one click away. -->
       <template v-if="review.kind === 'playlist_items'">
-        <div class="flex items-center gap-2">
-          <button
-            v-for="s in (['proposed', 'current'] as const)" :key="s" type="button"
-            class="rounded-full px-3 py-1 text-[13px] transition-colors duration-150"
-            :class="side === s ? 'bg-ink text-ink-inverse' : 'bg-surface text-ink-muted hover:text-ink'"
-            :disabled="s === 'current' && !current"
-            @click="side = s"
-          >
-            {{ s === 'proposed' ? `Proposed · ${proposed.length} scene${proposed.length === 1 ? '' : 's'}`
-              : current ? `Current · ${current.length} scene${current.length === 1 ? '' : 's'}` : 'Current · playlist gone' }}
-          </button>
-          <span v-if="currentName" class="text-[13px] text-ink-subtle">in “{{ currentName }}”</span>
-        </div>
+        <AppTabs :items="sideTabs" :model-value="side" @update:model-value="side = $event as 'proposed' | 'current'" />
+        <p v-if="!current" class="-mt-3 text-[13px] text-ink-subtle">The playlist this changes no longer exists, so there is no Before.</p>
 
         <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <ul class="flex flex-col gap-2">
@@ -213,6 +203,7 @@ async function confirmReject() {
               :screen-height="screen.height"
               :elements="preview.current.value?.elements ?? []"
               :background="preview.current.value?.background ?? 'black'"
+              :background-color="preview.current.value?.backgroundColor ?? null"
             />
           </div>
         </div>
