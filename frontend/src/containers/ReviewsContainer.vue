@@ -6,11 +6,9 @@
  * went. One page for both, because the question is the same from either side — "what is
  * waiting, and what happened to it" — only the buttons differ.
  */
-import { onMounted, ref } from 'vue'
+import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import IconCheck from '~icons/material-symbols/check'
 import IconChevronRight from '~icons/material-symbols/chevron-right'
-import IconClose from '~icons/material-symbols/close'
 import IconTv from '~icons/material-symbols/tv-outline'
 
 import { useAuth } from '@/hooks/useAuth'
@@ -19,10 +17,8 @@ import { useReviews } from '@/hooks/useReviews'
 import AppAlert from '@/reusables/AppAlert.vue'
 import AppButton from '@/reusables/AppButton.vue'
 import AppCard from '@/reusables/AppCard.vue'
-import AppModal from '@/reusables/AppModal.vue'
 import EmptyState from '@/reusables/EmptyState.vue'
 import ListRowSkeleton from '@/reusables/ListRowSkeleton.vue'
-import ModalActions from '@/reusables/ModalActions.vue'
 import PageTitle from '@/reusables/PageTitle.vue'
 import SkeletonList from '@/reusables/SkeletonList.vue'
 import type { ReviewKind, ReviewRead, ReviewStatus } from '@/types/api'
@@ -33,7 +29,7 @@ function open(r: ReviewRead) {
   router.push({ name: 'review-detail', params: { id: r.id } })
 }
 const { relativeTime } = useFormat()
-const { pending, decided, isLoading, error, actingOn, actionError, refresh, approve, reject, withdraw } = useReviews()
+const { pending, decided, isLoading, error, refresh } = useReviews()
 
 onMounted(refresh)
 
@@ -56,17 +52,6 @@ const STATUS: Record<ReviewStatus, { label: string; cls: string }> = {
   withdrawn: { label: 'Withdrawn', cls: 'bg-raised text-ink-muted' },
 }
 
-/** Rejecting asks for a reason — optional, but the one thing a manager wants to read. */
-const rejecting = ref<ReviewRead | null>(null)
-const rejectNote = ref('')
-function openReject(r: ReviewRead) {
-  rejecting.value = r
-  rejectNote.value = ''
-}
-async function confirmReject() {
-  if (!rejecting.value) return
-  if (await reject(rejecting.value.id, rejectNote.value.trim() || undefined)) rejecting.value = null
-}
 </script>
 
 <template>
@@ -79,7 +64,6 @@ async function confirmReject() {
     />
 
     <AppAlert v-if="error" tone="danger">{{ error }}</AppAlert>
-    <AppAlert v-if="actionError" tone="danger">{{ actionError }}</AppAlert>
 
     <SkeletonList v-if="isLoading && !pending.length && !decided.length" label="Loading reviews">
       <ListRowSkeleton />
@@ -96,9 +80,9 @@ async function confirmReject() {
     <template v-else>
       <section v-if="pending.length" class="flex flex-col gap-2">
         <h2 class="text-sm text-ink-muted">Waiting</h2>
-        <!-- The change itself is on the review's own page (the preview); the card says so with
-             a button rather than relying on the card being tappable, and the decision sits on
-             its own row so a phone never squeezes the summary beside two buttons. -->
+        <!-- A card is a way in, not a place to decide: approving without having looked at the
+             change is the one thing this page must not make easy. The review's own page shows
+             the change and carries Approve, Reject and Withdraw. -->
         <AppCard v-for="r in pending" :key="r.id" interactive @click="open(r)">
           <div class="flex flex-col gap-3">
             <div class="min-w-0">
@@ -115,28 +99,10 @@ async function confirmReject() {
                 </li>
               </ul>
             </div>
-            <div class="flex flex-wrap items-center justify-between gap-2">
-              <AppButton variant="ghost" size="sm" class="-ml-2" @click.stop="open(r)">
-                {{ r.kind === 'playlist_items' ? 'See the change and preview' : 'See the change' }}
-                <IconChevronRight class="size-4" aria-hidden="true" />
-              </AppButton>
-              <div class="flex items-center gap-2">
-              <template v-if="isOwner">
-                <AppButton
-                  variant="secondary" size="sm" :disabled="actingOn === r.id"
-                  @click.stop="openReject(r)"
-                >
-                  <IconClose class="size-4" aria-hidden="true" />Reject
-                </AppButton>
-                <AppButton size="sm" :loading="actingOn === r.id" @click.stop="approve(r.id)">
-                  <IconCheck class="size-4" aria-hidden="true" />Approve
-                </AppButton>
-              </template>
-              <AppButton v-else variant="secondary" size="sm" :loading="actingOn === r.id" @click.stop="withdraw(r.id)">
-                Withdraw
-              </AppButton>
-              </div>
-            </div>
+            <AppButton variant="ghost" size="sm" class="-ml-2 self-start" @click.stop="open(r)">
+              {{ r.kind === 'playlist_items' ? 'See the changes and preview' : 'See the changes' }}
+              <IconChevronRight class="size-4" aria-hidden="true" />
+            </AppButton>
           </div>
         </AppCard>
       </section>
@@ -167,22 +133,5 @@ async function confirmReject() {
       </section>
     </template>
 
-    <AppModal v-if="rejecting" title="Reject this change?" @close="rejecting = null">
-      <p class="text-sm text-ink-muted">{{ rejecting.summary }}</p>
-      <label class="mt-3 block text-[13px] text-ink-muted">
-        Tell {{ rejecting.requested_by_name }} why (optional)
-        <textarea
-          v-model="rejectNote"
-          rows="3"
-          maxlength="500"
-          class="mt-1 w-full rounded-lg border border-line-strong bg-canvas px-2.5 py-1.5 text-sm text-ink
-                 focus:border-ink focus:outline-none"
-        />
-      </label>
-      <ModalActions>
-        <AppButton variant="secondary" size="sm" @click="rejecting = null">Cancel</AppButton>
-        <AppButton variant="danger" size="sm" :loading="actingOn === rejecting.id" @click="confirmReject">Reject</AppButton>
-      </ModalActions>
-    </AppModal>
   </div>
 </template>
