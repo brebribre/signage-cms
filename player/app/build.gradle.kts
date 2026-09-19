@@ -19,8 +19,8 @@ android {
         // Overridable for a test install over a screen (or emulator) that already carries a higher
         // test build: ./gradlew assembleRelease -PversionCode=200 -PversionName=1.2.0-emu. A real
         // release never passes these; it edits the two numbers here.
-        versionCode = (project.findProperty("versionCode") as String?)?.toInt() ?: 31
-        versionName = (project.findProperty("versionName") as String?) ?: "1.3.0"
+        versionCode = (project.findProperty("versionCode") as String?)?.toInt() ?: 32
+        versionName = (project.findProperty("versionName") as String?) ?: "1.3.1"
 
         // The API base URL is compiled in, not configured on the device — a screen with no
         // keyboard cannot be asked to type one. Override per build:
@@ -69,12 +69,12 @@ android {
             applicationIdSuffix = ".debug"
         }
         release {
-            // R8 with resource shrinking: the unminified build was 12 MB, nearly all of it
-            // Compose, Media3 and Netty code the app never calls, and every screen downloads
-            // the whole file on every rollout. The keep rules in proguard-rules.pro cover
-            // what is reached by reflection (JSON serializers, the MQTT client's transport).
-            isMinifyEnabled = true
-            isShrinkResources = true
+            // Not minified, on purpose. R8 shrank the APK from 12 MB to 3.6 MB (1.3.0), but it
+            // also stripped what two libraries reach by reflection and the app crashed at
+            // start-up until the right keep rules were found — and every future library
+            // upgrade could do the same, with only a device test to catch it. A bigger
+            // download is the safer trade for a fleet that updates itself unattended.
+            isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             // Signed with the debug key so `assembleRelease` produces an installable APK with
             // no keystore setup. Fine for sideloading onto screens you own; a real Play
