@@ -19,10 +19,14 @@ frame.src = '/player.html'
 frame.allow = 'autoplay; fullscreen; screen-wake-lock; encrypted-media'
 document.body.appendChild(frame)
 
-/** Remote keys go to whichever document has focus; the player needs it, not this page. */
+/** Remote keys go to whichever document has focus; the player needs it, not this page.
+ *
+ *  Given only in answer to a real press (below), never on the frame's own load: a TV browser
+ *  treats a focus change as pointer activity and draws its pointer over the content — and the
+ *  frame reloads itself on every new deploy, so focusing on load put the pointer on the wall at
+ *  every update, with nobody there to move it away. The first press after a reload lands out
+ *  here, hands focus over, and every press after it reaches the player. */
 const focusPlayer = () => frame.contentWindow?.focus()
-frame.addEventListener('load', focusPlayer)
-window.addEventListener('focus', focusPlayer)
 
 /** A press that lands out here before the player has loaded still counts. */
 function requestFullscreen() {

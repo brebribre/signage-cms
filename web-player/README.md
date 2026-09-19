@@ -51,6 +51,14 @@ use the TV's kiosk/URL-launcher mode, or install the page as an app where the br
 "Add to home screen" (it opens with no bar, via `manifest.webmanifest`). The debug overlay's
 **full screen** row says whether this browser supports it at all.
 
+**The TV's pointer**: the page hides the mouse cursor (`cursor: none`), and every TV browser
+puts its own pointer away after a few seconds without movement. What makes a TV browser draw it
+again is *focus* — so the player never calls `focus()` on its own, not even after reloading
+itself for an update; focus is handed over only in answer to a real press. If a pointer still
+appears on a TV where nobody touched the remote, it is the TV: on Samsung, Settings → General →
+System Manager → Pointer (or the browser's own Settings), and on LG the Magic Remote pointer
+hides on its own and can be turned off under Settings → General → System → Pointer Options.
+
 **Debug overlay**: hold the top-left corner, or press **Menu**, **Info** or **D**. It shows the
 server, content version, cache, wake lock and last error, with **Check for update** and
 **Reload player**. (A corner hold on top of a website element doesn't reach the page — use a key.)
