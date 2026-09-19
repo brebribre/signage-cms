@@ -30,7 +30,8 @@ import ModalActions from '@/reusables/ModalActions.vue'
 import PageTitle from '@/reusables/PageTitle.vue'
 import ScreenPreview from '@/reusables/ScreenPreview.vue'
 import SkeletonBlock from '@/reusables/SkeletonBlock.vue'
-import type { CampaignRuleWrite, DraftItem, ReviewStatus } from '@/types/api'
+import type { DraftItem } from '@/hooks/usePlaylistEditor'
+import type { CampaignRuleWrite, ReviewStatus } from '@/types/api'
 
 const route = useRoute()
 const router = useRouter()
