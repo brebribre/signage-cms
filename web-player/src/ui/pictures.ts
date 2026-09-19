@@ -28,8 +28,13 @@ export type Fit = 'contain' | 'cover' | 'fill'
 /** The largest canvas side we ask for. A TV browser that is short of GPU memory fails to paint
  *  a bigger one silently, and nothing on a wall needs more than this. */
 const MAX_CANVAS_SIDE = 4096
-/** The blurred background's own size: small enough that scaling it to the screen is the blur. */
-const BLUR_WIDTH = 96
+/** The blurred background is rendered at the stage's size divided by this. Six keeps the
+ *  texture tiny (320×180 on a 1080p wall) while the browser's final stretch stays small
+ *  enough to look smooth: a TV browser upscales with plain bilinear filtering, and at twenty
+ *  times — the first version's 96-pixel canvas — bilinear shows as blocks. */
+const BLUR_DOWNSCALE = 6
+/** The blur radius as a share of the stage width — the same 3% the CSS filter used. */
+const BLUR_RADIUS_FRACTION = 0.03
 /** Dim, so the scene in front stands out — the same 0.75 as the `brightness()` it replaces. */
 const BLUR_DIM = 0.25
 
@@ -95,31 +100,70 @@ export async function paintPicture(canvas: HTMLCanvasElement, url: string, box: 
   ctx.drawImage(img, r.sx, r.sy, r.sw, r.sh, r.dx, r.dy, r.dw, r.dh)
 }
 
-/** Draws a blurred, dimmed, cover-fitted copy of `url` into `canvas`, at BLUR_WIDTH across. The
- *  canvas is then stretched to the stage by CSS, and that stretch is the blur. Two passes down
- *  (a single 40:1 draw would alias into blocks on some browsers) and one back up. */
+/** Whether this browser's canvas can blur while drawing (`ctx.filter`, Chromium 52+). Checked
+ *  on a real context, since some TV browsers expose the property and ignore it. */
+function canvasFilterSupported(ctx: CanvasRenderingContext2D): boolean {
+  if (!('filter' in ctx)) return false
+  try {
+    ctx.filter = 'blur(1px)'
+    const ok = ctx.filter !== 'none' && ctx.filter !== ''
+    ctx.filter = 'none'
+    return ok
+  } catch {
+    return false
+  }
+}
+
+/** Draws a blurred, dimmed, cover-fitted copy of `url` into `canvas`, at a sixth of the stage's
+ *  size, blurred for real at that size — once. CSS then stretches it to the stage, and a
+ *  six-times stretch of an already-smooth picture stays smooth on a TV's bilinear scaler.
+ *
+ *  The blur itself is the canvas's own `filter` where the browser has it (one draw), and
+ *  otherwise a pyramid: three bilinear passes down and back up, each of which smooths — the
+ *  approximation every image library reaches for when there is no Gaussian to hand. Either way
+ *  the source is drawn a blur-radius larger than the canvas on every side, so the blur's soft
+ *  edges fall outside it rather than fading to black at the screen's border. */
 export async function paintBlur(canvas: HTMLCanvasElement, url: string, stage: Box): Promise<void> {
   const img = await loadImage(url)
   const aspect = stage.width / Math.max(1, stage.height)
-  const w = BLUR_WIDTH
+  const w = Math.max(64, Math.round(stage.width / BLUR_DOWNSCALE))
   const h = Math.max(1, Math.round(w / aspect))
+  const radius = Math.max(2, Math.round(w * BLUR_RADIUS_FRACTION))
+  const image = { width: img.naturalWidth, height: img.naturalHeight }
 
-  // Pass 1: cover-fit to a quarter-size intermediate.
-  const mid = document.createElement('canvas')
-  mid.width = w * 4
-  mid.height = h * 4
-  const mctx = mid.getContext('2d')
-  if (!mctx) throw new Error('no 2d context')
-  const r = fitRects({ width: img.naturalWidth, height: img.naturalHeight }, { width: mid.width, height: mid.height }, 'cover')
-  mctx.drawImage(img, r.sx, r.sy, r.sw, r.sh, r.dx, r.dy, r.dw, r.dh)
+  // Cover-fit into a working canvas overscanned by the radius on every side.
+  const over = { width: w + radius * 2, height: h + radius * 2 }
+  const work = document.createElement('canvas')
+  work.width = over.width
+  work.height = over.height
+  const wctx = work.getContext('2d')
+  if (!wctx) throw new Error('no 2d context')
+  const r = fitRects(image, over, 'cover')
+  wctx.drawImage(img, r.sx, r.sy, r.sw, r.sh, r.dx, r.dy, r.dw, r.dh)
 
-  // Pass 2: down to the final size, then dim.
   canvas.width = w
   canvas.height = h
   const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('no 2d context')
   ctx.imageSmoothingEnabled = true
-  ctx.drawImage(mid, 0, 0, w, h)
+
+  if (canvasFilterSupported(ctx)) {
+    ctx.filter = `blur(${radius}px)`
+    ctx.drawImage(work, -radius, -radius)
+    ctx.filter = 'none'
+  } else {
+    // Pyramid: down to a quarter, back to half, then to full — three smoothing passes.
+    const quarter = document.createElement('canvas')
+    quarter.width = Math.max(1, Math.round(over.width / 4))
+    quarter.height = Math.max(1, Math.round(over.height / 4))
+    quarter.getContext('2d')!.drawImage(work, 0, 0, quarter.width, quarter.height)
+    const half = document.createElement('canvas')
+    half.width = Math.max(1, Math.round(over.width / 2))
+    half.height = Math.max(1, Math.round(over.height / 2))
+    half.getContext('2d')!.drawImage(quarter, 0, 0, half.width, half.height)
+    ctx.drawImage(half, -radius, -radius, over.width, over.height)
+  }
+
   ctx.fillStyle = `rgba(0, 0, 0, ${BLUR_DIM})`
   ctx.fillRect(0, 0, w, h)
 }
