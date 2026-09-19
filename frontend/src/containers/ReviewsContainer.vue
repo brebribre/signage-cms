@@ -9,6 +9,7 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import IconCheck from '~icons/material-symbols/check'
+import IconChevronRight from '~icons/material-symbols/chevron-right'
 import IconClose from '~icons/material-symbols/close'
 import IconTv from '~icons/material-symbols/tv-outline'
 
@@ -95,9 +96,12 @@ async function confirmReject() {
     <template v-else>
       <section v-if="pending.length" class="flex flex-col gap-2">
         <h2 class="text-sm text-ink-muted">Waiting</h2>
+        <!-- The change itself is on the review's own page (the preview); the card says so with
+             a button rather than relying on the card being tappable, and the decision sits on
+             its own row so a phone never squeezes the summary beside two buttons. -->
         <AppCard v-for="r in pending" :key="r.id" interactive @click="open(r)">
-          <div class="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
-            <div class="min-w-0 flex-1">
+          <div class="flex flex-col gap-3">
+            <div class="min-w-0">
               <p class="text-[13px] text-ink-subtle">
                 {{ KIND_LABEL[r.kind] }} · {{ r.requested_by_name }} · {{ relativeTime(r.created_at) }}
               </p>
@@ -111,7 +115,12 @@ async function confirmReject() {
                 </li>
               </ul>
             </div>
-            <div class="flex shrink-0 items-center gap-2">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <AppButton variant="ghost" size="sm" class="-ml-2" @click.stop="open(r)">
+                {{ r.kind === 'playlist_items' ? 'See the change and preview' : 'See the change' }}
+                <IconChevronRight class="size-4" aria-hidden="true" />
+              </AppButton>
+              <div class="flex items-center gap-2">
               <template v-if="isOwner">
                 <AppButton
                   variant="secondary" size="sm" :disabled="actingOn === r.id"
@@ -126,6 +135,7 @@ async function confirmReject() {
               <AppButton v-else variant="secondary" size="sm" :loading="actingOn === r.id" @click.stop="withdraw(r.id)">
                 Withdraw
               </AppButton>
+              </div>
             </div>
           </div>
         </AppCard>
@@ -142,13 +152,16 @@ async function confirmReject() {
               <p class="mt-0.5 text-sm text-ink">{{ r.summary }}</p>
               <p v-if="r.note" class="mt-1 text-[13px] text-ink-muted">“{{ r.note }}”</p>
             </div>
-            <span
-              class="shrink-0 rounded-full px-2.5 py-0.5 text-[12px]"
-              :class="STATUS[r.status].cls"
-              :title="r.reviewed_at ? relativeTime(r.reviewed_at) : undefined"
-            >
-              {{ STATUS[r.status].label }}
-            </span>
+            <div class="flex shrink-0 items-center gap-1">
+              <span
+                class="rounded-full px-2.5 py-0.5 text-[12px]"
+                :class="STATUS[r.status].cls"
+                :title="r.reviewed_at ? relativeTime(r.reviewed_at) : undefined"
+              >
+                {{ STATUS[r.status].label }}
+              </span>
+              <IconChevronRight class="size-5 text-ink-subtle" aria-hidden="true" />
+            </div>
           </div>
         </AppCard>
       </section>
