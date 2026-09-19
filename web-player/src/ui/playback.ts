@@ -2,6 +2,7 @@ import { KIND_WEB, type ManifestElement, type ManifestSlot } from '../api'
 import { STREAM_SOURCE_PREFIX } from '../engine'
 import { blurSource, posterKey } from '../sceneBackground'
 import { feedStream, type StreamFeed } from './streamFeed'
+import { canvasSupported, paintBlur, paintPicture, type Box, type Fit } from './pictures'
 
 /**
  * The loop — the Android player's `playback/PlaybackSurface.kt`, in the DOM.
@@ -55,6 +56,18 @@ export class PlaybackSurface {
   private timers: number[] = []
   private soundBlockedReported = false
   private autoplayBlockedReported = false
+  /** Pictures a layer is still painting — what [firstFrame] waits for besides `<img>` loads. */
+  private painting = new WeakMap<HTMLElement, Array<Promise<void>>>()
+  /** The next slot's pictures and blurred background, rendered while the current slot plays,
+   *  so the swap is a move of finished canvases rather than a decode. Keyed by slot index and
+   *  stage size; anything else is thrown away unused. See ui/pictures.ts. */
+  private prepared: {
+    index: number
+    stage: string
+    pictures: Map<number, HTMLCanvasElement>
+    background: HTMLCanvasElement | null
+  } | null = null
+  private readonly canvases = canvasSupported()
   /** Per-layer cleanups (a video's stall watchdog), run when that layer is torn down. */
   private cleanups = new WeakMap<HTMLElement, Array<() => void>>()
   /** Dropped-frame bookkeeping for [takeDroppedFrames]: what each video had last reported, and
@@ -79,11 +92,13 @@ export class PlaybackSurface {
     this.slots = slots
     this.index = 0
     this.startedAt = Date.now()
+    this.prepared = null
     this.show()
   }
 
   /** Re-lays out the current slot after the stage changes size (a rotation, a resize). */
   relayout() {
+    this.prepared = null
     if (this.slots.length) this.show(false)
   }
 
@@ -98,6 +113,77 @@ export class PlaybackSurface {
     this.root.querySelectorAll('.slot').forEach((el) => this.teardown(el as HTMLElement))
     this.layer = null
     this.key = ''
+    this.prepared = null
+  }
+
+  private stageKey(width: number, height: number) {
+    return `${width}x${height}`
+  }
+
+  /** The box, in stage pixels, an element's picture is drawn into — the pre-rotation box, since
+   *  rotation is applied to the wrapper around it. */
+  private innerBox(element: ManifestElement, width: number, height: number): Box {
+    const boxW = width * (element.width ?? 1)
+    const boxH = height * (element.height ?? 1)
+    const rotation = element.rotation_degrees ?? 0
+    const swapped = rotation === 90 || rotation === 270
+    return { width: swapped ? boxH : boxW, height: swapped ? boxW : boxH }
+  }
+
+  /** A canvas for one picture, painted now unless [prepared] already has it. Never rejects: a
+   *  picture that will not draw is reported and leaves its box transparent, as a broken `<img>`
+   *  would, and the slot still advances on time. */
+  private pictureCanvas(layer: HTMLElement, element: ManifestElement, position: number, url: string, box: Box, fit: Fit): HTMLCanvasElement {
+    const ready = this.prepared?.index === this.index ? this.prepared.pictures.get(position) : undefined
+    if (ready) {
+      this.prepared!.pictures.delete(position)
+      return ready
+    }
+    const canvas = document.createElement('canvas')
+    this.track(layer, paintPicture(canvas, url, box, fit).catch(() => {
+      this.cb.onError(`${this.nameOf(element)}: image failed to load`)
+    }))
+    return canvas
+  }
+
+  private track(layer: HTMLElement, work: Promise<void>) {
+    const list = this.painting.get(layer) ?? []
+    list.push(work)
+    this.painting.set(layer, list)
+  }
+
+  /**
+   * Renders the next slot's pictures and background while this one plays, so that when it is
+   * due the canvases are moved into place, already painted. The decode is what a TV cannot hide
+   * mid-transition; done here it lands while nothing is changing on screen. Videos and websites
+   * are left alone — a video's decoder must not be held by a slot that is not on screen.
+   */
+  private prepareNext(width: number, height: number) {
+    this.prepared = null
+    if (!this.canvases || this.slots.length < 2) return
+    const index = (this.index + 1) % this.slots.length
+    const slot = this.slots[index]
+    const prepared = { index, stage: this.stageKey(width, height), pictures: new Map<number, HTMLCanvasElement>(), background: null as HTMLCanvasElement | null }
+    slot.elements.forEach((element, position) => {
+      if (element.kind !== 'image') return
+      const canvas = document.createElement('canvas')
+      const url = this.sources[element.checksum] ?? element.url
+      prepared.pictures.set(position, canvas)
+      // A failure here is not reported: the slot will try again when it is shown, and report then.
+      void paintPicture(canvas, url, this.innerBox(element, width, height), objectFit(element.fit)).catch(() => {
+        if (this.prepared === prepared) prepared.pictures.delete(position)
+      })
+    })
+    const blur = this.blurUrl(slot)
+    if (blur) {
+      const canvas = document.createElement('canvas')
+      canvas.className = 'blur-bg'
+      prepared.background = canvas
+      void paintBlur(canvas, blur, { width, height }).catch(() => {
+        if (this.prepared === prepared) prepared.background = null
+      })
+    }
+    this.prepared = prepared
   }
 
   private get slot(): ManifestSlot {
@@ -156,9 +242,11 @@ export class PlaybackSurface {
     layer.className = 'slot'
     const width = this.root.clientWidth
     const height = this.root.clientHeight
+    // Prepared for a different size (a rotation landed in between) is prepared for nothing.
+    if (this.prepared && this.prepared.stage !== this.stageKey(width, height)) this.prepared = null
 
     // A blurred scene's background goes in first, so every element paints over it.
-    const background = this.blurredBackground(slot, width)
+    const background = this.blurredBackground(layer, slot, width, height)
     if (background) layer.appendChild(background)
 
     slot.elements.forEach((element, z) => {
@@ -188,10 +276,12 @@ export class PlaybackSurface {
         transform: rotation ? `rotate(${rotation}deg)` : '',
       })
 
-      inner.appendChild(this.render(layer, element, loop, singleVideo && !onlySlot ? finishOnce : null))
+      inner.appendChild(this.render(layer, element, z, { width: innerW, height: innerH }, loop, singleVideo && !onlySlot ? finishOnce : null))
       box.appendChild(inner)
       layer.appendChild(box)
     })
+    // Whatever was prepared has now been used or was for another slot; start on the next one.
+    this.prepareNext(width, height)
 
     // The new slot goes in *underneath* the old one, fully opaque, and the old one stays on top
     // until the new one has something to show — so a picture never gives way to a black box while
@@ -207,9 +297,13 @@ export class PlaybackSurface {
       const hasVideo = slot.elements.some((el) => el.kind === 'video')
       void this.firstFrame(layer).then(() => {
         if (fade && !hasVideo) {
-          previous.style.transition = `opacity ${CROSSFADE_MILLIS}ms linear`
-          previous.style.opacity = '0'
-          window.setTimeout(() => this.teardown(previous), CROSSFADE_MILLIS)
+          // On the next frame, so the new layer underneath has been painted before the old one
+          // starts to go — otherwise the first frames of the fade show the old slot over black.
+          requestAnimationFrame(() => {
+            previous.style.transition = `opacity ${CROSSFADE_MILLIS}ms linear`
+            previous.style.opacity = '0'
+            window.setTimeout(() => this.teardown(previous), CROSSFADE_MILLIS)
+          })
         } else {
           this.teardown(previous)
         }
@@ -239,18 +333,36 @@ export class PlaybackSurface {
    * TVs don't have. Blurred in proportion to the screen, dimmed so the scene stands out, and
    * scaled up a little so the blur's soft edges fall outside the screen.
    */
-  private blurredBackground(slot: ManifestSlot, stageWidth: number): HTMLElement | null {
+  private blurUrl(slot: ManifestSlot): string | null {
     const source = blurSource(slot)
     if (!source) return null
     const url = source.kind === 'image'
       ? this.sources[source.checksum] ?? source.url
       : this.sources[posterKey(source)] ?? source.poster_url
+    return url ?? null
+  }
+
+  private blurredBackground(layer: HTMLElement, slot: ManifestSlot, width: number, height: number): HTMLElement | null {
+    const url = this.blurUrl(slot)
     if (!url) return null
+    if (this.canvases) {
+      const ready = this.prepared?.index === this.index ? this.prepared.background : null
+      if (ready) {
+        this.prepared!.background = null
+        return ready
+      }
+      const canvas = document.createElement('canvas')
+      canvas.className = 'blur-bg'
+      // A missing thumbnail leaves plain black, as before; nothing to report.
+      this.track(layer, paintBlur(canvas, url, { width, height }).catch(() => { canvas.remove() }))
+      return canvas
+    }
+    // No canvas: the browser's own blur, which is what this player did before ui/pictures.ts.
     const img = document.createElement('img')
-    img.className = 'blur-bg'
+    img.className = 'blur-bg blur-bg-filtered'
     img.decoding = 'async'
-    img.style.filter = `blur(${Math.round(stageWidth * 0.03)}px) brightness(0.75)`
-    img.onerror = () => img.remove() // a missing thumbnail leaves plain black, as before
+    img.style.filter = `blur(${Math.round(width * 0.03)}px) brightness(0.75)`
+    img.onerror = () => img.remove()
     img.src = url
     return img
   }
@@ -262,7 +374,7 @@ export class PlaybackSurface {
   /** Resolves once every picture and video in [layer] has something to show, or after
    *  [FIRST_FRAME_TIMEOUT_MILLIS] — a file that never loads must not hold the old slot forever. */
   private firstFrame(layer: HTMLElement): Promise<void> {
-    const waits: Array<Promise<void>> = []
+    const waits: Array<Promise<void>> = [...(this.painting.get(layer) ?? [])]
     layer.querySelectorAll('img').forEach((img) => {
       if (!img.complete) waits.push(new Promise((r) => { img.addEventListener('load', () => r(), { once: true }); img.addEventListener('error', () => r(), { once: true }) }))
     })
@@ -309,9 +421,13 @@ export class PlaybackSurface {
     return `${video.paused ? 'paused' : 'playing'} ${where} · ${states[video.readyState] ?? video.readyState}${size}${from}${video.muted ? ' · muted' : ''}`
   }
 
-  private render(layer: HTMLElement, element: ManifestElement, loop: boolean, onFinished: ((reason: string | null) => void) | null): HTMLElement {
+  private render(layer: HTMLElement, element: ManifestElement, position: number, box: Box, loop: boolean, onFinished: ((reason: string | null) => void) | null): HTMLElement {
     const src = this.sources[element.checksum] ?? element.url
     const fit = objectFit(element.fit)
+
+    if (element.kind === 'image' && this.canvases) {
+      return this.pictureCanvas(layer, element, position, src, box, fit)
+    }
 
     if (element.kind === 'image') {
       const img = document.createElement('img')
@@ -507,6 +623,7 @@ export class PlaybackSurface {
   }
 
   private teardown(layer: HTMLElement) {
+    this.painting.delete(layer)
     this.releaseVideos(layer)
     layer.remove()
   }

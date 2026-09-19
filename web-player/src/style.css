@@ -90,13 +90,19 @@ html, body {
 /* Transparent, like the video element itself: many TVs show video on a hardware plane beneath
    the page, seen through a hole the browser leaves where the video is — so nothing stacked over
    that spot may paint. #stage stays black for letterboxing. */
-.slot { position: absolute; inset: 0; background: transparent; }
+/* Each slot is its own compositor layer, so the crossfade is one opacity ramp on the GPU with
+   nothing re-rasterised — on a TV the difference between a fade and a stutter. */
+.slot { position: absolute; inset: 0; background: transparent; will-change: opacity; transform: translateZ(0); }
 .el { position: absolute; overflow: hidden; }
-.blur-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scale(1.15); }
+/* A small canvas stretched to the stage (see ui/pictures.ts): the stretch is the blur. The
+   filtered <img> is the fallback for a browser without canvas, scaled up so the blur's soft
+   edges fall outside the screen. */
+.blur-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.blur-bg-filtered { transform: scale(1.15); }
 .el-inner { position: absolute; }
 /* Pictures and videos are transparent where they letterbox (fit: contain), so a blurred scene
    background shows through; a black scene looks the same as ever, since the stage is black. */
-.el img, .el video, .el iframe { display: block; width: 100%; height: 100%; border: 0; background: transparent; }
+.el img, .el video, .el iframe, .el canvas { display: block; width: 100%; height: 100%; border: 0; background: transparent; }
 .el iframe { background: #000; }
 .el video { background: transparent; }
 
