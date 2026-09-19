@@ -15,6 +15,7 @@ from app.api.routes import (
     player,
     player_rollouts,
     playlists,
+    reviews,
     schedules,
     users,
 )
@@ -34,3 +35,4 @@ api_router.include_router(operations.router)
 api_router.include_router(device_sync.router)
 api_router.include_router(player.router)
 api_router.include_router(player_rollouts.router)
+api_router.include_router(reviews.router)

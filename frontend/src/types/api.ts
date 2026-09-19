@@ -428,6 +428,49 @@ export interface CampaignSaveResult {
   skipped_device_ids: string[]
 }
 
+// --- Reviews ---
+
+/** What a manager's parked change is about. Mirrors backend models/review.py. */
+export type ReviewKind =
+  | 'playlist_items' | 'playlist_shuffle'
+  | 'campaign_create' | 'campaign_update' | 'campaign_delete'
+  | 'schedule_create' | 'schedule_update' | 'schedule_delete'
+  | 'device_playlist'
+export type ReviewStatus = 'pending' | 'approved' | 'rejected' | 'withdrawn'
+
+/** A manager's screen-changing save, waiting for the owner (or decided). The owner sees the
+ *  account's queue; a manager sees their own. */
+export interface ReviewRead {
+  id: string
+  kind: ReviewKind
+  status: ReviewStatus
+  requested_by: string | null
+  requested_by_name: string
+  target_id: string | null
+  target_name: string
+  /** One line: "6 scenes in Lobby Rotation". */
+  summary: string
+  /** Screen names the change reaches, as they were when it was sent. */
+  screens: string[]
+  /** The change as sent — read for detail, never edited here. */
+  payload: Record<string, unknown>
+  /** The owner's reason on a rejection. */
+  note: string | null
+  reviewed_by: string | null
+  reviewed_at: string | null
+  created_at: string
+}
+
+/** What a write endpoint answers (202) instead of applying, when the caller's change has to
+ *  be reviewed first. Every hook that saves something reaching screens handles this shape. */
+export interface PendingReview {
+  pending_review: ReviewRead
+}
+
+export function isPendingReview(value: unknown): value is PendingReview {
+  return typeof value === 'object' && value !== null && 'pending_review' in value
+}
+
 // --- Operations ---
 
 export interface StorageRead {

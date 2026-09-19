@@ -20,6 +20,7 @@ import IconEdit from '~icons/material-symbols/edit-outline'
 import IconRocket from '~icons/material-symbols/rocket-launch-outline'
 
 import PlaylistComposeContainer from '@/containers/PlaylistComposeContainer.vue'
+import { useAuth } from '@/hooks/useAuth'
 import { useCampaignDetail } from '@/hooks/useCampaignDetail'
 import { useCampaigns } from '@/hooks/useCampaigns'
 import { useDevices } from '@/hooks/useDevices'
@@ -56,7 +57,7 @@ const isEdit = campaignId !== null
 
 const {
   campaign, isLoading: campaignLoading, error: campaignError,
-  isSaving, isDeleting, saveError, skippedDeviceIds, save, remove,
+  isSaving, isDeleting, saveError, skippedDeviceIds, pendingReview, save, remove,
 } = useCampaignDetail(campaignId)
 
 const STEPS = ['Screens', 'Content', 'Review']
@@ -361,6 +362,9 @@ async function onSave() {
     device_ids: selectedIds.value,
     rules: rulesToSave(),
   })
+  // A manager's campaign is parked for the owner rather than deployed. The Reviews page is
+  // where it now lives, so that is where a new one lands; an edit stays put and says so.
+  if (pendingReview.value && !isEdit) router.push({ name: 'reviews' })
 }
 
 /** A campaign save is a publish: every screen in it changes within seconds. One more question,
@@ -424,6 +428,7 @@ async function onDelete() {
   if (await remove()) router.push({ name: 'campaigns' })
   else confirmingDelete.value = false
 }
+const { isOwner } = useAuth()
 
 // --- Editing: load the saved campaign into the steps above ---
 
@@ -934,6 +939,10 @@ const BOUND_TIME_INPUT =
       <div v-if="isEdit" class="flex flex-wrap items-center justify-end gap-3 border-t border-line pt-6">
         <span v-if="editError" class="text-[13px] text-danger">{{ editError }}</span>
         <span v-else-if="saveError" class="text-[13px] text-danger">{{ saveError }}</span>
+        <span v-else-if="pendingReview" class="text-[13px] text-ink-muted">
+          Sent for review —
+          <router-link :to="{ name: 'reviews' }" class="text-brand underline-offset-2 hover:underline">see your reviews</router-link>
+        </span>
         <span v-else-if="justSaved && skippedDeviceIds.length" class="text-[13px] text-danger">
           Saved, but {{ skippedDeviceIds.length }} screen{{ skippedDeviceIds.length === 1 ? '' : 's' }} skipped
         </span>
@@ -1038,14 +1047,17 @@ const BOUND_TIME_INPUT =
       <p class="text-sm text-ink-muted">Its screens go back to their defaults for the times it covered.</p>
       <ModalActions>
         <AppButton variant="secondary" size="sm" @click="confirmingDelete = false">Cancel</AppButton>
-        <AppButton variant="danger" size="sm" :loading="isDeleting" @click="onDelete">Delete</AppButton>
+        <AppButton variant="danger" size="sm" :loading="isDeleting" @click="onDelete">
+          {{ isOwner ? 'Delete' : 'Send for review' }}
+        </AppButton>
       </ModalActions>
     </AppModal>
     <PublishConfirmModal
       v-if="confirmingPublish"
       what="this campaign"
       :screens="publishScreens"
-      :action="isEdit ? 'Save & Apply' : 'Deploy'"
+      :action="!isOwner ? 'Send for review' : isEdit ? 'Save & Apply' : 'Deploy'"
+      :review="!isOwner"
       :loading="isSaving"
       @confirm="confirmPublish"
       @cancel="confirmingPublish = false"

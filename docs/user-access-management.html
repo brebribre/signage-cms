@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>User Access Management &middot; Fortu CMS Docs</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+
+  <div class="shell">
+  <aside class="sidebar">
+    <a class="wordmark" href="/">FORTU <span>DOCS</span></a>
+    <nav class="side-nav">
+      <span class="side-nav-label">Guides</span>
+      <a href="/connecting-a-screen.html">Connecting a Screen</a>
+      <a href="/remote-device-owner.html">Remote Device Owner Setup</a>
+      <a href="/instant-updates.html">Instant Updates</a>
+      <a href="/building-and-publishing-the-player.html">Building &amp; Publishing the Player</a>
+      <a href="/user-access-management.html" aria-current="page">User Access Management</a>
+    </nav>
+  </aside>
+
+  <div class="page">
+
+    <div class="hero">
+      <div class="eyebrow"><b>FORTU</b>&nbsp;CMS &middot; Reference</div>
+      <h1>User Access Management</h1>
+      <p class="dek">
+        Who can do what in an account: the owner, the managers they create, which screens
+        each manager reaches, what everyone shares, and the review step that stands between a
+        manager's save and a screen. This page is the rulebook; the last section lists where
+        each rule lives in the code so it can be tuned later.
+      </p>
+    </div>
+
+    <section id="roles" style="margin-top: 36px;">
+      <div class="section-head"><h2>Two roles</h2></div>
+      <p class="lede">
+        An account has exactly one kind of full user, the <b>owner</b>, and any number of
+        <b>managers</b> the owner creates under Settings &gt; User management. A manager is a
+        subaccount: same content, a chosen set of screens, and no say over other users.
+      </p>
+
+      <div class="table-wrap">
+        <table class="fact-table">
+          <thead>
+            <tr><th></th><th>Owner</th><th>Manager</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Screens</td><td>Every screen in the account</td><td>Only the screens the owner granted them</td></tr>
+            <tr><td>Pair a new screen</td><td>Yes</td><td>Yes; it is granted to them automatically</td></tr>
+            <tr><td>Media library</td><td>Sees and deletes everything</td><td>Sees everything, deletes only their own uploads</td></tr>
+            <tr><td>Playlists</td><td>Sees and edits everything</td><td>Sees and edits everything, deletes only their own</td></tr>
+            <tr><td>Campaigns and schedules</td><td>Any screen</td><td>Only for their granted screens; other screens are dropped from the campaign, not refused</td></tr>
+            <tr><td>Changing what a screen shows</td><td>Publishes at once</td><td>Sent to the owner for review first (see below)</td></tr>
+            <tr><td>Screen settings (volume, brightness, power, rotation)</td><td>Yes</td><td>Yes, on their screens, at once</td></tr>
+            <tr><td>Users, software updates, account settings</td><td>Yes</td><td>No; the Settings page is hidden</td></tr>
+            <tr><td>Storage quota</td><td colspan="2">One number for the whole account, counting everyone's uploads. Set per account by Paskall.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout">
+        <span class="mark">Note</span>
+        <p>
+          Content is deliberately shared. A manager's upload is visible to the owner and to
+          every other manager, and lands in the same library and the same quota. What is
+          scoped per manager is <b>screens</b>, never files or playlists. If a customer needs
+          two branches that cannot see each other's content, that is two accounts.
+        </p>
+      </div>
+    </section>
+
+    <section id="screens">
+      <div class="section-head"><h2>Screen grants</h2></div>
+      <p class="lede">
+        A manager reaches a screen only through a grant. Grants are set by the owner from the
+        user's row in Settings &gt; User management, and a screen a manager pairs themselves
+        is granted to them on the spot. Everything else follows from the grant:
+      </p>
+      <ol class="steps">
+        <li><div class="step-body">The Screens page, the Overview and the campaign screen picker show only granted screens.</div></li>
+        <li><div class="step-body">A campaign a manager saves keeps only its granted screens; ungranted ids are dropped and reported back as skipped, never rejected outright.</div></li>
+        <li><div class="step-body">A screen a manager was not granted answers <code>404</code> to every request, the same as a screen that does not exist. Which screens exist beyond a manager's reach is not observable.</div></li>
+        <li><div class="step-body">Removing a grant takes effect on the manager's next request, not their next login.</div></li>
+      </ol>
+    </section>
+
+    <section id="reviews">
+      <div class="section-head"><h2>Reviews: a manager's changes to screens wait for the owner</h2></div>
+      <p class="lede">
+        A manager can build content freely. The moment a save would change what a screen is
+        showing, it is not applied. It is parked as a <b>review</b>, the owner sees it under
+        the Reviews tab with a badge in the sidebar, and approves or rejects it. Nothing
+        reaches a screen until the owner says so.
+      </p>
+
+      <h3 class="substep">What waits for review, and what does not</h3>
+      <div class="table-wrap">
+        <table class="fact-table">
+          <thead>
+            <tr><th>A manager&hellip;</th><th>Result</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Uploads media, creates a playlist, edits a playlist that no screen is playing, renames anything</td><td>Applies at once</td></tr>
+            <tr><td>Saves a playlist that is on screens, directly or through a campaign or schedule</td><td>Review</td></tr>
+            <tr><td>Turns shuffle on or off for a playlist that is on screens</td><td>Review</td></tr>
+            <tr><td>Creates, edits or deletes a campaign</td><td>Review, always: a campaign exists only to put content on screens</td></tr>
+            <tr><td>Creates, edits or deletes a schedule</td><td>Review</td></tr>
+            <tr><td>Assigns a playlist to a screen directly, or clears it</td><td>Review; the screen's other settings in the same save apply at once</td></tr>
+            <tr><td>Changes a screen's volume, brightness, power or rotation</td><td>Applies at once (a knob, see below)</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 class="substep">What the manager sees</h3>
+      <ol class="steps">
+        <li><div class="step-body">Before saving, the page says the save will go to the owner rather than to the screens, and the confirmation asks "Send for review?" instead of "Publish?".</div></li>
+        <li><div class="step-body">After saving, the page shows "Sent for review" with a link to the Reviews tab. The playlist editor keeps the draft on screen, but the saved playlist is unchanged until approval; reloading the page shows the live version.</div></li>
+        <li><div class="step-body">On the Reviews tab a manager sees only their own requests, what is waiting, and what was decided, with the owner's note on a rejection. A waiting request can be withdrawn.</div></li>
+      </ol>
+
+      <h3 class="substep">What the owner sees</h3>
+      <ol class="steps">
+        <li><div class="step-body">A count on the Reviews entry in the sidebar, refreshed when the app loads and whenever a review is decided.</div></li>
+        <li><div class="step-body">Each waiting review names who sent it, what it is (the playlist or campaign, how many scenes or rules), and every screen it would reach, with Approve and Reject buttons. Reject asks for an optional note the manager will read.</div></li>
+        <li><div class="step-body">Approving applies the change <b>as the manager who sent it</b>: the same validation, the same screen grants. It is exactly what their save would have done, and screens pick it up within seconds, as any publish does.</div></li>
+        <li><div class="step-body">Decided reviews stay listed, newest first, up to the last hundred.</div></li>
+      </ol>
+
+      <div class="callout warn">
+        <span class="mark">Stale reviews</span>
+        <p>
+          A review holds the change exactly as it was sent. If the world moved meanwhile, the
+          playlist was deleted, the manager was deactivated, a rule no longer validates, then
+          approving fails with the reason shown, and the review stays waiting until the owner
+          rejects it. Nothing is marked approved for a change that did not land. Two managers
+          editing the same playlist are last-approval-wins: the review replaces the whole
+          scene list, as a direct save does.
+        </p>
+      </div>
+
+      <div class="callout">
+        <span class="mark">Not yet</span>
+        <p>
+          There is no email or push notification: the owner finds out from the badge when
+          they open the CMS. There is no approval by anyone but the owner, and no "trusted
+          manager" who skips review. Both are listed below as knobs.
+        </p>
+      </div>
+    </section>
+
+    <section id="knobs">
+      <div class="section-head"><h2>Where the rules live</h2></div>
+      <p class="lede">Every rule on this page is one place in the code. To tweak a rule, change that place and this page together.</p>
+      <div class="table-wrap">
+        <table class="fact-table">
+          <thead>
+            <tr><th>Rule</th><th>Where</th><th>To change it</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Who is reviewed</td><td><code>backend/app/services/reviews.py</code>, <code>needs_review()</code></td><td>Return false for a trusted manager (a flag on the user), or true for the owner too if a second approver is ever wanted.</td></tr>
+            <tr><td>Which saves are reviewed</td><td>The write routes in <code>backend/app/api/routes/</code> for playlists, campaigns, schedules and devices, each calling <code>park()</code> from <code>api/review_gate.py</code></td><td>Add the same three lines to any other route that changes a screen, for example device settings. Remove them to let a change through.</td></tr>
+            <tr><td>"On screens" for a playlist</td><td><code>services/playlists.py</code>, <code>screens_reached()</code></td><td>Counts direct assignment, campaigns and schedules. Also what the publish confirmation names.</td></tr>
+            <tr><td>How an approval is applied</td><td><code>backend/app/api/routes/reviews.py</code>, <code>_apply()</code></td><td>One branch per review kind, replaying the stored body through the same service call as a direct save. A new kind needs a branch here and a value in <code>models/review.py</code>.</td></tr>
+            <tr><td>Who may approve</td><td><code>routes/reviews.py</code>, the <code>RequireOwner</code> dependency on approve and reject</td><td>Swap for a narrower or wider dependency.</td></tr>
+            <tr><td>History shown</td><td><code>services/reviews.py</code>, <code>HISTORY_LIMIT</code></td><td>Decided reviews listed on the page; older ones stay in the table.</td></tr>
+            <tr><td>What a manager can delete</td><td><code>services/media.py</code> and <code>services/playlists.py</code>, the <code>NotYours</code> checks</td><td>"Only their own" is a created-by comparison.</td></tr>
+            <tr><td>Screen scoping</td><td><code>backend/app/api/deps.py</code>, <code>device_for_user()</code>, and <code>services/devices.py</code>, <code>list_devices()</code></td><td>Grant rows in <code>device_access</code>. Owners bypass them entirely.</td></tr>
+            <tr><td>Storage quota</td><td><code>models/account.py</code>, <code>storage_quota_bytes</code>, checked in <code>services/operations.py</code></td><td>Per account, null for unlimited. Counts every user's uploads.</td></tr>
+            <tr><td>The badge</td><td><code>frontend/src/hooks/useReviews.ts</code>, <code>useReviewBadge()</code></td><td>Loaded once per page load and after each decision. Poll here if a live count is ever wanted.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </div>
+  </div>
+
+</body>
+</html>

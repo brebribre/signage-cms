@@ -3,7 +3,8 @@ import uuid
 from fastapi import APIRouter, HTTPException, status
 
 from app.api.deps import CurrentUser, DbSession
-from app.models import Media, Playlist, PlaylistItem, PlaylistItemElement
+from app.api.review_gate import needs_review, park
+from app.models import Media, Playlist, PlaylistItem, PlaylistItemElement, ReviewKind
 from app.schemas.playlists import (
     ElementRead,
     ItemMedia,
@@ -122,10 +123,27 @@ def get_playlist(playlist_id: uuid.UUID, user: CurrentUser, session: DbSession) 
     return _detail(session, playlist, rows)
 
 
-@router.patch("/playlists/{playlist_id}", response_model=PlaylistDetail)
+@router.patch("/playlists/{playlist_id}", response_model=PlaylistDetail, responses={202: {"description": "Sent for review"}})
 def update_playlist(
     playlist_id: uuid.UUID, body: PlaylistUpdate, user: CurrentUser, session: DbSession
-) -> PlaylistDetail:
+):
+    # Only shuffle changes what a screen shows; a rename never needs a review.
+    if body.shuffle is not None and needs_review(user):
+        try:
+            playlist, _ = playlist_service.get_with_items(session, user=user, playlist_id=playlist_id)
+        except PlaylistNotFound:
+            raise NOT_FOUND from None
+        screens = playlist_service.screens_reached(session, playlist_id)
+        if screens and body.shuffle != playlist.shuffle:
+            if body.name is not None:
+                # The rename part applies now; only the shuffle waits.
+                playlist_service.update(session, user=user, playlist_id=playlist_id, name=body.name)
+            return park(
+                session, user=user, kind=ReviewKind.PLAYLIST_SHUFFLE, target_id=playlist_id,
+                target_name=playlist.name,
+                summary=f"Shuffle {'on' if body.shuffle else 'off'} for playlist “{playlist.name}”",
+                screens=screens, payload={"shuffle": body.shuffle},
+            )
     try:
         playlist_service.update(
             session, user=user, playlist_id=playlist_id, name=body.name, shuffle=body.shuffle
@@ -138,46 +156,66 @@ def update_playlist(
     return _detail(session, playlist, rows)
 
 
-@router.put("/playlists/{playlist_id}/items", response_model=PlaylistDetail)
+def item_specs(body: ItemsWrite) -> list[ItemSpec]:
+    """The request body as the service takes it. Shared with the review replay
+    (routes/reviews.py), so an approved change is built exactly as a direct save is."""
+    return [
+        ItemSpec(
+            duration_seconds=i.duration_seconds,
+            is_enabled=i.is_enabled,
+            background=i.background,
+            elements=[
+                ElementSpec(
+                    media_id=el.media_id,
+                    web_url=el.web_url.strip() if el.web_url else None,
+                    z_index=el.z_index,
+                    x=el.x,
+                    y=el.y,
+                    width=el.width,
+                    height=el.height,
+                    fit=el.fit,
+                    crop_x=el.crop_x,
+                    crop_y=el.crop_y,
+                    crop_zoom=el.crop_zoom,
+                    has_audio=el.has_audio,
+                    rotation_degrees=el.rotation_degrees,
+                )
+                for el in i.elements
+            ],
+        )
+        for i in body.items
+    ]
+
+
+@router.put("/playlists/{playlist_id}/items", response_model=PlaylistDetail, responses={202: {"description": "Sent for review"}})
 def replace_items(
     playlist_id: uuid.UUID, body: ItemsWrite, user: CurrentUser, session: DbSession
-) -> PlaylistDetail:
+):
     """Replace the entire list of scenes, in order.
 
     One endpoint rather than insert/move/reorder verbs — drag-and-drop produces a complete
     new order anyway, and the array index *is* the position, so the two cannot disagree.
+
+    A manager's save of a playlist that is on screens is parked for the owner (202) instead
+    of applied — see api/review_gate.py. A playlist nobody plays saves at once.
     """
+    if needs_review(user):
+        try:
+            playlist, _ = playlist_service.get_with_items(session, user=user, playlist_id=playlist_id)
+        except PlaylistNotFound:
+            raise NOT_FOUND from None
+        screens = playlist_service.screens_reached(session, playlist_id)
+        if screens:
+            n = sum(1 for i in body.items if i.is_enabled)
+            return park(
+                session, user=user, kind=ReviewKind.PLAYLIST_ITEMS, target_id=playlist_id,
+                target_name=playlist.name,
+                summary=f"{n} scene{'' if n == 1 else 's'} in playlist “{playlist.name}”",
+                screens=screens, payload=body.model_dump(mode="json"),
+            )
     try:
         playlist, rows = playlist_service.replace_items(
-            session,
-            user=user,
-            playlist_id=playlist_id,
-            items=[
-                ItemSpec(
-                    duration_seconds=i.duration_seconds,
-                    is_enabled=i.is_enabled,
-                    background=i.background,
-                    elements=[
-                        ElementSpec(
-                            media_id=el.media_id,
-                            web_url=el.web_url.strip() if el.web_url else None,
-                            z_index=el.z_index,
-                            x=el.x,
-                            y=el.y,
-                            width=el.width,
-                            height=el.height,
-                            fit=el.fit,
-                            crop_x=el.crop_x,
-                            crop_y=el.crop_y,
-                            crop_zoom=el.crop_zoom,
-                            has_audio=el.has_audio,
-                            rotation_degrees=el.rotation_degrees,
-                        )
-                        for el in i.elements
-                    ],
-                )
-                for i in body.items
-            ],
+            session, user=user, playlist_id=playlist_id, items=item_specs(body),
         )
     except PlaylistNotFound:
         raise NOT_FOUND from None

@@ -3,6 +3,8 @@ import uuid
 from fastapi import APIRouter, HTTPException, status
 
 from app.api.deps import CurrentUser, DbSession
+from app.api.review_gate import device_names, needs_review, park
+from app.models import ReviewKind
 from app.schemas.campaigns import (
     CampaignRead,
     CampaignRuleRead,
@@ -67,8 +69,30 @@ def list_campaigns(user: CurrentUser, session: DbSession) -> list[CampaignSummar
     return [_summarize(session, c) for c in campaign_service.list_campaigns(session, user=user)]
 
 
-@router.post("/campaigns", response_model=CampaignSaveResult, status_code=status.HTTP_201_CREATED)
-def create_campaign(body: CampaignWrite, user: CurrentUser, session: DbSession) -> CampaignSaveResult:
+def _campaign_summary(body: CampaignWrite, session: DbSession, user) -> tuple[str, list[str]]:
+    screens = device_names(
+        session, account_id=user.account_id,
+        device_ids=campaign_service.reachable_device_ids(session, user=user, device_ids=body.device_ids),
+    )
+    rules = len(body.rules)
+    return (
+        f"Campaign “{body.name.strip()}”: {len(screens)} screen{'' if len(screens) == 1 else 's'}, "
+        f"{rules} rule{'' if rules == 1 else 's'}",
+        screens,
+    )
+
+
+@router.post("/campaigns", response_model=CampaignSaveResult, status_code=status.HTTP_201_CREATED, responses={202: {"description": "Sent for review"}})
+def create_campaign(body: CampaignWrite, user: CurrentUser, session: DbSession):
+    if needs_review(user):
+        summary, screens = _campaign_summary(body, session, user)
+        if not screens:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "none of the selected screens are available")
+        return park(
+            session, user=user, kind=ReviewKind.CAMPAIGN_CREATE, target_id=None,
+            target_name=body.name.strip(), summary="New " + summary[0].lower() + summary[1:],
+            screens=screens, payload=body.model_dump(mode="json"),
+        )
     try:
         campaign, skipped = campaign_service.create(
             session, user=user, name=body.name,
@@ -88,14 +112,26 @@ def get_campaign(campaign_id: uuid.UUID, user: CurrentUser, session: DbSession) 
     return _read(session, campaign)
 
 
-@router.put("/campaigns/{campaign_id}", response_model=CampaignSaveResult)
+@router.put("/campaigns/{campaign_id}", response_model=CampaignSaveResult, responses={202: {"description": "Sent for review"}})
 def update_campaign(
     campaign_id: uuid.UUID, body: CampaignWrite, user: CurrentUser, session: DbSession
-) -> CampaignSaveResult:
+):
     """Full replace, not a patch — a campaign's device list and rules are edited as one set,
     not field by field, so there is no partial-update shape worth having here."""
     try:
         campaign = campaign_service.get(session, user=user, campaign_id=campaign_id)
+        if needs_review(user):
+            summary, screens = _campaign_summary(body, session, user)
+            # Screens leaving the campaign change too.
+            leaving = device_names(
+                session, account_id=user.account_id,
+                device_ids=campaign_service.device_ids_for(session, campaign_id=campaign_id),
+            )
+            return park(
+                session, user=user, kind=ReviewKind.CAMPAIGN_UPDATE, target_id=campaign_id,
+                target_name=campaign.name, summary=summary,
+                screens=list(dict.fromkeys(screens + leaving)), payload=body.model_dump(mode="json"),
+            )
         campaign, skipped = campaign_service.update(
             session, user=user, campaign=campaign, name=body.name,
             device_ids=body.device_ids, rules=_rule_inputs(body),
@@ -107,10 +143,20 @@ def update_campaign(
     return CampaignSaveResult(campaign=_read(session, campaign), skipped_device_ids=skipped)
 
 
-@router.delete("/campaigns/{campaign_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_campaign(campaign_id: uuid.UUID, user: CurrentUser, session: DbSession) -> None:
+@router.delete("/campaigns/{campaign_id}", status_code=status.HTTP_204_NO_CONTENT, responses={202: {"description": "Sent for review"}})
+def delete_campaign(campaign_id: uuid.UUID, user: CurrentUser, session: DbSession):
     try:
         campaign = campaign_service.get(session, user=user, campaign_id=campaign_id)
     except CampaignNotFound:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Campaign not found") from None
+    if needs_review(user):
+        screens = device_names(
+            session, account_id=user.account_id,
+            device_ids=campaign_service.device_ids_for(session, campaign_id=campaign_id),
+        )
+        return park(
+            session, user=user, kind=ReviewKind.CAMPAIGN_DELETE, target_id=campaign_id,
+            target_name=campaign.name, summary=f"Delete campaign “{campaign.name}”",
+            screens=screens, payload={},
+        )
     campaign_service.remove(session, campaign=campaign)

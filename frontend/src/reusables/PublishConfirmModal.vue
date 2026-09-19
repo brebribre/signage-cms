@@ -17,13 +17,22 @@ defineProps<{
   /** The confirm button's label — the same word the button that opened this had. */
   action: string
   loading?: boolean
+  /** The caller is a manager: the save is sent to the owner, not published. Same question,
+   *  honest answer. */
+  review?: boolean
 }>()
 const emit = defineEmits<{ confirm: []; cancel: [] }>()
 </script>
 
 <template>
-  <AppModal title="Publish to screens?" @close="emit('cancel')">
-    <p class="text-sm text-ink-muted">
+  <AppModal :title="review ? 'Send for review?' : 'Publish to screens?'" @close="emit('cancel')">
+    <p v-if="review" class="text-sm text-ink-muted">
+      Saving {{ what }} would change what
+      <b class="text-ink">{{ screens.length }} screen{{ screens.length === 1 ? '' : 's' }}</b>
+      {{ screens.length === 1 ? 'is' : 'are' }} showing, so it goes to the owner first. Nothing
+      changes on the screens until they approve it.
+    </p>
+    <p v-else class="text-sm text-ink-muted">
       Saving {{ what }} changes what
       <b class="text-ink">{{ screens.length }} screen{{ screens.length === 1 ? '' : 's' }}</b>
       {{ screens.length === 1 ? 'is' : 'are' }} showing. They pick it up within about 30 seconds.

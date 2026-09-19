@@ -68,6 +68,12 @@ const router = createRouter({
           component: () => import('@/containers/CampaignListContainer.vue'),
         },
         {
+          // A manager's screen-changing saves wait here for the owner; a manager sees their own.
+          path: 'reviews',
+          name: 'reviews',
+          component: () => import('@/containers/ReviewsContainer.vue'),
+        },
+        {
           // Creating a campaign *is* the deploy flow — kept as a redirect so old links still land.
           path: 'campaigns/new',
           name: 'campaign-new',

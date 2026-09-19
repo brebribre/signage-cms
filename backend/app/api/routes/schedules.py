@@ -3,6 +3,8 @@ import uuid
 from fastapi import APIRouter, HTTPException, status
 
 from app.api.deps import CurrentUser, DbSession, DeviceForUser
+from app.api.review_gate import needs_review, park
+from app.models import Device, ReviewKind
 from app.schemas.schedules import (
     ResolutionRead,
     ScheduleRead,
@@ -32,7 +34,13 @@ def list_schedules(device: DeviceForUser, session: DbSession) -> list[ScheduleRe
 )
 def create_schedule(
     body: ScheduleWrite, device: DeviceForUser, user: CurrentUser, session: DbSession
-) -> ScheduleRead:
+):
+    if needs_review(user):
+        return park(
+            session, user=user, kind=ReviewKind.SCHEDULE_CREATE, target_id=device.id,
+            target_name=device.name, summary=f"New schedule on screen “{device.name}”",
+            screens=[device.name], payload=body.model_dump(mode="json"),
+        )
     try:
         schedule = schedule_service.create(
             session, user=user, device=device, playlist_id=body.playlist_id,
@@ -69,9 +77,17 @@ def resolve_now(device: DeviceForUser, session: DbSession) -> ResolutionRead:
 @router.patch("/schedules/{schedule_id}", response_model=ScheduleRead)
 def update_schedule(
     schedule_id: uuid.UUID, body: ScheduleUpdate, user: CurrentUser, session: DbSession
-) -> ScheduleRead:
+):
     try:
         schedule = schedule_service.get(session, user=user, schedule_id=schedule_id)
+        if needs_review(user):
+            device = session.get(Device, schedule.device_id)
+            name = device.name if device else "screen"
+            return park(
+                session, user=user, kind=ReviewKind.SCHEDULE_UPDATE, target_id=schedule_id,
+                target_name=schedule.name or name, summary=f"Schedule change on screen “{name}”",
+                screens=[name], payload=body.model_dump(mode="json", exclude_none=True),
+            )
         updated = schedule_service.update(
             session, user=user, schedule=schedule,
             playlist_id=body.playlist_id, name=body.name,
@@ -86,9 +102,17 @@ def update_schedule(
 
 
 @router.delete("/schedules/{schedule_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_schedule(schedule_id: uuid.UUID, user: CurrentUser, session: DbSession) -> None:
+def delete_schedule(schedule_id: uuid.UUID, user: CurrentUser, session: DbSession):
     try:
         schedule = schedule_service.get(session, user=user, schedule_id=schedule_id)
     except ScheduleNotFound:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Schedule not found") from None
+    if needs_review(user):
+        device = session.get(Device, schedule.device_id)
+        name = device.name if device else "screen"
+        return park(
+            session, user=user, kind=ReviewKind.SCHEDULE_DELETE, target_id=schedule_id,
+            target_name=schedule.name or name, summary=f"Remove a schedule from screen “{name}”",
+            screens=[name], payload={},
+        )
     schedule_service.remove(session, schedule=schedule)

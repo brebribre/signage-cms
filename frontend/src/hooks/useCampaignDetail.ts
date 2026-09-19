@@ -2,7 +2,9 @@ import { onMounted, ref } from 'vue'
 
 import { ApiError } from '@/api/request'
 import { useCampaignApi } from '@/api/useCampaignApi'
-import type { CampaignRead, CampaignWrite } from '@/types/api'
+import { useReviewBadge } from '@/hooks/useReviews'
+import type { CampaignRead, CampaignWrite, ReviewRead } from '@/types/api'
+import { isPendingReview } from '@/types/api'
 
 /** One campaign, in create mode (`id` null) or edit mode. Both save through the same full
  *  `CampaignWrite` — a campaign's device list and rules are always saved as one set. */
@@ -16,6 +18,10 @@ export function useCampaignDetail(id: string | null) {
   const error = ref<string | null>(null)
   const saveError = ref<string | null>(null)
   const skippedDeviceIds = ref<string[]>([])
+  /** Set when the last save or delete was parked for the owner instead of applied — every
+   *  campaign change is, for a manager. The campaign itself has not changed. */
+  const pendingReview = ref<ReviewRead | null>(null)
+  const { refreshCount } = useReviewBadge()
 
   async function refresh() {
     if (!id) return
@@ -38,6 +44,12 @@ export function useCampaignDetail(id: string | null) {
     skippedDeviceIds.value = []
     try {
       const result = id ? await api.update(id, body) : await api.create(body)
+      if (isPendingReview(result)) {
+        pendingReview.value = result.pending_review
+        void refreshCount()
+        return id
+      }
+      pendingReview.value = null
       campaign.value = result.campaign
       skippedDeviceIds.value = result.skipped_device_ids
       return result.campaign.id
@@ -53,7 +65,12 @@ export function useCampaignDetail(id: string | null) {
     if (!id) return false
     isDeleting.value = true
     try {
-      await api.remove(id)
+      const result = await api.remove(id)
+      if (isPendingReview(result)) {
+        pendingReview.value = result.pending_review
+        void refreshCount()
+        return false
+      }
       return true
     } catch (e) {
       error.value = e instanceof ApiError ? e.message : 'Could not delete this campaign'
@@ -66,7 +83,7 @@ export function useCampaignDetail(id: string | null) {
   onMounted(refresh)
 
   return {
-    campaign, isLoading, isSaving, isDeleting, error, saveError, skippedDeviceIds,
+    campaign, isLoading, isSaving, isDeleting, error, saveError, skippedDeviceIds, pendingReview,
     refresh, save, remove,
   }
 }

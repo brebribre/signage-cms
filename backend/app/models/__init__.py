@@ -13,6 +13,7 @@ from app.models.events import DeviceEvent, EventLevel, PlayEvent
 from app.models.media import Media, MediaKind, MediaStatus
 from app.models.playlist import ItemFit, Playlist, PlaylistItem, PlaylistItemElement, SceneBackground
 from app.models.player_rollout import PlayerRollout
+from app.models.review import ContentReview, ReviewKind, ReviewStatus
 from app.models.schedule import ALL_DAYS, WEEKDAYS, WEEKENDS, Schedule
 from app.models.user import User, UserRole
 
@@ -38,6 +39,9 @@ __all__ = [
     "PlaylistItemElement",
     "SceneBackground",
     "PlayerRollout",
+    "ContentReview",
+    "ReviewKind",
+    "ReviewStatus",
     "Schedule",
     "ALL_DAYS",
     "WEEKDAYS",

@@ -1,0 +1,170 @@
+<script setup lang="ts">
+/**
+ * Reviews: a manager's screen-changing saves, waiting for the owner.
+ *
+ * The owner sees the account's queue and decides; a manager sees what they sent and how it
+ * went. One page for both, because the question is the same from either side — "what is
+ * waiting, and what happened to it" — only the buttons differ.
+ */
+import { onMounted, ref } from 'vue'
+import IconCheck from '~icons/material-symbols/check'
+import IconClose from '~icons/material-symbols/close'
+import IconTv from '~icons/material-symbols/tv-outline'
+
+import { useAuth } from '@/hooks/useAuth'
+import { useFormat } from '@/hooks/useFormat'
+import { useReviews } from '@/hooks/useReviews'
+import AppAlert from '@/reusables/AppAlert.vue'
+import AppButton from '@/reusables/AppButton.vue'
+import AppCard from '@/reusables/AppCard.vue'
+import AppModal from '@/reusables/AppModal.vue'
+import EmptyState from '@/reusables/EmptyState.vue'
+import ListRowSkeleton from '@/reusables/ListRowSkeleton.vue'
+import ModalActions from '@/reusables/ModalActions.vue'
+import PageTitle from '@/reusables/PageTitle.vue'
+import SkeletonList from '@/reusables/SkeletonList.vue'
+import type { ReviewKind, ReviewRead, ReviewStatus } from '@/types/api'
+
+const { isOwner } = useAuth()
+const { relativeTime } = useFormat()
+const { pending, decided, isLoading, error, actingOn, actionError, refresh, approve, reject, withdraw } = useReviews()
+
+onMounted(refresh)
+
+const KIND_LABEL: Record<ReviewKind, string> = {
+  playlist_items: 'Playlist',
+  playlist_shuffle: 'Playlist',
+  campaign_create: 'New campaign',
+  campaign_update: 'Campaign',
+  campaign_delete: 'Delete campaign',
+  schedule_create: 'Schedule',
+  schedule_update: 'Schedule',
+  schedule_delete: 'Schedule',
+  device_playlist: 'Screen',
+}
+
+const STATUS: Record<ReviewStatus, { label: string; cls: string }> = {
+  pending: { label: 'Waiting', cls: 'bg-brand-soft text-brand' },
+  approved: { label: 'Approved', cls: 'bg-emerald-50 text-emerald-700' },
+  rejected: { label: 'Rejected', cls: 'bg-raised text-danger' },
+  withdrawn: { label: 'Withdrawn', cls: 'bg-raised text-ink-muted' },
+}
+
+/** Rejecting asks for a reason — optional, but the one thing a manager wants to read. */
+const rejecting = ref<ReviewRead | null>(null)
+const rejectNote = ref('')
+function openReject(r: ReviewRead) {
+  rejecting.value = r
+  rejectNote.value = ''
+}
+async function confirmReject() {
+  if (!rejecting.value) return
+  if (await reject(rejecting.value.id, rejectNote.value.trim() || undefined)) rejecting.value = null
+}
+</script>
+
+<template>
+  <div class="flex flex-col gap-6">
+    <PageTitle
+      title="Reviews"
+      :subtitle="isOwner
+        ? `${pending.length} waiting for you`
+        : `${pending.length} of yours waiting for the owner`"
+    />
+
+    <AppAlert v-if="error" tone="danger">{{ error }}</AppAlert>
+    <AppAlert v-if="actionError" tone="danger">{{ actionError }}</AppAlert>
+
+    <SkeletonList v-if="isLoading && !pending.length && !decided.length" label="Loading reviews">
+      <ListRowSkeleton />
+    </SkeletonList>
+
+    <EmptyState
+      v-else-if="!pending.length && !decided.length"
+      title="Nothing to review"
+      :description="isOwner
+        ? 'When a manager saves something that would change a screen — a playlist that is playing, a campaign, a schedule — it waits here for you.'
+        : 'When you save something that would change a screen, it waits here for the owner. Everything else saves straight away.'"
+    />
+
+    <template v-else>
+      <section v-if="pending.length" class="flex flex-col gap-2">
+        <h2 class="text-sm text-ink-muted">Waiting</h2>
+        <AppCard v-for="r in pending" :key="r.id">
+          <div class="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+            <div class="min-w-0 flex-1">
+              <p class="text-[13px] text-ink-subtle">
+                {{ KIND_LABEL[r.kind] }} · {{ r.requested_by_name }} · {{ relativeTime(r.created_at) }}
+              </p>
+              <p class="mt-0.5 text-base text-ink">{{ r.summary }}</p>
+              <ul v-if="r.screens.length" class="mt-2 flex flex-wrap gap-1.5">
+                <li
+                  v-for="name in r.screens" :key="name"
+                  class="flex items-center gap-1 rounded-full bg-raised px-2.5 py-0.5 text-[12px] text-ink"
+                >
+                  <IconTv class="size-3.5 text-ink-muted" aria-hidden="true" />{{ name }}
+                </li>
+              </ul>
+            </div>
+            <div class="flex shrink-0 items-center gap-2">
+              <template v-if="isOwner">
+                <AppButton
+                  variant="secondary" size="sm" :disabled="actingOn === r.id"
+                  @click="openReject(r)"
+                >
+                  <IconClose class="size-4" aria-hidden="true" />Reject
+                </AppButton>
+                <AppButton size="sm" :loading="actingOn === r.id" @click="approve(r.id)">
+                  <IconCheck class="size-4" aria-hidden="true" />Approve
+                </AppButton>
+              </template>
+              <AppButton v-else variant="secondary" size="sm" :loading="actingOn === r.id" @click="withdraw(r.id)">
+                Withdraw
+              </AppButton>
+            </div>
+          </div>
+        </AppCard>
+      </section>
+
+      <section v-if="decided.length" class="flex flex-col gap-2">
+        <h2 class="text-sm text-ink-muted">Decided</h2>
+        <AppCard v-for="r in decided" :key="r.id">
+          <div class="flex flex-wrap items-start justify-between gap-x-6 gap-y-2">
+            <div class="min-w-0 flex-1">
+              <p class="text-[13px] text-ink-subtle">
+                {{ KIND_LABEL[r.kind] }} · {{ r.requested_by_name }} · {{ relativeTime(r.created_at) }}
+              </p>
+              <p class="mt-0.5 text-sm text-ink">{{ r.summary }}</p>
+              <p v-if="r.note" class="mt-1 text-[13px] text-ink-muted">“{{ r.note }}”</p>
+            </div>
+            <span
+              class="shrink-0 rounded-full px-2.5 py-0.5 text-[12px]"
+              :class="STATUS[r.status].cls"
+              :title="r.reviewed_at ? relativeTime(r.reviewed_at) : undefined"
+            >
+              {{ STATUS[r.status].label }}
+            </span>
+          </div>
+        </AppCard>
+      </section>
+    </template>
+
+    <AppModal v-if="rejecting" title="Reject this change?" @close="rejecting = null">
+      <p class="text-sm text-ink-muted">{{ rejecting.summary }}</p>
+      <label class="mt-3 block text-[13px] text-ink-muted">
+        Tell {{ rejecting.requested_by_name }} why (optional)
+        <textarea
+          v-model="rejectNote"
+          rows="3"
+          maxlength="500"
+          class="mt-1 w-full rounded-lg border border-line-strong bg-canvas px-2.5 py-1.5 text-sm text-ink
+                 focus:border-ink focus:outline-none"
+        />
+      </label>
+      <ModalActions>
+        <AppButton variant="secondary" size="sm" @click="rejecting = null">Cancel</AppButton>
+        <AppButton variant="danger" size="sm" :loading="actingOn === rejecting.id" @click="confirmReject">Reject</AppButton>
+      </ModalActions>
+    </AppModal>
+  </div>
+</template>

@@ -12,6 +12,7 @@ import IconVisibilityOff from '~icons/material-symbols/visibility-off'
 import IconArrowBack from '~icons/material-symbols/arrow-back'
 import IconLanguage from '~icons/material-symbols/language'
 
+import { useAuth } from '@/hooks/useAuth'
 import { useDevices } from '@/hooks/useDevices'
 import { useFormat } from '@/hooks/useFormat'
 import { useMedia } from '@/hooks/useMedia'
@@ -42,10 +43,11 @@ const router = useRouter()
 const id = String(route.params.id)
 
 const {
-  playlist, draft, draftName, isLoading, isSaving, isDirty, error, saveError, deleteError,
+  playlist, draft, draftName, isLoading, isSaving, isDirty, error, saveError, pendingReview, deleteError,
   totalSeconds, enabledCount, addMedia, addWebsite, removeAt, move, save, setShuffle, remove,
 } = usePlaylistEditor(id)
 const { items: library, isLoading: libraryLoading, prepend } = useMedia()
+const { isOwner } = useAuth()
 const { items: devices } = useDevices()
 const { duration } = useFormat()
 const { presetId, isCustom, customWidth, customHeight, screen, deviceOptions } =
@@ -274,7 +276,18 @@ function sceneLabel(item: DraftItem): string {
 
       <AppAlert v-if="saveError" tone="danger">{{ saveError }}</AppAlert>
       <AppAlert v-if="deleteError" tone="danger">{{ deleteError }}</AppAlert>
-      <AppAlert v-if="playlist.used_by.length">
+      <!-- A manager's save of an on-air playlist is parked for the owner. Said before the save,
+           so "Save" never surprises, and after it, so the unchanged screens are no mystery. -->
+      <AppAlert v-if="pendingReview">
+        Sent for review. The owner will approve it before
+        {{ pendingReview.screens.length === 1 ? 'the screen changes' : 'the screens change' }}.
+        <router-link :to="{ name: 'reviews' }" class="text-brand underline-offset-2 hover:underline">See your reviews</router-link>
+      </AppAlert>
+      <AppAlert v-else-if="playlist.used_by.length && !isOwner">
+        On {{ playlist.used_by.join(', ') }}. Saving sends your changes to the owner for review;
+        the screens change once they approve.
+      </AppAlert>
+      <AppAlert v-else-if="playlist.used_by.length">
         On {{ playlist.used_by.join(', ') }}. Saving publishes: the screens pick up changes within
         about 30 seconds.
       </AppAlert>
@@ -508,7 +521,8 @@ function sceneLabel(item: DraftItem): string {
       v-if="confirmingPublish && playlist"
       what="this playlist"
       :screens="playlist.used_by"
-      action="Save and publish"
+      :action="isOwner ? 'Save and publish' : 'Send for review'"
+      :review="!isOwner"
       :loading="isSaving"
       @confirm="confirmPublish"
       @cancel="confirmingPublish = false"

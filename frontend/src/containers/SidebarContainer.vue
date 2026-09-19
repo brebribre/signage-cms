@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useReviewBadge } from '@/hooks/useReviews'
 /**
  * The desktop sidebar: brand, navigation, and whose account you are in.
  *
@@ -55,6 +56,9 @@ const ROW_ACTIVE =
   'relative bg-brand-soft hover:!bg-brand-soft !text-brand font-medium [&_svg]:!text-brand ' +
   'before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-[3px] ' +
   'before:rounded-full before:bg-brand'
+
+const { pendingCount, ensureCount } = useReviewBadge()
+ensureCount()
 </script>
 
 <template>
@@ -77,6 +81,11 @@ const ROW_ACTIVE =
             <router-link :to="{ name: link.name }" :class="ROW" :active-class="ROW_ACTIVE">
               <component :is="link.icon" class="size-[18px] shrink-0 text-ink-muted" aria-hidden="true" />
               {{ link.label }}
+              <span
+                v-if="link.name === 'reviews' && pendingCount > 0"
+                class="ml-auto rounded-full bg-brand px-1.5 py-0.5 text-[11px] leading-none text-ink-inverse tabular-nums"
+                :aria-label="`${pendingCount} waiting`"
+              >{{ pendingCount }}</span>
             </router-link>
           </li>
         </ul>

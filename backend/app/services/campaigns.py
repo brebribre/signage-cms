@@ -54,7 +54,7 @@ class CampaignRuleInput:
         self.end_time = end_time
 
 
-def _reachable_device_ids(session: Session, *, user: User, device_ids: list[uuid.UUID]) -> set[uuid.UUID]:
+def reachable_device_ids(session: Session, *, user: User, device_ids: list[uuid.UUID]) -> set[uuid.UUID]:
     """Same scoping as everywhere else a device is looked up: same account, and — for a
     manager — only devices they were granted. Unreachable ids are dropped, not rejected, for
     the usual reason: which ids exist outside the caller's scope must not be observable."""
@@ -184,7 +184,7 @@ def create(
     session: Session, *, user: User, name: str,
     device_ids: list[uuid.UUID], rules: list[CampaignRuleInput],
 ) -> tuple[Campaign, list[uuid.UUID]]:
-    reachable = _reachable_device_ids(session, user=user, device_ids=device_ids)
+    reachable = reachable_device_ids(session, user=user, device_ids=device_ids)
     if not reachable:
         raise InvalidCampaign("none of the selected screens are available")
     skipped = [d for d in device_ids if d not in reachable]
@@ -207,7 +207,7 @@ def update(
     session: Session, *, user: User, campaign: Campaign, name: str,
     device_ids: list[uuid.UUID], rules: list[CampaignRuleInput],
 ) -> tuple[Campaign, list[uuid.UUID]]:
-    reachable = _reachable_device_ids(session, user=user, device_ids=device_ids)
+    reachable = reachable_device_ids(session, user=user, device_ids=device_ids)
     if not reachable:
         raise InvalidCampaign("none of the selected screens are available")
     skipped = [d for d in device_ids if d not in reachable]

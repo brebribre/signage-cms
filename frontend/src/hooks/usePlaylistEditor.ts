@@ -2,7 +2,9 @@ import { computed, onMounted, ref } from 'vue'
 
 import { ApiError } from '@/api/request'
 import { usePlaylistApi } from '@/api/usePlaylistApi'
-import type { ElementRead, ItemFit, MediaRead, PlaylistDetail, PlaylistItemRead, SceneBackground } from '@/types/api'
+import { useReviewBadge } from '@/hooks/useReviews'
+import type { ElementRead, ItemFit, MediaRead, PlaylistDetail, PlaylistItemRead, ReviewRead, SceneBackground } from '@/types/api'
+import { isPendingReview } from '@/types/api'
 import { websiteLabel } from '@/utils/websiteUrl'
 
 /** One element within a scene — a library file or a live website — positioned/sized/rotated
@@ -206,6 +208,12 @@ export function usePlaylistEditor(id: string) {
 
   /** Compared against the loaded playlist so Save can be disabled when nothing changed —
    *  and so leaving with unsaved work can be warned about. */
+  /** Set when the last save was parked for the owner instead of applied (a manager saving a
+   *  playlist that is on screens). The draft is kept as sent, so the page can keep showing
+   *  it, but the saved playlist itself has not changed. */
+  const pendingReview = ref<ReviewRead | null>(null)
+  const { refreshCount } = useReviewBadge()
+
   const savedSnapshot = ref('')
   const snapshot = computed(() =>
     JSON.stringify(
@@ -307,14 +315,16 @@ export function usePlaylistEditor(id: string) {
       if (!draftName.value.trim()) draftName.value = playlist.value?.name ?? ''
       if (nameDirty.value) {
         const updated = await api.update(id, { name: draftName.value.trim() })
-        // Recorded now, so a failure saving the scenes below doesn't send the name again.
-        if (playlist.value) playlist.value.name = updated.name
-        draftName.value = updated.name
+        // A rename alone is never parked, so this is always the playlist.
+        if (!isPendingReview(updated)) {
+          // Recorded now, so a failure saving the scenes below doesn't send the name again.
+          if (playlist.value) playlist.value.name = updated.name
+          draftName.value = updated.name
+        }
       }
       // Scenes are only sent when they changed: sending them again would reload every screen.
       if (!itemsDirty.value) return true
-      adopt(
-        await api.replaceItems(
+      const result = await api.replaceItems(
           id,
           draft.value.map((d) => ({
             duration_seconds: d.durationSeconds,
@@ -336,8 +346,17 @@ export function usePlaylistEditor(id: string) {
               rotation_degrees: e.rotationDegrees,
             })),
           })),
-        ),
-      )
+        )
+      if (isPendingReview(result)) {
+        // Parked, not saved: keep the draft on the page, treat it as clean so leaving is not a
+        // "discard changes?" fight, and let the owner's badge know.
+        pendingReview.value = result.pending_review
+        savedSnapshot.value = snapshot.value
+        void refreshCount()
+        return true
+      }
+      pendingReview.value = null
+      adopt(result)
       return true
     } catch (e) {
       saveError.value = e instanceof ApiError ? e.message : 'Could not save'
@@ -350,6 +369,11 @@ export function usePlaylistEditor(id: string) {
   async function setShuffle(shuffle: boolean) {
     try {
       const updated = await api.update(id, { shuffle })
+      if (isPendingReview(updated)) {
+        pendingReview.value = updated.pending_review
+        void refreshCount()
+        return
+      }
       if (playlist.value) playlist.value.shuffle = updated.shuffle
     } catch (e) {
       saveError.value = e instanceof ApiError ? e.message : 'Could not update'
@@ -372,7 +396,7 @@ export function usePlaylistEditor(id: string) {
 
   return {
     playlist, draft, draftName, isLoading, isSaving, isDirty, error, saveError, deleteError,
-    totalSeconds, enabledCount,
+    pendingReview, totalSeconds, enabledCount,
     addMedia, addWebsite, removeAt, move, save, setShuffle, remove, refresh,
   }
 }

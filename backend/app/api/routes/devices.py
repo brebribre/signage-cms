@@ -3,6 +3,8 @@ import uuid
 from fastapi import APIRouter, HTTPException, status
 
 from app.api.deps import CurrentUser, DbSession, DeviceForUser, RequireOwner
+from app.api.review_gate import needs_review, park
+from app.models import Playlist, ReviewKind
 from app.config import get_settings
 from app.schemas.devices import (
     ClaimRequest,
@@ -137,7 +139,26 @@ def get_device(device: DeviceForUser) -> DeviceRead:
 @router.patch("/devices/{device_id}", response_model=DeviceRead)
 def update_device(
     body: DeviceUpdate, device: DeviceForUser, user: CurrentUser, session: DbSession
-) -> DeviceRead:
+):
+    if (body.playlist_id is not None or body.clear_playlist) and needs_review(user):
+        # Name, location and the rest apply now; what the screen plays waits for the owner.
+        device_service.update(
+            session, user=user, device=device, name=body.name, location=body.location,
+            orientation=body.orientation, timezone=body.timezone,
+        )
+        playlist = session.get(Playlist, body.playlist_id) if body.playlist_id else None
+        if body.playlist_id and (playlist is None or playlist.account_id != user.account_id):
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Playlist not found")
+        summary = (
+            f"Screen “{device.name}”: play “{playlist.name}”" if playlist
+            else f"Screen “{device.name}”: play nothing"
+        )
+        return park(
+            session, user=user, kind=ReviewKind.DEVICE_PLAYLIST, target_id=device.id,
+            target_name=device.name, summary=summary, screens=[device.name],
+            payload={"playlist_id": str(body.playlist_id) if body.playlist_id else None,
+                     "clear_playlist": body.clear_playlist},
+        )
     try:
         updated = device_service.update(
             session,

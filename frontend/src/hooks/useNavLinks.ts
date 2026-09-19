@@ -1,5 +1,6 @@
 import type { Component } from 'vue'
 import IconCampaign from '~icons/material-symbols/campaign-outline'
+import IconFactCheck from '~icons/material-symbols/fact-check-outline'
 import IconFolderOpen from '~icons/material-symbols/folder-open-outline'
 import IconMonitoring from '~icons/material-symbols/monitoring'
 import IconPhotoLibrary from '~icons/material-symbols/photo-library-outline'
@@ -48,6 +49,8 @@ export function useNavLinks() {
       links: [
         { name: 'playlists', label: 'Playlists', icon: IconPlaylistPlay },
         { name: 'campaigns', label: 'Campaigns', icon: IconCampaign },
+        // A manager's screen-changing saves wait here for the owner; the manager sees their own.
+        { name: 'reviews', label: 'Reviews', icon: IconFactCheck },
       ],
     },
   ]

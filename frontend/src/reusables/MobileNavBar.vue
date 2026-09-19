@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useReviewBadge } from '@/hooks/useReviews'
 /**
  * The sidebar is `hidden` below `lg` (see SidebarView.vue) — this is what replaces it. Same
  * structure as the sidebar, fitted to a phone: an ungrouped link is its own tab, and a category
@@ -68,6 +69,9 @@ function menuPosition(index: number): string {
 }
 
 const TAB = 'flex w-full flex-1 flex-col items-center gap-0.5 px-1 py-2 text-[11px] transition-colors duration-150'
+
+const { pendingCount, ensureCount } = useReviewBadge()
+ensureCount()
 </script>
 
 <template>
@@ -116,6 +120,10 @@ const TAB = 'flex w-full flex-1 flex-col items-center gap-0.5 px-1 py-2 text-[11
           >
             <component :is="link.icon" class="size-[18px] shrink-0" />
             {{ link.label }}
+            <span
+              v-if="link.name === 'reviews' && pendingCount > 0"
+              class="ml-auto rounded-full bg-brand px-1.5 py-0.5 text-[11px] leading-none text-ink-inverse tabular-nums"
+            >{{ pendingCount }}</span>
           </router-link>
         </div>
       </div>
