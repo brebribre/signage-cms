@@ -15,7 +15,9 @@ re-encoded — and softened — without cause; `Media.playback_reencoded` says w
 This is what Yodeck and the rest do on upload, and it is the single biggest lever on
 playback quality, ahead of anything a player can do.
 
-**The streaming copy** is the playback copy re-laid as fragmented MP4 — the moov header up
+**The streaming copy** is the playback copy re-laid as fragmented MP4 (and, above 1080p,
+brought down to 1080p High@4.1 — the ceiling a TV browser's decoder actually handles; see
+STREAM_MAX_EDGE_PX) — the moov header up
 front, the media in small independent chunks — for web screens, whose smart-TV browsers can't
 open a plain file from their own cache but can be fed one piece by piece through Media Source
 Extensions (the way YouTube plays on them). A stream copy, never a second encode.
@@ -76,6 +78,37 @@ def _maxrate_for(width: int, height: int) -> tuple[str, str]:
     """(maxrate, bufsize): 8 Mbps up to 1080p, 20 Mbps above — what a box decodes without
     dropping frames and what venue wifi delivers in reasonable time."""
     return ("20M", "40M") if _is_4k(width, height) else ("8M", "16M")
+
+
+# --- The target every streaming copy meets ------------------------------------------------
+# What a TV browser's MediaSource decoder reliably handles: 1080p H.264 High@4.1. Smart TVs
+# answer "supported" to a 4K High@5.1 codec string and then fail with a decode error the moment
+# the first fragment arrives (a Samsung, September 2026: "saved copy wouldn't play (error 3)",
+# then no picture from the 4K file over the network either). The Android player keeps the 4K
+# playback copy; web screens get this one, both as their stored copy and as their fallback.
+STREAM_MAX_EDGE_PX = HD_EDGE_PX
+STREAM_MAX_LEVEL = 41
+
+
+def stream_level(stream_mime: str | None) -> int | None:
+    """The H.264 level in a stored copy's codec string (`avc1.PPCCLL` → LL as a decimal, 41 for
+    4.1, 51 for 5.1), or None when there is no such string."""
+    if not stream_mime:
+        return None
+    for token in stream_mime.split('"')[1:2]:
+        for codec in token.split(","):
+            if codec.startswith("avc1.") and len(codec) == 11:
+                try:
+                    return int(codec[9:11], 16)
+                except ValueError:
+                    return None
+    return None
+
+
+def stream_needs_remake(media: Media) -> bool:
+    """A stored streaming copy made before the 1080p ceiling existed — one a TV cannot decode."""
+    level = stream_level(media.stream_mime)
+    return media.stream_key is not None and level is not None and level > STREAM_MAX_LEVEL
 
 
 def _accept_bitrate_for(width: int, height: int) -> int:
@@ -283,15 +316,39 @@ def _audio_codec(source: Path) -> str | None:
     return f"mp4a.40.{_AAC_OBJECT_TYPES.get(profile, 2)}"
 
 
-def make_stream_copy(source: Path, dest: Path) -> tuple[str, int, str]:
-    """Writes the fragmented copy to `dest`. Returns (mime, size, checksum)."""
+def make_stream_copy(source: Path, dest: Path, info: VideoInfo) -> tuple[str, int, str]:
+    """Writes the fragmented copy to `dest`. Returns (mime, size, checksum).
+
+    A remux of the playback copy up to 1080p; above that, a second encode down to 1080p
+    High@4.1, because that is the ceiling a TV browser actually decodes (see STREAM_MAX_EDGE_PX).
+    """
     audio = _audio_codec(source)
+    downscale = (
+        max(info.width, info.height) > STREAM_MAX_EDGE_PX
+        or (info.level is not None and info.level > STREAM_MAX_LEVEL)
+    )
+    if downscale:
+        scale = min(1.0, STREAM_MAX_EDGE_PX / max(info.width, info.height, 1))
+        out_w, out_h = round(info.width * scale), round(info.height * scale)
+        maxrate, bufsize = _maxrate_for(out_w, out_h)
+        gop = max(1, round((info.fps or MAX_FPS) * KEYFRAME_SECONDS))
+        video = [
+            "-vf",
+            f"scale=w='min({STREAM_MAX_EDGE_PX},iw)':h='min({STREAM_MAX_EDGE_PX},ih)'"
+            ":force_original_aspect_ratio=decrease:force_divisible_by=2",
+            "-c:v", "libx264", "-profile:v", "high", "-level", "4.1", "-pix_fmt", "yuv420p",
+            "-preset", "medium", "-crf", CRF, "-maxrate", maxrate, "-bufsize", bufsize,
+            "-g", str(gop), "-keyint_min", str(gop), "-sc_threshold", "0",
+            "-c:a", "copy",
+        ]
+    else:
+        video = ["-c", "copy"]
     _run([
         "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(source),
         # First video and (if any) first audio track only; subtitles and data tracks would
         # need codecs of their own in the MIME string.
         "-map", "0:v:0", "-map", "0:a:0?",
-        "-c", "copy",
+        *video,
         # A fragment at every keyframe, the header up front with no samples in it, and each
         # fragment addressed on its own — what MediaSource expects to be fed.
         "-movflags", "frag_keyframe+empty_moov+default_base_moof",
@@ -320,10 +377,12 @@ def process(media_id: uuid.UUID) -> None:
 
     with Session(engine) as session:
         media = session.get(Media, media_id)
-        if (
-            media is None or media.kind != MediaKind.VIDEO or media.status != MediaStatus.READY
-            or media.playback_key or media.playback_error
-        ):
+        if media is None or media.kind != MediaKind.VIDEO or media.status != MediaStatus.READY:
+            return
+        if media.playback_key and stream_needs_remake(media):
+            _remake_stream(session, media)
+            return
+        if media.playback_key or media.playback_error:
             return
         old_stream_key = media.stream_key
         play_key, strm_key = playback_key(media), stream_key(media)
@@ -348,7 +407,7 @@ def process(media_id: uuid.UUID) -> None:
                 stream_result: tuple[str, int, str] | None = None
                 stream_error: str | None = None
                 try:
-                    stream_result = make_stream_copy(playback, stream)
+                    stream_result = make_stream_copy(playback, stream, after)
                     storage.upload_file(str(stream), strm_key, "video/mp4")
                 except ConversionError as exc:
                     stream_error = str(exc)
@@ -393,6 +452,40 @@ def process(media_id: uuid.UUID) -> None:
         )
         # Screens showing it pick the copies up on their next poll: both checksums are part of
         # the manifest version (services/device_sync.py::compute_version).
+
+
+def _remake_stream(session: Session, media: Media) -> None:
+    """Only the streaming copy, from the playback copy already in storage — for a video whose
+    stored stream predates the 1080p ceiling. The same key is overwritten; the new checksum is
+    what makes web screens fetch it (services/device_sync.py::compute_version)."""
+    media_id = media.id
+    strm_key = stream_key(media)
+    try:
+        with tempfile.TemporaryDirectory(prefix="fortu-video-") as tmp:
+            playback = Path(tmp) / "playback.mp4"
+            stream = Path(tmp) / "stream.mp4"
+            storage.download_file(media.playback_key, str(playback))
+            info = probe(playback)
+            result = make_stream_copy(playback, stream, info)
+            storage.upload_file(str(stream), strm_key, "video/mp4")
+    except Exception as exc:  # noqa: BLE001 — record, never kill the worker
+        logger.exception("stream remake failed for media %s", media_id)
+        session.rollback()
+        media = session.get(Media, media_id)
+        if media is not None:
+            media.stream_error = f"remake failed: {exc}"[:500]
+            session.add(media)
+            session.commit()
+        return
+    media = session.get(Media, media_id)
+    if media is None:
+        return
+    media.stream_key, media.stream_size_bytes = strm_key, result[1]
+    media.stream_mime, media.stream_checksum = result[0], result[2]
+    media.stream_error = None
+    session.add(media)
+    session.commit()
+    logger.info("media %s: streaming copy remade at 1080p, %d bytes", media_id, result[1])
 
 
 def _record_error(session: Session, media_id: uuid.UUID, message: str) -> None:
@@ -443,8 +536,20 @@ def enqueue_missing() -> int:
                 Media.playback_key.is_(None), Media.playback_error.is_(None),
             )
         ).all())
-    for media_id in ids:
+        # Streaming copies above the TV ceiling (made before it existed) are remade at 1080p.
+        remakes = [
+            m.id for m in session.exec(
+                select(Media).where(
+                    Media.kind == MediaKind.VIDEO, Media.status == MediaStatus.READY,
+                    Media.playback_key.is_not(None), Media.stream_key.is_not(None),
+                )
+            ).all()
+            if stream_needs_remake(m)
+        ]
+    for media_id in ids + remakes:
         enqueue(media_id)
     if ids:
         logger.info("queued %d video(s) for a playback copy", len(ids))
-    return len(ids)
+    if remakes:
+        logger.info("queued %d video(s) to remake a streaming copy at 1080p", len(remakes))
+    return len(ids) + len(remakes)

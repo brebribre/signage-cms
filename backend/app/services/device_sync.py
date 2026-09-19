@@ -266,8 +266,17 @@ def build_manifest(session: Session, device: Device, *, version: str) -> Manifes
                     # device's cache key, so a re-issued URL for unchanged content is never
                     # treated as a re-download. A website is its own address: nothing to
                     # download, loaded live.
+                    # A web screen's video is its streaming copy both ways — stored, and as the
+                    # network fallback — since that is the file made for what a TV browser
+                    # decodes (see video_streams.STREAM_MAX_EDGE_PX); a fragmented MP4 plays
+                    # fine as a plain file too. Android keeps the 4K playback copy.
                     url=(
-                        storage.presign_get(media_service.playback_key(media), settings.device_presign_ttl_seconds)
+                        storage.presign_get(
+                            media.stream_key
+                            if device.platform != DevicePlatform.ANDROID and media.kind == MediaKind.VIDEO and media.stream_key
+                            else media_service.playback_key(media),
+                            settings.device_presign_ttl_seconds,
+                        )
                         if media
                         else (el.web_url or "")
                     ),
