@@ -211,6 +211,10 @@ class PlayerEngine(
     private val apiBaseUrl: String,
     /** Injected so tests can assert on it without a device-owner check. */
     private val canSelfUpdate: () -> Boolean = { false },
+    /** Whether this app is Device Owner, reported on every heartbeat so the CMS can label the
+     *  screen and explain what it can't do. Separate from [canSelfUpdate] because the two may
+     *  one day differ (an assisted install needs no policy). */
+    private val isDeviceOwner: () -> Boolean = { false },
     /** Downloads and hands the APK to the system, calling back with (bytes so far, total)
      *  as it goes — `kiosk/SelfUpdater`. Blocking; only ever called on [io]. */
     private val installUpdate: (UpdateInfo, (Long, Long?) -> Unit) -> InstallResult =
@@ -521,6 +525,7 @@ class PlayerEngine(
                             decoder = decoderName,
                             downloadBytesPerSecond = lastDownloadBps,
                         ),
+                        deviceOwner = isDeviceOwner(),
                     ),
                 )
                 res.update?.let { maybeSelfUpdate(token, it) }
@@ -949,6 +954,7 @@ class PlayerEngine(
                     HeartbeatRequest(
                         appVersion = appVersion,
                         screen = if (screenWidth > 0) HeartbeatScreen(screenWidth, screenHeight) else null,
+                        deviceOwner = isDeviceOwner(),
                     ),
                 )
                 val update = res.update

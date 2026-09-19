@@ -173,6 +173,14 @@ class Device(SQLModel, table=True):
     download_bytes_per_second: int | None = Field(default=None)
     playback_reported_at: datetime | None = Field(default=None, sa_column=tz_column(nullable=True))
 
+    # --- How the box is set up ---
+    # Whether the player runs as Android Device Owner, reported on each heartbeat. That is the
+    # line between a "managed" screen (silent updates, display switch-off, lock task) and a
+    # "basic" one that plays content but needs a person for the rest — the CMS says which so
+    # a button that can't work on this box is explained rather than just failing. Null on web
+    # screens, where it doesn't apply, and on players that predate reporting.
+    device_owner: bool | None = Field(default=None)
+
     # --- Disconnecting ---
     # Set when someone in the CMS disconnects this screen. From then on the screen's very next
     # request is answered 410 Gone — a deliberate, unambiguous "you were disconnected", distinct

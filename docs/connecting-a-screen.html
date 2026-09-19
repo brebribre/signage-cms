@@ -246,9 +246,11 @@ adb shell dpm set-device-owner \
           <li><div class="step-body">Pair the screen using the code it displays. See <a href="#pairing">Pair a screen</a> above.</div></li>
           <li><div class="step-body">
             Verify the setup. Long press anywhere on the screen to open the diagnostics
-            overlay. Confirm it reads <code>device owner (full kiosk)</code>.
+            overlay. Confirm it reads <code>device owner (full kiosk)</code>. In the CMS, the
+            screen's page shows <b>Setup: Managed</b> once it has checked in.
             <span class="step-note">If it reads <code>not owner (screen pinning only)</code>,
-            step 5 did not complete successfully. Repeat step 5.</span>
+            or the CMS shows <b>Setup: Basic</b>, step 5 did not complete successfully.
+            Repeat step 5.</span>
           </div></li>
           <li><div class="step-body">Reboot the device once. It returns to the Android home screen. Open Fortu Player from there and confirm the content loop resumes.</div></li>
         </ol>

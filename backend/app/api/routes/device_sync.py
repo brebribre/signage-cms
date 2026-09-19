@@ -150,6 +150,7 @@ def heartbeat(body: HeartbeatRequest, device: CurrentDevice, session: DbSession)
         errors=body.errors,
         reported_settings=body.reported_settings,
         playback=body.playback,
+        device_owner=body.device_owner,
     )
 
     if body.plays:

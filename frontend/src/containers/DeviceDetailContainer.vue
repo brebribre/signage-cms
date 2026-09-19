@@ -164,6 +164,21 @@ async function onDisconnect() {
             <dt class="text-[13px] text-ink-muted">App version</dt>
             <dd class="text-sm text-ink">{{ device.app_version ?? '—' }}</dd>
           </div>
+          <!-- Managed or basic: whether the box gave the player Device Owner access, which is
+               what silent updates, display switch-off and the kiosk lock all need. -->
+          <div v-if="device.platform !== 'web'">
+            <dt class="text-[13px] text-ink-muted">Setup</dt>
+            <dd
+              class="text-sm text-ink"
+              :title="device.device_owner === true
+                ? 'The player is Device Owner: it installs updates by itself, switches the display off on schedule, and keeps other apps out.'
+                : device.device_owner === false
+                  ? 'The player is not Device Owner: it plays content, but updates need a person at the screen and “off” is a black screen.'
+                  : 'Not reported yet — the screen has to check in on a player that reports it.'"
+            >
+              {{ device.device_owner === true ? 'Managed' : device.device_owner === false ? 'Basic' : '—' }}
+            </dd>
+          </div>
           <!-- Playback health, from the last heartbeat — "is this box coping?" in numbers. -->
           <div v-if="device.playback_reported_at">
             <dt class="text-[13px] text-ink-muted">Playback</dt>

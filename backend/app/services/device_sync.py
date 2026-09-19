@@ -460,6 +460,7 @@ def record_heartbeat(
     errors: list[str],
     reported_settings: dict | None = None,
     playback: "PlaybackReport | None" = None,
+    device_owner: bool | None = None,
 ) -> None:
     """Update liveness. Errors are logged, not stored — Phase 14 gives them a table if a
     device health page is ever built; until then they only need to be visible to whoever is
@@ -495,6 +496,8 @@ def record_heartbeat(
         if playback.download_bytes_per_second is not None:
             device.download_bytes_per_second = playback.download_bytes_per_second
         device.playback_reported_at = now
+    if device_owner is not None:
+        device.device_owner = device_owner
     session.add(device)
     session.commit()
 

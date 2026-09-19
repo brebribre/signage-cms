@@ -215,6 +215,9 @@ data class HeartbeatRequest(
     @SerialName("reported_settings") val reportedSettings: Map<String, kotlinx.serialization.json.JsonPrimitive>? = null,
     /** How playback is going — see [PlaybackReport]. */
     val playback: PlaybackReport? = null,
+    /** Whether this app is Device Owner — the line between a screen the CMS can update and
+     *  switch off by itself and one that needs a person for that. The CMS says which. */
+    @SerialName("device_owner") val deviceOwner: Boolean? = null,
 )
 
 /** Playback health, once per heartbeat: what the CMS shows as "is this box coping?". */

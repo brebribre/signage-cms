@@ -159,6 +159,9 @@ class HeartbeatRequest(BaseModel):
     reported_settings: dict[str, Any] | None = None
     # Absent on a build that predates it.
     playback: PlaybackReport | None = None
+    # Whether the player is Android Device Owner — see Device.device_owner. Absent on web
+    # screens and on builds that predate it.
+    device_owner: bool | None = None
 
 
 class UpdateInfo(BaseModel):

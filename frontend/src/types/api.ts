@@ -229,6 +229,10 @@ export interface DeviceRead {
   playback_decoder: string | null
   download_bytes_per_second: number | null
   playback_reported_at: string | null
+  /** Whether the Android player runs as Device Owner: true is a managed screen (silent updates,
+   *  display switch-off, lock task), false a basic one that needs a person for those. Null on
+   *  web screens and on players that predate reporting. */
+  device_owner: boolean | null
 }
 
 export type DeviceUpdateState = 'downloading' | 'installing' | 'installed' | 'failed'

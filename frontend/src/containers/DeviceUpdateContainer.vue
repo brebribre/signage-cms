@@ -102,6 +102,10 @@ const showPicker = computed(() => !view.value || !view.value.busy)
       Push a specific build to just this screen, independent of the fleet rollout in
       Settings &gt; Software updates.
     </p>
+    <p v-if="device.device_owner === false" class="mt-2 rounded-lg bg-raised px-3 py-2 text-[13px] text-ink-muted">
+      This screen is set up as <b class="text-ink">Basic</b>: the player isn't Device Owner, so it can't
+      install a build by itself. Until it is, an update means a cable or a USB stick at the screen.
+    </p>
 
     <AppCard class="mt-3 flex flex-col gap-4">
       <div v-if="view" class="flex items-start gap-3" aria-live="polite">

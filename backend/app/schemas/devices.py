@@ -39,6 +39,9 @@ class DeviceRead(BaseModel):
     playback_decoder: str | None = None
     download_bytes_per_second: int | None = None
     playback_reported_at: datetime | None = None
+    # Whether the player runs as Android Device Owner — see Device.device_owner. Null on web
+    # screens and on players that predate reporting.
+    device_owner: bool | None = None
     # Set once "Disconnect" has been clicked and the screen is being told; the row disappears
     # (GET → 404) the moment the screen has heard. See Device.disconnect_requested_at.
     disconnect_requested_at: datetime | None = None
