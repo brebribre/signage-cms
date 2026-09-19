@@ -5,13 +5,11 @@
  * someone picks a playlist themselves, because taking the wheel and then being overridden is
  * the rudest thing an auto-playing demo can do.
  */
-import { defineAsyncComponent, onBeforeUnmount, onMounted, ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 
 import CmsPanel from './CmsPanel.vue'
+import SignageScreen from './SignageScreen.vue'
 import { SLIDES } from '@/data/slides'
-
-/** Three.js is most of this page's JavaScript, so the totem is its own chunk. */
-const SignageTotem = defineAsyncComponent(() => import('./SignageTotem.vue'))
 
 const CYCLE_MS = 3600
 const active = ref(0)
@@ -34,11 +32,14 @@ onBeforeUnmount(() => { if (timer) clearInterval(timer) })
 </script>
 
 <template>
-  <div class="relative">
-    <SignageTotem :active="active" />
-    <!-- Overlapping the totem on a wide screen, stacked beneath it on a narrow one. -->
-    <div class="mt-4 sm:mt-0 sm:absolute sm:bottom-4 sm:-left-6 sm:w-52 lg:-left-16 lg:w-60">
-      <CmsPanel :active="active" @select="choose" />
+  <!-- The panel hangs off the screen's own left edge rather than the column's, so the two keep
+       their relationship at every width instead of drifting apart on a wide one. -->
+  <div class="flex justify-center sm:justify-end">
+    <div class="relative">
+      <SignageScreen :active="active" />
+      <div class="mt-4 sm:mt-0 sm:absolute sm:-bottom-6 sm:-left-40 sm:w-52 lg:-left-44 lg:w-56">
+        <CmsPanel :active="active" @select="choose" />
+      </div>
     </div>
   </div>
 </template>

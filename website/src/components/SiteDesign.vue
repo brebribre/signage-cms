@@ -12,10 +12,18 @@ import { onBeforeUnmount, onMounted, ref } from 'vue'
 import BrowserFrame from './BrowserFrame.vue'
 
 const TABS = [
-  { label: 'Scenes', text: 'Photos, video, live websites and text on one canvas, at the screen’s real shape.', src: '/shots/scene.webp', chrome: 'paskall · Scene' },
-  { label: 'Campaigns', text: 'A loop all day, or a week of rules. The timeline shows both.', src: '/shots/campaign.webp', chrome: 'paskall · Campaign' },
-  { label: 'Playlists', text: 'Arrange, preview, reorder. What you see is what plays.', src: '/shots/playlist.webp', chrome: 'paskall · Playlist' },
-  { label: 'Screens', text: 'What every screen is playing, why, and anything that went wrong.', src: '/shots/screens.webp', chrome: 'paskall · Screens' },
+  {
+    n: '1', label: 'Design', chrome: 'paskall · Scene', src: '/shots/scene.webp',
+    text: 'Photos, video, live websites and text on one canvas, at the screen’s real shape.',
+  },
+  {
+    n: '2', label: 'Playlist', chrome: 'paskall · Playlist', src: '/shots/playlist.webp',
+    text: 'Put your designs in the order they should run, and set how long each one holds. They play one after another.',
+  },
+  {
+    n: '3', label: 'Schedule', chrome: 'paskall · Campaign', src: '/shots/campaign.webp',
+    text: 'Choose the screens and the hours. One loop all day, or different content by time and weekday.',
+  },
 ]
 const DWELL_MS = 4000
 
@@ -60,10 +68,14 @@ onBeforeUnmount(stop)
             <button
               v-for="(t, i) in TABS" :key="t.label"
               type="button" role="tab" :aria-selected="active === i"
-              class="relative overflow-hidden rounded-full border px-4 py-2 text-sm transition-colors"
+              class="relative inline-flex items-center gap-2 overflow-hidden rounded-full border py-1.5 pl-1.5 pr-4 text-sm transition-colors"
               :class="active === i ? 'border-brand bg-brand-soft text-brand' : 'border-line text-ink-muted hover:border-line-strong hover:text-ink'"
               @click="choose(i)"
             >
+              <span
+                class="inline-flex size-5 items-center justify-center rounded-full text-[11px]"
+                :class="active === i ? 'bg-brand text-white' : 'bg-raised text-ink-subtle'"
+              >{{ t.n }}</span>
               {{ t.label }}
               <!-- How long this tab has left, drawn rather than guessed at. Re-keyed so the bar
                    restarts with the tab rather than carrying on from wherever it was. -->

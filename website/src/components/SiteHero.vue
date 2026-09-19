@@ -2,22 +2,16 @@
 import IconArrowForward from '~icons/material-symbols/arrow-forward'
 
 import HeroStage from './HeroStage.vue'
-
-/** What the product does, kept honest: no customer counts we do not have. */
-const FACTS = [
-  { value: '4K', label: 'Video at full resolution' },
-  { value: '30s', label: 'From save to screen' },
-  { value: '0', label: 'Network needed to play' },
-  { value: '3', label: 'Ways to run a screen' },
-]
 </script>
 
 <template>
   <section id="top" class="relative">
-    <!-- The angled band: colour that ends on a diagonal, so the page below rises into it. -->
-    <div class="angled-band absolute inset-x-0 top-0 h-[44rem] sm:h-[50rem]" aria-hidden="true" />
+    <!-- The angled band: colour that ends on a diagonal, so the page below rises into it. It
+         takes the section's own height rather than a fixed one, so the diagonal always lands
+         under the content instead of somewhere in the middle of it. -->
+    <div class="angled-band absolute inset-0" aria-hidden="true" />
 
-    <div class="relative mx-auto max-w-7xl px-5 pt-28 pb-12 sm:px-8 sm:pt-32">
+    <div class="relative mx-auto max-w-7xl px-5 pt-28 pb-24 sm:px-8 sm:pt-32 sm:pb-32">
       <div class="grid items-center gap-8 lg:grid-cols-12">
         <div class="lg:col-span-6">
           <p class="reveal inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3 py-1 text-[13px] text-white/90 backdrop-blur">
@@ -44,16 +38,6 @@ const FACTS = [
           <HeroStage />
         </div>
       </div>
-    </div>
-
-    <!-- The numbers strip, across the seam between the band and the page. -->
-    <div class="relative mx-auto max-w-7xl px-5 pb-16 sm:px-8">
-      <dl class="reveal grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-line bg-line md:grid-cols-4">
-        <div v-for="f in FACTS" :key="f.label" class="bg-canvas px-6 py-7">
-          <dt class="display text-3xl text-brand">{{ f.value }}</dt>
-          <dd class="mt-1 text-[13px] leading-snug text-ink-muted">{{ f.label }}</dd>
-        </div>
-      </dl>
     </div>
   </section>
 </template>
