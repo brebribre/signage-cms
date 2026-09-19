@@ -4,6 +4,11 @@
   The marketing site borrows the CMS's tokens (frontend/src/style.css) so the product and the
   page about it read as one thing: Outfit for display type, Inter for reading, ink on white,
   and the brand blues sampled from the logo (#002f96 → #0076dd, flat mass #003399).
+
+  The layout follows the shape Stripe made standard for infrastructure products: an angled
+  gradient band behind the hero, left-aligned headlines with the product beside them rather
+  than under them, a numbers strip, two-column sections whose heading stays put while the
+  detail scrolls, and one dark section to change the pace.
 */
 @theme {
   --font-sans: "Inter Variable", "Helvetica Neue", Helvetica, Arial, sans-serif;
@@ -23,6 +28,7 @@
   --color-brand-bright: #0076dd;
   --color-brand-soft: #eef2fd;
   --color-brand-deep: #00184d;
+  --color-accent: #00d4ff;
 
   --color-ink: #101111;
   --color-ink-muted: #5f6368;
@@ -31,18 +37,33 @@
 }
 
 html { scroll-behavior: smooth; color-scheme: light; }
+/* The nav is fixed, so an anchor must stop below it rather than under it. */
+section[id] { scroll-margin-top: 5rem; }
 body { background: var(--color-canvas); color: var(--color-ink); font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
 h1, h2, h3, .display { font-family: var(--font-display); font-weight: 500; letter-spacing: var(--tracking-heading); }
 
-/* The brand gradient, as the logo has it. */
-.brand-gradient { background: linear-gradient(135deg, #002f96 0%, #003399 45%, #0076dd 100%); }
-.brand-text { background: linear-gradient(90deg, #002f96, #0076dd); -webkit-background-clip: text; background-clip: text; color: transparent; }
+/*
+  The angled band. Stripe's hero is a gradient that ends on a diagonal rather than a straight
+  edge, which is what stops a coloured header looking like a coloured header. Drawn as a
+  clipped block so the angle is real geometry, not a rotated box with overflow to mop up.
+*/
+.angled-band {
+  background:
+    radial-gradient(60% 90% at 78% 8%, rgba(0, 212, 255, 0.5) 0%, transparent 55%),
+    radial-gradient(70% 80% at 12% 0%, rgba(31, 85, 196, 0.85) 0%, transparent 60%),
+    linear-gradient(135deg, #00184d 0%, #002f96 42%, #0076dd 100%);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 7vw), 0 100%);
+}
+/* The mirror of it, for a band that starts on a diagonal. */
+.angled-band-up { clip-path: polygon(0 7vw, 100% 0, 100% 100%, 0 100%); }
 
-/* Sections reveal as they arrive — a small, meaningful motion, not a show. Honoured only
-   where the visitor hasn't asked for less motion. */
+.brand-text { background: linear-gradient(90deg, #0076dd, #00d4ff); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.brand-gradient { background: linear-gradient(135deg, #002f96 0%, #003399 45%, #0076dd 100%); }
+
+/* Sections reveal as they arrive — a small, meaningful motion, not a show. */
 .reveal { opacity: 0; transform: translateY(18px); transition: opacity 0.7s cubic-bezier(0.2, 0.7, 0.2, 1), transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1); }
 .reveal.is-in { opacity: 1; transform: none; }
 @media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } }
 
-/* A faint dot grid behind the hero, the way infrastructure companies draw "a system". */
-.dot-grid { background-image: radial-gradient(rgba(16, 17, 17, 0.08) 1px, transparent 1px); background-size: 22px 22px; }
+/* A faint grid, the way infrastructure companies draw "a system". */
+.dot-grid { background-image: radial-gradient(rgba(16, 17, 17, 0.07) 1px, transparent 1px); background-size: 24px 24px; }

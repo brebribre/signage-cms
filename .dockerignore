@@ -1,0 +1,15 @@
+# Only the website service builds from the repository root (see website/Dockerfile); every
+# other service has its own root directory and never reads this file. Keeping the context
+# small is what makes that build quick.
+**/node_modules
+**/dist
+**/build
+**/.venv
+**/__pycache__
+player/app/build
+player/.gradle
+backend/.venv
+frontend/dist
+web-player/dist
+website/dist
+.git

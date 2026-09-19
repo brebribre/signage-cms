@@ -25,12 +25,12 @@ const PLANS = [
         <h3 class="text-lg">{{ p.name }}</h3>
         <p class="display mt-1 text-2xl">{{ p.price }}</p>
         <p class="mt-1 text-sm text-ink-muted">{{ p.blurb }}</p>
-        <ul class="mt-5 flex flex-col gap-2 text-sm">
+        <ul class="mt-5 mb-6 flex flex-col gap-2 text-sm">
           <li v-for="pt in p.points" :key="pt" class="flex items-start gap-2">
             <IconCheck class="mt-0.5 size-4 shrink-0 text-brand" /> {{ pt }}
           </li>
         </ul>
-        <a href="#contact" class="mt-6 inline-flex justify-center rounded-full px-4 py-2 text-sm transition-colors" :class="p.featured ? 'bg-brand text-ink-inverse hover:bg-hover' : 'border border-line-strong text-ink hover:border-ink'">Talk to us</a>
+        <a href="#contact" class="mt-auto inline-flex justify-center rounded-full px-4 py-2 text-sm transition-colors" :class="p.featured ? 'bg-brand text-ink-inverse hover:bg-hover' : 'border border-line-strong text-ink hover:border-ink'">Talk to us</a>
       </li>
     </ul>
   </section>
