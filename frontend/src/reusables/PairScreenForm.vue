@@ -93,13 +93,15 @@ const handshake = computed<'connecting' | 'connected' | 'failed' | null>(() => {
     <p class="text-[13px] text-ink-muted">
       Type the code shown on the screen. Codes expire after 15 minutes.
     </p>
+    <!-- Uppercased as typed: the code on the screen is uppercase, and a phone keyboard's
+         first instinct is lowercase. -->
     <AppInput
       id="pair-code"
-      v-model="form.pairing_code"
+      :model-value="form.pairing_code"
       label="Pairing code"
       placeholder="ABCDEF"
       required
-      hint="Not case-sensitive"
+      @update:model-value="form.pairing_code = String($event).toUpperCase().trim()"
     />
     <AppInput id="pair-name" v-model="form.name" label="Name" placeholder="Lobby" required />
     <AppInput id="pair-location" v-model="form.location" label="Location" placeholder="Ground floor" />
@@ -116,7 +118,7 @@ const handshake = computed<'connecting' | 'connected' | 'failed' | null>(() => {
     <ModalActions>
       <AppButton variant="secondary" size="sm" type="button" @click="emit('cancel')">Cancel</AppButton>
       <AppButton size="sm" type="submit" :loading="isSaving">
-        {{ isSaving && connecting ? 'Connecting…' : 'Add screen' }}
+        {{ isSaving && connecting ? 'Connecting…' : 'Connect' }}
       </AppButton>
     </ModalActions>
   </form>

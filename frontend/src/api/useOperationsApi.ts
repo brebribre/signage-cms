@@ -4,6 +4,7 @@ import type {
   DeviceHealthRead,
   PlayEventRead,
   StorageRead,
+  FleetEventRead,
 } from '@/types/api'
 
 export function useOperationsApi() {
@@ -12,6 +13,8 @@ export function useOperationsApi() {
     fleetHealth: () => request<DeviceHealthRead[]>('GET', '/health/devices'),
     events: (deviceId: string) =>
       request<DeviceEventRead[]>('GET', `/devices/${deviceId}/events`),
+    /** The newest errors across every screen, each with its screen's name. */
+    errors: () => request<FleetEventRead[]>('GET', '/events/errors'),
     plays: (deviceId: string) =>
       request<PlayEventRead[]>('GET', `/devices/${deviceId}/plays`),
   }

@@ -9,12 +9,14 @@ from sqlmodel import Session, delete, func, select
 from app.models import (
     Account,
     Device,
+    DeviceAccess,
     DeviceEvent,
     EventLevel,
     Media,
     MediaStatus,
     PlayEvent,
     User,
+    UserRole,
 )
 from app.services.errors import DomainError
 
@@ -236,3 +238,19 @@ def prune(session: Session, *, now: datetime | None = None) -> tuple[int, int]:
     ).rowcount or 0
     session.commit()
     return plays, events
+
+
+def recent_errors(session: Session, *, user: User, limit: int = 50) -> list[tuple[DeviceEvent, str]]:
+    """The newest error events across every screen the user can reach, each with its screen's
+    name — the Overview's Errors tab. A manager sees only their granted screens' errors, the
+    same scoping as the screen list."""
+    statement = (
+        select(DeviceEvent, Device.name)
+        .join(Device, Device.id == DeviceEvent.device_id)
+        .where(DeviceEvent.account_id == user.account_id, DeviceEvent.level == EventLevel.ERROR)
+    )
+    if user.role == UserRole.MANAGER:
+        statement = statement.join(
+            DeviceAccess, (DeviceAccess.device_id == Device.id) & (DeviceAccess.user_id == user.id)
+        )
+    return list(session.exec(statement.order_by(DeviceEvent.created_at.desc()).limit(limit)).all())

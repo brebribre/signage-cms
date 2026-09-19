@@ -30,6 +30,14 @@ class DeviceEventRead(BaseModel):
     created_at: datetime
 
 
+class FleetEventRead(DeviceEventRead):
+    """An event with the screen it came from — the Overview's Errors tab lists these across
+    every screen."""
+
+    device_id: uuid.UUID
+    device_name: str
+
+
 class PlayEventRead(BaseModel):
     id: uuid.UUID
     media_id: uuid.UUID | None

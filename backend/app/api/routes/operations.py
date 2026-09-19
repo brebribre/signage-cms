@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.api.deps import CurrentUser, DbSession, DeviceForUser
 from app.models import Account, Media, MediaStatus
 from app.schemas.operations import (
+    FleetEventRead,
     DeviceEventRead,
     DeviceHealthRead,
     PlayEventRead,
@@ -40,6 +41,18 @@ def fleet_health(user: CurrentUser, session: DbSession) -> list[DeviceHealthRead
     return [
         DeviceHealthRead(**h.__dict__)
         for h in operations.fleet_health(session, user=user)
+    ]
+
+
+@router.get("/events/errors", response_model=list[FleetEventRead])
+def fleet_errors(user: CurrentUser, session: DbSession) -> list[FleetEventRead]:
+    """The newest errors across every screen the caller can reach, newest first."""
+    return [
+        FleetEventRead(
+            id=e.id, level=e.level, message=e.message, created_at=e.created_at,
+            device_id=e.device_id, device_name=name or "Unnamed screen",
+        )
+        for e, name in operations.recent_errors(session, user=user)
     ]
 
 

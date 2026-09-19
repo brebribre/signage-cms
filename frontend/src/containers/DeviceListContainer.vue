@@ -72,7 +72,7 @@ async function onPairDone(orientation: DeviceOrientation | null) {
       <template #actions>
         <AppButton size="sm" @click="pairing = true">
           <IconAdd class="size-4" aria-hidden="true" />
-          Add screen
+          Connect a screen
         </AppButton>
       </template>
     </PageTitle>
@@ -90,7 +90,7 @@ async function onPairDone(orientation: DeviceOrientation | null) {
       <template #actions>
         <AppButton size="sm" @click="pairing = true">
           <IconAdd class="size-4" aria-hidden="true" />
-          Add screen
+          Connect a screen
         </AppButton>
       </template>
     </EmptyState>
@@ -133,7 +133,7 @@ async function onPairDone(orientation: DeviceOrientation | null) {
     </div>
     </template>
 
-    <AppModal v-if="pairing" title="Add a screen" @close="pairing = false">
+    <AppModal v-if="pairing" title="Connect a screen" @close="pairing = false">
       <PairScreenForm
         :is-saving="isSaving" :claim-error="claimError" :connecting="connecting"
         @submit="onClaim"
