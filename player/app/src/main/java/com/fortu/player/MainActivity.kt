@@ -25,12 +25,14 @@ import androidx.compose.ui.Modifier
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import com.fortu.player.kiosk.DeviceSettingsApplier
 import com.fortu.player.kiosk.KioskPolicy
 import com.fortu.player.playback.PlaybackSurface
 import com.fortu.player.ui.ClaimedScreen
 import com.fortu.player.ui.DebugOverlay
 import com.fortu.player.ui.ExitPinDialog
 import com.fortu.player.ui.IdleScreen
+import com.fortu.player.ui.SleepScreen
 import com.fortu.player.ui.PairingScreen
 import com.fortu.player.ui.PreparingScreen
 import com.fortu.player.ui.StartingScreen
@@ -117,6 +119,19 @@ class MainActivity : ComponentActivity() {
 
         // A signage screen must never sleep, and must never show system chrome.
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        // When a scheduled "on" wakes the display (DeviceSettingsApplier.wakeScreen), the
+        // player must be what appears — over a swipe lock screen on a box that has one, which
+        // no policy is needed for. Device Owner boxes have no keyguard at all.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(true)
+            setTurnScreenOn(true)
+        } else {
+            @Suppress("DEPRECATION")
+            window.addFlags(
+                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                    WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON,
+            )
+        }
         WindowCompat.setDecorFitsSystemWindows(window, false)
         WindowInsetsControllerCompat(window, window.decorView).apply {
             hide(WindowInsetsCompat.Type.systemBars())
@@ -141,6 +156,20 @@ class MainActivity : ComponentActivity() {
             var showExitPin by remember { mutableStateOf(false) }
             var exitPinError by remember { mutableStateOf(false) }
             val orientation by vm.orientation.collectAsState()
+            val asleep by DeviceSettingsApplier.asleep.collectAsState()
+
+            // Asleep: the window stops holding the panel awake, so the box's own sleep timer
+            // may switch the display off, and its brightness goes to the floor so a panel that
+            // stays lit is as dark as it can be. Both are per-window and need no policy. Both
+            // come back the moment the screen is on again.
+            LaunchedEffect(asleep) {
+                if (asleep) window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                else window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                window.attributes = window.attributes.apply {
+                    screenBrightness = if (asleep) 0f
+                    else WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+                }
+            }
 
             // The corner hold that opens the debug overlay is recognised in dispatchTouchEvent
             // above, not here — see its comment.
@@ -194,7 +223,10 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                when (val s = state) {
+                // Asleep means nothing playing at all, not content hidden behind black: a
+                // sleeping screen should not be decoding video all night. Leaving the
+                // composition releases every player and WebView; waking rebuilds them.
+                if (asleep) SleepScreen() else when (val s = state) {
                     is PlayerState.Starting -> StartingScreen()
                     is PlayerState.Pairing -> PairingScreen(s.code, s.error)
                     is PlayerState.Claimed -> ClaimedScreen(s.deviceName)

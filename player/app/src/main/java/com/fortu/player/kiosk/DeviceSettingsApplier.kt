@@ -6,6 +6,8 @@ import android.os.PowerManager
 import android.provider.Settings
 import android.util.Log
 import com.fortu.player.api.ManifestSettings
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.json.JsonPrimitive
 
 private const val TAG = "FortuSettings"
@@ -37,6 +39,13 @@ object DeviceSettingsApplier {
      *  changes, not only when someone actually touches volume. */
     private var lastAppliedVolume: Int? = null
     private var lastAppliedBrightness: Int? = null
+
+    private val _asleep = MutableStateFlow(false)
+
+    /** Whether the screen is meant to be off right now. `MainActivity` renders black and lets
+     *  the panel dim and sleep while this is true — the part of "off" that works on every
+     *  install, not only Device Owner. See [applyPower]. */
+    val asleep: StateFlow<Boolean> = _asleep
 
     fun apply(context: Context, settings: ManifestSettings) {
         settings.volume?.let {
@@ -71,7 +80,10 @@ object DeviceSettingsApplier {
         }.onFailure { Log.w(TAG, "reading brightness failed", it) }
         runCatching {
             val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-            out["power_state"] = JsonPrimitive(if (pm.isInteractive) "on" else "off")
+            // Asleep counts as off even while the panel is still lit: black, nothing playing,
+            // brightness at the floor is what "off" means on a screen that can't cut its
+            // display (see applyPower), and the CMS should not call that a mismatch.
+            out["power_state"] = JsonPrimitive(if (_asleep.value || !pm.isInteractive) "off" else "on")
         }.onFailure { Log.w(TAG, "reading power state failed", it) }
         return out
     }
@@ -119,20 +131,34 @@ object DeviceSettingsApplier {
      * when this box sleeps depends on the TV honoring HDMI-CEC, which is set-dependent and
      * outside this app's control. Called by `PlayerEngine` only when its power decision
      * changes; the actual result is reported back as `power_state` by [currentSettings].
+     *
+     * "Off" is two layers, so it works on every install rather than only Device Owner:
+     *
+     *  1. **Asleep** ([asleep], any install): `MainActivity` tears playback down and shows
+     *     black, drops the window's brightness to the floor, and stops holding the panel
+     *     awake, so the box's own sleep timer may switch the display off. Nothing decodes all
+     *     night, and on most panels the backlight goes to its minimum. This is what Yodeck and
+     *     others do on Android without a policy, and it is what most customers will get.
+     *  2. **Display off** (Device Owner only): `lockNow()` switches the panel off at once
+     *     instead of waiting for the sleep timer. Needs only the force-lock policy this app
+     *     already declares (`res/xml/device_admin.xml`).
+     *
+     * "On" is the reverse on every install: a wake lock that turns the display back on
+     * (`ACQUIRE_CAUSES_WAKEUP` needs no policy), and the activity is marked show-when-locked
+     * so a box with a swipe lock screen comes back to the player, not the lock screen.
      */
     fun applyPower(context: Context, on: Boolean) {
+        _asleep.value = !on
         if (on) {
             wakeScreen(context)
             return
         }
         if (!KioskPolicy.isDeviceOwner(context)) {
-            Log.i(TAG, "power off requested but not device owner — skipped (see player/README.md)")
+            Log.i(TAG, "power off: asleep (black screen); not device owner, so the display stays up to the box's own sleep timer")
             return
         }
-        // lockNow() needs only the force-lock policy this app already declares (see
-        // res/xml/device_admin.xml) — no extra provisioning beyond Device Owner itself.
         runCatching { KioskPolicy.dpm(context).lockNow() }
-            .onFailure { Log.w(TAG, "power off failed", it) }
+            .onFailure { Log.w(TAG, "display off failed", it) }
     }
 
     @Suppress("DEPRECATION") // SCREEN_BRIGHT_WAKE_LOCK has no non-deprecated equivalent that
@@ -146,8 +172,9 @@ object DeviceSettingsApplier {
                     PowerManager.ON_AFTER_RELEASE,
                 "$TAG:wake",
             )
-            // Only needs to hold long enough to trigger the wake — the keyguard is already
-            // disabled (KioskPolicy.apply), so nothing re-locks the screen once it's on.
+            // Only needs to hold long enough to trigger the wake. On Device Owner the
+            // keyguard is disabled (KioskPolicy.apply); elsewhere MainActivity is
+            // show-when-locked, so either way the player is what comes up.
             wakeLock.acquire(3_000)
         }.onFailure { Log.w(TAG, "power on (wake) failed", it) }
     }

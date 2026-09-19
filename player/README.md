@@ -208,6 +208,7 @@ you provision a device you might need back for something else.
 | `setLockTaskPackages` + `startLockTask` | Only this app can hold the foreground. Home and Recents do nothing. |
 | `setKeyguardDisabled` | No lock screen to get stuck behind after a reboot. |
 | `STAY_ON_WHILE_PLUGGED_IN` | Screen never sleeps while powered — signage is always plugged in. |
+| `lockNow` (on a scheduled off) | Switches the display off at once, instead of the black screen every install shows. See [Power off](#power-off). |
 | `setSystemUpdatePolicy` (windowed) | System updates install between 03:00–05:00 instead of covering the screen mid-day. |
 | `clearPackagePersistentPreferredActivities` | Undoes the launcher registration builds up to 1.2.7 made, so a reboot lands on the normal home screen. |
 
@@ -302,6 +303,21 @@ said nothing for three minutes is shown as having gone quiet, not as still downl
   not updating. Sideloaded and development installs update with `adb install -r` as usual.
 
 ---
+
+## Power off
+
+A scheduled or manual "off" works on every install. The player tears playback down and shows
+black (nothing decodes all night), drops its window's brightness to the floor, and stops holding
+the panel awake, so the box's own sleep timer may switch the display off — and the screen reports
+`off` to the CMS while it is in that state. On Device Owner it also switches the display off at
+once with `lockNow()` rather than waiting for the timer. "On" is the reverse everywhere: a wake
+lock turns the display back on, and the activity is marked show-when-locked so a box with a
+swipe lock screen comes back to the player.
+
+Two things this is not: a hardware power cycle (nothing generic in Android can cut power to an
+HDMI TV — whether the TV itself goes to standby depends on it honouring HDMI-CEC), and a
+guarantee the backlight is off on a box whose sleep timer is set to "never". For the darkest
+result on a non-owner box, set the box's own Display → Sleep to a short interval.
 
 ## After a reboot
 

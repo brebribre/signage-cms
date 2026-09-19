@@ -320,6 +320,16 @@ fun PreparingScreen(
  * the translucent card where the code was, and the same slow pulse to say it is alive and
  * connected rather than frozen. What changes is the words: what to do next is in the CMS.
  */
+/**
+ * The screen while it is "off" by schedule or override: black, and nothing else. Deliberately
+ * not a logo or a message — a dark panel at closing time should look switched off from across
+ * the room, and on most panels the window's brightness floor (see MainActivity) makes it so.
+ */
+@Composable
+fun SleepScreen() {
+    Box(Modifier.fillMaxSize().background(Color.Black))
+}
+
 @Composable
 fun IdleScreen(deviceName: String) {
     Box(

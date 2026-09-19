@@ -376,6 +376,10 @@ const reportedMismatch = computed(() => {
               <p v-if="power && reportedMismatch" class="mt-0.5 text-[13px] text-danger">
                 Screen reports {{ power.reported_state }} · {{ relativeTime(power.reported_at) }}
               </p>
+              <p v-if="power" class="mt-1 text-[12px] text-ink-subtle">
+                Off shows a black screen with nothing playing and lets the panel sleep.
+                <template v-if="platform !== 'web'">A screen set up as Device Owner switches its display off as well.</template>
+              </p>
             </div>
 
             <!-- Follows the schedule as drafted, so the control matches what Save will send. -->
