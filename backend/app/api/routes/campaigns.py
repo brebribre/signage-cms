@@ -3,7 +3,7 @@ import uuid
 from fastapi import APIRouter, HTTPException, status
 
 from app.api.deps import CurrentUser, DbSession
-from app.api.review_gate import device_names, needs_review, park
+from app.api.review_gate import device_names, needs_review, park, playlist_names
 from app.models import ReviewKind
 from app.schemas.campaigns import (
     CampaignRead,
@@ -91,7 +91,9 @@ def create_campaign(body: CampaignWrite, user: CurrentUser, session: DbSession):
         return park(
             session, user=user, kind=ReviewKind.CAMPAIGN_CREATE, target_id=None,
             target_name=body.name.strip(), summary="New " + summary[0].lower() + summary[1:],
-            screens=screens, payload=body.model_dump(mode="json"),
+            screens=screens,
+            playlists=playlist_names(session, account_id=user.account_id, playlist_ids=[r.playlist_id for r in body.rules]),
+            payload=body.model_dump(mode="json"),
         )
     try:
         campaign, skipped = campaign_service.create(
@@ -130,7 +132,13 @@ def update_campaign(
             return park(
                 session, user=user, kind=ReviewKind.CAMPAIGN_UPDATE, target_id=campaign_id,
                 target_name=campaign.name, summary=summary,
-                screens=list(dict.fromkeys(screens + leaving)), payload=body.model_dump(mode="json"),
+                screens=list(dict.fromkeys(screens + leaving)),
+                playlists=playlist_names(
+                    session, account_id=user.account_id,
+                    playlist_ids=[r.playlist_id for r in body.rules]
+                    + [r.playlist_id for r in campaign_service.rules_for(session, campaign_id=campaign_id)],
+                ),
+                payload=body.model_dump(mode="json"),
             )
         campaign, skipped = campaign_service.update(
             session, user=user, campaign=campaign, name=body.name,
@@ -157,6 +165,11 @@ def delete_campaign(campaign_id: uuid.UUID, user: CurrentUser, session: DbSessio
         return park(
             session, user=user, kind=ReviewKind.CAMPAIGN_DELETE, target_id=campaign_id,
             target_name=campaign.name, summary=f"Delete campaign “{campaign.name}”",
-            screens=screens, payload={},
+            screens=screens,
+            playlists=playlist_names(
+                session, account_id=user.account_id,
+                playlist_ids=[r.playlist_id for r in campaign_service.rules_for(session, campaign_id=campaign_id)],
+            ),
+            payload={},
         )
     campaign_service.remove(session, campaign=campaign)

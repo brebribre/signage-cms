@@ -467,6 +467,8 @@ export interface ReviewRead {
   summary: string
   /** Screen names the change reaches, as they were when it was sent. */
   screens: string[]
+  /** Playlist names the change touches, as they were when it was sent. */
+  playlists: string[]
   /** The change as sent — read for detail, never edited here. */
   payload: Record<string, unknown>
   /** The owner's reason on a rejection. */

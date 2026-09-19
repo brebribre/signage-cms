@@ -145,7 +145,7 @@ def update_playlist(
                 session, user=user, kind=ReviewKind.PLAYLIST_SHUFFLE, target_id=playlist_id,
                 target_name=playlist.name,
                 summary=f"Shuffle {'on' if body.shuffle else 'off'} for playlist “{playlist.name}”",
-                screens=screens, payload={"shuffle": body.shuffle},
+                screens=screens, playlists=[playlist.name], payload={"shuffle": body.shuffle},
             )
     try:
         playlist_service.update(
@@ -216,7 +216,7 @@ def replace_items(
                 session, user=user, kind=ReviewKind.PLAYLIST_ITEMS, target_id=playlist_id,
                 target_name=playlist.name,
                 summary=f"{n} scene{'' if n == 1 else 's'} in playlist “{playlist.name}”",
-                screens=screens, payload=body.model_dump(mode="json"),
+                screens=screens, playlists=[playlist.name], payload=body.model_dump(mode="json"),
             )
     try:
         playlist, rows = playlist_service.replace_items(

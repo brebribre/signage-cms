@@ -12,6 +12,7 @@ import IconCheck from '~icons/material-symbols/check'
 import IconClose from '~icons/material-symbols/close'
 import IconLanguage from '~icons/material-symbols/language'
 import IconPause from '~icons/material-symbols/pause'
+import IconPlaylistPlay from '~icons/material-symbols/playlist-play'
 import IconPlayArrow from '~icons/material-symbols/play-arrow'
 import IconTv from '~icons/material-symbols/tv-outline'
 
@@ -27,6 +28,7 @@ import AppAlert from '@/reusables/AppAlert.vue'
 import AppButton from '@/reusables/AppButton.vue'
 import AppModal from '@/reusables/AppModal.vue'
 import ModalActions from '@/reusables/ModalActions.vue'
+import NamePills from '@/reusables/NamePills.vue'
 import PageTitle from '@/reusables/PageTitle.vue'
 import ScreenPreview from '@/reusables/ScreenPreview.vue'
 import SkeletonBlock from '@/reusables/SkeletonBlock.vue'
@@ -128,15 +130,12 @@ async function confirmReject() {
       <AppAlert v-if="review.note">“{{ review.note }}”</AppAlert>
       <AppAlert v-if="actionError" tone="danger">{{ actionError }}</AppAlert>
 
-      <div v-if="review.screens.length" class="flex flex-wrap items-center gap-1.5">
-        <span class="text-[13px] text-ink-muted">Reaches</span>
-        <span
-          v-for="name in review.screens" :key="name"
-          class="flex items-center gap-1 rounded-full bg-raised px-2.5 py-0.5 text-[12px] text-ink"
-        >
-          <IconTv class="size-3.5 text-ink-muted" aria-hidden="true" />{{ name }}
-        </span>
-      </div>
+      <dl class="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-1.5">
+        <dt class="text-[13px] text-ink-muted">Screens</dt>
+        <dd><NamePills :names="review.screens" :icon="IconTv" noun="screens" :max="8" /></dd>
+        <dt class="text-[13px] text-ink-muted">Playlists</dt>
+        <dd><NamePills :names="review.playlists" :icon="IconPlaylistPlay" noun="playlists" :max="8" /></dd>
+      </dl>
 
       <!-- A playlist change: the same list and preview as the playlist page, read-only, with the
            saved playlist one click away. -->

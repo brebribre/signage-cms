@@ -12,12 +12,12 @@ from typing import Any
 from fastapi.responses import JSONResponse
 from sqlmodel import Session, select
 
-from app.models import Device, ReviewKind, User
+from app.models import Device, Playlist, ReviewKind, User
 from app.schemas.reviews import PendingReview, ReviewRead
 from app.services import reviews as review_service
 from app.services.reviews import needs_review  # re-exported for routes
 
-__all__ = ["needs_review", "park", "read", "device_names"]
+__all__ = ["needs_review", "park", "read", "device_names", "playlist_names"]
 
 
 def read(review) -> ReviewRead:
@@ -34,10 +34,11 @@ def park(
     summary: str,
     screens: list[str],
     payload: dict[str, Any],
+    playlists: list[str] | None = None,
 ) -> JSONResponse:
     review = review_service.submit(
         session, user=user, kind=kind, target_id=target_id, target_name=target_name,
-        summary=summary, screens=screens, payload=payload,
+        summary=summary, screens=screens, payload=payload, playlists=playlists,
     )
     body = PendingReview(pending_review=read(review))
     return JSONResponse(status_code=202, content=body.model_dump(mode="json"))
@@ -55,3 +56,17 @@ def device_names(session: Session, *, account_id: uuid.UUID, device_ids: list[uu
             .order_by(Device.name)
         ).all()
     )
+
+
+def playlist_names(session: Session, *, account_id: uuid.UUID, playlist_ids: list[uuid.UUID | None]) -> list[str]:
+    """Names for the playlists a change touches, in the order given, without repeats. Ids
+    outside the account, or None, are simply absent."""
+    wanted = [i for i in dict.fromkeys(playlist_ids) if i is not None]
+    if not wanted:
+        return []
+    found = {
+        p.id: p.name for p in session.exec(
+            select(Playlist).where(Playlist.id.in_(wanted), Playlist.account_id == account_id)
+        ).all()
+    }
+    return [found[i] for i in wanted if i in found]

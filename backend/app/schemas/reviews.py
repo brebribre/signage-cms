@@ -17,6 +17,8 @@ class ReviewRead(BaseModel):
     target_name: str
     summary: str
     screens: list[str]
+    #: Playlist names the change touches, as they were when it was sent.
+    playlists: list[str] = []
     # The change as sent — the Reviews page shows the parts worth reading (scene count,
     # rules) without a second request.
     payload: dict[str, Any]

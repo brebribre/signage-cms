@@ -3,7 +3,7 @@ import uuid
 from fastapi import APIRouter, HTTPException, status
 
 from app.api.deps import CurrentUser, DbSession, DeviceForUser
-from app.api.review_gate import needs_review, park
+from app.api.review_gate import needs_review, park, playlist_names
 from app.models import Device, ReviewKind
 from app.schemas.schedules import (
     ResolutionRead,
@@ -39,7 +39,9 @@ def create_schedule(
         return park(
             session, user=user, kind=ReviewKind.SCHEDULE_CREATE, target_id=device.id,
             target_name=device.name, summary=f"New schedule on screen “{device.name}”",
-            screens=[device.name], payload=body.model_dump(mode="json"),
+            screens=[device.name],
+            playlists=playlist_names(session, account_id=user.account_id, playlist_ids=[body.playlist_id]),
+            payload=body.model_dump(mode="json"),
         )
     try:
         schedule = schedule_service.create(
@@ -86,7 +88,9 @@ def update_schedule(
             return park(
                 session, user=user, kind=ReviewKind.SCHEDULE_UPDATE, target_id=schedule_id,
                 target_name=schedule.name or name, summary=f"Schedule change on screen “{name}”",
-                screens=[name], payload=body.model_dump(mode="json", exclude_none=True),
+                screens=[name],
+                playlists=playlist_names(session, account_id=user.account_id, playlist_ids=[body.playlist_id or schedule.playlist_id]),
+                payload=body.model_dump(mode="json", exclude_none=True),
             )
         updated = schedule_service.update(
             session, user=user, schedule=schedule,
@@ -113,6 +117,8 @@ def delete_schedule(schedule_id: uuid.UUID, user: CurrentUser, session: DbSessio
         return park(
             session, user=user, kind=ReviewKind.SCHEDULE_DELETE, target_id=schedule_id,
             target_name=schedule.name or name, summary=f"Remove a schedule from screen “{name}”",
-            screens=[name], payload={},
+            screens=[name],
+            playlists=playlist_names(session, account_id=user.account_id, playlist_ids=[schedule.playlist_id]),
+            payload={},
         )
     schedule_service.remove(session, schedule=schedule)

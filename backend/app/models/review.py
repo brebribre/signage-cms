@@ -61,6 +61,9 @@ class ContentReview(SQLModel, table=True):
     summary: str
     # Screen names the change would reach, as they were when it was sent.
     screens: list[str] = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
+    # Playlist names the change touches — the one being edited, or the ones a campaign or
+    # schedule puts on screens — as they were when it was sent. The list page shows both.
+    playlists: list[str] = Field(default_factory=list, sa_column=Column(JSON, nullable=False, server_default="[]"))
     # The request body as sent, re-validated against the same schema when approved.
     payload: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
     status: ReviewStatus = Field(
