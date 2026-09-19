@@ -3,6 +3,8 @@ package com.fortu.player
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import com.fortu.player.kiosk.KioskPolicy
 
@@ -37,12 +39,26 @@ class RelaunchReceiver : BroadcastReceiver() {
             return
         }
 
-        runCatching {
-            context.startActivity(
-                Intent(context, MainActivity::class.java).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-            )
-        }.onFailure { Log.e("FortuPlayer", "relaunch after update failed", it) }
+        // Not straight away: the broadcast arrives while the package manager is still finishing
+        // the replacement, and an activity started inside that window is torn down with the
+        // old install (seen on a Device Owner emulator once the APK shrank enough for the
+        // broadcast to land early — the activity appeared and vanished within a second, no
+        // crash). A short wait lands the start after the dust settles; goAsync keeps the
+        // receiver alive for it.
+        val pending = goAsync()
+        Handler(Looper.getMainLooper()).postDelayed({
+            runCatching {
+                context.startActivity(
+                    Intent(context, MainActivity::class.java).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                )
+            }.onFailure { Log.e("FortuPlayer", "relaunch after update failed", it) }
+            pending.finish()
+        }, RELAUNCH_DELAY_MILLIS)
+    }
+
+    private companion object {
+        const val RELAUNCH_DELAY_MILLIS = 2_500L
     }
 }

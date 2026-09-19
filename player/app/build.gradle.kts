@@ -19,8 +19,8 @@ android {
         // Overridable for a test install over a screen (or emulator) that already carries a higher
         // test build: ./gradlew assembleRelease -PversionCode=200 -PversionName=1.2.0-emu. A real
         // release never passes these; it edits the two numbers here.
-        versionCode = (project.findProperty("versionCode") as String?)?.toInt() ?: 30
-        versionName = (project.findProperty("versionName") as String?) ?: "1.2.9"
+        versionCode = (project.findProperty("versionCode") as String?)?.toInt() ?: 31
+        versionName = (project.findProperty("versionName") as String?) ?: "1.3.0"
 
         // The API base URL is compiled in, not configured on the device — a screen with no
         // keyboard cannot be asked to type one. Override per build:
@@ -69,7 +69,12 @@ android {
             applicationIdSuffix = ".debug"
         }
         release {
-            isMinifyEnabled = false
+            // R8 with resource shrinking: the unminified build was 12 MB, nearly all of it
+            // Compose, Media3 and Netty code the app never calls, and every screen downloads
+            // the whole file on every rollout. The keep rules in proguard-rules.pro cover
+            // what is reached by reflection (JSON serializers, the MQTT client's transport).
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             // Signed with the debug key so `assembleRelease` produces an installable APK with
             // no keystore setup. Fine for sideloading onto screens you own; a real Play
