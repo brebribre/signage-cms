@@ -12,7 +12,8 @@ const open = ref<number | null>(0)
 </script>
 
 <template>
-  <section class="mx-auto max-w-3xl px-5 py-20 sm:px-8 sm:py-28">
+  <section id="faq" class="bg-page py-20 sm:py-28">
+    <div class="mx-auto max-w-3xl px-5 sm:px-8">
     <h2 class="reveal text-3xl sm:text-4xl">Questions people ask first.</h2>
     <ul class="mt-8 divide-y divide-line border-y border-line">
       <li v-for="(item, i) in QA" :key="item.q" class="reveal">
@@ -23,5 +24,6 @@ const open = ref<number | null>(0)
         <p v-if="open === i" class="pb-5 text-sm leading-relaxed text-ink-muted">{{ item.a }}</p>
       </li>
     </ul>
+    </div>
   </section>
 </template>
