@@ -42,6 +42,51 @@ export interface DraftItem {
   elements: DraftElement[]
 }
 
+/** Videos and websites are a scene's "live" elements, and they are what a screen runs out of:
+ *  a video holds a hardware decoder and its own surface, a website its own renderer process.
+ *  A TV box handles two of them in one scene; three is where it crashes. Images don't count.
+ *  The same numbers as the server's (services/playlists.py MAX_LIVE_ELEMENTS and
+ *  MAX_VIDEO_ELEMENTS), which rejects a scene over them — the editor just says so first. */
+export const MAX_LIVE_ELEMENTS = 2
+export const MAX_VIDEO_ELEMENTS = 1
+
+export function isLiveKind(kind: DraftElement['kind']): boolean {
+  return kind === 'video' || kind === 'web'
+}
+
+export interface LiveBudget {
+  live: number
+  videos: number
+  /** No more videos or websites fit. */
+  liveFull: boolean
+  /** No more videos fit (a website still may). */
+  videoFull: boolean
+  /** Past a limit — only possible for a scene saved before the limits existed. */
+  over: boolean
+}
+
+export function liveBudget(elements: Pick<DraftElement, 'kind'>[]): LiveBudget {
+  const live = elements.filter((e) => isLiveKind(e.kind)).length
+  const videos = elements.filter((e) => e.kind === 'video').length
+  return {
+    live,
+    videos,
+    liveFull: live >= MAX_LIVE_ELEMENTS,
+    videoFull: videos >= MAX_VIDEO_ELEMENTS,
+    over: live > MAX_LIVE_ELEMENTS || videos > MAX_VIDEO_ELEMENTS,
+  }
+}
+
+/** Why an element of `kind` can't join the scene right now, in the user's words — or null. */
+export function liveBlockReason(budget: LiveBudget, kind: DraftElement['kind']): string | null {
+  if (!isLiveKind(kind)) return null
+  if (kind === 'video' && budget.videoFull) return 'A scene can only have one video.'
+  if (budget.liveFull) {
+    return `A scene can only have ${MAX_LIVE_ELEMENTS} live elements (videos or websites). Remove one to add another.`
+  }
+  return null
+}
+
 const IMAGE_DEFAULT_SECONDS = 10
 /** Same as the server's default for a website scene: it takes a moment to load, and is
  *  usually worth reading. */

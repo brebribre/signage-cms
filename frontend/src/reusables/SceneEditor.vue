@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import IconArrowBack from '~icons/material-symbols/arrow-back'
+import IconBolt from '~icons/material-symbols/bolt'
 import IconAspectRatio from '~icons/material-symbols/aspect-ratio-outline'
 import IconClose from '~icons/material-symbols/close'
 import IconWallpaper from '~icons/material-symbols/wallpaper'
@@ -26,7 +27,14 @@ import {
   ROTATION_WRAPPER_STYLE,
   rotationStyle,
 } from '@/utils/cropMath'
-import { mediaToDraftElement, websiteToDraftElement } from '@/hooks/usePlaylistEditor'
+import {
+  MAX_LIVE_ELEMENTS,
+  isLiveKind,
+  liveBlockReason,
+  liveBudget,
+  mediaToDraftElement,
+  websiteToDraftElement,
+} from '@/hooks/usePlaylistEditor'
 import { websiteLayoutScreen } from '@/utils/websiteLayout'
 import { normalizeWebsiteUrl, websiteLabel } from '@/utils/websiteUrl'
 import type { DraftElement, DraftItem } from '@/hooks/usePlaylistEditor'
@@ -63,7 +71,9 @@ const emit = defineEmits<{
  *  which means leaving a half-built scene to do it. */
 const { jobs: uploadJobs, add: addUploads } = useMediaUpload((media) => {
   emit('uploaded', media)
-  addFromMedia(media)
+  const blocked = liveBlockReason(budget.value, media.kind)
+  if (blocked) showNotice(`${media.filename} is in your library, but not in this scene. ${blocked}`)
+  else addFromMedia(media)
 })
 const mediaInput = ref<HTMLInputElement | null>(null)
 
@@ -96,6 +106,30 @@ function onPanelDrop(e: DragEvent) {
 // A local working copy — nothing here reaches the draft scene until Apply.
 const elements = ref<DraftElement[]>(props.item.elements.map((e) => ({ ...e })))
 const background = ref<SceneBackground>(props.item.background)
+
+// --- The live budget: how many videos and websites this scene holds against what a screen can
+// run at once (see usePlaylistEditor.ts). Shown in the header the whole time, so the limit is
+// known before it is hit; when it is hit, the thing you tried says why instead of doing nothing.
+const budget = computed(() => liveBudget(elements.value))
+const LIVE_HINT =
+  `Videos and websites play live on the screen and are heavy for it. ` +
+  `A scene can have up to ${MAX_LIVE_ELEMENTS} of them, and only one video. Pictures don't count.`
+const notice = ref<string | null>(null)
+let noticeTimer: ReturnType<typeof setTimeout> | null = null
+function showNotice(text: string) {
+  notice.value = text
+  if (noticeTimer) clearTimeout(noticeTimer)
+  noticeTimer = setTimeout(() => { notice.value = null }, 5000)
+}
+onUnmounted(() => { if (noticeTimer) clearTimeout(noticeTimer) })
+/** What stops Apply: a scene from before the limits, with more live elements than fit. */
+const overMessage = computed(() => {
+  if (!budget.value.over) return null
+  const tooManyVideos = budget.value.videos > 1
+  return tooManyVideos
+    ? 'This scene has more than one video. Remove the extra video to apply.'
+    : `This scene has ${budget.value.live} live elements; a screen can only run ${MAX_LIVE_ELEMENTS}. Remove one to apply.`
+})
 const blurUrl = computed(() => {
   if (background.value !== 'blur') return null
   const source = blurSource(elements.value)
@@ -631,6 +665,11 @@ function defaultBoxSize(m: MediaRead): { width: number; height: number } {
 }
 
 function addFromMedia(m: MediaRead, at?: { x: number; y: number }) {
+  const blocked = liveBlockReason(budget.value, m.kind)
+  if (blocked) {
+    showNotice(blocked)
+    return
+  }
   const { width, height } = defaultBoxSize(m)
   const maxZ = Math.max(0, ...elements.value.map((e) => e.zIndex))
   const x = at
@@ -652,6 +691,11 @@ const websiteInput = ref('')
 const websiteError = ref<string | null>(null)
 
 function addWebsite() {
+  const blocked = liveBlockReason(budget.value, 'web')
+  if (blocked) {
+    showNotice(blocked)
+    return
+  }
   const url = normalizeWebsiteUrl(websiteInput.value)
   if (!url) {
     websiteError.value = 'Enter a full https:// address'
@@ -692,6 +736,10 @@ function onSelectedUrlCommit() {
 }
 
 function onToolbarDragStart(m: MediaRead, e: DragEvent) {
+  if (liveBlockReason(budget.value, m.kind)) {
+    e.preventDefault()
+    return
+  }
   e.dataTransfer?.setData('text/plain', m.id)
   if (e.dataTransfer) e.dataTransfer.effectAllowed = 'copy'
 }
@@ -732,11 +780,33 @@ function apply() {
           <p class="truncate text-[13px] text-ink-subtle">For {{ referenceScreen.label }}</p>
         </div>
       </div>
-      <AppButton size="sm" @click="apply">
-        <IconCheck class="size-4" />
-        Apply
-      </AppButton>
+      <div class="flex shrink-0 items-center gap-2 sm:gap-3">
+        <span
+          class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[12px] tabular-nums transition-colors duration-200"
+          :class="budget.over
+            ? 'border-danger/40 text-danger'
+            : budget.liveFull ? 'border-line-strong text-ink' : 'border-line text-ink-muted'"
+          :title="LIVE_HINT"
+          :aria-label="`Live elements: ${budget.live} of ${MAX_LIVE_ELEMENTS}`"
+        >
+          <IconBolt class="size-3.5" aria-hidden="true" />
+          Live {{ budget.live }}/{{ MAX_LIVE_ELEMENTS }}
+        </span>
+        <AppButton size="sm" :disabled="budget.over" @click="apply">
+          <IconCheck class="size-4" />
+          Apply
+        </AppButton>
+      </div>
     </div>
+    <!-- One line under the header for the limit: what stopped the last add, or what stops Apply. -->
+    <p
+      v-if="overMessage || notice"
+      class="shrink-0 border-b border-line px-3 py-1.5 text-[13px] sm:px-6"
+      :class="overMessage ? 'bg-raised text-danger' : 'bg-raised text-ink-muted'"
+      role="status"
+    >
+      {{ overMessage ?? notice }}
+    </p>
 
     <div class="relative flex min-h-0 flex-1">
       <!-- Left rail: the source you are adding from, with its panel beside it. Desktop only; on a
@@ -822,10 +892,13 @@ function apply() {
           <ul v-else class="flex flex-col gap-1">
             <li v-for="m in filteredLibrary" :key="m.id">
               <div
-                draggable="true"
-                class="flex cursor-grab items-center gap-2.5 rounded-lg p-1.5 transition-colors
-                       duration-200 hover:bg-surface active:cursor-grabbing"
-                title="Drag onto the canvas, or click to add"
+                :draggable="!liveBlockReason(budget, m.kind)"
+                class="flex items-center gap-2.5 rounded-lg p-1.5 transition-colors duration-200"
+                :class="liveBlockReason(budget, m.kind)
+                  ? 'cursor-not-allowed opacity-40'
+                  : 'cursor-grab hover:bg-surface active:cursor-grabbing'"
+                :title="liveBlockReason(budget, m.kind) ?? 'Drag onto the canvas, or click to add'"
+                :aria-disabled="!!liveBlockReason(budget, m.kind)"
                 @dragstart="onToolbarDragStart(m, $event)"
                 @click="addFromMedia(m)"
               >
@@ -846,6 +919,9 @@ function apply() {
           </ul>
         </template>
 
+        <p v-else-if="liveBlockReason(budget, 'web')" class="rounded-lg bg-surface px-3 py-2 text-[13px] text-ink-muted">
+          {{ liveBlockReason(budget, 'web') }}
+        </p>
         <form v-else class="flex flex-col gap-2" @submit.prevent="addWebsite">
           <input
             v-model="websiteInput"
@@ -1073,6 +1149,11 @@ function apply() {
               <component :is="KIND_ICON[el.kind]" class="absolute bottom-0.5 right-0.5 size-3 text-white/90" />
             </div>
             <span class="min-w-0 flex-1 truncate text-[13px] text-ink">{{ el.filename }}</span>
+            <span
+              v-if="isLiveKind(el.kind)"
+              class="shrink-0 rounded bg-surface px-1 text-[10px] uppercase tracking-wide text-ink-subtle"
+              :title="LIVE_HINT"
+            >live</span>
             <div class="flex shrink-0 flex-col">
               <button
                 type="button" class="text-ink-subtle hover:text-ink disabled:pointer-events-none disabled:opacity-30"

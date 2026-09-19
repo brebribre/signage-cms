@@ -35,6 +35,14 @@ MAX_ITEM_SECONDS = 3600
 # How far a crop can zoom in past the tightest "cover" fit before signage media (rarely
 # shot at high resolution) starts looking visibly soft.
 MAX_CROP_ZOOM = 3.0
+# Videos and websites are a scene's "live" elements, and they are what a screen runs out of:
+# a video holds a hardware decoder and its own surface, a website runs as a separate renderer
+# process (150-250 MB on the 1-2 GB TV boxes signage runs on). Two together is where boxes
+# have been seen struggling; three is where they crash. Images are decoded once at screen
+# size and don't count. The scene editor shows the same budget, so this is the backstop.
+MAX_LIVE_ELEMENTS = 2
+# See replace_items: one long-lived decoder per screen, and SoCs with 1-2 decoders in total.
+MAX_VIDEO_ELEMENTS = 1
 
 
 @dataclass(frozen=True)
@@ -309,10 +317,12 @@ def replace_items(
 
     for spec in items:
         video_count = 0
+        live_count = 0
         for el in spec.elements:
             if (el.media_id is None) == (el.web_url is None):
                 raise InvalidItems("each element needs either a media file or a website address")
             if el.web_url is not None:
+                live_count += 1
                 if len(el.web_url) > 2048 or not is_web_url(el.web_url):
                     raise InvalidItems(f"{el.web_url} is not a valid https:// address")
                 if el.has_audio or el.rotation_degrees:
@@ -329,13 +339,19 @@ def replace_items(
                 raise InvalidItems(f"{el.media_id}: rotation only applies to video")
             if media.kind == MediaKind.VIDEO:
                 video_count += 1
+                live_count += 1
         # Hardware, not taste: the player keeps exactly one long-lived video decoder/surface
         # alive per screen (see PlaybackSurface.kt), and low-end signage SoCs commonly expose
         # only 1-2 concurrent hardware decoders system-wide. Two videos in one scene risks the
         # "decodes fine, frame never paints, no error" failure this codebase has already been
         # burned by once — caught here, at save time, rather than discovered on a wall.
-        if video_count > 1:
+        if video_count > MAX_VIDEO_ELEMENTS:
             raise InvalidItems("a scene can only have one video element at a time")
+        if live_count > MAX_LIVE_ELEMENTS:
+            raise InvalidItems(
+                f"a scene can only have {MAX_LIVE_ELEMENTS} live elements (videos or websites)"
+                " at a time"
+            )
         if spec.duration_seconds is not None and not (
             MIN_ITEM_SECONDS <= spec.duration_seconds <= MAX_ITEM_SECONDS
         ):
