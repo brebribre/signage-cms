@@ -80,20 +80,15 @@ object KioskPolicy {
         runCatching { dpm.setKeyguardDisabled(admin, true) }
             .onFailure { Log.w(TAG, "keyguard disable failed", it) }
 
-        // Make this app the persistent preferred launcher, so HOME returns here and a reboot
-        // lands in the player rather than a desktop. Done through the policy rather than the
-        // manifest's HOME intent-filter so a non-owner install never hijacks a real phone.
-        runCatching {
-            val filter = android.content.IntentFilter(android.content.Intent.ACTION_MAIN).apply {
-                addCategory(android.content.Intent.CATEGORY_HOME)
-                addCategory(android.content.Intent.CATEGORY_DEFAULT)
-            }
-            dpm.addPersistentPreferredActivity(
-                admin,
-                filter,
-                ComponentName(context, com.fortu.player.MainActivity::class.java),
-            )
-        }.onFailure { Log.w(TAG, "preferred launcher failed", it) }
+        // This app is NOT the launcher. Builds up to 1.2.7 registered it as the persistent
+        // preferred HOME activity, so a reboot landed in the player and Home came back to it —
+        // which also made the box unusable for anything else. A screen is sometimes wanted
+        // for something else, so now a reboot lands on the normal launcher and whoever is
+        // there taps the app. The registration lives in system state, not the APK, so a box
+        // provisioned by an earlier build keeps it until cleared: done here, on every launch,
+        // since it is idempotent and costs nothing.
+        runCatching { dpm.clearPackagePersistentPreferredActivities(admin, context.packageName) }
+            .onFailure { Log.w(TAG, "clearing launcher preference failed", it) }
 
         Log.i(TAG, "device owner policy applied")
     }

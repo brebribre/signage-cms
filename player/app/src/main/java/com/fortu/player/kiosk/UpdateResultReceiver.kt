@@ -12,12 +12,11 @@ private const val TAG = "FortuUpdater"
 /**
  * Where PackageInstaller reports whether the silent install actually landed.
  *
- * A self-update kills this process as part of installing over it — nothing sends the HOME
- * intent that `KioskPolicy`'s persistent-preferred-launcher setting responds to, so without
- * this the screen would sit on the bare Android launcher, alive in the background but showing
- * nothing, until the next reboot (`BootReceiver`) or a human pressed Home. Confirmed live on
- * an emulator: the update installed correctly and the process kept running, but the activity
- * never came back on its own.
+ * A self-update kills this process as part of installing over it, so without this (and
+ * `RelaunchReceiver`, which covers the case where this broadcast never arrives) the screen
+ * would sit on the bare Android launcher, alive in the background but showing nothing, until
+ * a human opened the app. Confirmed live on an emulator: the update installed correctly and
+ * the process kept running, but the activity never came back on its own.
  */
 class UpdateResultReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -58,7 +57,7 @@ class UpdateResultReceiver : BroadcastReceiver() {
         else -> "status $status"
     }
 
-    /** Same pattern as `BootReceiver` — a plain `startActivity()` from a background receiver
+    /** Same pattern as `RelaunchReceiver` — a plain `startActivity()` from a background receiver
      *  needs the Device Owner exemption to actually take effect, which is guaranteed here
      *  since only a Device Owner screen ever reaches a silent install in the first place. */
     private fun relaunch(context: Context) {

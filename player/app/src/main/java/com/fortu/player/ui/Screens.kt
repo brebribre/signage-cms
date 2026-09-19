@@ -381,42 +381,64 @@ fun IdleScreen(deviceName: String) {
  */
 @Composable
 fun TroubleScreen(deviceName: String?, message: String, apiHost: String, attempts: Int) {
-    Box(Modifier.fillMaxSize().background(Ink), contentAlignment = Alignment.Center) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(horizontal = 48.dp),
-        ) {
-            Text(
-                deviceName ?: "This screen",
-                color = InkInverse,
-                fontSize = 34.sp,
-                fontWeight = FontWeight.Medium,
-            )
-            Text(
-                "Cannot reach the server",
-                color = InkMuted,
-                fontSize = 22.sp,
-                modifier = Modifier.padding(top = 10.dp),
-            )
-            Text(
-                apiHost,
-                color = InkSubtle,
-                fontSize = 16.sp,
-                modifier = Modifier.padding(top = 22.dp),
-            )
-            Text(
-                message,
-                color = InkSubtle,
-                fontSize = 14.sp,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 8.dp),
-            )
-            Text(
-                "Retrying — attempt $attempts",
-                color = InkMuted,
-                fontSize = 15.sp,
-                modifier = Modifier.padding(top = 22.dp),
-            )
+    // The same card as every other waiting state, so a screen in trouble still looks like ours
+    // — and the details someone at the screen needs (the server, the error) stay on it.
+    Box(Modifier.fillMaxSize().background(BrandGradient), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            PaskallLogo(height = 44.dp)
+
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .padding(top = 36.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(Color.White.copy(alpha = 0.1f))
+                    .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(24.dp))
+                    .padding(horizontal = 48.dp, vertical = 26.dp)
+                    .width(560.dp),
+            ) {
+                Text(
+                    deviceName ?: "This screen",
+                    color = OnBrandMuted,
+                    fontSize = 22.sp,
+                    fontFamily = Inter,
+                )
+                Text(
+                    "Cannot reach the server",
+                    color = Color.White,
+                    fontSize = 40.sp,
+                    fontFamily = Outfit,
+                    fontWeight = FontWeight.Medium,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+                Text(
+                    apiHost,
+                    color = OnBrandMuted,
+                    fontSize = 16.sp,
+                    fontFamily = Inter,
+                    modifier = Modifier.padding(top = 16.dp),
+                )
+                Text(
+                    message,
+                    color = OnBrandMuted,
+                    fontSize = 14.sp,
+                    fontFamily = Inter,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 28.dp)) {
+                PulsingDot()
+                Text(
+                    "Retrying — attempt $attempts",
+                    color = OnBrandMuted,
+                    fontSize = 18.sp,
+                    fontFamily = Inter,
+                    modifier = Modifier.padding(start = 10.dp),
+                )
+            }
         }
     }
 }

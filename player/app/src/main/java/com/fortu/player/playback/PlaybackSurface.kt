@@ -5,8 +5,12 @@ import android.content.Context
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
+import android.os.Build
+import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.compose.material3.Text
+import androidx.compose.ui.unit.sp
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -355,7 +359,7 @@ fun PlaybackSurface(
                                     )
                                 }
                             }
-                            KIND_WEB -> WebsiteElement(element.url)
+                            KIND_WEB -> WebsiteElement(element.url, onPlaybackError)
                             // A kind this build predates — nothing to render, but not a crash,
                             // and every other element in the slot still shows correctly.
                             else -> {}
@@ -462,7 +466,21 @@ private const val BLUR_DECODE_SIZE_PX = 96
  */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
-private fun WebsiteElement(url: String) {
+private fun WebsiteElement(url: String, onError: (String) -> Unit) {
+    // Since Android 8 a WebView's renderer is a separate process, and it is the first thing
+    // the system kills under memory pressure — a heavy page beside a video on a 1–2 GB box.
+    // Unless the app says it will cope, Android kills the app with it. So: cope. The dead
+    // WebView is dropped (it can't be reused), a quiet tile takes its place for the rest of
+    // the slot, the CMS is told, and the next slot gets a fresh page. Before this, "a website
+    // in a scene sometimes restarts the screen" was exactly this.
+    var crashed by remember(url) { mutableStateOf(false) }
+    if (crashed) {
+        Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
+            Text("Website unavailable", color = Color(0xFF7D7D7D), fontSize = 16.sp)
+        }
+        return
+    }
+    val onErrorNow by rememberUpdatedState(onError)
     AndroidView(
         modifier = Modifier.fillMaxSize(),
         factory = { ctx ->
@@ -482,7 +500,22 @@ private fun WebsiteElement(url: String) {
                 settings.loadWithOverviewMode = true
                 // Redirects, links and in-page navigation stay in this view instead of
                 // handing off to a browser — there isn't one to hand off to on a kiosk screen.
-                webViewClient = WebViewClient()
+                webViewClient = object : WebViewClient() {
+                    override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
+                        val why = if (Build.VERSION.SDK_INT >= 26 && detail.didCrash()) "crashed" else "was stopped by the system (out of memory?)"
+                        // The view's own address, not the one this client was made with: a
+                        // slot that changed address reloads in place (see `update` below).
+                        val where = view.url ?: view.tag as? String ?: url
+                        Log.e("FortuPlayer", "website renderer $why: $where")
+                        onErrorNow("website $why — $where")
+                        crashed = true
+                        // True: handled here. Returning false is what let the whole app die.
+                        return true
+                    }
+                }
+                // Let the system reclaim the renderer of a page that is off screen before it
+                // reclaims anything else — and never keep one alive at the app's own cost.
+                if (Build.VERSION.SDK_INT >= 26) setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_BOUND, true)
                 tag = url
                 loadUrl(url)
             }

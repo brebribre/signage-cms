@@ -145,8 +145,9 @@ the real value arrives.
 
 ## Making it a real kiosk
 
-The app already keeps the screen awake, hides the system bars, locks to landscape, and
-relaunches after a power cut. What it does *not* do by default is stop someone pressing Home.
+The app already keeps the screen awake, hides the system bars, locks to the orientation set in
+the CMS, and comes back after a self-update. What it does *not* do by default is stop someone
+pressing Home, or open itself after a reboot (see [After a reboot](#after-a-reboot)).
 Three options, weakest to strongest:
 
 **1. Screen pinning** — works on any device, no setup. Settings → Security → App pinning, then
@@ -154,7 +155,7 @@ pin the app from the recents screen. Dismissible with a button combination, so i
 accidents rather than determined people.
 
 **2. Make the app the launcher** — the screen boots straight into the player and Home returns to
-it. Uncomment the `HOME`/`DEFAULT` intent-filter block in
+it. This is the one way to get boot-into-player, and it is opt-in per build. Uncomment the `HOME`/`DEFAULT` intent-filter block in
 [`app/src/main/AndroidManifest.xml`](app/src/main/AndroidManifest.xml), rebuild, install, then
 pick Fortu Player when Android asks which launcher to use.
 
@@ -186,12 +187,13 @@ resetting again. This is why it's a provisioning step rather than a setting you 
    *"Not allowed to set the device owner because there are already some accounts on the
    device"*, an account slipped in during setup — factory reset and redo step 2.
 5. **Launch the app.** It applies the full policy on first run: lock task mode, no lock screen,
-   stay-on-while-plugged, deferred system updates, and itself as the persistent launcher.
+   stay-on-while-plugged, and deferred system updates.
 6. **Pair it** — read the code off the screen, enter it in the CMS.
 7. **Verify:** hold the top-left corner for the debug overlay. The `kiosk` row should read
    **`device owner (full kiosk)`**. If it says `not owner (screen pinning only)`, step 4 didn't
    take.
-8. Reboot the device once and confirm it comes back into the loop on its own.
+8. Reboot the device once. It comes back to the Android home screen; open Fortu Player from
+   there and confirm the loop resumes.
 
 ### Undoing it
 
@@ -207,13 +209,12 @@ you provision a device you might need back for something else.
 | `setKeyguardDisabled` | No lock screen to get stuck behind after a reboot. |
 | `STAY_ON_WHILE_PLUGGED_IN` | Screen never sleeps while powered — signage is always plugged in. |
 | `setSystemUpdatePolicy` (windowed) | System updates install between 03:00–05:00 instead of covering the screen mid-day. |
-| `addPersistentPreferredActivity` | The player *is* the launcher, so boot lands in the loop. |
+| `clearPackagePersistentPreferredActivities` | Undoes the launcher registration builds up to 1.2.7 made, so a reboot lands on the normal home screen. |
 
 **All of it degrades safely.** On a device that isn't Device Owner — your phone, an emulator, a
 sideloaded install — every one of those calls is skipped and the app falls back to screen
 pinning. The same APK is safe everywhere, which is why the `HOME` intent-filter in the manifest
-stays commented out: the policy grants launcher status only where ownership was actually
-granted.
+stays commented out.
 
 ---
 
@@ -302,23 +303,21 @@ said nothing for three minutes is shown as having gone quiet, not as still downl
 
 ---
 
-## Auto-start after a power cut
+## After a reboot
 
-**A plain install does not relaunch itself on boot, and cannot.** Since Android 10 an app may
-not start an activity from the background, so a boot receiver calling `startActivity()` is
-silently discarded — the device comes back to its normal launcher. That is correct behaviour, not
-a fault: an app that could force itself to the foreground on any phone would be malware.
+**The player does not open itself after a reboot or a power cut.** The screen comes back to its
+normal launcher and whoever is there taps the app icon. This is deliberate, and it applies to
+Device Owner installs too: a screen is sometimes wanted for something else, and an app that put
+itself in front on every boot would make that a fight. Since 1.2.8 the policy no longer
+registers the player as the launcher, and a box provisioned by an earlier build has that
+registration cleared the next time the app runs.
 
-Two configurations make it legal, and a real signage deployment wants one of them regardless:
+The one time the player brings itself back is after a self-update, which kills the running app
+to install over it (`RelaunchReceiver`, Device Owner only — Android 10+ lets no other app start
+itself from the background).
 
-- **Device Owner** (see the provisioning runbook above). `KioskPolicy` registers the app as the
-  persistent preferred HOME activity, so the system launches it on boot with no receiver
-  involved.
-- **Declare the app as the launcher** — uncomment the `HOME` intent-filter in
-  `AndroidManifest.xml` and rebuild. Same result, no factory reset needed, but do not do it on a
-  device you use for anything else.
-
-While testing on an emulator or your own phone, just tap the app icon after a boot.
+To get boot-into-player back on a box dedicated to signage, uncomment the `HOME` intent-filter
+in `AndroidManifest.xml` and rebuild; Android then asks once which launcher to use.
 
 ## Tests
 
@@ -330,8 +329,8 @@ Twenty tests over `PlayerEngine`, the state machine, on a plain JVM — no devic
 under a second to run.
 
 They exist because **five real bugs reached hardware before this app had a single test**: a blur
-handler that never fired, orientation the player ignored entirely, a boot receiver that could not
-work on Android 10+, a screen that hung on the splash forever, and a single 401 permanently
+handler that never fired, orientation the player ignored entirely, a boot receiver (since
+removed) that could not work on Android 10+, a screen that hung on the splash forever, and a single 401 permanently
 unpairing a working screen. Four of the five were state-machine behaviour, and every one passed a
 fully green backend suite — because a server-side test cannot see the client discarding a value.
 

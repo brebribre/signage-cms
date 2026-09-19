@@ -86,13 +86,21 @@ export function statusScreenHtml(s: StatusState): string {
         </div>
       </div></div>`
 
+    // The same card as every other waiting state, so a screen in trouble still looks like ours —
+    // and the details someone at the screen needs (the server, the error) stay on it.
     case 'trouble':
-      return `<div class="screen"><div class="col">
-        <div style="font-size:6vmin;font-weight:500">${esc(s.deviceName ?? 'This screen')}</div>
-        <div class="muted" style="font-size:4vmin;margin-top:1.8vmin">Cannot reach the server</div>
-        <div class="subtle" style="font-size:2.9vmin;margin-top:4vmin">${esc(s.apiHost)}</div>
-        <div class="subtle" style="font-size:2.5vmin;margin-top:1.4vmin">${esc(s.message)}</div>
-        <div class="muted" style="font-size:2.7vmin;margin-top:4vmin">Retrying — attempt ${s.attempts}</div>
+      return `<div class="screen screen-brand"><div class="col">
+        <img class="logo" src="${logoUrl}" alt="Paskall">
+        <div class="pair-card prep-card">
+          <div class="pair-label">${esc(s.deviceName ?? 'This screen')}</div>
+          <div class="trouble-title">Cannot reach the server</div>
+          <div class="trouble-detail">${esc(s.apiHost)}</div>
+          <div class="trouble-detail">${esc(s.message)}</div>
+        </div>
+        <div class="row pair-status">
+          <span class="dot"></span>
+          <span>Retrying — attempt ${s.attempts}</span>
+        </div>
       </div></div>`
   }
 }

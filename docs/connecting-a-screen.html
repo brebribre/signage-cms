@@ -202,7 +202,7 @@
               <tr>
                 <td>Device Owner mode</td>
                 <td>See Step 4 below</td>
-                <td>Recommended. Cannot be exited. Required for silent updates and automatic restart after a power loss.</td>
+                <td>Recommended. Cannot be exited. Required for silent updates and remote power control. After a reboot the device shows its home screen; open Fortu Player from there.</td>
               </tr>
             </tbody>
           </table>
@@ -240,8 +240,8 @@ adb shell dpm set-device-owner \
           </div></li>
           <li><div class="step-body">
             Launch the app. On first launch it automatically locks itself to the
-            foreground, disables the lock screen, keeps the screen on, and sets itself as
-            the device's launcher. No further configuration is needed.
+            foreground, disables the lock screen, and keeps the screen on. No further
+            configuration is needed.
           </div></li>
           <li><div class="step-body">Pair the screen using the code it displays. See <a href="#pairing">Pair a screen</a> above.</div></li>
           <li><div class="step-body">
@@ -250,7 +250,7 @@ adb shell dpm set-device-owner \
             <span class="step-note">If it reads <code>not owner (screen pinning only)</code>,
             step 5 did not complete successfully. Repeat step 5.</span>
           </div></li>
-          <li><div class="step-body">Reboot the device once. Confirm it returns to the content loop automatically, with no input required.</div></li>
+          <li><div class="step-body">Reboot the device once. It returns to the Android home screen. Open Fortu Player from there and confirm the content loop resumes.</div></li>
         </ol>
 
         <div class="callout">

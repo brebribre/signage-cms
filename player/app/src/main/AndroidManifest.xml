@@ -3,7 +3,6 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- Silent self-update as Device Owner (Phase 12c). Harmless on a non-owner install,
          where SelfUpdater declines to run at all. -->
@@ -78,13 +77,19 @@
             android:name=".kiosk.UpdateResultReceiver"
             android:exported="false" />
 
+        <!--
+          Deliberately no BOOT_COMPLETED here: the player does not open itself after a reboot,
+          so a screen can be used for something else. See RelaunchReceiver.
+        -->
         <receiver
-            android:name=".BootReceiver"
+            android:name=".RelaunchReceiver"
             android:enabled="true"
             android:exported="true">
             <intent-filter android:priority="1000">
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+                <!-- Delivered to the *new* build after a self-update replaces this app — the
+                     one signal guaranteed to arrive, since the installer's own result goes to
+                     the build that was just killed. See RelaunchReceiver. -->
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
     </application>
