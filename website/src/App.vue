@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { useReveal } from '@/composables/useReveal'
+import SiteConnect from '@/components/SiteConnect.vue'
+import SiteDesign from '@/components/SiteDesign.vue'
 import SiteFaq from '@/components/SiteFaq.vue'
-import SiteFeatures from '@/components/SiteFeatures.vue'
 import SiteFooter from '@/components/SiteFooter.vue'
 import SiteHero from '@/components/SiteHero.vue'
 import SiteHow from '@/components/SiteHow.vue'
 import SiteNav from '@/components/SiteNav.vue'
 import SitePlans from '@/components/SitePlans.vue'
-import SitePlayers from '@/components/SitePlayers.vue'
-import SiteTour from '@/components/SiteTour.vue'
+import SitePublish from '@/components/SitePublish.vue'
 
 useReveal()
 </script>
@@ -17,10 +17,10 @@ useReveal()
   <SiteNav />
   <main>
     <SiteHero />
-    <SiteFeatures />
-    <SiteTour />
+    <SiteConnect />
+    <SiteDesign />
+    <SitePublish />
     <SiteHow />
-    <SitePlayers />
     <SitePlans />
     <SiteFaq />
   </main>

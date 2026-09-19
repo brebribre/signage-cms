@@ -67,3 +67,24 @@ h1, h2, h3, .display { font-family: var(--font-display); font-weight: 500; lette
 
 /* A faint grid, the way infrastructure companies draw "a system". */
 .dot-grid { background-image: radial-gradient(rgba(16, 17, 17, 0.07) 1px, transparent 1px); background-size: 24px 24px; }
+
+/* The tab tour's countdown: how long the tab showing has left. */
+@keyframes tab-progress { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.tab-progress { animation: tab-progress 4s linear forwards; }
+
+/*
+  A packet running down a wire (SitePublish). Each path declares pathLength="100", so one dash
+  length works for a long trunk and a short drop alike, and the offset simply sweeps past.
+*/
+@keyframes pulse-run { from { stroke-dashoffset: 116; } to { stroke-dashoffset: -16; } }
+.pulse-path { stroke-dasharray: 16 100; animation: pulse-run var(--dur, 0.5s) linear var(--delay, 0s) both; }
+/* A screen changing what it plays: the new content pushes the old one up and out. */
+.swap-enter-active, .swap-leave-active { transition: transform 0.45s cubic-bezier(0.2, 0.7, 0.2, 1); transition-delay: var(--swap-delay, 0ms); }
+.swap-enter-from { transform: translateY(100%); }
+.swap-leave-to { transform: translateY(-100%); }
+
+@media (prefers-reduced-motion: reduce) {
+  .tab-progress, .pulse-path { animation: none; }
+  .pulse-path { opacity: 0; }
+  .swap-enter-active, .swap-leave-active { transition: none; }
+}

@@ -33,7 +33,7 @@ const FACTS = [
             <a href="#contact" class="inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm text-brand transition-colors hover:bg-white/90">
               Request access <IconArrowForward class="size-4" />
             </a>
-            <a href="#tour" class="inline-flex items-center gap-2 rounded-full border border-white/30 px-5 py-3 text-sm text-white transition-colors hover:bg-white/10">
+            <a href="#connect" class="inline-flex items-center gap-2 rounded-full border border-white/30 px-5 py-3 text-sm text-white transition-colors hover:bg-white/10">
               See the product
             </a>
           </div>

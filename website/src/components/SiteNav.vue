@@ -6,9 +6,9 @@ import IconMenu from '~icons/material-symbols/menu'
 import wordmark from '@/assets/paskall-wordmark.png'
 
 const LINKS = [
-  { href: '#product', label: 'Product' },
-  { href: '#tour', label: 'Tour' },
-  { href: '#players', label: 'Players' },
+  { href: '#connect', label: 'Connect' },
+  { href: '#design', label: 'Design' },
+  { href: '#publish', label: 'Publish' },
   { href: '#plans', label: 'Plans' },
 ]
 const open = ref(false)

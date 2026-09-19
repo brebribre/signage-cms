@@ -1,6 +1,7 @@
 <script setup lang="ts">
-/** A screenshot in a thin browser chrome, so a product image reads as the product. */
-defineProps<{ src: string; alt: string; label?: string }>()
+/** A screenshot in a thin browser chrome, so a product image reads as the product. Pass `src`
+ *  for a single shot, or fill the slot when the frame holds something that changes. */
+defineProps<{ src?: string; alt?: string; label?: string }>()
 </script>
 
 <template>
@@ -9,6 +10,8 @@ defineProps<{ src: string; alt: string; label?: string }>()
       <span class="size-2.5 rounded-full bg-line-strong" /><span class="size-2.5 rounded-full bg-line-strong" /><span class="size-2.5 rounded-full bg-line-strong" />
       <span v-if="label" class="ml-3 rounded-md bg-canvas px-2 py-0.5 text-[11px] text-ink-subtle">{{ label }}</span>
     </div>
-    <img :src="src" :alt="alt" class="block w-full" loading="lazy" decoding="async" />
+    <slot>
+      <img v-if="src" :src="src" :alt="alt" class="block w-full" loading="lazy" decoding="async" />
+    </slot>
   </figure>
 </template>

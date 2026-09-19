@@ -37,7 +37,7 @@ onBeforeUnmount(() => { if (timer) clearInterval(timer) })
   <div class="relative">
     <SignageTotem :active="active" />
     <!-- Overlapping the totem on a wide screen, stacked beneath it on a narrow one. -->
-    <div class="mt-4 sm:mt-0 sm:absolute sm:bottom-6 sm:-left-2 sm:w-56 lg:-left-8 lg:w-60">
+    <div class="mt-4 sm:mt-0 sm:absolute sm:bottom-4 sm:-left-6 sm:w-52 lg:-left-16 lg:w-60">
       <CmsPanel :active="active" @select="choose" />
     </div>
   </div>

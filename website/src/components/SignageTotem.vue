@@ -150,10 +150,20 @@ onMounted(() => {
   )
   group.add(screen)
 
+  // A dark surround a hair larger than the screen and a hair behind it. Without it a slide in
+  // the brand blues sits on a light blue chassis against a blue band, and the glass stops
+  // reading as glass.
+  const bezelFrame = new THREE.Mesh(
+    new THREE.PlaneGeometry(1, 1),
+    new THREE.MeshBasicMaterial({ color: 0x07132b, toneMapped: false }),
+  )
+  group.add(bezelFrame)
+
   // --- The chassis --------------------------------------------------------------------------
-  // Deep navy with a metallic sheen rather than black: it belongs to the same palette as the
-  // band behind it, and the rim light draws its edges in brand blue.
-  const body = new THREE.MeshStandardMaterial({ color: 0x0c1d3f, roughness: 0.34, metalness: 0.72 })
+  // Light blue, lightly metallic: it lifts off the dark band behind it instead of sinking into
+  // it, and the rim light draws its edges brighter still. A high metalness would grey a pale
+  // colour out, so most of the sheen comes from roughness rather than metal.
+  const body = new THREE.MeshStandardMaterial({ color: 0x9fcbf5, roughness: 0.36, metalness: 0.28 })
   new STLLoader().load(
     '/models/totem.stl',
     (geometry) => {
@@ -180,7 +190,11 @@ onMounted(() => {
       const h = w * (TEX_H / TEX_W)
       screen.scale.set(w, h, 1)
       // Hung from the top of the panel, leaving the lower slab dark, as the reference does.
-      screen.position.set(0, PANEL_Y + PANEL_H - h / 2 - bezel, PANEL_D / 2 + 0.002)
+      const cy = PANEL_Y + PANEL_H - h / 2 - bezel
+      screen.position.set(0, cy, PANEL_D / 2 + 0.002)
+      const pad = PANEL_W * 0.016
+      bezelFrame.scale.set(w + pad * 2, h + pad * 2, 1)
+      bezelFrame.position.set(0, cy, PANEL_D / 2 + 0.001)
     },
     undefined,
     () => { failed.value = true },
