@@ -88,3 +88,8 @@ h1, h2, h3, .display { font-family: var(--font-display); font-weight: 500; lette
   .pulse-path { opacity: 0; }
   .swap-enter-active, .swap-leave-active { transition: none; }
 }
+
+/* A step's headline changing under its badges: short enough not to be a wait. */
+.fade-enter-active, .fade-leave-active { transition: opacity 0.18s linear; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+@media (prefers-reduced-motion: reduce) { .fade-enter-active, .fade-leave-active { transition: none; } }

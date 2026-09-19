@@ -14,14 +14,17 @@ import BrowserFrame from './BrowserFrame.vue'
 const TABS = [
   {
     n: '1', label: 'Design', chrome: 'paskall · Scene', src: '/shots/scene.webp',
+    title: 'Design your content.',
     text: 'Photos, video, live websites and text on one canvas, at the screen’s real shape.',
   },
   {
     n: '2', label: 'Playlist', chrome: 'paskall · Playlist', src: '/shots/playlist.webp',
+    title: 'Play them in order.',
     text: 'Put your designs in the order they should run, and set how long each one holds. They play one after another.',
   },
   {
     n: '3', label: 'Schedule', chrome: 'paskall · Campaign', src: '/shots/campaign.webp',
+    title: 'Say where and when.',
     text: 'Choose the screens and the hours. One loop all day, or different content by time and weekday.',
   },
 ]
@@ -62,9 +65,8 @@ onBeforeUnmount(stop)
       <div class="lg:col-span-5">
         <div class="lg:sticky lg:top-28">
           <p class="reveal text-[13px] font-medium uppercase tracking-wider text-brand">Content</p>
-          <h2 class="reveal mt-3 text-3xl leading-tight sm:text-4xl">Design your content.</h2>
 
-          <div class="reveal mt-7 flex flex-wrap gap-2" role="tablist" aria-label="The editor">
+          <div class="reveal mt-4 flex flex-wrap gap-2" role="tablist" aria-label="The editor">
             <button
               v-for="(t, i) in TABS" :key="t.label"
               type="button" role="tab" :aria-selected="active === i"
@@ -86,7 +88,18 @@ onBeforeUnmount(stop)
             </button>
           </div>
 
-          <p class="reveal mt-5 min-h-[4.5rem] leading-relaxed text-ink-muted">{{ TABS[active].text }}</p>
+          <!-- The step's own headline and line, under the badges that choose it. Held to a
+               minimum height so a shorter step does not shuffle the page as it comes round. -->
+          <!-- The reveal lives on the wrapper, not the keyed child: a child created after the
+               observer has already swept the page would never be told it is on screen. -->
+          <div class="reveal mt-6 min-h-[11rem] sm:min-h-[9rem]">
+            <Transition name="fade" mode="out-in">
+              <div :key="active">
+                <h2 class="text-3xl leading-tight sm:text-4xl">{{ TABS[active].title }}</h2>
+                <p class="mt-4 leading-relaxed text-ink-muted">{{ TABS[active].text }}</p>
+              </div>
+            </Transition>
+          </div>
         </div>
       </div>
 
