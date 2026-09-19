@@ -46,7 +46,7 @@ import { websiteLayoutScreen } from '@/utils/websiteLayout'
 import { normalizeWebsiteUrl, websiteLabel } from '@/utils/websiteUrl'
 import type { DraftElement, DraftItem } from '@/hooks/usePlaylistEditor'
 import type { MediaRead, SceneBackground } from '@/types/api'
-import { BLUR_IMAGE_STYLE, SCENE_BACKGROUNDS, blurImageUrl, blurSource } from '@/utils/sceneBackground'
+import { BLUR_IMAGE_STYLE, DEFAULT_BACKGROUND_COLOR, SCENE_BACKGROUNDS, blurImageUrl, blurSource, sceneBackdrop } from '@/utils/sceneBackground'
 import { useMediaUpload } from '@/hooks/useMediaUpload'
 import AppButton from '@/reusables/AppButton.vue'
 import UploadStatus from '@/reusables/UploadStatus.vue'
@@ -65,7 +65,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  apply: [elements: DraftElement[], background: SceneBackground]
+  apply: [elements: DraftElement[], background: SceneBackground, backgroundColor: string | null]
   close: []
   /** A file uploaded from inside the scene still belongs in the library — the page that owns
    *  it prepends, so it is there next time without a refetch. */
@@ -113,6 +113,11 @@ function onPanelDrop(e: DragEvent) {
 // A local working copy — nothing here reaches the draft scene until Apply.
 const elements = ref<DraftElement[]>(props.item.elements.map((e) => ({ ...e })))
 const background = ref<SceneBackground>(props.item.background)
+const backgroundColor = ref<string | null>(props.item.backgroundColor)
+function pickBackground(value: SceneBackground) {
+  background.value = value
+  if (value === 'color' && !backgroundColor.value) backgroundColor.value = DEFAULT_BACKGROUND_COLOR
+}
 
 // --- The live budget: how many videos and websites this scene holds against what a screen can
 // run at once (see usePlaylistEditor.ts). Shown in the header the whole time, so the limit is
@@ -153,6 +158,7 @@ const PANELS = [
   { id: 'media', label: 'Media', icon: IconPhotoLibraryOutline },
   { id: 'website', label: 'Website', icon: IconLanguage },
   { id: 'text', label: 'Text', icon: IconTextFields },
+  { id: 'background', label: 'Background', icon: IconWallpaper },
 ] as const
 type PanelId = (typeof PANELS)[number]['id']
 const panel = ref<PanelId>('media')
@@ -796,7 +802,7 @@ const TOOL =
   'transition-colors duration-150 active:bg-surface disabled:opacity-35'
 
 function apply() {
-  emit('apply', elements.value, background.value)
+  emit('apply', elements.value, background.value, backgroundColor.value)
 }
 </script>
 
@@ -882,7 +888,7 @@ function apply() {
           <span class="mx-auto mb-1 h-1 w-10 rounded-full bg-line-strong" aria-hidden="true" />
         </div>
         <div v-if="!isWide" class="mb-3 flex items-center justify-between">
-          <p class="text-base text-ink">{{ panel === 'media' ? 'Media' : panel === 'website' ? 'Website' : 'Text' }}</p>
+          <p class="text-base text-ink">{{ PANELS.find((p) => p.id === panel)?.label }}</p>
           <button type="button" class="rounded-full p-1.5 text-ink-muted hover:bg-surface" aria-label="Close" @click="closeSheet">
             <IconClose class="size-5" />
           </button>
@@ -966,6 +972,39 @@ function apply() {
           </button>
         </div>
 
+        <div v-else-if="panel === 'background'" class="flex flex-col gap-2">
+          <p class="px-1 text-[13px] text-ink-muted">Fills any part of the screen the scene doesn't cover.</p>
+          <div class="flex flex-col gap-1" role="radiogroup" aria-label="Background">
+            <button
+              v-for="option in SCENE_BACKGROUNDS" :key="option.value" type="button"
+              role="radio" :aria-checked="background === option.value"
+              class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors duration-150"
+              :class="background === option.value ? 'bg-raised ring-2 ring-ink' : 'bg-surface hover:bg-raised'"
+              @click="pickBackground(option.value)"
+            >
+              <span
+                class="size-8 shrink-0 rounded-md border border-line-strong"
+                :style="option.value === 'blur'
+                  ? { background: blurUrl ? `url(${blurUrl}) center / cover` : 'linear-gradient(135deg, #7d8bd6, #1d2fa5)', filter: blurUrl ? 'blur(2px)' : undefined }
+                  : { background: option.value === 'color' ? (backgroundColor ?? DEFAULT_BACKGROUND_COLOR) : '#000' }"
+                aria-hidden="true"
+              />
+              <span class="min-w-0">
+                <span class="block text-sm text-ink">{{ option.label }}</span>
+                <span class="block text-[12px] text-ink-subtle">{{ option.hint }}</span>
+              </span>
+            </button>
+          </div>
+          <label v-if="background === 'color'" class="mt-1 flex items-center gap-2 px-1 text-[13px] text-ink-muted">
+            <input
+              type="color" :value="backgroundColor ?? DEFAULT_BACKGROUND_COLOR" aria-label="Background colour"
+              class="size-8 cursor-pointer rounded border border-line-strong bg-canvas p-0.5"
+              @input="backgroundColor = ($event.target as HTMLInputElement).value.toUpperCase()"
+            />
+            <span class="tabular-nums">{{ backgroundColor }}</span>
+          </label>
+        </div>
+
         <p v-else-if="liveBlockReason(budget, 'web')" class="rounded-lg bg-surface px-3 py-2 text-[13px] text-ink-muted">
           {{ liveBlockReason(budget, 'web') }}
         </p>
@@ -999,8 +1038,8 @@ function apply() {
         <div class="flex justify-center" :style="frameOuterStyle" @click.self="select(null)">
           <div
             ref="canvasRef"
-            class="relative w-full bg-black"
-            :style="frameStyle"
+            class="relative w-full"
+            :style="{ ...frameStyle, background: sceneBackdrop(background, backgroundColor) }"
             @click.self="select(null)"
             @dragover.prevent
             @drop.prevent="onCanvasDrop"
@@ -1390,29 +1429,7 @@ function apply() {
             </AppButton>
           </template>
           <template v-else>
-            <p class="text-[13px] text-ink-subtle">Select an item on the canvas to edit it.</p>
-            <div class="flex flex-col gap-2">
-              <p class="text-[13px] text-ink-subtle">Background</p>
-              <div class="flex gap-2" role="radiogroup" aria-label="Background">
-                <AppButton
-                  v-for="option in SCENE_BACKGROUNDS"
-                  :key="option.value"
-                  :variant="background === option.value ? 'primary' : 'secondary'"
-                  size="sm"
-                  role="radio"
-                  :aria-checked="background === option.value"
-                  @click="background = option.value"
-                >
-                  {{ option.label }}
-                </AppButton>
-              </div>
-              <p class="text-[12px] text-ink-subtle">
-                Fills any part of the screen the scene doesn't cover.
-                <template v-if="background === 'blur'">
-                  Uses a blurred copy of the largest picture or video (a video's thumbnail).
-                </template>
-              </p>
-            </div>
+            <p class="text-[13px] text-ink-subtle">Select an item on the canvas to edit it. The background is under Background on the left.</p>
           </template>
         </div>
       </aside>
@@ -1458,7 +1475,7 @@ function apply() {
         <button v-if="elements.length" type="button" :class="TOOL" @click="sheet = 'edit'">
           <IconLayersOutline class="size-6" aria-hidden="true" />Layers
         </button>
-        <button type="button" :class="TOOL" @click="sheet = 'edit'">
+        <button type="button" :class="TOOL" @click="openSources('background')">
           <IconWallpaper class="size-6" aria-hidden="true" />Background
         </button>
       </template>

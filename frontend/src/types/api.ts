@@ -132,7 +132,7 @@ export interface ElementRead {
 }
 
 /** What shows wherever a scene's elements don't cover the screen. See utils/sceneBackground.ts. */
-export type SceneBackground = 'black' | 'blur'
+export type SceneBackground = 'black' | 'blur' | 'color'
 
 export interface PlaylistItemRead {
   id: string
@@ -140,7 +140,14 @@ export interface PlaylistItemRead {
   duration_seconds: number
   is_enabled: boolean
   background: SceneBackground
+  /** With background 'color': the #RRGGBB behind the scene. */
+  background_color?: string | null
   elements: ElementRead[]
+}
+
+export interface PlaylistTile {
+  url: string | null
+  kind: 'image' | 'video' | 'web' | 'text'
 }
 
 export interface PlaylistSummary {
@@ -153,7 +160,8 @@ export interface PlaylistSummary {
   updated_at: string
   /** A preview strip, not the whole loop — capped server-side. `null` for a scene whose
    *  media has no thumbnail: a blank tile, not a skipped one. */
-  thumbnails: (string | null)[]
+  /** One tile per enabled scene: a thumbnail, or none with a kind that says what to show instead. */
+  thumbnails: PlaylistTile[]
 }
 
 export interface PlaylistDetail extends PlaylistSummary {
@@ -195,6 +203,7 @@ export interface ItemWrite {
   duration_seconds?: number | null
   is_enabled?: boolean
   background?: SceneBackground
+  background_color?: string | null
   elements: ElementWrite[]
 }
 
@@ -251,6 +260,12 @@ export interface DeviceRead {
 }
 
 export type DeviceUpdateState = 'downloading' | 'installing' | 'installed' | 'failed'
+
+/** An error event with the screen it came from — the Overview's Errors tab. */
+export interface FleetEventRead extends DeviceEventRead {
+  device_id: string
+  device_name: string
+}
 
 export interface ClaimBody {
   pairing_code: string

@@ -129,6 +129,7 @@ def get_manifest(device: CurrentDevice, session: DbSession, request: Request) ->
                     for el in slot.elements
                 ],
                 background=slot.background,
+                background_color=slot.background_color,
             )
             for slot in manifest.slots
             if slot.elements

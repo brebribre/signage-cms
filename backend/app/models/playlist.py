@@ -35,6 +35,8 @@ class SceneBackground(StrEnum):
     # don't have. Which element counts as "largest" is decided the same way everywhere (CMS
     # preview, web player, Android player): biggest box by area, bottom-most on a tie.
     BLUR = "blur"
+    # A solid colour, `PlaylistItem.background_color`.
+    COLOR = "color"
 
 
 class Playlist(SQLModel, table=True):
@@ -92,6 +94,9 @@ class PlaylistItem(SQLModel, table=True):
         default=SceneBackground.BLACK,
         sa_column=enum_column(SceneBackground, nullable=False, server_default=SceneBackground.BLACK.value),
     )
+    # The colour behind the scene when `background` is COLOR (a `#RRGGBB` hex). Kept when the
+    # background is switched to black or blur, so switching back restores the choice.
+    background_color: str | None = Field(default=None)
 
 
 class PlaylistItemElement(SQLModel, table=True):

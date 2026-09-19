@@ -714,9 +714,9 @@ const BOUND_TIME_INPUT =
         <AppAlert v-if="devicesError" tone="danger">{{ devicesError }}</AppAlert>
         <p v-if="devicesLoading && !devices.length" class="text-sm text-ink-muted">Loading…</p>
 
-        <EmptyState v-else-if="!devices.length" title="No screens yet" description="Add a screen to deploy to.">
+        <EmptyState v-else-if="!devices.length" title="No screens yet" description="Connect a screen to deploy to.">
           <template #actions>
-            <AppButton size="sm" @click="pairing = true"><IconAdd class="size-4" />Add screen</AppButton>
+            <AppButton size="sm" @click="pairing = true"><IconAdd class="size-4" />Connect a screen</AppButton>
           </template>
         </EmptyState>
 
@@ -731,7 +731,7 @@ const BOUND_TIME_INPUT =
             <span v-else />
             <div class="flex items-center gap-3">
               <span class="text-[13px] tabular-nums text-ink-muted">{{ selectedIds.length }} / {{ availableDevices.length }}</span>
-              <AppButton variant="ghost" size="sm" @click="pairing = true"><IconAdd class="size-4" />Add screen</AppButton>
+              <AppButton variant="ghost" size="sm" @click="pairing = true"><IconAdd class="size-4" />Connect a screen</AppButton>
             </div>
           </div>
 
@@ -972,8 +972,8 @@ const BOUND_TIME_INPUT =
           <div class="flex items-center gap-3 rounded-xl bg-surface px-4 py-3">
             <div class="h-9 w-16 shrink-0 overflow-hidden rounded-md bg-raised">
               <img
-                v-if="playlistById.get(playlistId)?.thumbnails[0]"
-                :src="playlistById.get(playlistId)?.thumbnails[0] ?? ''"
+                v-if="playlistById.get(playlistId)?.thumbnails[0]?.url"
+                :src="playlistById.get(playlistId)?.thumbnails[0]?.url ?? ''"
                 class="size-full object-cover"
               />
             </div>
@@ -992,8 +992,8 @@ const BOUND_TIME_INPUT =
             <li v-for="s in sortedSlots" :key="s.key" class="flex items-center gap-3 px-4 py-3">
               <div class="h-9 w-16 shrink-0 overflow-hidden rounded-md bg-raised">
                 <img
-                  v-if="playlistById.get(s.playlist_id)?.thumbnails[0]"
-                  :src="playlistById.get(s.playlist_id)?.thumbnails[0] ?? ''"
+                  v-if="playlistById.get(s.playlist_id)?.thumbnails[0]?.url"
+                  :src="playlistById.get(s.playlist_id)?.thumbnails[0]?.url ?? ''"
                   class="size-full object-cover"
                 />
               </div>
@@ -1028,7 +1028,7 @@ const BOUND_TIME_INPUT =
       </div>
     </template>
 
-    <AppModal v-if="pairing" title="Add a screen" @close="pairing = false">
+    <AppModal v-if="pairing" title="Connect a screen" @close="pairing = false">
       <PairScreenForm
         :is-saving="claiming" :claim-error="claimError" :connecting="connecting"
         @submit="onClaim"

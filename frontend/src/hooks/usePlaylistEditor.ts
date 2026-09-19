@@ -45,6 +45,8 @@ export interface DraftItem {
   durationSeconds: number
   isEnabled: boolean
   background: SceneBackground
+  /** With background 'color': the #RRGGBB behind the scene. Kept across switches. */
+  backgroundColor: string | null
   elements: DraftElement[]
 }
 
@@ -167,7 +169,7 @@ export function websiteToDraftElement(url: string, overrides: Partial<DraftEleme
  *  elements), so cancelling out of the editor never leaves a stray empty scene behind. */
 export function createEmptyItem(): DraftItem {
   return {
-    key: crypto.randomUUID(), durationSeconds: IMAGE_DEFAULT_SECONDS, isEnabled: true, background: 'black', elements: [],
+    key: crypto.randomUUID(), durationSeconds: IMAGE_DEFAULT_SECONDS, isEnabled: true, background: 'blur', backgroundColor: null, elements: [],
   }
 }
 
@@ -244,6 +246,7 @@ export function readToDraft(item: PlaylistItemRead): DraftItem {
     durationSeconds: item.duration_seconds,
     isEnabled: item.is_enabled,
     background: item.background ?? 'black',
+    backgroundColor: item.background_color ?? null,
     elements: item.elements.map(toDraftElement),
   }
 }
@@ -273,7 +276,7 @@ export function usePlaylistEditor(id: string) {
   const snapshot = computed(() =>
     JSON.stringify(
       draft.value.map((d) => [
-        d.durationSeconds, d.isEnabled, d.background,
+        d.durationSeconds, d.isEnabled, d.background, d.backgroundColor,
         d.elements.map((e) => [
           e.mediaId, e.webUrl, e.zIndex, e.x, e.y, e.width, e.height, e.fit,
           e.cropX, e.cropY, e.cropZoom, e.hasAudio, e.rotationDegrees,
@@ -327,6 +330,7 @@ export function usePlaylistEditor(id: string) {
         // both without anyone arranging it. Placement by hand is the scene editor's job.
         isEnabled: true,
         background: 'blur',
+        backgroundColor: null,
         elements: [mediaToDraftElement(m, { fit: 'contain' })],
       })
     }
@@ -339,7 +343,8 @@ export function usePlaylistEditor(id: string) {
       key: crypto.randomUUID(),
       durationSeconds: WEB_DEFAULT_SECONDS,
       isEnabled: true,
-      background: 'black',
+      background: 'blur',
+      backgroundColor: null,
       elements: [websiteToDraftElement(url)],
     })
   }
@@ -377,6 +382,7 @@ export function usePlaylistEditor(id: string) {
             duration_seconds: d.durationSeconds,
             is_enabled: d.isEnabled,
             background: d.background,
+            background_color: d.background === 'color' ? d.backgroundColor : d.backgroundColor ?? null,
             elements: d.elements.map((e) => ({
               media_id: e.mediaId,
               web_url: e.webUrl,

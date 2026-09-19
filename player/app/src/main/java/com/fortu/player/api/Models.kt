@@ -128,9 +128,12 @@ data class ManifestSlot(
     val id: String,
     @SerialName("duration_seconds") val durationSeconds: Int,
     val elements: List<ManifestElement> = emptyList(),
-    /** "black", or "blur": a blurred copy of the scene's largest picture or video fills what the
-     *  elements don't cover. Defaulted to black, which is what every older build shows. */
+    /** "black", "blur" (a blurred copy of the scene's largest picture or video fills what the
+     *  elements don't cover) or "color" ([backgroundColor]). Defaulted to black, which is what
+     *  every older build shows. */
     val background: String = "black",
+    /** With background "color": the `#RRGGBB` to paint behind the scene. */
+    @SerialName("background_color") val backgroundColor: String? = null,
 )
 
 /** The screen's weekly power window — same day bitmask (bit 0 = Monday) and `HH:MM` local

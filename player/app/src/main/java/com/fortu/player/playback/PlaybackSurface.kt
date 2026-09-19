@@ -285,7 +285,10 @@ fun PlaybackSurface(
     // elements are declared in two separate groups below.
     fun zIndexOf(element: ManifestElement) = slot.elements.indexOf(element).toFloat()
 
-    Box(modifier.fillMaxSize().background(Color.Black)) {
+    // A colour background paints the whole stage; black and blur paint black, with the blurred
+    // picture drawn over it below.
+    val backdrop = slot.backgroundColor?.takeIf { slot.background == "color" }?.let { parseColour(it) } ?: Color.Black
+    Box(modifier.fillMaxSize().background(backdrop)) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val parentWidth = maxWidth
             val parentHeight = maxHeight

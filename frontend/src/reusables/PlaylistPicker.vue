@@ -53,7 +53,7 @@ function create() {
       @click="open = !open"
     >
       <span class="h-7 w-12 shrink-0 overflow-hidden rounded-md bg-raised">
-        <img v-if="selected?.thumbnails[0]" :src="selected.thumbnails[0]" class="size-full object-cover" />
+        <img v-if="selected?.thumbnails[0]?.url" :src="selected.thumbnails[0].url ?? ''" class="size-full object-cover" />
       </span>
       <span class="min-w-0 flex-1 truncate" :class="selected ? 'text-ink' : 'text-ink-subtle'">
         {{ selected?.name ?? 'Playlist' }}
@@ -74,7 +74,7 @@ function create() {
             @click="choose(p.id)"
           >
             <span class="h-7 w-12 shrink-0 overflow-hidden rounded-md bg-raised">
-              <img v-if="p.thumbnails[0]" :src="p.thumbnails[0]" class="size-full object-cover" loading="lazy" />
+              <img v-if="p.thumbnails[0]?.url" :src="p.thumbnails[0].url ?? ''" class="size-full object-cover" loading="lazy" />
             </span>
             <span class="min-w-0 flex-1 truncate text-sm text-ink">{{ p.name }}</span>
             <IconCheck v-if="p.id === model" class="size-4 shrink-0 text-ink" />

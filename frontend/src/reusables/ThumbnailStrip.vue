@@ -5,14 +5,21 @@
  * It measures its own width (ResizeObserver) rather than guessing at breakpoints, so the count
  * follows the space it is actually given — a wide window shows more, a phone fewer, and a long
  * line of text beside it takes precedence. When not everything fits, the last slot becomes "+m",
- * counting every hidden item — `total` can exceed the thumbnails provided (the server sends only
- * the first few).
+ * counting every hidden item — `total` can exceed the tiles provided (the server sends only the
+ * first few). A tile without a picture — a website, text, a file with no thumbnail — shows an
+ * icon for what it is rather than a blank square.
  */
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import IconImage from '~icons/material-symbols/image-outline'
+import IconLanguage from '~icons/material-symbols/language'
+import IconTextFields from '~icons/material-symbols/text-fields'
+import IconVideocam from '~icons/material-symbols/videocam'
+
+import type { PlaylistTile } from '@/types/api'
 
 const props = withDefaults(
   defineProps<{
-    thumbnails: (string | null)[]
+    thumbnails: PlaylistTile[]
     /** How many items there are in all. Defaults to the thumbnails given. */
     total?: number
     /** Tile edge in px, and the gap between tiles — kept in step with the classes below. */
@@ -21,6 +28,10 @@ const props = withDefaults(
   }>(),
   { tile: 56, gap: 6 },
 )
+
+const ICON: Record<PlaylistTile['kind'], typeof IconImage> = {
+  image: IconImage, video: IconVideocam, web: IconLanguage, text: IconTextFields,
+}
 
 const root = ref<HTMLElement | null>(null)
 const capacity = ref(0)
@@ -37,7 +48,7 @@ onBeforeUnmount(() => observer?.disconnect())
 
 const total = computed(() => Math.max(props.total ?? 0, props.thumbnails.length))
 
-/** Thumbnails to draw, and the "+m" count (0 when everything fits). */
+/** Tiles to draw, and the "+m" count (0 when everything fits). */
 const layout = computed(() => {
   const available = Math.min(capacity.value, props.thumbnails.length)
   if (total.value <= capacity.value && available === total.value) {
@@ -52,11 +63,13 @@ const layout = computed(() => {
 <template>
   <div ref="root" class="flex min-w-0 gap-1.5 overflow-hidden" :aria-label="`${total} items`">
     <div
-      v-for="(url, i) in layout.shown"
+      v-for="(tile, i) in layout.shown"
       :key="i"
-      class="size-14 shrink-0 overflow-hidden rounded-lg bg-raised"
+      class="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-raised"
+      :title="tile.url ? undefined : tile.kind === 'web' ? 'Website' : tile.kind === 'text' ? 'Text' : undefined"
     >
-      <img v-if="url" :src="url" alt="" class="size-full object-cover" loading="lazy" />
+      <img v-if="tile.url" :src="tile.url" alt="" class="size-full object-cover" loading="lazy" />
+      <component :is="ICON[tile.kind] ?? IconImage" v-else class="size-6 text-ink-muted" aria-hidden="true" />
     </div>
     <div
       v-if="layout.more"

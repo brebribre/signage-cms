@@ -11,7 +11,7 @@ import {
 } from '@/utils/cropMath'
 import type { DraftElement } from '@/hooks/usePlaylistEditor'
 import type { SceneBackground } from '@/types/api'
-import { BLUR_IMAGE_STYLE, blurImageUrl, blurSource } from '@/utils/sceneBackground'
+import { BLUR_IMAGE_STYLE, blurImageUrl, blurSource, sceneBackdrop } from '@/utils/sceneBackground'
 import { TEXT_DEFAULT_STYLE, textBoxStyle } from '@/utils/textStyle'
 import { websiteLayoutScreen } from '@/utils/websiteLayout'
 
@@ -36,6 +36,7 @@ const props = withDefaults(
     screenHeight: number
     elements: DraftElement[]
     background?: SceneBackground
+    backgroundColor?: string | null
     maxHeight?: number
   }>(),
   { maxHeight: 420, background: 'black' },
@@ -53,6 +54,7 @@ const props = withDefaults(
 const frameStyle = computed(() => ({
   aspectRatio: `${props.screenWidth} / ${props.screenHeight}`,
   width: `min(100%, ${Math.round(props.maxHeight * (props.screenWidth / props.screenHeight))}px)`,
+  background: sceneBackdrop(props.background, props.backgroundColor),
 }))
 
 const sortedElements = computed(() => [...props.elements].sort((a, b) => a.zIndex - b.zIndex))

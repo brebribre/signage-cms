@@ -78,6 +78,9 @@ class ManifestSlot(BaseModel):
     # video (biggest box by area, bottom-most on a tie) fills the screen. Players that predate
     # it show black, which is exactly what they showed before.
     background: str = "black"
+    #: With background "color": the `#RRGGBB` to paint behind the scene. Players older than
+    #: 1.3.2 show black.
+    background_color: str | None = None
 
 
 class ManifestItem(BaseModel):

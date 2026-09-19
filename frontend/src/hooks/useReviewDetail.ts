@@ -62,6 +62,7 @@ export function useReviewDetail(id: string, library: () => MediaRead[]) {
       durationSeconds: item.duration_seconds ?? 10,
       isEnabled: item.is_enabled ?? true,
       background: item.background ?? 'black',
+      backgroundColor: item.background_color ?? null,
       elements: item.elements.map((el, j) => toDraft(el, byId, `proposed-${i}-${j}`)),
     }))
   })

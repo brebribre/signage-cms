@@ -76,6 +76,7 @@ class ItemSpec:
     duration_seconds: int | None = None
     is_enabled: bool = True
     background: SceneBackground = SceneBackground.BLACK
+    background_color: str | None = None
 
 
 class PlaylistNotFound(DomainError):
@@ -150,7 +151,7 @@ def list_playlists(
     ).all()
 
     playlist_ids = [p.id for p, _, _ in rows]
-    thumb_keys_by_playlist: dict[uuid.UUID, list[str | None]] = {}
+    thumb_keys_by_playlist: dict[uuid.UUID, list[tuple[str, str | None]]] = {}
     if playlist_ids:
         # Every element of every enabled item, ordered so that within one scene its lowest
         # z_index (first-painted) element comes first, and scenes themselves come in play
@@ -158,7 +159,10 @@ def list_playlists(
         # `_with_elements` above — it's a dict keyed by item id built in Python from rows
         # already in the right order, taking each item's first occurrence only.
         thumb_rows = session.exec(
-            select(PlaylistItem.playlist_id, PlaylistItem.id, Media.thumbnail_key)
+            select(
+                PlaylistItem.playlist_id, PlaylistItem.id, Media.thumbnail_key, Media.kind,
+                PlaylistItemElement.web_url, PlaylistItemElement.text,
+            )
             .join(PlaylistItemElement, PlaylistItemElement.playlist_item_id == PlaylistItem.id)
             # Outer: a website element has no media, and still takes its (blank) tile.
             .outerjoin(Media, Media.id == PlaylistItemElement.media_id)
@@ -169,16 +173,17 @@ def list_playlists(
             .order_by(PlaylistItem.playlist_id, PlaylistItem.position, PlaylistItemElement.z_index)
         ).all()
         seen_items: set[uuid.UUID] = set()
-        for playlist_id, item_id, thumbnail_key in thumb_rows:
+        for playlist_id, item_id, thumbnail_key, media_kind, web_url, text in thumb_rows:
             if item_id in seen_items:
                 continue
             seen_items.add(item_id)
+            kind = media_kind.value if media_kind else ("text" if text is not None else "web")
             bucket = thumb_keys_by_playlist.setdefault(playlist_id, [])
             if len(bucket) < MAX_PREVIEW_THUMBNAILS:
-                bucket.append(thumbnail_key)
+                bucket.append((kind, thumbnail_key))
 
-    def _urls(keys: list[str | None]) -> list[str | None]:
-        return [storage.presign_get(k) if k else None for k in keys]
+    def _urls(tiles: list[tuple[str, str | None]]) -> list[dict]:
+        return [{"kind": kind, "url": storage.presign_get(k) if k else None} for kind, k in tiles]
 
     return [
         (p, int(count), int(total), _urls(thumb_keys_by_playlist.get(p.id, [])))
@@ -361,6 +366,8 @@ def replace_items(
                 f"a scene can only have {MAX_LIVE_ELEMENTS} live elements (videos or websites)"
                 " at a time"
             )
+        if spec.background == SceneBackground.COLOR and not spec.background_color:
+            raise InvalidItems("a colour background needs a colour")
         if spec.duration_seconds is not None and not (
             MIN_ITEM_SECONDS <= spec.duration_seconds <= MAX_ITEM_SECONDS
         ):
@@ -382,6 +389,7 @@ def replace_items(
             ),
             is_enabled=spec.is_enabled,
             background=spec.background,
+            background_color=spec.background_color,
         )
         session.add(item)
         for el in spec.elements:

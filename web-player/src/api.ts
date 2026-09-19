@@ -72,6 +72,8 @@ export interface ManifestSlot {
   /** "black" (the default, also for a backend that predates it) or "blur" — see
    *  sceneBackground.ts. */
   background?: string
+  /** With background "color": the #RRGGBB behind the scene. */
+  background_color?: string | null
 }
 
 export interface ManifestItem {

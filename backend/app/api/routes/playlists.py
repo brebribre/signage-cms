@@ -6,6 +6,7 @@ from app.api.deps import CurrentUser, DbSession
 from app.api.review_gate import needs_review, park
 from app.models import Media, Playlist, PlaylistItem, PlaylistItemElement, ReviewKind
 from app.schemas.playlists import (
+    PlaylistTile,
     TextStyle,
     ElementRead,
     ItemMedia,
@@ -71,6 +72,7 @@ def _item(item: PlaylistItem, elements: list[tuple[PlaylistItemElement, Media | 
         duration_seconds=item.duration_seconds,
         is_enabled=item.is_enabled,
         background=item.background,
+        background_color=item.background_color,
         elements=[_element(el, media) for el, media in elements],
     )
 
@@ -103,7 +105,7 @@ def list_playlists(user: CurrentUser, session: DbSession) -> list[PlaylistSummar
             total_duration_seconds=total,
             created_at=p.created_at,
             updated_at=p.updated_at,
-            thumbnails=thumbnails,
+            thumbnails=[PlaylistTile(**t) for t in thumbnails],
         )
         for p, count, total, thumbnails in playlist_service.list_playlists(session, user=user)
     ]
@@ -167,6 +169,7 @@ def item_specs(body: ItemsWrite) -> list[ItemSpec]:
             duration_seconds=i.duration_seconds,
             is_enabled=i.is_enabled,
             background=i.background,
+            background_color=i.background_color,
             elements=[
                 ElementSpec(
                     media_id=el.media_id,

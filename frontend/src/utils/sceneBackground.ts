@@ -42,7 +42,17 @@ export const BLUR_IMAGE_STYLE: CSSProperties = {
   transform: 'scale(1.15)',
 }
 
-export const SCENE_BACKGROUNDS: { value: SceneBackground; label: string }[] = [
-  { value: 'black', label: 'Black' },
-  { value: 'blur', label: 'Blurred' },
+export const SCENE_BACKGROUNDS: { value: SceneBackground; label: string; hint: string }[] = [
+  { value: 'blur', label: 'Blurred', hint: 'A blurred copy of the largest picture or video (a video’s thumbnail) fills the screen behind the scene.' },
+  { value: 'black', label: 'Black', hint: 'Plain black wherever the scene doesn’t cover the screen.' },
+  { value: 'color', label: 'Colour', hint: 'A solid colour of your choice behind the scene.' },
 ]
+
+/** The colour a scene starts with when Colour is picked — the brand blue. */
+export const DEFAULT_BACKGROUND_COLOR = '#1D2FA5'
+
+/** What actually paints behind a scene's elements: black, a colour, or (for blur) nothing —
+ *  the blurred picture is drawn separately over a black frame. */
+export function sceneBackdrop(background: SceneBackground, color: string | null | undefined): string {
+  return background === 'color' && color ? color : '#000000'
+}

@@ -186,10 +186,11 @@ function startCreateCustom() {
   editingItem.value = createEmptyItem()
 }
 
-function applySceneEdit(elements: DraftElement[], background: SceneBackground) {
+function applySceneEdit(elements: DraftElement[], background: SceneBackground, backgroundColor: string | null) {
   if (!editingItem.value) return
   editingItem.value.elements = elements
   editingItem.value.background = background
+  editingItem.value.backgroundColor = backgroundColor
   if (editingIsNew.value && elements.length) draft.value.push(editingItem.value)
   editingItem.value = null
 }
@@ -488,6 +489,7 @@ function sceneLabel(item: DraftItem): string {
           :screen-height="screen.height"
           :elements="preview.current.value?.elements ?? []"
           :background="preview.current.value?.background ?? 'black'"
+          :background-color="preview.current.value?.backgroundColor ?? null"
         />
       </div>
     </template>

@@ -240,6 +240,9 @@ export class PlaybackSurface {
 
     const layer = document.createElement('div')
     layer.className = 'slot'
+    // A solid colour is painted on the slot itself, under every element; black and blur leave
+    // it transparent over the black stage (see the .slot rule for why transparent matters).
+    if (slot.background === 'color' && slot.background_color) layer.style.background = slot.background_color
     const width = this.root.clientWidth
     const height = this.root.clientHeight
     // Prepared for a different size (a rotation landed in between) is prepared for nothing.

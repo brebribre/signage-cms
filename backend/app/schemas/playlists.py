@@ -68,8 +68,11 @@ class ItemWrite(BaseModel):
         default=None, ge=MIN_ITEM_SECONDS, le=MAX_ITEM_SECONDS
     )
     is_enabled: bool = True
-    # Behind anything the elements don't cover. See models.playlist.SceneBackground.
-    background: SceneBackground = SceneBackground.BLACK
+    # Behind anything the elements don't cover. See models.playlist.SceneBackground. Blur by
+    # default: a picture on a screen of another shape looks placed rather than letterboxed.
+    background: SceneBackground = SceneBackground.BLUR
+    # Required when `background` is "color"; kept otherwise.
+    background_color: str | None = Field(default=None, pattern=HEX_COLOUR)
     elements: list[ElementWrite] = Field(default_factory=list, max_length=20)
 
 
@@ -125,6 +128,7 @@ class ItemRead(BaseModel):
     duration_seconds: int
     is_enabled: bool
     background: SceneBackground
+    background_color: str | None = None
     elements: list[ElementRead]
 
 
@@ -138,9 +142,21 @@ class PlaylistSummary(BaseModel):
     updated_at: datetime
     # A preview strip, not the whole loop — capped, see services/playlists.py::list_playlists.
     # `None` for a scene whose media has no thumbnail: a blank tile, not a skipped one.
-    thumbnails: list[str | None] = []
+    # One tile per enabled scene, in play order, up to MAX_PREVIEW_THUMBNAILS: the first-painted
+    # element's thumbnail, or none with a kind that says what the tile is (a website, text, or
+    # a file without a picture) so the list can show an icon instead of a blank.
+    thumbnails: list["PlaylistTile"] = []
+
+
+class PlaylistTile(BaseModel):
+    url: str | None
+    #: "image", "video", "web" or "text".
+    kind: str
 
 
 class PlaylistDetail(PlaylistSummary):
     items: list[ItemRead]
     used_by: list[str] = []
+
+
+PlaylistSummary.model_rebuild()

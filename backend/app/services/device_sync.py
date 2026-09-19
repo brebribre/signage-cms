@@ -15,7 +15,7 @@ from datetime import datetime
 from sqlmodel import Session, select
 
 from app.config import get_settings
-from app.models import Device, DevicePlatform, DeviceUpdateState, EventLevel, ItemFit, Media, MediaKind, Playlist, PlaylistItem, PlaylistItemElement
+from app.models import SceneBackground, Device, DevicePlatform, DeviceUpdateState, EventLevel, ItemFit, Media, MediaKind, Playlist, PlaylistItem, PlaylistItemElement
 from app.models.base import utcnow
 from app.infra import storage
 from app.services import device_settings
@@ -111,6 +111,7 @@ def compute_version(session: Session, device: Device, now: datetime | None = Non
                     item.duration_seconds,
                     item.position,
                     item.background.value,
+                    item.background_color,
                     [
                         (
                             str(el.id),
@@ -192,6 +193,8 @@ class ManifestSlot:
     duration_seconds: int
     elements: list[ManifestElement]
     background: str = "black"
+    #: With background "color": the `#RRGGBB` to paint. None otherwise.
+    background_color: str | None = None
 
 
 @dataclass
@@ -312,6 +315,7 @@ def build_manifest(session: Session, device: Device, *, version: str) -> Manifes
                 for el, media in elements
             ],
             background=item.background.value,
+            background_color=item.background_color if item.background == SceneBackground.COLOR else None,
         )
         for item, elements in rows
     ]
