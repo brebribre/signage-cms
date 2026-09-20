@@ -108,9 +108,14 @@ railway up ./monitoring --path-as-root --service monitoring
 `--path-as-root` matters: without it the CLI archives the whole git repo (even when run from
 inside `monitoring/`), the builder finds no `package.json` at the top, and the deploy fails at
 once with an empty log. `monitoring/.railwayignore` keeps `node_modules` and `dist` out of the
-upload. **For pushes to `main` to redeploy it, the service still needs its Root Directory set to
-`monitoring` and the GitHub repo connected — both in the dashboard (Settings → Source); the CLI
-cannot set a root directory.** Until then, redeploy with the command above.
+upload.
+
+The service is now connected to this GitHub repo, branch `main` (`railway service source connect
+--repo brebribre/signage-cms --branch main --service monitoring`), so pushes trigger a deploy —
+**but it also needs its Root Directory set to `monitoring`, which only the dashboard can do
+(Settings → Source → Root Directory); the CLI and the public API's CLI login both refuse it.**
+Until that is set, every GitHub-triggered deploy fails the same way the root-archive upload did,
+and the last successful deployment keeps serving. Set it once, then Redeploy (or push).
 
 Who can sign in: only users with `is_platform_admin` (set with `backend/scripts/make_admin.py`,
 run inside the backend service — see the "Railway one-off scripts" note in the runbook). Everyone
