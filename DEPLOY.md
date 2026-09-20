@@ -12,6 +12,7 @@ registers no GitHub webhook, and the service silently stops redeploying on push.
 | `backend` | `backend` | `uvicorn app.main:app --host 0.0.0.0 --port $PORT` (via `backend/railpack.json`) | `https://signage-cms-production.up.railway.app` |
 | `frontend` | `frontend` | `node server.mjs` (`npm run build` at build time) | `https://practical-benevolence-production-b7b2.up.railway.app` |
 | `web-player` | `web-player` | `node server.mjs` (`npm run build` at build time) — the browser player for smart TVs, see `web-player/README.md` | `https://web-player-production-cbfe.up.railway.app` |
+| `monitoring` | `monitoring` | `node server.mjs` (`npm run build` at build time) — Paskall staff only: issues customer accounts and their limits. Its own app, deliberately split from the customer-facing `frontend`; sign-in is `/admin/auth/login`, which refuses anyone who isn't a platform admin (`scripts/make_admin.py`). | `https://monitoring-production-69c1.up.railway.app` |
 | `Postgres` | — | `ghcr.io/railwayapp-templates/postgres-ssl:18` | private only |
 
 `frontend`'s `server.mjs` does two things: serves the built SPA, and reverse-proxies `/api/*`
@@ -85,6 +86,35 @@ of names. The ones that matter for *this* deploy, beyond local defaults:
 the build at compile time — the client always calls its own origin, relatively, and never
 knows the backend's real address at all. A redeploy is required after changing anything in
 it — editing it alone does nothing to an already-built `dist/`.
+
+## Environment variables (monitoring — `monitoring`)
+
+| Variable | Value here | Why |
+|---|---|---|
+| `BACKEND_URL` | `https://signage-cms-production.up.railway.app` | Read by `monitoring/server.mjs` at runtime — where it proxies `/api/*` to, exactly as `frontend` does. The client only ever calls `/api` on its own origin, so the session cookie is first-party and the backend needs no CORS entry for this app. |
+
+No `VITE_` variables: `monitoring/src/api/request.ts` hard-codes `/api`, and in local dev the Vite
+server proxies it to `http://localhost:8001` (`monitoring/vite.config.ts`). Locally the app runs
+on `127.0.0.1:5176`, not `localhost` — a different host to the CMS on purpose, so signing in and
+out of monitoring never touches a CMS session in the same browser.
+
+The service was created from the CLI (`railway add --service monitoring …`) and first deployed
+with, from the **repo root**:
+
+```bash
+railway up ./monitoring --path-as-root --service monitoring
+```
+
+`--path-as-root` matters: without it the CLI archives the whole git repo (even when run from
+inside `monitoring/`), the builder finds no `package.json` at the top, and the deploy fails at
+once with an empty log. `monitoring/.railwayignore` keeps `node_modules` and `dist` out of the
+upload. **For pushes to `main` to redeploy it, the service still needs its Root Directory set to
+`monitoring` and the GitHub repo connected — both in the dashboard (Settings → Source); the CLI
+cannot set a root directory.** Until then, redeploy with the command above.
+
+Who can sign in: only users with `is_platform_admin` (set with `backend/scripts/make_admin.py`,
+run inside the backend service — see the "Railway one-off scripts" note in the runbook). Everyone
+else gets the same 401 as a wrong password.
 
 ## Environment variables (web player — `web-player`)
 

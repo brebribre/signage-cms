@@ -193,6 +193,23 @@ def main() -> None:
     a.patch(f"/admin/accounts/{cust_id}", json={"max_screens": None})
     check("no limit means claims work again", claim(o, "Unlimited").status_code == 201)
 
+    print("\nthe monitoring app's own sign-in: admins only")
+    wrong = TestClient(app).post("/admin/auth/login", json={"identifier": f"{PREFIX}-admin", "password": "not-it"})
+    check("a wrong password is 401", wrong.status_code == 401, str(wrong.status_code))
+    denied = TestClient(app).post("/admin/auth/login", json={"identifier": f"{PREFIX}-owner", "password": PASSWORD})
+    check("a customer with the right password is also 401", denied.status_code == 401, str(denied.status_code))
+    check("...with a byte-identical body, so trying teaches nothing", denied.content == wrong.content, denied.text)
+    check("...and no cookie", settings.session_cookie_name not in denied.cookies)
+    signed_in = TestClient(app)
+    ok = signed_in.post("/admin/auth/login", json={"identifier": f"{PREFIX}-admin", "password": PASSWORD})
+    check("an admin signs in", ok.status_code == 200 and ok.json().get("is_platform_admin") is True, f"{ok.status_code} {ok.text[:80]}")
+    check("...and gets a session cookie", settings.session_cookie_name in ok.cookies)
+    check("/admin/me answers with the admin", signed_in.get("/admin/me").json().get("username") == f"{PREFIX}-admin")
+    check("/admin/me is 403 for a customer's session", o.get("/admin/me").status_code == 403)
+    check("/admin/me is 401 with no session", TestClient(app).get("/admin/me").status_code == 401)
+    check("sign-out is 204", signed_in.post("/admin/auth/logout").status_code == 204)
+    check("...and /admin/me is 401 after it", signed_in.get("/admin/me").status_code == 401)
+
     cleanup()
     print()
     if failures:

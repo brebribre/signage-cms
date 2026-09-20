@@ -1,46 +1,37 @@
 import { computed, ref } from 'vue'
 
-import { useAuthApi } from '@/api/useAuthApi'
+import { useAdminApi } from '@/api/useAdminApi'
 import { ApiError } from '@/api/request'
 import { useAuthStore } from '@/stores/useAuthStore'
-import type { LoginBody, MeResponse } from '@/types/api'
+import type { LoginBody, UserRead } from '@/types/api'
 
 /**
- * Containers reach the auth store through here, never directly — that keeps the container
- * rule to one thing: call hooks.
+ * Containers reach the auth store through here, never directly. Being "signed in" here means
+ * /admin/me answered 200, which it only does for a platform admin — so there is no separate
+ * "is admin" check anywhere in this app: signed in *is* admin.
  */
 export function useAuth() {
   const store = useAuthStore()
-  const api = useAuthApi()
+  const api = useAdminApi()
 
   const isLoading = ref(false)
   const error = ref<string | null>(null)
 
   const user = computed(() => store.user)
-  const account = computed(() => store.account)
   const isSignedIn = computed(() => store.user !== null)
-  const isOwner = computed(() => store.user?.role === 'owner')
 
-  function apply(me: MeResponse) {
-    store.user = me.user
-    store.account = me.account
-    store.deviceIds = me.device_ids
+  function apply(me: UserRead) {
+    store.user = me
     store.resolved = true
   }
 
   function clear() {
     store.user = null
-    store.account = null
-    store.deviceIds = null
     store.resolved = true
   }
 
-  /**
-   * Ask the backend who we are. "Am I signed in?" is always answered by /me returning 200
-   * vs 401 — never by inspecting storage, because the cookie is HttpOnly and unreadable.
-   *
-   * Resolved once per page load; the guard calls it before the first navigation.
-   */
+  /** Ask the backend who we are — answered by /admin/me, never by inspecting storage, because
+   *  the cookie is HttpOnly. Resolved once per page load; the guard calls it first. */
   async function resolve(force = false) {
     if (store.resolved && !force) return
     try {
@@ -50,11 +41,11 @@ export function useAuth() {
     }
   }
 
-  async function submit(fn: () => Promise<MeResponse>) {
+  async function login(body: LoginBody): Promise<boolean> {
     isLoading.value = true
     error.value = null
     try {
-      apply(await fn())
+      apply(await api.login(body))
       return true
     } catch (e) {
       error.value = e instanceof ApiError ? e.message : 'Something went wrong'
@@ -63,8 +54,6 @@ export function useAuth() {
       isLoading.value = false
     }
   }
-
-  const login = (body: LoginBody) => submit(() => api.login(body))
 
   async function logout() {
     try {
@@ -76,5 +65,5 @@ export function useAuth() {
     }
   }
 
-  return { user, account, isSignedIn, isOwner, isLoading, error, resolve, login, logout }
+  return { user, isSignedIn, isLoading, error, resolve, login, logout }
 }

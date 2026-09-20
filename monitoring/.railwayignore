@@ -1,0 +1,6 @@
+# What `railway up` must not upload from this folder. The repo-root .gitignore does not apply
+# when uploading from inside monitoring/, so without this node_modules and dist go up too.
+node_modules
+dist
+.env
+.env.*

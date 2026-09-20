@@ -54,6 +54,18 @@
         "website"
       ],
       "port": 5175
+    },
+    {
+      "name": "monitoring",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "monitoring"
+      ],
+      "port": 5176,
+      "url": "http://127.0.0.1:5176"
     }
   ]
 }

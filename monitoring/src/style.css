@@ -1,0 +1,139 @@
+@import "tailwindcss";
+
+/*
+  Paskall CMS design tokens.
+
+  Pill buttons carrying a 1px border, headings at weight 500, and no shadows anywhere. Light
+  mode only — there is no dark palette and no runtime theming, so
+  `color-scheme: light` is declared and native controls follow it.
+
+  Ink and surfaces stay monochrome — body text, cards and hairlines. What is *active or
+  primary* carries the brand blue instead: a selected nav row, a primary button, a chosen
+  filter. Both halves are needed. Colour everywhere would fight the content; colour nowhere
+  left the Paskall logo looking pasted onto someone else's app.
+
+  The blues are sampled from the logo itself (src/assets/paskall-logo.png): its gradient runs
+  #002f96 → #0076dd, and the mark's flat mass is #003399.
+*/
+
+@theme {
+  /* --- Type ---
+     Two faces, each doing the job it is good at. Outfit is round and geometric with a
+     single-storey "a" — the same build as the Paskall wordmark — so page titles and the big
+     figures on a dashboard sit beside the logo as one thing. Geometric faces lose legibility
+     small, though, so everything at reading size is Inter, which is drawn for exactly that and
+     keeps up with Outfit's proportions. Both are bundled (see main.ts). */
+  --font-sans: "Inter Variable", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-display: "Outfit Variable", "Inter Variable", "Helvetica Neue", Arial, sans-serif;
+
+  /* Outfit is already tightly spaced; the -0.025em Helvetica needed would crowd it. */
+  --tracking-heading: -0.015em;
+
+  /* --- Surfaces --- */
+  /* The page behind the cards. Slightly cool rather than neutral grey, so it sits under the
+     brand blue without looking dusty; deep enough that a white card reads as sitting on it. */
+  --color-page: #f1f3f7;
+  --color-canvas: #ffffff;
+  --color-surface: #f9f9f9;
+  --color-raised: #f2f2f2;
+
+  /* --- Brand. Straight off the logo: see the note above. --- */
+  /* The default: solid fills, active nav rows, primary buttons. */
+  --color-brand: #003399;
+  /* The gradient's dark end — the deep side of the brand gradient on hero cards. */
+  --color-brand-strong: #002f96;
+  /* A primary button under the pointer: part-way from the core blue to the bright end, so the
+     change is plain to see (the dark end sits too close to the core to notice). */
+  --color-brand-hover: #1f55c4;
+  /* The gradient's bright end. Small accents and focus rings, never large fills: it is too
+     light against white for text at body size. */
+  --color-brand-bright: #0076dd;
+  /* A tint of --color-brand for the surface under a selected row. */
+  --color-brand-soft: #eef2fd;
+
+  /* --- Ink --- */
+  --color-ink: #101111;
+  --color-ink-muted: #7d7d7d;
+  --color-ink-subtle: #a8a8a8;
+  --color-ink-inverse: #f9f9f9;
+
+  /* --- Lines. Hairlines between things, and outlines around controls. --- */
+  --color-line: #e5e5e5;
+  --color-line-strong: #bfbfbf;
+
+  /* The single non-monochrome token, and only for destructive confirmation and error
+     text. Muted well below a warning red so it reads as part of the palette. Delete it
+     and use ink if you would rather the system be strictly monochrome. */
+  --color-danger: #9b2c2c;
+
+  /* --- Radii. 4-16, plus the pill that every button uses. --- */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+
+  /* --- Motion. One curve, two durations. --- */
+  --ease-fortu: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-quick: 150ms;
+  --duration-soft: 200ms;
+
+  /* A dialog on a phone rises from the bottom edge like the iOS keyboard, over a fading scrim.
+     The sheet uses iOS's own decelerating curve rather than --ease-fortu: it should settle, not
+     glide. */
+  --animate-sheet-up: sheet-up 320ms cubic-bezier(0.32, 0.72, 0, 1);
+  --animate-fade-in: fade-in var(--duration-soft) var(--ease-fortu);
+
+  @keyframes sheet-up {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+}
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body {
+  background-color: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Headings are medium, never bold, and always tracked in. Set once here so no component
+   has to remember it — the one rule most easily lost across thirty templates. */
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: var(--tracking-heading);
+}
+
+/* Inputs inherit the family; browsers otherwise substitute their own. */
+input, textarea, select, button {
+  font-family: inherit;
+}
+
+/* iOS Safari zooms the whole page in when a field under 16px gets focus. On touch screens the
+   fields are 16px instead, so it has no reason to — rather than `maximum-scale=1` in the
+   viewport meta, which would also take away pinch-zoom. Unlayered on purpose: it has to win
+   over utilities like `text-sm` without touching every input. Desktop is unaffected. */
+@media (hover: none) and (pointer: coarse) {
+  input, textarea, select {
+    font-size: 16px;
+  }
+}
+
+/* No double-tap-to-zoom delay on taps. In the base layer, not unlayered: an unlayered rule beats
+   every Tailwind utility, so it silently overrode `touch-none` on the scene editor's canvas,
+   elements and handles — a finger drag there scrolled the page instead of moving the element. */
+@layer base {
+  *, *::before, *::after {
+    touch-action: manipulation;
+  }
+}

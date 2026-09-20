@@ -4,8 +4,8 @@ import { ApiError } from '@/api/request'
 import { useAdminApi } from '@/api/useAdminApi'
 import type { AdminAccountCreateBody, AdminAccountRead, AdminLimitsUpdateBody } from '@/types/api'
 
-/** The admin's list of every customer account, and the two things they do to one: make it,
- *  and change its limits. Same shape as useUsers, so the page reads the same way. */
+/** The list of every customer account, and the two things done to one: make it, and change
+ *  its limits. */
 export function useAdminAccounts() {
   const api = useAdminApi()
 

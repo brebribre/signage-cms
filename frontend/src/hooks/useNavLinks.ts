@@ -1,7 +1,5 @@
 import type { Component } from 'vue'
-import IconAdminPanel from '~icons/material-symbols/admin-panel-settings-outline'
 import IconCampaign from '~icons/material-symbols/campaign-outline'
-import IconCorporate from '~icons/material-symbols/corporate-fare'
 import IconFactCheck from '~icons/material-symbols/fact-check-outline'
 import IconFolderOpen from '~icons/material-symbols/folder-open-outline'
 import IconMonitoring from '~icons/material-symbols/monitoring'
@@ -27,9 +25,9 @@ export interface NavSection {
 
 /** The app's page links, in one place for both the desktop sidebar (section titles) and the
  *  mobile bar (a tab per ungrouped link, a tab per category that opens its pages above the bar)
- *  — so the two can never drift apart. `settings` is owner-only and `admin` is Fortu-staff-only;
- *  callers gate both. Settings is a single link: its sections are tabs on the Settings page
- *  itself. The external Documentation link stays in SidebarContainer. */
+ *  — so the two can never drift apart. `settings` is owner-only; callers gate it. It is a single
+ *  link: its sections are tabs on the Settings page itself. The external Documentation link
+ *  stays in SidebarContainer. Platform admin lives in its own app (monitoring/), not here. */
 export function useNavLinks() {
   const sections: NavSection[] = [
     { title: null, icon: null, links: [{ name: 'now', label: 'Overview', icon: IconMonitoring }] },
@@ -63,14 +61,7 @@ export function useNavLinks() {
     links: [{ name: 'settings', label: 'Settings', icon: IconSettings }],
   }
 
-  // Fortu staff only — the one place that reaches across every customer account.
-  const admin: NavSection = {
-    title: 'Admin',
-    icon: IconAdminPanel,
-    links: [{ name: 'admin-accounts', label: 'Accounts', icon: IconCorporate }],
-  }
-
   const primary = sections.flatMap((s) => s.links)
 
-  return { sections, settings, admin, primary }
+  return { sections, settings, primary }
 }

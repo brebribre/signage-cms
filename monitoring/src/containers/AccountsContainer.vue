@@ -1,8 +1,8 @@
 <script setup lang="ts">
 /**
- * Platform admin: every customer account, what each is allowed, and how much it is using.
- * Two actions — make an account, change its limits. Fortu staff only: the route guard hides
- * it and the server refuses everyone else regardless.
+ * Every customer account, what each is allowed, how much it is using, and who is in it.
+ * Two actions — make an account, change its limits. The whole app is staff-only, so there is
+ * no gating here; the server refuses everyone else regardless.
  *
  * A blank limit field means "no limit". Storage is typed in GB here and sent as bytes, since
  * nobody thinks in bytes.
