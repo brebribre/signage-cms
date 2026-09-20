@@ -35,6 +35,17 @@ export interface LoginBody {
 
 // --- Platform admin (Fortu staff only) ---
 
+/** One person who can sign in to a customer account: the owner, or a sub account (manager)
+ *  the owner created. */
+export interface AdminAccountUserRead {
+  id: string
+  username: string
+  display_name: string
+  role: UserRole
+  is_active: boolean
+  created_at: string
+}
+
 /** One customer account as the admin sees it: its limits and how much of each is used.
  *  A null limit means unlimited. */
 export interface AdminAccountRead {
@@ -43,6 +54,8 @@ export interface AdminAccountRead {
   created_at: string
   /** The first owner's username — what the admin tells the customer to sign in with. */
   owner_username: string | null
+  /** Everyone in the account, owners first, so sub accounts sit under the owner. */
+  users: AdminAccountUserRead[]
   max_screens: number | null
   screens_used: number
   storage_quota_bytes: number | null

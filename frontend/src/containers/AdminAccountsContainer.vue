@@ -22,7 +22,7 @@ import ModalActions from '@/reusables/ModalActions.vue'
 import OverflowMenu from '@/reusables/OverflowMenu.vue'
 import PageTitle from '@/reusables/PageTitle.vue'
 import SkeletonBlock from '@/reusables/SkeletonBlock.vue'
-import type { AdminAccountRead } from '@/types/api'
+import type { AdminAccountRead, AdminAccountUserRead } from '@/types/api'
 
 const { accounts, isLoading, isSaving, error, formError, create, setLimits } = useAdminAccounts()
 const { bytes, date } = useFormat()
@@ -30,12 +30,35 @@ const { bytes, date } = useFormat()
 const GB = 1024 ** 3
 
 const query = ref('')
+/** Matches the account's name, or any of its people — the owner or a sub account. */
 const rows = computed(() => {
   const q = query.value.trim().toLowerCase()
   return accounts.value.filter(
-    (a) => !q || [a.name, a.owner_username ?? ''].some((v) => v.toLowerCase().includes(q)),
+    (a) =>
+      !q ||
+      [a.name, ...a.users.flatMap((u) => [u.username, u.display_name])].some((v) =>
+        v.toLowerCase().includes(q),
+      ),
   )
 })
+
+// --- Who is in an account: the owner, and the sub accounts they made, marked as such ---
+
+const BADGE = 'inline-flex items-center rounded-full px-2 py-0.5 text-[11px] leading-4 whitespace-nowrap ring-1 ring-inset'
+const TONES = {
+  green: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+  brand: 'bg-brand-soft text-brand ring-brand/20',
+  muted: 'bg-surface text-ink-muted ring-line',
+} as const
+
+/** Same marks as the customer's own Users page, so a role reads the same everywhere. */
+function badges(u: AdminAccountUserRead): { label: string; tone: keyof typeof TONES }[] {
+  const out: { label: string; tone: keyof typeof TONES }[] = [
+    u.role === 'owner' ? { label: 'Owner', tone: 'green' } : { label: 'Sub account', tone: 'brand' },
+  ]
+  if (!u.is_active) out.push({ label: 'Deactivated', tone: 'muted' })
+  return out
+}
 
 // --- Limits as the form holds them: blank = no limit ---
 
@@ -144,8 +167,8 @@ const MENU_ITEM = 'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-le
       <input
         v-model="query"
         type="search"
-        placeholder="Search by account or owner"
-        aria-label="Search accounts"
+        placeholder="Search by account or person"
+        aria-label="Search accounts and their people"
         class="h-9 w-full rounded-lg border border-line-strong bg-canvas pr-3 pl-9 text-sm text-ink
                placeholder:text-ink-subtle focus:border-ink focus:outline-none"
       />
@@ -185,10 +208,20 @@ const MENU_ITEM = 'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-le
           <tr v-for="a in rows" :key="a.id">
             <td class="px-4 py-3">
               <p class="truncate font-medium text-ink">{{ a.name }}</p>
-              <p class="truncate text-[13px] text-ink-muted">
-                <template v-if="a.owner_username">@{{ a.owner_username }}</template>
-                <span v-else class="text-danger">no owner</span>
-              </p>
+              <p v-if="!a.users.length" class="text-[13px] text-danger">no users</p>
+              <!-- The owner, then the sub accounts they made, tucked under them and marked. -->
+              <ul v-else class="mt-1 flex flex-col gap-1 text-[13px]">
+                <li
+                  v-for="u in a.users"
+                  :key="u.id"
+                  class="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5"
+                  :class="[u.role !== 'owner' && 'ml-2 border-l-2 border-line pl-2', !u.is_active && 'opacity-60']"
+                >
+                  <span class="truncate text-ink">{{ u.display_name }}</span>
+                  <span class="truncate text-ink-muted">@{{ u.username }}</span>
+                  <span v-for="b in badges(u)" :key="b.label" :class="[BADGE, TONES[b.tone]]">{{ b.label }}</span>
+                </li>
+              </ul>
               <!-- Phones: no Screens/Storage columns, so the figures go here. -->
               <p class="mt-1 text-[13px] text-ink-muted sm:hidden">
                 <span :class="atScreenLimit(a) && 'text-danger'">{{ screensTextMobile(a) }}</span>

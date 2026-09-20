@@ -5,7 +5,20 @@ from datetime import datetime
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
+from app.models import UserRole
 from app.schemas.auth import USERNAME_RE
+
+
+class AdminAccountUserRead(BaseModel):
+    """One person who can sign in to the account: the owner, or a sub account (manager) the
+    owner created. No email or grants — the admin needs to see who is there, not manage them."""
+
+    id: uuid.UUID
+    username: str
+    display_name: str
+    role: UserRole
+    is_active: bool
+    created_at: datetime
 
 
 class AdminAccountRead(BaseModel):
@@ -15,6 +28,8 @@ class AdminAccountRead(BaseModel):
     # The first owner's username — what the admin tells the customer to sign in with. None only
     # for an account somehow left with no owner.
     owner_username: str | None
+    # Everyone in the account, owners first, so sub accounts sit under the owner in the list.
+    users: list[AdminAccountUserRead]
     # Both limits: None means unlimited.
     max_screens: int | None
     screens_used: int

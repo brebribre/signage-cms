@@ -90,6 +90,10 @@ def main() -> None:
     print("\nthe list shows usage against limits")
     row = next(x for x in r.json() if x["id"] == str(cust_id))
     check("owner_username is the first owner", row["owner_username"] == f"{PREFIX}-owner", str(row["owner_username"]))
+    listed = [(u["username"], u["role"]) for u in row["users"]]
+    check("everyone in the account is listed, owner first, sub account under them",
+          listed == [(f"{PREFIX}-owner", "owner"), (f"{PREFIX}-mgr", "manager")], str(listed))
+    check("each user says whether they are active", all(u["is_active"] is True for u in row["users"]))
     check("max_screens comes through", row["max_screens"] == 3, str(row["max_screens"]))
     check("a disconnecting screen does not take a seat", row["screens_used"] == 2, str(row["screens_used"]))
     check("storage quota is unlimited (null)", row["storage_quota_bytes"] is None)

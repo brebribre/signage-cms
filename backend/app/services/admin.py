@@ -26,28 +26,56 @@ class AccountNotFound(DomainError):
 
 
 @dataclass(frozen=True)
+class UserSummary:
+    id: uuid.UUID
+    username: str
+    display_name: str
+    role: UserRole
+    is_active: bool
+    created_at: datetime
+
+
+@dataclass(frozen=True)
 class AccountSummary:
     id: uuid.UUID
     name: str
     created_at: datetime
     owner_username: str | None
+    users: list[UserSummary]
     max_screens: int | None
     screens_used: int
     storage_quota_bytes: int | None
     storage_used_bytes: int
 
 
+def _users(session: Session, account_id: uuid.UUID) -> list[UserSummary]:
+    """Everyone in the account. Owners first, then the sub accounts they made, each group
+    oldest first — so the list reads as "the owner, and under them, who they added"."""
+    rows = list(
+        session.exec(select(User).where(User.account_id == account_id).order_by(User.created_at)).all()
+    )
+    rows.sort(key=lambda u: (u.role != UserRole.OWNER, u.created_at))
+    return [
+        UserSummary(
+            id=u.id,
+            username=u.username,
+            display_name=u.display_name,
+            role=u.role,
+            is_active=u.is_active,
+            created_at=u.created_at,
+        )
+        for u in rows
+    ]
+
+
 def _summary(session: Session, account: Account) -> AccountSummary:
-    owner = session.exec(
-        select(User)
-        .where(User.account_id == account.id, User.role == UserRole.OWNER)
-        .order_by(User.created_at)
-    ).first()
+    users = _users(session, account.id)
     return AccountSummary(
         id=account.id,
         name=account.name,
         created_at=account.created_at,
-        owner_username=owner.username if owner else None,
+        owner_username=next((u.username for u in users if u.role == UserRole.OWNER), None),
+        users=users,
         max_screens=account.max_screens,
         screens_used=device_service.count_claimed(session, account_id=account.id),
         storage_quota_bytes=account.storage_quota_bytes,

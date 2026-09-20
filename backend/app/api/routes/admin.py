@@ -10,7 +10,12 @@ import uuid
 from fastapi import APIRouter, HTTPException, status
 
 from app.api.deps import DbSession, RequirePlatformAdmin
-from app.schemas.admin import AdminAccountCreate, AdminAccountRead, AdminLimitsUpdate
+from app.schemas.admin import (
+    AdminAccountCreate,
+    AdminAccountRead,
+    AdminAccountUserRead,
+    AdminLimitsUpdate,
+)
 from app.services import admin as admin_service
 from app.services.admin import AccountNotFound
 from app.services.errors import EmailTaken, UsernameTaken
@@ -21,7 +26,9 @@ NOT_FOUND = HTTPException(status.HTTP_404_NOT_FOUND, "Account not found")
 
 
 def _read(summary: admin_service.AccountSummary) -> AdminAccountRead:
-    return AdminAccountRead(**summary.__dict__)
+    return AdminAccountRead(
+        **{**summary.__dict__, "users": [AdminAccountUserRead(**u.__dict__) for u in summary.users]}
+    )
 
 
 @router.get("/accounts", response_model=list[AdminAccountRead])
