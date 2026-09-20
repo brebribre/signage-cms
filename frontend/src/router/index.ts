@@ -132,6 +132,14 @@ const router = createRouter({
             },
           ],
         },
+        // Fortu staff only: issue customer accounts and set their limits. Its own chunk, so a
+        // customer never downloads it.
+        {
+          path: 'admin/accounts',
+          name: 'admin-accounts',
+          component: () => import('@/containers/AdminAccountsContainer.vue'),
+          meta: { adminOnly: true },
+        },
       ],
     },
     { path: '/:pathMatch(.*)*', redirect: { name: 'now' } },
@@ -145,7 +153,7 @@ const router = createRouter({
  * the right page instead of flashing the login screen.
  */
 router.beforeEach(async (to) => {
-  const { resolve, isSignedIn, isOwner } = useAuth()
+  const { resolve, isSignedIn, isOwner, isPlatformAdmin } = useAuth()
   await resolve()
 
   if (!to.meta.public && !isSignedIn.value) {
@@ -159,6 +167,9 @@ router.beforeEach(async (to) => {
   // Hiding the nav entry is a courtesy; this is the client-side half of the enforcement,
   // and the server refuses these routes regardless.
   if (to.meta.ownerOnly && !isOwner.value) {
+    return { name: 'now' }
+  }
+  if (to.meta.adminOnly && !isPlatformAdmin.value) {
     return { name: 'now' }
   }
   return true

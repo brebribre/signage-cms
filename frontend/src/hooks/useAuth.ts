@@ -20,6 +20,8 @@ export function useAuth() {
   const account = computed(() => store.account)
   const isSignedIn = computed(() => store.user !== null)
   const isOwner = computed(() => store.user?.role === 'owner')
+  // Fortu staff. Shows the Admin section and gates its routes; the server checks it again.
+  const isPlatformAdmin = computed(() => store.user?.is_platform_admin === true)
 
   function apply(me: MeResponse) {
     store.user = me.user
@@ -77,5 +79,8 @@ export function useAuth() {
     }
   }
 
-  return { user, account, isSignedIn, isOwner, isLoading, error, resolve, login, signup, logout }
+  return {
+    user, account, isSignedIn, isOwner, isPlatformAdmin, isLoading, error,
+    resolve, login, signup, logout,
+  }
 }

@@ -27,9 +27,10 @@ import { useNavLinks } from '@/hooks/useNavLinks'
 import AppLogo from '@/reusables/AppLogo.vue'
 
 const router = useRouter()
-const { user, account, isOwner, logout } = useAuth()
-// Settings is owner-only: one link, whose sections are tabs on its own page.
-const { sections, settings } = useNavLinks()
+const { user, account, isOwner, isPlatformAdmin, logout } = useAuth()
+// Settings is owner-only: one link, whose sections are tabs on its own page. Admin is Fortu
+// staff only.
+const { sections, settings, admin } = useNavLinks()
 
 /** Their initials, for the account block — two letters at most, and never an empty circle. */
 const initials = computed(() =>
@@ -98,6 +99,20 @@ ensureCount()
         <ul class="flex flex-col gap-0.5" aria-labelledby="nav-account">
           <li v-for="link in settings.links" :key="link.name">
             <!-- The parent route, so the row stays current on every Settings tab. -->
+            <router-link :to="{ name: link.name }" :class="ROW" :active-class="ROW_ACTIVE">
+              <component :is="link.icon" class="size-[18px] shrink-0 text-ink-muted" aria-hidden="true" />
+              {{ link.label }}
+            </router-link>
+          </li>
+        </ul>
+      </template>
+
+      <template v-if="isPlatformAdmin">
+        <p id="nav-admin" class="px-3 pt-5 pb-1.5 text-[11px] font-medium tracking-wider text-ink-subtle uppercase">
+          {{ admin.title }}
+        </p>
+        <ul class="flex flex-col gap-0.5" aria-labelledby="nav-admin">
+          <li v-for="link in admin.links" :key="link.name">
             <router-link :to="{ name: link.name }" :class="ROW" :active-class="ROW_ACTIVE">
               <component :is="link.icon" class="size-[18px] shrink-0 text-ink-muted" aria-hidden="true" />
               {{ link.label }}

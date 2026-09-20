@@ -9,12 +9,14 @@ import { useReviewBadge } from '@/hooks/useReviews'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import { useAuth } from '@/hooks/useAuth'
 import { useNavLinks } from '@/hooks/useNavLinks'
 import type { NavLink, NavSection } from '@/hooks/useNavLinks'
 
 const route = useRoute()
 const router = useRouter()
-const { sections, settings } = useNavLinks()
+const { isPlatformAdmin } = useAuth()
+const { sections, settings, admin } = useNavLinks()
 
 type Tab = { kind: 'link'; key: string; link: NavLink } | { kind: 'group'; key: string; section: NavSection }
 
@@ -25,6 +27,8 @@ const tabs = computed<Tab[]>(() => {
     else for (const link of s.links) out.push({ kind: 'link', key: link.name, link })
   }
   out.push({ kind: 'link', key: 'settings', link: settings.links[0] })
+  // Fortu staff only. One link, like Settings, so it takes one tab rather than a menu.
+  if (isPlatformAdmin.value) out.push({ kind: 'link', key: 'admin', link: admin.links[0] })
   return out
 })
 
