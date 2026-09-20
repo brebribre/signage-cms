@@ -464,6 +464,22 @@ def list_devices(session: Session, *, user: User) -> list[Device]:
     return list(session.exec(statement.order_by(Device.name)).all())
 
 
+def count_claimed(session: Session, *, account_id: uuid.UUID) -> int:
+    """How many screens an account is using against its `max_screens` limit.
+
+    A screen that has been told to disconnect (`disconnect_requested_at` set) no longer
+    counts, even though its row is still here waiting for the screen to check in: otherwise
+    disconnecting a dead or unplugged screen would never free its seat, and the account could
+    not pair a replacement.
+    """
+    rows = session.exec(
+        select(Device.id).where(
+            Device.account_id == account_id, Device.disconnect_requested_at.is_(None)
+        )
+    ).all()
+    return len(rows)
+
+
 def account_devices(session: Session, *, account_id: uuid.UUID) -> list[Device]:
     """Every claimed device in an account, unscoped. Owner-only callers."""
     return list(

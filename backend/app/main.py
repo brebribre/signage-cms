@@ -22,6 +22,7 @@ TAGS_METADATA = [
     {"name": "operations", "description": "Fleet health, storage and proof of play."},
     {"name": "device-sync", "description": "What a paired screen polls: manifest and heartbeat."},
     {"name": "users", "description": "Subusers and their device grants. Owner only."},
+    {"name": "admin", "description": "Issue customer accounts and set their limits. Fortu staff only."},
 ]
 
 

@@ -4,6 +4,7 @@ from fastapi import APIRouter
 
 from app.api.routes import (
     account,
+    admin,
     auth,
     campaigns,
     device_settings,
@@ -36,3 +37,4 @@ api_router.include_router(device_sync.router)
 api_router.include_router(player.router)
 api_router.include_router(player_rollouts.router)
 api_router.include_router(reviews.router)
+api_router.include_router(admin.router)

@@ -67,6 +67,23 @@ def require_owner(user: CurrentUser) -> User:
 RequireOwner = Annotated[User, Depends(require_owner)]
 
 
+def require_platform_admin(user: CurrentUser) -> User:
+    """Fortu staff only — the /admin/* routes, which reach across every account.
+
+    This is the one place the "you only ever see your own account" rule is set aside, so it
+    is its own dependency rather than a widening of `require_owner`: nothing a customer can
+    call ever passes through here.
+    """
+    if not user.is_platform_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Platform admin access required"
+        )
+    return user
+
+
+RequirePlatformAdmin = Annotated[User, Depends(require_platform_admin)]
+
+
 def device_for_user(device_id: uuid.UUID, user: CurrentUser, session: DbSession) -> Device:
     """Resolve a device this user may act on, or 404.
 

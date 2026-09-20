@@ -69,6 +69,8 @@ class UserRead(BaseModel):
     display_name: str
     role: UserRole
     is_active: bool
+    # So the frontend can show the Admin section. Display only — /admin/* checks it again.
+    is_platform_admin: bool
     created_at: datetime
 
 
