@@ -52,60 +52,30 @@ def main() -> None:
     cleanup()
     anon = TestClient(app)
 
-    print("\nsignup")
+    print("\nno public signup — accounts are issued by a platform admin")
     r = anon.post("/auth/signup", json={
-        "username": OWNER.upper(),          # deliberately mixed case
-        "password": PASSWORD,
-        "display_name": "Owner",
-        "email": f"{PREFIX}-Owner@Example.COM",
-        "account_name": f"{PREFIX} account",
-        "timezone": "Asia/Jakarta",
+        "username": OWNER, "password": PASSWORD, "display_name": "Owner",
     })
-    check("signup returns 201", r.status_code == 201, str(r.status_code))
+    check("POST /auth/signup no longer exists", r.status_code == 404, str(r.status_code))
+    # So the owner is seeded directly, as check_users.py does. The lowercasing, duplicate and
+    # bad-username checks that signup used to cover now run in check_admin.py, against
+    # /admin/accounts — the only place an account gets made.
+    with Session(engine) as s:
+        acct = Account(name=f"{PREFIX} account", default_timezone="Asia/Jakarta")
+        s.add(acct); s.flush()
+        owner = User(
+            account_id=acct.id, username=OWNER, email=f"{PREFIX}-owner@example.com",
+            password_hash=hash_password(PASSWORD), display_name="Owner", role=UserRole.OWNER,
+        )
+        s.add(owner); s.commit(); s.refresh(owner)
+        owner_id, account_id = owner.id, acct.id
+    r = client_for(owner_id).get("/me")
     body = r.json()
-    check("username is lowercased", body["user"]["username"] == OWNER, body["user"]["username"])
-    check("email is lowercased", body["user"]["email"] == f"{PREFIX}-owner@example.com")
+    check("the seeded owner's /me is 200", r.status_code == 200, str(r.status_code))
     check("first user is the owner", body["user"]["role"] == "owner")
-    check("an account was created with them", body["account"]["name"] == f"{PREFIX} account")
     check("owner device_ids is null (means: all)", body["device_ids"] is None)
-    check("the timezone given becomes the account's default", body["account"]["default_timezone"] == "Asia/Jakarta",
+    check("the account's default timezone comes through", body["account"]["default_timezone"] == "Asia/Jakarta",
           body["account"].get("default_timezone"))
-    check("signup sets a session cookie", settings.session_cookie_name in r.cookies)
-    # TestClient keeps a cookie jar across requests, so the client that just signed up is
-    # authenticated from here on. Anything asserting anonymous behaviour must clear it, or
-    # it silently tests the logged-in path instead.
-    anon.cookies.clear()
-    owner_id = uuid.UUID(body["user"]["id"])
-    account_id = uuid.UUID(body["account"]["id"])
-
-    r = anon.post("/auth/signup", json={
-        "username": OWNER, "password": PASSWORD, "display_name": "Dupe",
-    })
-    check("duplicate username is 409", r.status_code == 409, str(r.status_code))
-    r = anon.post("/auth/signup", json={
-        "username": f"{PREFIX}-other", "password": PASSWORD, "display_name": "Dupe",
-        "email": f"{PREFIX}-owner@example.com",
-    })
-    check("duplicate email is 409", r.status_code == 409, str(r.status_code))
-    r = anon.post("/auth/signup", json={
-        "username": "ab", "password": PASSWORD, "display_name": "Short",
-    })
-    check("too-short username is 422", r.status_code == 422, str(r.status_code))
-    r = anon.post("/auth/signup", json={
-        "username": f"{PREFIX}-weak", "password": "short", "display_name": "Weak",
-    })
-    check("password under 8 chars is 422", r.status_code == 422, str(r.status_code))
-    r = anon.post("/auth/signup", json={
-        "username": f"{PREFIX}-tz", "password": PASSWORD, "display_name": "Bad zone", "timezone": "Mars/Olympus",
-    })
-    check("an unknown timezone is 422", r.status_code == 422, str(r.status_code))
-    r = anon.post("/auth/signup", json={
-        "username": f"{PREFIX}-notz", "password": PASSWORD, "display_name": "No zone",
-        "account_name": f"{PREFIX} no zone",  # prefixed, so cleanup() removes it
-    })
-    check("no timezone still signs up, on UTC",
-          r.status_code == 201 and r.json()["account"]["default_timezone"] == "UTC", r.text[:120])
-    anon.cookies.clear()
 
     print("\npassword storage")
     with Session(engine) as s:

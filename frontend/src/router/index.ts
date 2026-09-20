@@ -11,12 +11,9 @@ const router = createRouter({
       component: () => import('@/views/LoginView.vue'),
       meta: { public: true },
     },
-    {
-      path: '/signup',
-      name: 'signup',
-      component: () => import('@/views/LoginView.vue'),
-      meta: { public: true },
-    },
+    // There is no public signup — accounts are issued by a platform admin. Kept as a redirect
+    // so an old link still lands somewhere sensible.
+    { path: '/signup', redirect: { name: 'login' } },
     {
       path: '/',
       component: () => import('@/views/SidebarView.vue'),

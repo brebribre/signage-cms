@@ -95,9 +95,9 @@ def create_account(
     max_screens: int | None,
     storage_quota_bytes: int | None,
 ) -> AccountSummary:
-    """The account and its owner come from `auth.signup` — the same one transaction public
-    signup used, so there is exactly one way an account gets born. The limits and the log row
-    go on afterwards, in the same session, before anything is committed."""
+    """The account and its owner come from `auth.signup` — now its only caller, since there is
+    no public signup — so there is exactly one way an account gets born. The limits and the
+    log row go on afterwards, in the same session, before anything is committed."""
     owner = auth_service.signup(
         session,
         username=username,

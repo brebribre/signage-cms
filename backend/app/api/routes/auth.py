@@ -3,15 +3,9 @@ from fastapi import APIRouter, HTTPException, Response, status
 from app.api.deps import CurrentUser, DbSession
 from app.config import get_settings
 from app.models import Account
-from app.schemas.auth import (
-    AccountRead,
-    LoginRequest,
-    MeResponse,
-    SignupRequest,
-    UserRead,
-)
+from app.schemas.auth import AccountRead, LoginRequest, MeResponse, UserRead
 from app.services import auth as auth_service
-from app.services.errors import EmailTaken, InvalidCredentials, UsernameTaken
+from app.services.errors import InvalidCredentials
 from app.services.session import create_session_token
 
 router = APIRouter(tags=["auth"])
@@ -56,26 +50,9 @@ def _me(session, user) -> MeResponse:
     )
 
 
-@router.post("/auth/signup", response_model=MeResponse, status_code=status.HTTP_201_CREATED)
-def signup(body: SignupRequest, response: Response, session: DbSession) -> MeResponse:
-    """Create an account and sign in as its owner."""
-    try:
-        user = auth_service.signup(
-            session,
-            username=body.username,
-            password=body.password,
-            display_name=body.display_name,
-            email=body.email,
-            account_name=body.account_name,
-            timezone=body.timezone,
-        )
-    except UsernameTaken:
-        raise HTTPException(status.HTTP_409_CONFLICT, "That username is taken") from None
-    except EmailTaken:
-        raise HTTPException(status.HTTP_409_CONFLICT, "That email is already registered") from None
-
-    _set_session_cookie(response, user.id)
-    return _me(session, user)
+# There is no public signup. Accounts are issued by a platform admin (api/routes/admin.py),
+# who hands the owner their username and password. `services/auth.py::signup` still exists —
+# it is what the admin route calls — so removing the route here removed nothing else.
 
 
 @router.post("/auth/login", response_model=MeResponse)

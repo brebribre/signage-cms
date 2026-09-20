@@ -28,16 +28,6 @@ export interface MeResponse {
   device_ids: string[] | null
 }
 
-export interface SignupBody {
-  username: string
-  password: string
-  display_name: string
-  email?: string | null
-  account_name?: string | null
-  /** IANA name — becomes the account's default timezone. Omitted means UTC. */
-  timezone?: string | null
-}
-
 export interface LoginBody {
   identifier: string
   password: string

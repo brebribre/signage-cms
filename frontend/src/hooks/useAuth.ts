@@ -3,7 +3,7 @@ import { computed, ref } from 'vue'
 import { useAuthApi } from '@/api/useAuthApi'
 import { ApiError } from '@/api/request'
 import { useAuthStore } from '@/stores/useAuthStore'
-import type { LoginBody, MeResponse, SignupBody } from '@/types/api'
+import type { LoginBody, MeResponse } from '@/types/api'
 
 /**
  * Containers reach the auth store through here, never directly — that keeps the container
@@ -67,7 +67,6 @@ export function useAuth() {
   }
 
   const login = (body: LoginBody) => submit(() => api.login(body))
-  const signup = (body: SignupBody) => submit(() => api.signup(body))
 
   async function logout() {
     try {
@@ -81,6 +80,6 @@ export function useAuth() {
 
   return {
     user, account, isSignedIn, isOwner, isPlatformAdmin, isLoading, error,
-    resolve, login, signup, logout,
+    resolve, login, logout,
   }
 }

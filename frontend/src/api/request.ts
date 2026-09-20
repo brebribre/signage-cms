@@ -21,7 +21,7 @@ export class ApiError extends Error {
     return this.status === 401
   }
 
-  /** 409 is a name collision on signup; the form shows it inline. */
+  /** 409 is a name collision (a taken username or email); the form shows it inline. */
   get isConflict() {
     return this.status === 409
   }

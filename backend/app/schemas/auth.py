@@ -2,44 +2,14 @@ import re
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, Field
 
 from app.models import UserRole
 
+# Used by schemas/admin.py's AdminAccountCreate — the one place a username is chosen, now that
+# there is no public signup. Checked there as well as in the service: the schema is the
+# earliest place a bad value can be refused, and the service is the place nothing can bypass.
 USERNAME_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{2,31}$")
-
-
-class SignupRequest(BaseModel):
-    username: str
-    password: str = Field(min_length=8, max_length=200)
-    display_name: str = Field(min_length=1, max_length=100)
-    email: EmailStr | None = None
-    account_name: str | None = Field(default=None, max_length=100)
-    # IANA name — the account's default timezone (Settings → General). Optional, so a client that
-    # doesn't send it still signs up, on UTC. An unknown name is refused rather than dropped.
-    timezone: str | None = Field(default=None, min_length=1, max_length=64)
-
-    @field_validator("timezone")
-    @classmethod
-    def _valid_timezone(cls, value: str | None) -> str | None:
-        from app.services.accounts import valid_timezone
-
-        if value is not None and not valid_timezone(value):
-            raise ValueError("unknown timezone")
-        return value
-
-    @field_validator("username")
-    @classmethod
-    def _valid_username(cls, value: str) -> str:
-        # Lowercased here as well as in the service: the schema is the earliest place a bad
-        # value can be refused, and the service is the place nothing can bypass.
-        value = value.strip().lower()
-        if not USERNAME_RE.match(value):
-            raise ValueError(
-                "3-32 characters, starting with a letter or digit; "
-                "letters, digits, dot, underscore and hyphen only"
-            )
-        return value
 
 
 class LoginRequest(BaseModel):
