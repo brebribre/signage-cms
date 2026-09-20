@@ -69,6 +69,15 @@ class NotAnAndroidScreen(DomainError):
     """A player APK was pinned to a web screen, which has nothing to install it with."""
 
 
+class ScreenLimitReached(DomainError):
+    """The account is using every screen its `max_screens` allows. `limit` is that number,
+    so the message can say it."""
+
+    def __init__(self, limit: int):
+        self.limit = limit
+        super().__init__(f"screen limit {limit} reached")
+
+
 def hash_token(token: str) -> str:
     """sha256 hex. The plaintext token is never stored — see `poll_pairing`."""
     return hashlib.sha256(token.encode()).hexdigest()
@@ -193,6 +202,9 @@ def claim(
 ) -> Device:
     """Called by the **CMS**, authenticated: a human has typed the code off the screen."""
     _record_claim_attempt(user.id)
+    # Before the code is even looked at, and before the mock branch, so a full account gets the
+    # same answer whatever it types — and a mock screen takes a seat like a real one.
+    _check_screen_limit(session, account_id=user.account_id)
 
     code = pairing_code.strip().upper().replace(" ", "")
     mock = _mock_pairing_code()
@@ -221,6 +233,17 @@ def claim(
     session.commit()
     session.refresh(device)
     return device
+
+
+def _check_screen_limit(session: Session, *, account_id: uuid.UUID) -> None:
+    """Raise if the account is already using every screen `max_screens` allows. None means
+    unlimited — the default, and what every account made before limits existed has. The
+    count is `count_claimed`, so a screen told to disconnect has already freed its seat."""
+    account = session.get(Account, account_id)
+    if account is None or account.max_screens is None:
+        return
+    if count_claimed(session, account_id=account_id) >= account.max_screens:
+        raise ScreenLimitReached(account.max_screens)
 
 
 def _account_default_timezone(session: Session, user: User) -> str:

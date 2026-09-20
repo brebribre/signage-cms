@@ -151,6 +151,44 @@ def main() -> None:
         sneak = s.exec(select(User).where(User.username == f"{PREFIX}-sneak")).first()
         check("...but is_platform_admin was ignored", sneak is not None and sneak.is_platform_admin is False)
 
+    print("\nthe screen limit is enforced when pairing")
+    from app.services import devices as device_service
+
+    screen = TestClient(app)  # no cookie: stands in for a screen asking for a code
+
+    def claim(client: TestClient, label: str):
+        # A fresh code each time, and the rate limit cleared so it can't be what refuses us.
+        device_service._claim_attempts.clear()
+        code = screen.post("/devices/pair").json()["pairing_code"]
+        return client.post("/devices/claim", json={"pairing_code": code, "name": label})
+
+    # The customer account counts 2 screens (Dead is disconnecting) against a limit of 3.
+    r = claim(o, "Third")
+    check("one under the limit still pairs", r.status_code == 201, f"{r.status_code} {r.text[:100]}")
+    third_id = r.json()["id"]
+    # A screen told to disconnect frees its seat before its row is gone — otherwise a dead
+    # screen could never be replaced.
+    with Session(engine) as s:
+        row = s.get(Device, uuid.UUID(third_id))
+        row.disconnect_requested_at = utcnow()
+        s.add(row)
+        s.commit()
+    check("a disconnecting screen frees its seat", claim(o, "Replacement").status_code == 201)
+    r = claim(o, "Fourth")
+    check("at the limit, a claim is 409", r.status_code == 409, str(r.status_code))
+    check("...and says so in plain words, with the number",
+          "3 screens" in r.json().get("detail", ""), r.json().get("detail"))
+    check("an account with no limit still claims", claim(a, "Staff screen").status_code == 201)
+    # Changing the limit through /admin/accounts takes effect on the very next claim.
+    a.patch(f"/admin/accounts/{cust_id}", json={"max_screens": 4})
+    check("raising the limit lets the next one in", claim(o, "Fourth, now").status_code == 201)
+    a.patch(f"/admin/accounts/{cust_id}", json={"max_screens": 0})
+    r = claim(o, "None allowed")
+    check("a limit of zero refuses every claim", r.status_code == 409, str(r.status_code))
+    check("...with its own wording", "isn't allowed" in r.json().get("detail", ""), r.json().get("detail"))
+    a.patch(f"/admin/accounts/{cust_id}", json={"max_screens": None})
+    check("no limit means claims work again", claim(o, "Unlimited").status_code == 201)
+
     cleanup()
     print()
     if failures:

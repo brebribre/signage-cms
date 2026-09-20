@@ -24,6 +24,7 @@ from app.services.devices import (
     InvalidTimezone,
     NotAnAndroidScreen,
     PairingNotFound,
+    ScreenLimitReached,
     TooManyClaimAttempts,
 )
 from app.services.player_rollouts import UnknownRelease
@@ -97,6 +98,18 @@ def claim_device(body: ClaimRequest, user: CurrentUser, session: DbSession) -> D
             "No screen is waiting with that code. Codes expire after "
             f"{get_settings().pairing_code_ttl_seconds // 60} minutes.",
         ) from None
+    except ScreenLimitReached as exc:
+        # 409, like every other "the account's state won't allow this" answer. Said in plain
+        # words with the number in it, since this is what the person pairing actually reads.
+        if exc.limit == 0:
+            detail = "This account isn't allowed to add screens yet. Ask us for a screen limit."
+        else:
+            plural = "" if exc.limit == 1 else "s"
+            detail = (
+                f"This account can have {exc.limit} screen{plural} and is using all of them. "
+                "Remove a screen first, or ask us for a higher limit."
+            )
+        raise HTTPException(status.HTTP_409_CONFLICT, detail) from None
     return _read(device)
 
 
