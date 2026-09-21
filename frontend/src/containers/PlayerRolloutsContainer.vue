@@ -70,7 +70,7 @@ const isFuture = (iso: string | null) => !!iso && new Date(iso).getTime() > Date
 const isUpcoming = (r: PlayerRolloutRead) => !r.is_active && isFuture(r.scheduled_at)
 
 function pinWhen(d: DeviceRead): string {
-  return isFuture(d.forced_update_at) ? dateTime(d.forced_update_at!) : 'Next check-in'
+  return isFuture(d.forced_update_at) ? dateTime(d.forced_update_at!) : 'Right away'
 }
 
 /** What the picker shows per screen: what it runs, and anything already on its way to it. */

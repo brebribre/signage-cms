@@ -35,7 +35,7 @@ const emit = defineEmits<{ confirm: []; cancel: [] }>()
     <p v-else class="text-sm text-ink-muted">
       Saving {{ what }} changes what
       <b class="text-ink">{{ screens.length }} screen{{ screens.length === 1 ? '' : 's' }}</b>
-      {{ screens.length === 1 ? 'is' : 'are' }} showing. They pick it up within about 30 seconds.
+      {{ screens.length === 1 ? 'is' : 'are' }} showing. They pick it up within a few seconds.
     </p>
     <ul class="mt-3 flex flex-wrap gap-2">
       <li v-for="name in screens" :key="name" class="rounded-full bg-raised px-3 py-1 text-[13px] text-ink">

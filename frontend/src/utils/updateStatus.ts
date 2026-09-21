@@ -165,7 +165,7 @@ export function describeUpdate(d: DeviceRead, now: number = Date.now()): UpdateV
     } else if (waited > PENDING_TOO_LONG_MS) {
       detail = `The screen is checking in but hasn’t started after ${minutes(waited)}. It may be running a player too old to report progress, or it isn’t provisioned as Device Owner and can’t install updates by itself.`
     } else {
-      detail = 'The screen checks in every 30 seconds; the download starts on the next one.'
+      detail = 'The screen has been told; the download starts within a few seconds, or on its next check-in (up to about half a minute) if its live connection is down.'
     }
     return {
       kind: 'pending',

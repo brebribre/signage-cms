@@ -81,7 +81,7 @@ const zoneOptions = computed(() => zoneChoices(device.value?.timezone))
 
 /**
  * One request carrying every field the user touched — a dropdown that looks as small as
- * "pick a playlist" is really "change what this screen shows in the next 30 seconds", and
+ * "pick a playlist" is really "change what this screen shows in the next few seconds", and
  * it deserves the same explicit save and confirmation as everything else here rather than
  * firing the moment it's clicked.
  */

@@ -181,8 +181,9 @@ const showPicker = computed(() => !view.value || !view.value.busy)
 
     <AppModal v-if="confirmingUpdate" title="Update this screen?" @close="confirmingUpdate = false">
       <p class="text-sm text-ink-muted">
-        {{ device.name }} will download and install <b>{{ pickedVersion }}</b> on its next check-in —
-        usually within 30 seconds — regardless of what the rest of the fleet is running. You can
+        {{ device.name }} will download and install <b>{{ pickedVersion }}</b> right away —
+        within a few seconds, or on its next check-in if it can't be reached by push — regardless
+        of what the rest of the fleet is running. You can
         follow it here as it happens.
       </p>
       <ModalActions>

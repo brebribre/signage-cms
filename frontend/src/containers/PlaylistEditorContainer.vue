@@ -291,7 +291,7 @@ function sceneLabel(item: DraftItem): string {
       </AppAlert>
       <AppAlert v-else-if="playlist.used_by.length">
         On {{ playlist.used_by.join(', ') }}. Saving publishes: the screens pick up changes within
-        about 30 seconds.
+        a few seconds.
       </AppAlert>
 
       <div class="flex items-center justify-between gap-4">

@@ -29,7 +29,7 @@ const TABS = computed(() => [
 
     <template v-if="tab === 'plays'">
       <p v-if="!plays.length" class="text-sm text-ink-muted">
-        Nothing reported yet. A screen sends what it played on its next heartbeat.
+        Nothing reported yet. A screen reports what it played about every half minute.
       </p>
       <ul v-else class="flex flex-col divide-y divide-line">
         <li v-for="p in plays" :key="p.id" class="flex items-center justify-between gap-3 py-2">
