@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.util.Log
 import android.view.LayoutInflater
+import android.view.SurfaceView
 import android.view.View
 import android.os.Build
 import android.webkit.RenderProcessGoneDetail
@@ -86,21 +87,6 @@ private const val DEFAULT_VIDEO_CAP_SECONDS = 90
 /** Slack over the slot duration before the watchdog fires, so ordinary buffering on bad venue
  *  wifi is not mistaken for a stall. */
 private const val STALL_GRACE_MILLIS = 5_000L
-
-/**
- * Whether this element covers its whole frame on its own — the case a SurfaceView can take,
- * because nothing else shares the screen with it. Compared with a tolerance: these arrive as
- * JSON floats, and a box authored by dragging is never exactly 1.0. A rotated element is
- * excluded: rotation draws through a graphics layer, which a SurfaceView does not follow.
- */
-private fun ManifestElement.isFullBleed(): Boolean {
-    val slack = 0.001f
-    return kotlin.math.abs(x) < slack &&
-        kotlin.math.abs(y) < slack &&
-        kotlin.math.abs(width - 1f) < slack &&
-        kotlin.math.abs(height - 1f) < slack &&
-        rotationDegrees == 0
-}
 
 private fun resizeModeFor(fit: String): Int = when (fit) {
     "cover" -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
@@ -263,20 +249,25 @@ fun PlaybackSurface(
     /**
      * Which kind of video surface this playlist gets.
      *
-     * A SurfaceView keeps a 4K video at 4K — the display composites it directly — while a
-     * TextureView draws every frame through the app's window, capping it at the window's
-     * resolution. The TextureView is only needed where a video shares its frame with other
-     * elements (see pooled_player_view.xml's own note), so it is reserved for playlists that
-     * actually contain such a scene.
+     * A SurfaceView hands each decoded frame straight to the display's own compositor — the
+     * app's window is never redrawn for it, and a 4K video stays 4K. A TextureView instead
+     * copies every frame through the app's window on the GPU: the whole scene is re-composited
+     * 25–60 times a second at panel resolution, and on a cheap signage SoC that is exactly the
+     * "video drops frames the moment a picture shares the scene" complaint. So the SurfaceView
+     * is the default for scenes too, not just full-bleed videos: pictures and text painted
+     * later in z-order draw in the window, over the hole the surface punches, and anything
+     * below the video is covered by it anyway. (The old "a SurfaceView covered the whole
+     * screen" note dated from before pool members were positioned by their own box and hidden
+     * with INVISIBLE; with those, the surface follows its element's box.)
      *
-     * Decided across the whole playlist rather than per slot, deliberately: the surface cannot
-     * change without rebuilding the player view, and rebuilding one mid-loop is exactly the
-     * "decoder runs, first frame never paints" bug the pool exists to avoid. A playlist that
-     * mixes full-bleed videos with multi-element scenes keeps the TextureView throughout.
+     * The one thing a SurfaceView cannot do is follow a Compose graphics layer, so a playlist
+     * with a *rotated* video anywhere keeps the TextureView throughout. Decided across the
+     * whole playlist rather than per slot, deliberately: the surface cannot change without
+     * rebuilding the player view, and rebuilding one mid-loop is exactly the "decoder runs,
+     * first frame never paints" bug the pool exists to avoid.
      */
     val useSurfaceView = slots.all { s ->
-        val videos = s.elements.filter { it.kind == "video" }
-        videos.isEmpty() || (s.elements.size == 1 && videos.single().isFullBleed())
+        s.elements.none { it.kind == "video" && it.rotationDegrees != 0 }
     }
 
     val videoElementsInSlot = slot.elements.filter { it.kind == "video" }
@@ -310,10 +301,12 @@ fun PlaybackSurface(
                         // leaving a gap on the right where the editor shows the picture clipped
                         // at the edge. requiredSize keeps the true size; the edge clips it.
                         .requiredSize(parentWidth * element.width, parentHeight * element.height)
-                        // The pooled surface is a TextureView, composited on its own hardware
-                        // layer — Compose's offset/size alone position and measure it but do
-                        // not clip its *drawing*, so without this its video content can bleed
-                        // past this box into whatever else is on screen.
+                        // A TextureView (rotated-video playlists) is composited on its own
+                        // hardware layer — Compose's offset/size alone position and measure it
+                        // but do not clip its *drawing*, so without this its video content can
+                        // bleed past this box into whatever else is on screen. A SurfaceView is
+                        // sized to the video by PlayerView itself and the display clips it at
+                        // the screen edge; this only bounds the hole it punches.
                         .clipToBounds()
                 } else {
                     Modifier.zIndex(-1f).size(0.dp)
@@ -329,6 +322,7 @@ fun PlaybackSurface(
                             onError = onPlaybackError,
                             onStalled = { replacePoolMember(poolIndex) },
                             useSurfaceView = useSurfaceView,
+                            poolIndex = poolIndex,
                         )
                     }
                 }
@@ -637,9 +631,12 @@ private fun PooledVideoSurface(
      *  this pool member's ExoPlayer instance instead of reusing a possibly-wedged one for the
      *  next video. */
     onStalled: () -> Unit = {},
-    /** See [PlaybackSurface]'s own `useSurfaceView`: direct-to-display for a full-bleed video,
-     *  composited through the window when a scene layers other elements over it. */
+    /** See [PlaybackSurface]'s own `useSurfaceView`: direct-to-display unless some video in
+     *  the playlist is rotated, which only a window-composited TextureView can follow. */
     useSurfaceView: Boolean = false,
+    /** Which pool member this is. Two videos in one scene are two surfaces below the window;
+     *  the later one (higher z) is flagged as a media overlay so it stacks above the first. */
+    poolIndex: Int = 0,
 ) {
     val active = element != null && file != null
 
@@ -739,6 +736,7 @@ private fun PooledVideoSurface(
                     // itself is sized to the video, so nothing else changes; a black scene still
                     // looks black because the scene behind is.
                     setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                    if (poolIndex > 0) (videoSurfaceView as? SurfaceView)?.setZOrderMediaOverlay(true)
                     player = exo
                 }
             },

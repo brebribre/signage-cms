@@ -1,16 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  A SurfaceView-backed PlayerView — the default, and the one that keeps a 4K video at 4K.
+  A SurfaceView-backed PlayerView — the default, for full-bleed videos and scenes alike.
 
   A SurfaceView hands decoded frames to the display's own compositor, so the panel scales them
-  itself; a TextureView (see pooled_player_view.xml) draws every frame into the app's window
-  through the GPU first, capping the video at the window's resolution and filtering it bilinearly
-  on the way. On a 4K panel that is visibly softer, and it costs GPU that a cheap signage SoC
-  does not have to spare.
+  itself and the app's window is never redrawn for them: a 4K video stays 4K, and a picture
+  or text sharing the scene costs the video nothing. A TextureView (pooled_player_view.xml)
+  draws every frame into the app's window through the GPU first, capping the video at the
+  window's resolution and re-compositing the whole scene per frame — visibly softer on a 4K
+  panel and, on a cheap signage SoC, enough to drop the video's frame rate.
 
-  It is only safe where nothing else shares the frame: a SurfaceView does not reliably respect
-  an AndroidView's Compose bounds or z-order, which is why multi-element scenes still use
-  pooled_player_view.xml. PlaybackSurface.kt picks between the two per playlist.
+  In a scene the surface sits below the window and punches a hole its own size; elements
+  painted later in z-order draw over that hole, and elements below it are covered by the
+  video anyway. What it cannot do is follow a Compose graphics layer, so a playlist with a
+  rotated video keeps pooled_player_view.xml throughout. PlaybackSurface.kt picks per playlist.
 -->
 <androidx.media3.ui.PlayerView
     xmlns:android="http://schemas.android.com/apk/res/android"
