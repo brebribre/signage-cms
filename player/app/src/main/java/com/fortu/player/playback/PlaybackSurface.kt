@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
@@ -303,7 +304,12 @@ fun PlaybackSurface(
                     Modifier
                         .zIndex(zIndexOf(element))
                         .offset(x = parentWidth * element.x, y = parentHeight * element.y)
-                        .size(parentWidth * element.width, parentHeight * element.height)
+                        // requiredSize, not size: an element may hang off the canvas (the CMS
+                        // allows it, for bleeds), and `size` would coerce a box wider than the
+                        // screen down to the screen's width while keeping its negative offset —
+                        // leaving a gap on the right where the editor shows the picture clipped
+                        // at the edge. requiredSize keeps the true size; the edge clips it.
+                        .requiredSize(parentWidth * element.width, parentHeight * element.height)
                         // The pooled surface is a TextureView, composited on its own hardware
                         // layer — Compose's offset/size alone position and measure it but do
                         // not clip its *drawing*, so without this its video content can bleed
@@ -334,7 +340,12 @@ fun PlaybackSurface(
                     Modifier
                         .zIndex(zIndexOf(element))
                         .offset(x = parentWidth * element.x, y = parentHeight * element.y)
-                        .size(parentWidth * element.width, parentHeight * element.height)
+                        // requiredSize, not size: an element may hang off the canvas (the CMS
+                        // allows it, for bleeds), and `size` would coerce a box wider than the
+                        // screen down to the screen's width while keeping its negative offset —
+                        // leaving a gap on the right where the editor shows the picture clipped
+                        // at the edge. requiredSize keeps the true size; the edge clips it.
+                        .requiredSize(parentWidth * element.width, parentHeight * element.height)
                         .clipToBounds(),
                 ) {
                     RotatedContent(element.rotationDegrees) {
@@ -595,7 +606,10 @@ private fun RotatedContent(rotationDegrees: Int, content: @Composable () -> Unit
         Box(
             Modifier
                 .align(Alignment.Center)
-                .size(contentWidth, contentHeight)
+                // requiredSize: for a 90°/270° turn the content's width is the box's *height*,
+                // which `size` would coerce back down to the box's width whenever the box
+                // isn't square — a sideways picture in a tall box then comes out too small.
+                .requiredSize(contentWidth, contentHeight)
                 .rotate(rotationDegrees.toFloat()),
         ) {
             content()
