@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -62,6 +64,32 @@ android {
         buildConfigField("boolean", "MQTT_TLS", mqttTls)
     }
 
+    // The real release key lives outside the repo, in ~/.paskall/keystore.properties (storeFile,
+    // storePassword, keyAlias, keyPassword) — created 2026-09-21. Android only lets an app
+    // update over an installed copy signed with the SAME key, so this key must never change,
+    // and must be backed up: losing it means every screen out there needs a manual reinstall,
+    // and a Play Store listing could never be updated again.
+    //
+    // Falls back to the debug key when the file is missing (a machine without the key can still
+    // build for a test), or when asked with -PuseDebugKey (the emulator carries a debug-signed
+    // Device Owner install that a release-signed build cannot update). A build meant for
+    // screens must come from a machine that has the key — the warning below says which it was.
+    val keystoreProperties = Properties().apply {
+        val file = File(System.getProperty("user.home"), ".paskall/keystore.properties")
+        if (file.exists()) file.inputStream().use { load(it) }
+    }
+    val useDebugKey = project.hasProperty("useDebugKey") || keystoreProperties.isEmpty
+    if (!useDebugKey) {
+        signingConfigs.create("release") {
+            storeFile = file(keystoreProperties["storeFile"] as String)
+            storePassword = keystoreProperties["storePassword"] as String
+            keyAlias = keystoreProperties["keyAlias"] as String
+            keyPassword = keystoreProperties["keyPassword"] as String
+        }
+    } else {
+        logger.warn("Signing release with the DEBUG key (no ~/.paskall/keystore.properties or -PuseDebugKey) — not for real screens.")
+    }
+
     buildTypes {
         debug {
             // So a debug build can be installed alongside a release one on the same screen
@@ -76,10 +104,8 @@ android {
             // download is the safer trade for a fleet that updates itself unattended.
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // Signed with the debug key so `assembleRelease` produces an installable APK with
-            // no keystore setup. Fine for sideloading onto screens you own; a real Play
-            // Store release would need its own signing config.
-            signingConfig = signingConfigs.getByName("debug")
+            // The real key when this machine has it (see above); the debug key otherwise.
+            signingConfig = if (useDebugKey) signingConfigs.getByName("debug") else signingConfigs.getByName("release")
         }
     }
 
