@@ -10,7 +10,7 @@ still needs a pairing code minted inside the authenticated CMS to actually join 
 import html as html_lib
 
 from fastapi import APIRouter, HTTPException, status
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 from app.api.deps import DbSession
 from app.config import get_settings
@@ -19,12 +19,10 @@ from app.services import player_releases, player_rollouts
 
 router = APIRouter(tags=["player"])
 
-# docs/ is a separate static site (its own Railway service, no build step, no templating) —
-# it always links the one production API regardless of where docs itself is served from, and
-# this page returns the favour: it links docs' own stylesheet so a backend-rendered page
-# reads as part of the same site. Stylesheet <link>s aren't subject to CORS, unlike fetch(),
-# which is why this page is rendered here rather than fetched as JSON from a static page.
-DOCS_ORIGIN = "https://docs-production-9a3e.up.railway.app"
+# The docs site (GitHub Pages, brebribre/paskall-docs) lists releases on its own page by
+# fetching the JSON below; this backend-rendered page is the no-JavaScript fallback and the
+# place the "Download latest" button lands people who want an older build.
+DOCS_RELEASES_URL = "https://brebribre.github.io/paskall-docs/player-releases/"
 
 
 @router.get("/player/download")
@@ -71,52 +69,74 @@ def _render_versions_page(releases: list[player_releases.PlayerRelease]) -> str:
     if releases:
         rows = "\n".join(
             f"""<tr>
-              <td>{html_lib.escape(r.version)}{' <span style="color:var(--color-ink-subtle);font-weight:400;">· current</span>' if r.is_current else ''}</td>
+              <td><b>{html_lib.escape(r.version)}</b>{' <span class="muted">· current</span>' if r.is_current else ''}</td>
               <td>{_format_date(r.uploaded_at)}</td>
               <td>{_format_size(r.size_bytes)}</td>
-              <td><a class="btn" style="padding:6px 14px;font-size:13px;" href="/player/download/{html_lib.escape(r.version)}" download>Download</a></td>
+              <td><a class="btn" href="/player/download/{html_lib.escape(r.version)}" download>Download</a></td>
             </tr>"""
             for r in releases
         )
-        table = f"""<div class="table-wrap">
-          <table class="fact-table">
+        table = f"""<table>
             <thead><tr><th>Version</th><th>Published</th><th>Size</th><th></th></tr></thead>
             <tbody>{rows}</tbody>
-          </table>
-        </div>"""
+          </table>"""
     else:
-        table = '<p class="lede">No player build has been published yet.</p>'
+        table = '<p class="muted">No player build has been published yet.</p>'
 
+    # Self-contained: no stylesheet to fetch, so this reads the same wherever it is opened —
+    # including a signage box's own browser with nothing else reachable.
     return f"""<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Player APK Versions — Fortu CMS Docs</title>
-  <link rel="stylesheet" href="{DOCS_ORIGIN}/style.css" />
+  <title>Paskall Player releases</title>
+  <style>
+    body {{ margin: 0; background: #f1f3f7; color: #101111; font: 15px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif; }}
+    .page {{ max-width: 820px; margin: 0 auto; padding: 40px 20px 60px; }}
+    a {{ color: #003399; }}
+    h1 {{ font-size: 28px; margin: 24px 0 8px; }}
+    .muted {{ color: #7d7d7d; font-weight: 400; }}
+    table {{ width: 100%; border-collapse: collapse; background: #fff; border-radius: 12px; overflow: hidden; margin-top: 28px; }}
+    th, td {{ text-align: left; padding: 12px 16px; border-bottom: 1px solid #e5e5e5; }}
+    th {{ font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: #7d7d7d; font-weight: 500; }}
+    .btn {{ display: inline-block; padding: 6px 14px; border-radius: 999px; background: #003399; color: #fff; text-decoration: none; font-size: 13px; }}
+    footer {{ margin-top: 32px; font-size: 13px; color: #7d7d7d; }}
+  </style>
 </head>
 <body>
-  <div class="page" style="max-width: 820px;">
-    <a href="{DOCS_ORIGIN}/connecting-a-screen.html"
-       style="font-size:13px;color:var(--color-ink-muted);text-decoration:none;">
-      &larr; Connecting a Screen
-    </a>
-    <div class="hero" style="margin-top: 20px;">
-      <div class="eyebrow"><b>FORTU</b>&nbsp;PLAYER</div>
-      <h1>APK versions</h1>
-      <p class="dek">
-        Every build ever published, not just the current one — for rolling a screen back to
-        a known-good version, or confirming what's actually out there on the wall.
-      </p>
-    </div>
-    <section style="margin-top: 40px;">{table}</section>
-    <footer>
-      <span>Fortu CMS</span>
-      <span>Newest first. "current" is whatever every screen is being pushed right now.</span>
-    </footer>
+  <div class="page">
+    <a href="{DOCS_RELEASES_URL}" style="font-size:13px;text-decoration:none;">&larr; Paskall Docs</a>
+    <h1>Paskall Player releases</h1>
+    <p class="muted">Every build ever published, newest first. "current" is the one every screen is being given right now.</p>
+    {table}
+    <footer>Install the APK on the screen, open it, and connect it with the code it shows.</footer>
   </div>
 </body>
 </html>"""
+
+
+@router.get("/player/versions.json")
+def list_player_versions_json(session: DbSession) -> JSONResponse:
+    """The same list as JSON, for the docs site's own releases page (GitHub Pages, a different
+    origin) — hence the explicit allow-any-origin header: this is public data that
+    `/player/versions` already shows to anyone, and download links are plain GETs."""
+    rollout = player_rollouts.active_rollout(session)
+    current_key = rollout.apk_key if rollout else None
+    releases = player_releases.list_releases(current_key=current_key)
+    return JSONResponse(
+        [
+            {
+                "version": r.version,
+                "published_at": r.uploaded_at,
+                "size_bytes": r.size_bytes,
+                "is_current": r.is_current,
+                "download_url": f"/player/download/{r.version}",
+            }
+            for r in releases
+        ],
+        headers={"Access-Control-Allow-Origin": "*", "Cache-Control": "no-store"},
+    )
 
 
 @router.get("/player/versions", response_class=HTMLResponse)
