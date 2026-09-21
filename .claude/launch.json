@@ -13,18 +13,6 @@
       "port": 5173
     },
     {
-      "name": "docs",
-      "runtimeExecutable": "python3",
-      "runtimeArgs": [
-        "-m",
-        "http.server",
-        "18081",
-        "--directory",
-        "docs"
-      ],
-      "port": 18081
-    },
-    {
       "name": "web-player",
       "runtimeExecutable": "sh",
       "runtimeArgs": [

@@ -15,6 +15,12 @@ registers no GitHub webhook, and the service silently stops redeploying on push.
 | `monitoring` | `monitoring` | `node server.mjs` (`npm run build` at build time) — Paskall staff only: issues customer accounts and their limits. Its own app, deliberately split from the customer-facing `frontend`; sign-in is `/admin/auth/login`, which refuses anyone who isn't a platform admin (`scripts/make_admin.py`). | `https://monitoring-production-69c1.up.railway.app` |
 | `Postgres` | — | `ghcr.io/railwayapp-templates/postgres-ssl:18` | private only |
 
+The documentation is **not** a Railway service any more. The guides live in the public repo
+`brebribre/paskall-docs` and are published by GitHub Pages at
+https://brebribre.github.io/paskall-docs/ — MkDocs, rebuilt on every push there, edited by the team
+through the pencil on each page. The CMS sidebar's "Documentation" link points there. The old
+hand-written `docs/` folder in this repo and its `docs` Railway service were retired on 2026-09-21.
+
 `frontend`'s `server.mjs` does two things: serves the built SPA, and reverse-proxies `/api/*`
 to `backend` server-to-server. See "Why the frontend proxies the API" below — this is not
 incidental, it's what makes the session cookie work in every browser.

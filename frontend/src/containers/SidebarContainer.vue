@@ -109,7 +109,7 @@ ensureCount()
 
     <div class="border-t border-line p-3">
       <a
-        href="https://docs-production-9a3e.up.railway.app"
+        href="https://brebribre.github.io/paskall-docs/"
         target="_blank"
         rel="noopener noreferrer"
         :class="ROW"
