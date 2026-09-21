@@ -386,6 +386,7 @@ function onElementPointerMove(e: PointerEvent) {
   const box = canvasRef.value.getBoundingClientRect()
   selected.value.x = dragStartBox.x + (e.clientX - dragStartPointer.x) / box.width
   selected.value.y = dragStartBox.y + (e.clientY - dragStartPointer.y) / box.height
+  clampPosition(selected.value)
 }
 
 function onElementPointerUp(e: PointerEvent) {
@@ -405,6 +406,19 @@ const MIN_SIZE = 0.05
  *  tighter than this, or the scene would fail to save. */
 const MAX_CROP_ZOOM = 3
 
+/**
+ * Nothing leaves the canvas. A box stops at the edges rather than hanging off them, so what the
+ * editor shows is exactly the box a screen gets — an element that ran past the edge was clipped
+ * here but laid out from its real numbers on the device, and the two never quite agreed.
+ *
+ * Only the position is corrected here; a box that is itself larger than the canvas (made before
+ * this rule) is pinned to the top-left and shrunk to fit by `normalizeToCanvas` on Apply.
+ */
+function clampPosition(el: { x: number; y: number; width: number; height: number }) {
+  el.x = Math.min(Math.max(el.x, 0), Math.max(0, 1 - el.width))
+  el.y = Math.min(Math.max(el.y, 0), Math.max(0, 1 - el.height))
+}
+
 const resizingCorner = ref<Corner | null>(null)
 let resizeStartPointer = { x: 0, y: 0 }
 let resizeStartBox = { x: 0, y: 0, width: 0, height: 0 }
@@ -422,7 +436,9 @@ function onHandlePointerDown(corner: Corner, e: PointerEvent) {
 
 /** Proportional scale about the opposite corner. Worked in a single scale factor — whichever
  *  axis the pointer has moved further along — so the box's aspect never drifts, and neither does
- *  the media's crop inside it (the same crop at the same aspect is the same picture, larger). */
+ *  the media's crop inside it (the same crop at the same aspect is the same picture, larger).
+ *  The scale stops where the moving corner would cross a canvas edge: the box caps at the edge
+ *  and keeps its shape, on whichever axis runs out of room first. */
 function onHandlePointerMove(e: PointerEvent) {
   if (!resizingCorner.value || !selected.value || !canvasRef.value) return
   const canvas = canvasRef.value.getBoundingClientRect()
@@ -432,11 +448,19 @@ function onHandlePointerMove(e: PointerEvent) {
   const sx = corner === 'ne' || corner === 'se' ? 1 : -1
   const sy = corner === 'sw' || corner === 'se' ? 1 : -1
   const start = resizeStartBox
-  const scale = Math.max(
+  const wanted = Math.max(
     (start.width + sx * dx) / start.width,
     (start.height + sy * dy) / start.height,
-    MIN_SIZE / Math.min(start.width, start.height),
   )
+  // How far the moving edges can travel from the anchored ones before touching the canvas edge.
+  // Never below 1: a box already past the edge (from before the cap) may shrink but not grow.
+  const anchorX = sx === 1 ? start.x : start.x + start.width
+  const anchorY = sy === 1 ? start.y : start.y + start.height
+  const roomX = sx === 1 ? 1 - anchorX : anchorX
+  const roomY = sy === 1 ? 1 - anchorY : anchorY
+  const maxScale = Math.max(1, Math.min(roomX / start.width, roomY / start.height))
+  const minScale = MIN_SIZE / Math.min(start.width, start.height)
+  const scale = Math.max(minScale, Math.min(wanted, maxScale))
   const width = start.width * scale
   const height = start.height * scale
   selected.value.width = width
@@ -535,11 +559,12 @@ function onEdgeHandlePointerMove(e: PointerEvent) {
   let top = start.y
   let right = start.x + start.width
   let bottom = start.y + start.height
+  // A side can go back out as far as the media's own edge — and never past the canvas edge.
   const m = edgeMedia
-  const minLeft = m ? m.left : -Infinity
-  const maxRight = m ? m.left + m.width : Infinity
-  const minTop = m ? m.top : -Infinity
-  const maxBottom = m ? m.top + m.height : Infinity
+  const minLeft = Math.max(0, m ? m.left : -Infinity)
+  const maxRight = Math.min(1, m ? m.left + m.width : Infinity)
+  const minTop = Math.max(0, m ? m.top : -Infinity)
+  const maxBottom = Math.min(1, m ? m.top + m.height : Infinity)
   if (edge === 'e') right = Math.min(maxRight, Math.max(left + MIN_SIZE, right + dx))
   else if (edge === 'w') left = Math.max(minLeft, Math.min(right - MIN_SIZE, left + dx))
   else if (edge === 's') bottom = Math.min(maxBottom, Math.max(top + MIN_SIZE, bottom + dy))
@@ -617,6 +642,23 @@ function setFit(fit: 'contain' | 'cover') {
  *  screen made every rotated box smaller and squarer). What swaps is the real length: the new width
  *  is the old height measured against the canvas width, and vice versa. The crop turns with the
  *  picture, so the same part of it stays in view. */
+/** The whole box on the canvas: one that is larger than the canvas is shrunk to fit, keeping its
+ *  shape, and then nudged in from any edge it crosses. For a scene made before boxes were capped
+ *  at the edges, and for a rotation that turns a wide box into one taller than the screen. */
+function normalizeToCanvas(el: { x: number; y: number; width: number; height: number }) {
+  const shrink = Math.min(1, 1 / el.width, 1 / el.height)
+  if (shrink < 1) {
+    // Shrink about the centre, so a box that only just overflows barely moves.
+    const cx = el.x + el.width / 2
+    const cy = el.y + el.height / 2
+    el.width *= shrink
+    el.height *= shrink
+    el.x = cx - el.width / 2
+    el.y = cy - el.height / 2
+  }
+  clampPosition(el)
+}
+
 function rotateSelected() {
   const el = selected.value
   if (!el) return
@@ -629,6 +671,8 @@ function rotateSelected() {
   el.height = height
   el.x = cx - width / 2
   el.y = cy - height / 2
+  // A wide box turned on a wide screen is now taller than the screen: keep it on the canvas.
+  normalizeToCanvas(el)
   // A point at (x, y) in the picture as shown sits at (1 − y, x) after a clockwise quarter turn.
   if (el.cropX != null || el.cropY != null) {
     const cropX = el.cropX ?? 0.5
@@ -802,6 +846,8 @@ const TOOL =
   'transition-colors duration-150 active:bg-surface disabled:opacity-35'
 
 function apply() {
+  // Nothing leaves the editor hanging off the canvas — including elements placed before the cap.
+  for (const el of elements.value) normalizeToCanvas(el)
   emit('apply', elements.value, background.value, backgroundColor.value)
 }
 </script>
