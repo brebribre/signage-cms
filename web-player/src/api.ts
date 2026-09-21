@@ -123,6 +123,9 @@ export interface Manifest {
   schedule_name?: string | null
   valid_until?: string | null
   settings?: ManifestSettings
+  /** Live control: the one slot (by id, one of `slots`) to show and hold instead of looping.
+   *  Null or absent means play the loop. */
+  live_slot_id?: string | null
 }
 
 export interface PlayReport {

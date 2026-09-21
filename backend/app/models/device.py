@@ -107,6 +107,18 @@ class Device(SQLModel, table=True):
         default=None,
         sa_column=Column(ForeignKey("playlists.id", ondelete="SET NULL"), nullable=True, index=True),
     )
+    # --- Live control ---
+    # A scene (playlist item) somebody is holding this screen on from the CMS's Live Control
+    # page — a demo, a walk-through, "show them the promo now". None means the screen runs its
+    # programme as usual. SET NULL: deleting the scene simply ends the hold. The hold is only
+    # honoured for LIVE_MAX_SECONDS after `live_started_at` (services/devices.py), so a page
+    # somebody forgot to close can never leave a screen stuck on one scene overnight.
+    live_slot_id: uuid.UUID | None = Field(
+        default=None,
+        sa_column=Column(ForeignKey("playlist_items.id", ondelete="SET NULL"), nullable=True),
+    )
+    live_started_at: datetime | None = Field(default=None, sa_column=tz_column(nullable=True))
+
     # IANA name, e.g. "Asia/Jakarta". Schedules are expressed in the screen's local wall
     # clock, so this is what makes "until 11am" mean the same thing in two cities. UTC is a
     # safe default rather than a guess at the operator's locale.

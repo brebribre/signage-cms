@@ -132,9 +132,16 @@ def compute_version(session: Session, device: Device, now: datetime | None = Non
                 for item, elements in rows
             ],
         )
+    # Live control: which scene the screen is being held on, if any. Deliberately read
+    # through the same expiry every other reader uses, so a hold running out moves this hash
+    # (and with it the screen, on its next check-in) exactly as ending it by hand would.
+    from app.services.devices import effective_live_slot_id  # local: devices imports this module
+
+    live_slot_id = effective_live_slot_id(device, now)
     canonical = json.dumps(
         (
             payload,
+            str(live_slot_id) if live_slot_id else None,
             str(resolution.schedule_id) if resolution.schedule_id else None,
             # The window boundary is part of the content, not metadata about it. Without it,
             # editing a schedule that is not *currently* active would leave every screen
@@ -227,6 +234,10 @@ class Manifest:
     #: The screen's timezone — validated, so a bad name reaches the player as UTC, the same
     #: fallback scheduling.device_zone uses. The player evaluates its power schedule on it.
     device_timezone: str = "UTC"
+    #: Live control (services/devices.py set_live): the one slot to show and hold, instead of
+    #: looping. None — the usual case — means play the loop. Always one of `slots`' ids, or
+    #: None: a hold on a scene that is no longer in the playlist is dropped here, not sent.
+    live_slot_id: uuid.UUID | None = None
 
 
 def build_manifest(session: Session, device: Device, *, version: str) -> Manifest:
@@ -253,8 +264,13 @@ def build_manifest(session: Session, device: Device, *, version: str) -> Manifes
             settings=device_settings_dict,
         )
 
+    from app.services.devices import effective_live_slot_id  # local: devices imports this module
+
     playlist = session.get(Playlist, resolution.playlist_id)
     rows = _enabled_items(session, resolution.playlist_id)
+    live_slot_id = effective_live_slot_id(device)
+    if live_slot_id is not None and all(item.id != live_slot_id for item, _ in rows):
+        live_slot_id = None
     slots = [
         ManifestSlot(
             id=item.id,
@@ -332,6 +348,7 @@ def build_manifest(session: Session, device: Device, *, version: str) -> Manifes
         schedule_name=resolution.schedule_name,
         valid_until=valid_until,
         settings=device_settings_dict,
+        live_slot_id=live_slot_id,
     )
 
 

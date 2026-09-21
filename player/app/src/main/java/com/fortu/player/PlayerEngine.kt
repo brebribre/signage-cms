@@ -88,6 +88,8 @@ sealed interface PlayerState {
         /** Bumped by the stall watchdog (see [PlayerEngine.restartIfStalled]) to make the UI
          *  rebuild its playback surface from scratch — the same content, a fresh loop. */
         val generation: Int = 0,
+        /** Live control: the slot to show and hold (one of [slots]' ids), or null to loop. */
+        val liveSlotId: String? = null,
     ) : PlayerState {
         /** Every element across every slot, flattened — what most cache/count logic actually
          *  wants, since it does not care which slot an element belongs to. */
@@ -718,6 +720,7 @@ class PlayerEngine(
             playable,
             manifest.playlist?.shuffle ?: false,
             playbackGeneration,
+            liveSlotId = manifest.liveSlotId,
         )
         _debug.update {
             it.copy(deviceName = manifest.device.name, version = manifest.version,
@@ -831,6 +834,7 @@ class PlayerEngine(
                 playable,
                 manifest.playlist?.shuffle ?: false,
                 playbackGeneration,
+                liveSlotId = manifest.liveSlotId,
             )
         }
 

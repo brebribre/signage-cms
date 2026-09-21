@@ -173,7 +173,9 @@ export function createEmptyItem(): DraftItem {
   }
 }
 
-function toDraftElement(el: ElementRead): DraftElement {
+/** A saved element as the editor (and every preview) draws it. Exported for pages that show
+ *  saved scenes without editing them — Live Control's scene tiles. */
+export function toDraftElement(el: ElementRead): DraftElement {
   const placement = {
     key: el.id,
     zIndex: el.z_index,

@@ -1,6 +1,7 @@
 import { request } from '@/api/request'
 import type {
   ClaimBody,
+  DeviceLiveBody,
   DeviceRead,
   DeviceResolutionRead,
   DeviceUpdateBody,
@@ -36,6 +37,11 @@ export function useDeviceApi() {
     /** Starts the disconnect handshake: the screen is told on its next request and resets
      *  itself; the row disappears (GET → 404) once it has heard. See useDeviceDetail.disconnect. */
     disconnect: (id: string) => request<DeviceRead>('POST', `/devices/${id}/disconnect`),
+    /** Live control: hold the screen on one scene of its current playlist; picking another
+     *  scene moves the hold. The screen is pushed, so it follows within a couple of seconds. */
+    setLive: (id: string, body: DeviceLiveBody) => request<DeviceRead>('PUT', `/devices/${id}/live`, body),
+    /** Back to the programme. */
+    endLive: (id: string) => request<DeviceRead>('DELETE', `/devices/${id}/live`),
     /** Removes the row without waiting for the screen — the fallback when it never answers. */
     remove: (id: string) => request<void>('DELETE', `/devices/${id}`),
   }

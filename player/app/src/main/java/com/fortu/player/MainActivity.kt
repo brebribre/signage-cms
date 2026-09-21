@@ -240,6 +240,7 @@ class MainActivity : ComponentActivity() {
                     is PlayerState.Playing -> key(s.generation) {
                         PlaybackSurface(
                             slots = s.slots,
+                            liveSlotId = s.liveSlotId,
                             fileFor = vm::localFileFor,
                             onPlayed = vm::reportPlay,
                             onPlaybackError = vm::reportError,

@@ -51,6 +51,8 @@ export class PlaybackSurface {
   private lastVideo: string | null = null
   private key = ''
   private index = 0
+  /** Live control: the slot index being held, or null when the loop runs. See setPlaylist. */
+  private liveIndex: number | null = null
   private startedAt = Date.now()
   private layer: HTMLElement | null = null
   private timers: number[] = []
@@ -79,7 +81,7 @@ export class PlaybackSurface {
 
   /** A playlist identical to the one already looping (a restore followed by the same manifest
    *  from the network) keeps its place instead of starting over. */
-  setPlaylist(slots: ManifestSlot[], sources: Record<string, string>) {
+  setPlaylist(slots: ManifestSlot[], sources: Record<string, string>, liveSlotId: string | null = null) {
     // Only a change to *what* plays restarts the loop. New addresses for the same files (every
     // full manifest re-issues them) apply from the next slot on, without cutting off what's on
     // screen now.
@@ -87,10 +89,29 @@ export class PlaybackSurface {
     // Addresses left out: they are presigned and re-issued on every full manifest, while the
     // checksum beside each one already names the content (a website's included).
     const key = JSON.stringify(slots, (k, v) => (k === 'url' ? undefined : v))
-    if (key === this.key) return
+    const liveIndex = liveSlotId === null ? null : slots.findIndex((s) => s.id === liveSlotId)
+    const hold = liveIndex !== null && liveIndex >= 0 ? liveIndex : null
+    if (key === this.key) {
+      // Same playlist: only the live hold can have changed. Moving to a held scene jumps
+      // there; ending a hold changes nothing on screen — the loop carries on from where it is,
+      // which is the "back to the programme" the CMS promises. Timers are re-armed either way,
+      // so a held scene stops advancing and a released one starts again.
+      if (hold === this.liveIndex) return
+      this.liveIndex = hold
+      if (hold !== null && hold !== this.index) {
+        this.report()
+        this.index = hold
+        this.prepared = null
+        this.show()
+      } else {
+        this.show(false)
+      }
+      return
+    }
     this.key = key
     this.slots = slots
-    this.index = 0
+    this.liveIndex = hold
+    this.index = hold ?? 0
     this.startedAt = Date.now()
     this.prepared = null
     this.show()
@@ -217,7 +238,9 @@ export class PlaybackSurface {
   private show(fade = true) {
     this.clearTimers()
     const slot = this.slot
-    const onlySlot = this.slots.length === 1
+    // Hold what is on screen: a one-slot playlist, or a live hold. The timer only reports and a
+    // lone video loops rather than ending the slot.
+    const onlySlot = this.slots.length === 1 || this.liveIndex !== null
     const singleVideo = slot.elements.length === 1 && slot.elements[0].kind === 'video'
     const loop = !singleVideo || onlySlot
     const durationMs = Math.max(1, slot.duration_seconds) * 1000

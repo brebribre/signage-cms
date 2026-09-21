@@ -55,6 +55,11 @@ const { relativeTime } = useFormat()
         <div class="flex items-center gap-2">
           <p class="min-w-0 truncate text-base text-ink">{{ device.name || 'Unnamed screen' }}</p>
           <StatusDot :last-seen-at="device.last_seen_at" :show-label="false" class="shrink-0" />
+          <!-- Somebody is holding this screen on one scene from Live Control. -->
+          <span
+            v-if="device.live_slot_id"
+            class="shrink-0 rounded-full bg-brand px-2 py-0.5 text-[11px] leading-none text-ink-inverse"
+          >Live</span>
           <span
             v-if="selectable"
             class="ml-auto flex size-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors duration-150"

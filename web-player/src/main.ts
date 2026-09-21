@@ -195,7 +195,7 @@ async function boot() {
     if (state.kind === 'playing') {
       status.remove()
       lastStatusHtml = ''
-      surface.setPlaylist(state.slots, state.sources)
+      surface.setPlaylist(state.slots, state.sources, state.liveSlotId)
     } else {
       surface.destroy()
       const html = statusScreenHtml(state)

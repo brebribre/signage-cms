@@ -126,6 +126,9 @@ fun PlaybackSurface(
     slots: List<ManifestSlot>,
     fileFor: (ManifestElement) -> File,
     modifier: Modifier = Modifier,
+    /** Live control: the id of the one slot to show and hold. Null (the usual case) loops. A
+     *  hold on a slot that isn't in [slots] — it failed to download, say — is ignored. */
+    liveSlotId: String? = null,
     /** Called as each slot finishes, for proof-of-play — once per element it contained, all
      *  sharing the same timing. Reported in batches on the next heartbeat rather than
      *  immediately — a slot can be shorter than the heartbeat interval, and a request per slot
@@ -138,9 +141,23 @@ fun PlaybackSurface(
      *  the heartbeat and the debug overlay — see PlayerEngine.reportVideoStats. */
     onVideoStats: (droppedFrames: Int, decoder: String?) -> Unit = { _, _ -> },
 ) {
-    var index by remember(slots) { mutableIntStateOf(0) }
-    val slot = slots[index.coerceIn(slots.indices)]
+    /** Where the live hold points, as an index into [slots]; null when nothing is held. */
+    val liveIndex = liveSlotId?.let { id -> slots.indexOfFirst { it.id == id }.takeIf { it >= 0 } }
+    var index by remember(slots) { mutableIntStateOf(liveIndex ?: 0) }
     var startedAt by remember(slots) { mutableLongStateOf(System.currentTimeMillis()) }
+    // The hold moving (somebody picked another scene) while the playlist itself is unchanged:
+    // jump there, counting what was on screen as played. Ending the hold changes nothing here —
+    // the loop just carries on from the held scene, which is the "back to the programme" the
+    // CMS promises.
+    LaunchedEffect(liveIndex) {
+        if (liveIndex != null && liveIndex != index) {
+            val now = System.currentTimeMillis()
+            onPlayed(slots[index.coerceIn(slots.indices)], startedAt, ((now - startedAt) / 1000).toInt())
+            startedAt = now
+            index = liveIndex
+        }
+    }
+    val slot = slots[index.coerceIn(slots.indices)]
 
     fun advance() {
         val now = System.currentTimeMillis()
@@ -157,6 +174,10 @@ fun PlaybackSurface(
      *  — what is on screen stays on screen. It still has to be *reported* as playing, and a
      *  video still has to keep playing rather than stop dead on its last frame. */
     val onlySlot = slots.size == 1
+
+    /** Hold what is on screen: a one-slot playlist, or a live hold. Same behaviour either way —
+     *  the timer only reports, a lone video loops rather than ending the slot. */
+    val hold = onlySlot || liveIndex != null
 
     /** Records the play without changing what is on screen — the one-slot counterpart of
      *  [advance], which cannot be used there: advancing to the same slot re-keys nothing, so the
@@ -182,8 +203,8 @@ fun PlaybackSurface(
     // not happen, but must not hang forever if it does), and any multi-element slot (new):
     // with more than one thing on screen, the CMS-authored duration is the only unambiguous
     // "this slot is over" signal.
-    if (onlySlot) {
-        LaunchedEffect(slots, slot.id) {
+    if (hold) {
+        LaunchedEffect(slots, slot.id, hold) {
             while (true) {
                 delay(slot.durationSeconds * 1000L)
                 currentReport()
@@ -244,7 +265,7 @@ fun PlaybackSurface(
     // A lone video repeats: with no next slot, ending playback would freeze the screen on its
     // last frame until the playlist changed. Looping also means nothing calls onEnded for it,
     // which is exactly right — the report timer above owns proof-of-play in that case.
-    val loop = singleVideo == null || onlySlot
+    val loop = singleVideo == null || hold
 
     /**
      * Which kind of video surface this playlist gets.

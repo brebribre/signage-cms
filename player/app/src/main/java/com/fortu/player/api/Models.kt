@@ -205,6 +205,10 @@ data class Manifest(
      *  that predates settings entirely sends no key, and this becomes "nothing configured"
      *  rather than a parse failure. */
     val settings: ManifestSettings = ManifestSettings(),
+    /** Live control (CMS Live Control page): the one slot to show and hold instead of looping
+     *  — always one of [slots]' ids. Null, the usual case, means play the loop. Defaulted for
+     *  the same version-skew reason as everything above. */
+    @SerialName("live_slot_id") val liveSlotId: String? = null,
 )
 
 @Serializable

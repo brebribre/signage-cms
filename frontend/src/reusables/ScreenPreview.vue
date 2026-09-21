@@ -38,9 +38,21 @@ const props = withDefaults(
     background?: SceneBackground
     backgroundColor?: string | null
     maxHeight?: number
+    /** A still, for a grid of many scenes: a video shows its thumbnail instead of playing, a
+     *  website a labelled tile instead of a live page. Nothing else changes, so the layout is
+     *  exactly what the screen shows. */
+    still?: boolean
   }>(),
-  { maxHeight: 420, background: 'black' },
+  { maxHeight: 420, background: 'black', still: false },
 )
+
+/** Whether an element is still waiting for its file — never true for the kinds that have no
+ *  file to wait for, nor for a still video with no thumbnail to show. */
+function isLoading(el: DraftElement): boolean {
+  if (el.kind === 'web' || el.kind === 'text') return false
+  if (props.still && el.kind === 'video' && !el.thumbnailUrl) return false
+  return !arrived.has(el.url)
+}
 
 /**
  * Size by width, capped so the implied height never exceeds `maxHeight`.
@@ -170,9 +182,15 @@ function mediaStyle(el: DraftElement): CSSProperties {
         <img :src="blurUrl" alt="" class="select-none" :style="BLUR_IMAGE_STYLE" />
       </div>
       <div v-for="el in sortedElements" :key="el.key" :style="boxStyle(el)">
+        <div
+          v-if="el.kind === 'web' && still"
+          class="flex size-full items-center justify-center bg-white text-[12px] text-ink-muted"
+        >
+          Website
+        </div>
         <!-- Not clickable, like the screen itself. -->
         <iframe
-          v-if="el.kind === 'web'"
+          v-else-if="el.kind === 'web'"
           :src="el.url"
           title=""
           class="pointer-events-none border-0 bg-white"
@@ -182,8 +200,22 @@ function mediaStyle(el: DraftElement): CSSProperties {
         />
         <div v-else-if="el.kind === 'text'" :style="textStyle(el)">{{ el.text }}</div>
         <div v-else :style="wrapperStyle(el)">
+          <img
+            v-if="el.kind === 'video' && still && el.thumbnailUrl"
+            :src="el.thumbnailUrl"
+            alt=""
+            class="select-none"
+            :style="mediaStyle(el)"
+            @load="markArrived(el.url)"
+            @error="markArrived(el.url)"
+          />
+          <div
+            v-else-if="el.kind === 'video' && still"
+            class="size-full bg-white/10"
+            :style="mediaStyle(el)"
+          />
           <video
-            v-if="el.kind === 'video'"
+            v-else-if="el.kind === 'video'"
             :src="el.url"
             class="select-none"
             :style="mediaStyle(el)"
@@ -206,7 +238,7 @@ function mediaStyle(el: DraftElement): CSSProperties {
         </div>
         <Transition leave-active-class="transition-opacity duration-200" leave-to-class="opacity-0">
           <div
-            v-if="el.kind !== 'web' && el.kind !== 'text' && !arrived.has(el.url)"
+            v-if="isLoading(el)"
             class="preview-loading absolute inset-0 overflow-hidden bg-white/10"
             role="status"
             aria-label="Loading"

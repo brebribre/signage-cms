@@ -2,6 +2,7 @@ import type { Component } from 'vue'
 import IconCampaign from '~icons/material-symbols/campaign-outline'
 import IconFactCheck from '~icons/material-symbols/fact-check-outline'
 import IconFolderOpen from '~icons/material-symbols/folder-open-outline'
+import IconLiveTv from '~icons/material-symbols/live-tv-outline'
 import IconMonitoring from '~icons/material-symbols/monitoring'
 import IconPhotoLibrary from '~icons/material-symbols/photo-library-outline'
 import IconPlayCircle from '~icons/material-symbols/play-circle-outline'
@@ -30,7 +31,16 @@ export interface NavSection {
  *  stays in SidebarContainer. Platform admin lives in its own app (monitoring/), not here. */
 export function useNavLinks() {
   const sections: NavSection[] = [
-    { title: null, icon: null, links: [{ name: 'now', label: 'Overview', icon: IconMonitoring }] },
+    {
+      title: null,
+      icon: null,
+      links: [
+        { name: 'now', label: 'Overview', icon: IconMonitoring },
+        // Drive a screen by hand: put any scene of its playlist on it right now, for a demo or
+        // a walk-through, and let the programme resume afterwards.
+        { name: 'live', label: 'Live Control', icon: IconLiveTv },
+      ],
+    },
     // What the account owns — the files and the hardware. Both are inventory you add to once
     // and then draw on; neither says anything on its own about what plays.
     {

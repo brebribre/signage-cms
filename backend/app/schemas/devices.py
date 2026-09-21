@@ -45,6 +45,16 @@ class DeviceRead(BaseModel):
     # Set once "Disconnect" has been clicked and the screen is being told; the row disappears
     # (GET → 404) the moment the screen has heard. See Device.disconnect_requested_at.
     disconnect_requested_at: datetime | None = None
+    # Live control: the scene this screen is being held on from the Live Control page, and since
+    # when — both None while it runs its programme. See services/devices.py set_live.
+    live_slot_id: uuid.UUID | None = None
+    live_started_at: datetime | None = None
+
+
+class DeviceLiveWrite(BaseModel):
+    """Hold the screen on this scene — one of the enabled items of the playlist it is playing."""
+
+    slot_id: uuid.UUID
 
 
 class PairStartRequest(BaseModel):

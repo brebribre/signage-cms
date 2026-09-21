@@ -8,6 +8,7 @@ from app.models import Playlist, ReviewKind
 from app.config import get_settings
 from app.schemas.devices import (
     ClaimRequest,
+    DeviceLiveWrite,
     DeviceRead,
     DeviceResolutionRead,
     DeviceUpdate,
@@ -24,6 +25,7 @@ from app.services.devices import (
     InvalidTimezone,
     NotAnAndroidScreen,
     PairingNotFound,
+    SceneNotOnScreen,
     ScreenLimitReached,
     TooManyClaimAttempts,
 )
@@ -33,7 +35,12 @@ router = APIRouter(tags=["devices"])
 
 
 def _read(device) -> DeviceRead:
-    return DeviceRead.model_validate(device, from_attributes=True)
+    read = DeviceRead.model_validate(device, from_attributes=True)
+    # A hold that has run out reads as no hold — the same answer the manifest gives.
+    if device_service.effective_live_slot_id(device) is None:
+        read.live_slot_id = None
+        read.live_started_at = None
+    return read
 
 
 # --- Device-side pairing (unauthenticated) ----------------------------------------------
@@ -224,6 +231,28 @@ def cancel_device_update(device: DeviceForUser, user: RequireOwner, session: DbS
     reasoning as set_device_update above."""
     updated = device_service.clear_forced_update(session, device=device)
     return _read(updated)
+
+
+@router.put("/devices/{device_id}/live", response_model=DeviceRead)
+def set_live(body: DeviceLiveWrite, device: DeviceForUser, session: DbSession) -> DeviceRead:
+    """Live control: hold this screen on one scene of the playlist it is playing. Picking
+    another scene moves the hold. Anyone who can see the screen may drive it — a hold is
+    temporary and ends by itself (services/devices.py LIVE_MAX_SECONDS), so it is not the
+    kind of screen-changing save the review gate parks for an owner."""
+    try:
+        updated = device_service.set_live(session, device=device, slot_id=body.slot_id)
+    except SceneNotOnScreen:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "That scene isn't in the playlist this screen is playing right now. Reload the page.",
+        ) from None
+    return _read(updated)
+
+
+@router.delete("/devices/{device_id}/live", response_model=DeviceRead)
+def end_live(device: DeviceForUser, session: DbSession) -> DeviceRead:
+    """Back to the programme."""
+    return _read(device_service.end_live(session, device=device))
 
 
 @router.post("/devices/{device_id}/probe", response_model=ProbeResponse)

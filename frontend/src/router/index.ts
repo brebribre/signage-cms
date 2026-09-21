@@ -25,6 +25,18 @@ const router = createRouter({
           name: 'now',
           component: () => import('@/containers/NowContainer.vue'),
         },
+        // Live Control: every screen and what it plays; open one to put a scene on it by hand.
+        {
+          path: 'live',
+          name: 'live',
+          component: () => import('@/containers/LiveControlContainer.vue'),
+        },
+        {
+          path: 'live/:id',
+          name: 'live-device',
+          component: () => import('@/containers/LiveDeviceContainer.vue'),
+          meta: { keyByPath: true },
+        },
         {
           path: 'deploy',
           name: 'deploy',

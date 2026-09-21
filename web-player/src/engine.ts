@@ -50,7 +50,7 @@ export type PlayerState =
   /** `sources` maps each element's checksum to the URL playback loads it from — the cached copy
    *  for a picture or a video with a streaming copy (see [storedFile]), otherwise the element's own
    *  address. */
-  | { kind: 'playing'; slots: ManifestSlot[]; shuffle: boolean; sources: Record<string, string> }
+  | { kind: 'playing'; slots: ManifestSlot[]; shuffle: boolean; sources: Record<string, string>; liveSlotId: string | null }
 
 export interface DebugInfo {
   deviceName: string | null
@@ -506,6 +506,7 @@ export class PlayerEngine {
       kind: 'playing',
       slots: playable,
       shuffle: manifest.playlist?.shuffle ?? false,
+      liveSlotId: manifest.live_slot_id ?? null,
       sources: await this.sourcesFor(playable, new Set()),
     })
     // A stored manifest's addresses may have expired while the screen was off: a video without a
@@ -675,7 +676,7 @@ export class PlayerEngine {
       }
     }
 
-    this.state.set({ kind: 'playing', slots, shuffle: manifest.playlist?.shuffle ?? false, sources })
+    this.state.set({ kind: 'playing', slots, shuffle: manifest.playlist?.shuffle ?? false, sources, liveSlotId: manifest.live_slot_id ?? null })
 
     // Evict only after the new set is safely stored.
     await this.cache.evictExcept(files.filter((f) => !streamed.has(f.checksum)).map((f) => f.checksum))

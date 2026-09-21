@@ -24,11 +24,12 @@ from app.models import (
     DeviceOrientation,
     DevicePlatform,
     Playlist,
+    PlaylistItem,
     User,
     UserRole,
 )
 from app.models.base import utcnow
-from app.services import device_sync, player_releases
+from app.services import device_sync, player_releases, scheduling
 from app.services.errors import DomainError
 from app.services.player_rollouts import UnknownRelease
 
@@ -67,6 +68,11 @@ class InvalidTimezone(DomainError):
 
 class NotAnAndroidScreen(DomainError):
     """A player APK was pinned to a web screen, which has nothing to install it with."""
+
+
+class SceneNotOnScreen(DomainError):
+    """Live control asked for a scene that is not in the playlist this screen is playing right
+    now — a stale page, or a playlist that changed under it."""
 
 
 class ScreenLimitReached(DomainError):
@@ -466,6 +472,66 @@ def authenticate(session: Session, *, bearer: str) -> Device:
     ).first()
     if device is None or device.account_id is None:
         raise DeviceNotFound("invalid device token")
+    return device
+
+
+# --- Live control ------------------------------------------------------------------------
+
+#: How long a live hold lasts at most. A demo is minutes; a page left open is hours. After this
+#: the screen goes back to its programme by itself, on its next check-in.
+LIVE_MAX_SECONDS = 4 * 60 * 60
+
+
+def effective_live_slot_id(device: Device, now: datetime | None = None) -> uuid.UUID | None:
+    """The scene this screen is being held on, or None once the hold has run out. Every reader
+    — the manifest, its version hash, the CMS's device read — goes through this, so an expired
+    hold looks the same everywhere: gone."""
+    if device.live_slot_id is None or device.live_started_at is None:
+        return None
+    age = (now or utcnow()) - device.live_started_at
+    return device.live_slot_id if age.total_seconds() < LIVE_MAX_SECONDS else None
+
+
+def _live_slot_ids(session: Session, device: Device) -> set[uuid.UUID]:
+    """The scenes live control may pick from: the enabled ones of whatever playlist the screen
+    resolves to right now, campaign windows included — the same answer the manifest gives."""
+    resolution = scheduling.resolve(session, device)
+    if resolution.playlist_id is None:
+        return set()
+    rows = session.exec(
+        select(PlaylistItem.id).where(
+            PlaylistItem.playlist_id == resolution.playlist_id, PlaylistItem.is_enabled.is_(True)
+        )
+    ).all()
+    return set(rows)
+
+
+def set_live(session: Session, *, device: Device, slot_id: uuid.UUID) -> Device:
+    """Hold the screen on one scene of its current playlist. Picking another scene while already
+    live just moves the hold; the clock restarts with it."""
+    if slot_id not in _live_slot_ids(session, device):
+        raise SceneNotOnScreen(str(slot_id))
+    device.live_slot_id = slot_id
+    device.live_started_at = utcnow()
+    session.add(device)
+    session.commit()
+    session.refresh(device)
+    mqtt.notify_manifest_changed(
+        device_id=device.id, version=device_sync.compute_version(session, device),
+    )
+    return device
+
+
+def end_live(session: Session, *, device: Device) -> Device:
+    """Back to the programme. Harmless when nothing was live."""
+    device.live_slot_id = None
+    device.live_started_at = None
+    session.add(device)
+    session.commit()
+    session.refresh(device)
+    mqtt.notify_manifest_changed(
+        device_id=device.id, version=device_sync.compute_version(session, device),
+    )
     return device
 
 

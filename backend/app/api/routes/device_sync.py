@@ -90,8 +90,11 @@ def get_manifest(device: CurrentDevice, session: DbSession, request: Request) ->
             )
             for slot in manifest.slots
             # A website can't be flattened into this file-only shape — the players that read
-            # it would try to download the page as media.
-            if slot.elements and slot.elements[0].kind != "web"
+            # it would try to download the page as media. Nor can text: it has no media id at
+            # all, and building an item for it failed validation — which turned the whole
+            # manifest into a 500 for any screen whose playlist opened a scene with text, and
+            # stopped that screen updating until the scene was reordered.
+            if slot.elements and slot.elements[0].kind not in ("web", "text")
         ],
         # The real, unflattened shape — see `ManifestResponse.slots`'s own docstring for why
         # this rides alongside `items` rather than replacing it.
@@ -137,6 +140,7 @@ def get_manifest(device: CurrentDevice, session: DbSession, request: Request) ->
         schedule_name=manifest.schedule_name,
         valid_until=manifest.valid_until,
         settings=manifest.settings,
+        live_slot_id=manifest.live_slot_id,
     )
     return JSONResponse(content=jsonable_encoder(body.model_dump(mode="json")), headers={"ETag": etag})
 

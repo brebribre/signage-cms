@@ -116,6 +116,9 @@ async function onDisconnect() {
     <template v-else-if="device">
       <PageTitle :title="device.name || 'Unnamed screen'">
         <template #actions>
+          <AppButton variant="secondary" size="sm" @click="router.push({ name: 'live-device', params: { id } })">
+            Live control
+          </AppButton>
           <AppButton variant="danger" size="sm" @click="confirmingDisconnect = true">Disconnect</AppButton>
         </template>
       </PageTitle>

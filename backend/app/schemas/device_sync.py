@@ -123,6 +123,9 @@ class ManifestResponse(BaseModel):
     # registry (services/device_settings.py). A key absent here means "use the player's own
     # default," not "set to nothing."
     settings: dict[str, Any] = Field(default_factory=dict)
+    # Live control: the one slot (by id, always one of `slots`) to show and hold instead of
+    # looping — None, the usual case, means play the loop. Players older than 1.3.6 ignore it.
+    live_slot_id: uuid.UUID | None = None
 
 
 class HeartbeatScreen(BaseModel):

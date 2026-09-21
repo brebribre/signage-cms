@@ -249,6 +249,11 @@ export interface DeviceRead {
    *  display switch-off, lock task), false a basic one that needs a person for those. Null on
    *  web screens and on players that predate reporting. */
   device_owner: boolean | null
+  /** Live control: the scene (playlist item id) this screen is being held on from the Live
+   *  Control page, and since when — both null while it runs its programme. A hold ends by
+   *  itself after a few hours, and reads as null from then on. */
+  live_slot_id: string | null
+  live_started_at: string | null
 }
 
 export type DeviceUpdateState = 'downloading' | 'installing' | 'installed' | 'failed'
@@ -291,6 +296,12 @@ export interface DeviceResolutionRead {
   valid_until: string | null
   timezone: string
   device_local_time: string
+}
+
+/** Live control: hold the screen on this scene — one of the enabled items of the playlist it
+ *  is playing right now (409 otherwise). */
+export interface DeviceLiveBody {
+  slot_id: string
 }
 
 /** Baseline to watch after asking a screen to check in — see useDeviceDetail.ts's probe(). */
