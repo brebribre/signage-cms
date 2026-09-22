@@ -93,6 +93,36 @@ function onCancelClick() {
 /** The picker stays available once an update has finished either way — but not while one is
  *  in flight, where a second instruction would only race the first. */
 const showPicker = computed(() => !view.value || !view.value.busy)
+
+/** Where a person installs a build by hand — the docs' list of every release. Shown for a
+ *  Basic screen, which can't install one itself. */
+const RELEASES_DOCS_URL = 'https://docs.paskall.co.id/player-releases/'
+
+/** "1.3.7" > "1.3.5", numerically per part; a suffix like "-emu" is ignored. Unparseable
+ *  versions (a web screen's "web-1.0.0") compare as older than nothing. */
+function versionParts(v: string | null): number[] | null {
+  if (!v) return null
+  const m = /^(\d+(?:\.\d+)*)/.exec(v)
+  return m ? m[1].split('.').map(Number) : null
+}
+function isNewer(a: string, b: string | null): boolean {
+  const pa = versionParts(a); const pb = versionParts(b)
+  if (!pa || !pb) return false
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const d = (pa[i] ?? 0) - (pb[i] ?? 0)
+    if (d !== 0) return d > 0
+  }
+  return false
+}
+
+/** The newest uploaded build, when it is newer than what this screen runs — the "there is
+ *  something to update to" signal, whether or not the screen can do it by itself. */
+const newerRelease = computed(() => {
+  const newest = releases.value.reduce<PlayerReleaseRead | null>(
+    (best, r) => (!best || isNewer(r.version, best.version) ? r : best), null,
+  )
+  return newest && isNewer(newest.version, props.device.app_version) ? newest : null
+})
 </script>
 
 <template>
@@ -104,7 +134,20 @@ const showPicker = computed(() => !view.value || !view.value.busy)
     </p>
     <p v-if="device.device_owner === false" class="mt-2 rounded-lg bg-raised px-3 py-2 text-[13px] text-ink-muted">
       This screen is set up as <b class="text-ink">Basic</b>: the player isn't Device Owner, so it can't
-      install a build by itself. Until it is, an update means a cable or a USB stick at the screen.
+      install a build by itself. To update it, download the build from the
+      <a :href="RELEASES_DOCS_URL" target="_blank" rel="noopener" class="text-brand underline-offset-2 hover:underline">Player Releases</a>
+      page on the screen and open it there.
+    </p>
+    <!-- Something newer exists than what the screen runs — said plainly, with the version, so
+         nobody has to compare numbers in the picker. -->
+    <p
+      v-if="newerRelease"
+      class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg bg-brand-soft px-3 py-2 text-[13px] text-ink"
+    >
+      <span class="rounded-full bg-brand px-2 py-0.5 text-[11px] font-medium tracking-wider text-ink-inverse uppercase">New release</span>
+      <span>
+        <b>{{ newerRelease.version }}</b> is available; this screen runs {{ device.app_version ?? 'an unknown version' }}.
+      </span>
     </p>
 
     <AppCard class="mt-3 flex flex-col gap-4">
