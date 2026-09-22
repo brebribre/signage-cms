@@ -148,12 +148,14 @@ function quotaPercent(used: number, quota: number | null): number | null {
 
     <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
       <!-- One coloured card per row, and it is the figure the page is about. -->
-      <!-- "3 of 5" when the account has a screen limit, so the headroom is visible at a glance. -->
+      <!-- The count stays the big figure; the line under it carries the limit ("of 5 allowed")
+           when the account has one, so the headroom is visible without crowding the number. -->
       <StatCard
-        label="Screens"
-        :value="limits?.max_screens != null ? `${devices.length} of ${limits.max_screens}` : devices.length"
-        tone="brand" openable :loading="devicesLoading && !devices.length"
-        :hint="devices.length ? `${online.length} online now` : 'None paired yet'"
+        label="Screens" :value="devices.length" tone="brand" openable :loading="devicesLoading && !devices.length"
+        :hint="[
+          limits?.max_screens != null ? `of ${limits.max_screens} allowed` : null,
+          devices.length ? `${online.length} online now` : (limits?.max_screens != null ? null : 'None paired yet'),
+        ].filter(Boolean).join(' · ')"
         @open="router.push({ name: 'devices' })"
       />
       <!-- How many campaigns there are, and how far they reach: distinct screens across all of
