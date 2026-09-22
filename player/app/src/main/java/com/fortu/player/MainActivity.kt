@@ -28,8 +28,6 @@ import androidx.core.view.WindowInsetsControllerCompat
 import com.fortu.player.kiosk.DeviceSettingsApplier
 import com.fortu.player.kiosk.KioskPolicy
 import com.fortu.player.playback.PlaybackSurface
-import com.fortu.player.ui.SelfRotatingStage
-import com.fortu.player.ui.rotationDegrees
 import com.fortu.player.ui.ClaimedScreen
 import com.fortu.player.ui.DebugOverlay
 import com.fortu.player.ui.ExitPinDialog
@@ -175,36 +173,32 @@ class MainActivity : ComponentActivity() {
 
             // The corner hold that opens the debug overlay is recognised in dispatchTouchEvent
             // above, not here — see its comment.
-            //
-            // Everything below sits on a stage that draws the whole app — scenes, pairing
-            // code, idle card, overlay — turned by the CMS's degrees inside the landscape
-            // window (see the LaunchedEffect further down for why the window itself is never
-            // asked to turn). Applied from the CMS rather than fixed in the manifest, so one
-            // APK serves portrait totems and landscape panels, and re-applied whenever the
-            // value changes, since a screen can be re-oriented without being re-paired.
-            // Before the first manifest arrives the value is null and nothing is turned: a
-            // pairing code is legible either way.
-            val selfRotation = rotationDegrees(orientation)
-            SelfRotatingStage(selfRotation) {
             Box(Modifier.fillMaxSize()) {
                 // Applied from the CMS rather than fixed in the manifest, so one APK serves
                 // portrait totems and landscape panels. Re-applied whenever the value
                 // changes, since a screen can be re-oriented without being re-paired.
-                LaunchedEffect(Unit) {
-                    // The window is always landscape — the panel's own orientation — and the
-                    // stage above turns the content by the CMS's degrees. Asking Android for
-                    // portrait instead was tried first, and only tablets honour it: a TV box
-                    // either ignores the request (content stays sideways) or, on newer
-                    // Android, squeezes the app into a narrow 9:16 window in the middle of the
-                    // panel, which on a totem mounted on its side is a small sideways strip.
-                    // Turning it ourselves needs no permission and works the same everywhere.
-                    //
-                    // Lock Task Mode (Device Owner builds only — see KioskPolicy.apply) freezes
-                    // the orientation active when it started; cycling out and back in around
-                    // the request is the documented workaround, a no-op pair of calls otherwise.
+                LaunchedEffect(orientation) {
+                    // Before the first manifest arrives, leave it to the hardware: a pairing
+                    // code is legible either way, and forcing a guess would make the screen
+                    // visibly flip once the real value lands.
+                    // Degrees are the rotation of the content, clockwise, from the panel's own
+                    // landscape: 90 and 270 are the two ways a totem can be stood on its side,
+                    // which "portrait" alone could never tell apart.
+                    val target = when (orientation) {
+                        "0", "landscape" -> ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                        "90", "portrait" -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                        "180" -> ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE
+                        "270" -> ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT
+                        else -> null
+                    } ?: return@LaunchedEffect
+                    // Lock Task Mode (Device Owner builds only — see KioskPolicy.apply)
+                    // freezes whatever orientation was active when it started and ignores
+                    // requestedOrientation changes after that. Cycling out of and back
+                    // into lock task around the change is the documented workaround; a
+                    // no-op pair of calls on a non-owner build, which was never locked.
                     val locked = KioskPolicy.isDeviceOwner(this@MainActivity)
                     if (locked) runCatching { stopLockTask() }
-                    requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                    requestedOrientation = target
                     if (locked) runCatching { startLockTask() }
                 }
 
@@ -298,7 +292,6 @@ class MainActivity : ComponentActivity() {
                         },
                     )
                 }
-            }
             }
         }
     }

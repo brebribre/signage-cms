@@ -21,8 +21,8 @@ android {
         // Overridable for a test install over a screen (or emulator) that already carries a higher
         // test build: ./gradlew assembleRelease -PversionCode=200 -PversionName=1.2.0-emu. A real
         // release never passes these; it edits the two numbers here.
-        versionCode = (project.findProperty("versionCode") as String?)?.toInt() ?: 39
-        versionName = (project.findProperty("versionName") as String?) ?: "1.3.8"
+        versionCode = (project.findProperty("versionCode") as String?)?.toInt() ?: 38
+        versionName = (project.findProperty("versionName") as String?) ?: "1.3.7"
 
         // The API base URL is compiled in, not configured on the device — a screen with no
         // keyboard cannot be asked to type one. Override per build:
