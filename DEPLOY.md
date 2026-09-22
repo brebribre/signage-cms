@@ -17,7 +17,7 @@ registers no GitHub webhook, and the service silently stops redeploying on push.
 
 The documentation is **not** a Railway service any more. The guides live in the public repo
 `brebribre/paskall-docs` and are published by GitHub Pages at
-https://brebribre.github.io/paskall-docs/ — MkDocs, rebuilt on every push there, edited by the team
+https://docs.paskall.co.id/ — MkDocs, rebuilt on every push there, edited by the team
 through the pencil on each page. The CMS sidebar's "Documentation" link points there. The old
 hand-written `docs/` folder in this repo and its `docs` Railway service were retired on 2026-09-21.
 
