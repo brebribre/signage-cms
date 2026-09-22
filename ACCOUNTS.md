@@ -70,9 +70,13 @@ Picking a type fills in what that type normally gets. Admin starts at 15 screens
 Client starts blank, which means no limit. Both are a starting point and can be typed over. A
 blank limit field always means no limit.
 
-The list marks the accounts that are not ordinary customers with an **Owner** or **Admin** badge,
-and offers the Edit limits menu only on accounts you are allowed to touch. A technician can see
-the owner and other admin accounts, but gets no actions on them.
+The list gives each account one row, in three columns: the account name, the username, and the
+person's name. The account's own row carries its main user, because they are the same thing —
+the person it was issued to — and anyone else in the account sits underneath, marked as a sub
+account. Only the accounts that are not ordinary customers carry an **Owner** or **Admin** badge.
+
+The Edit limits menu appears only on accounts you are allowed to touch. A technician can see the
+owner and other admin accounts, but gets no actions on them.
 
 ## Where the rules live
 

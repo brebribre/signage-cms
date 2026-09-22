@@ -62,12 +62,20 @@ const TONES = {
  *  badge on the page allowed to say "Owner", and it means the account kind — Paskall itself. */
 const KIND_TONE: Partial<Record<AccountKind, keyof typeof TONES>> = { owner: 'ink', admin: 'brand' }
 
-/** "Main user", not "Owner", even though the role is called `owner` in the data. This page
- *  already uses Owner for a *kind of account* — Paskall's own — and one word for two ideas made
- *  "Fortu Digital [Admin]" sit directly above "Fortu Digital @fortu [Owner]", which reads like a
- *  contradiction. Main user pairs with Sub account, which is the distinction this badge is
- *  actually drawing. The CMS keeps saying Owner to customers, where there is no kind to clash
- *  with. */
+/** The account's own row carries its main user, because they are the same thing: the person the
+ *  account was issued to. So that person needs no badge saying "main user" — being on the
+ *  account's line says it. Only the people underneath are marked, and only the kind badge on the
+ *  account name is left using the word "Owner". */
+function mainUser(a: AdminAccountRead): AdminAccountUserRead | null {
+  return a.users.find((u) => u.role === 'owner') ?? null
+}
+/** Everyone else in the account, in the order the server sent them. Sub accounts, and any second
+ *  owner an account picked up along the way. */
+function otherUsers(a: AdminAccountRead): AdminAccountUserRead[] {
+  const main = mainUser(a)
+  return a.users.filter((u) => u.id !== main?.id)
+}
+
 function badges(u: AdminAccountUserRead): { label: string; tone: keyof typeof TONES }[] {
   const out: { label: string; tone: keyof typeof TONES }[] = [
     u.role === 'owner' ? { label: 'Main user', tone: 'green' } : { label: 'Sub account', tone: 'brand' },
@@ -215,93 +223,149 @@ const MENU_ITEM = 'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-le
     <AppAlert v-if="error" tone="danger">{{ error }}</AppAlert>
     <AppAlert v-if="formError" tone="danger">{{ formError }}</AppAlert>
 
-    <!-- No horizontal scroll container: it would clip the ⋮ menus. Columns drop out on
-         narrow screens instead. -->
+    <!-- No horizontal scroll container: it would clip the ⋮ menus. Columns drop out on narrow
+         screens instead, and below `md` the three name columns cannot fit at all — three fixed
+         columns in 375px squeeze the account name to one letter a line — so there they fold back
+         into the Account cell as stacked lines. One <tbody> per account either way, so an account
+         and its people are one group with a rule between groups, not between every row. -->
     <div class="rounded-2xl bg-canvas">
       <table class="w-full table-fixed text-left text-sm">
         <thead class="text-[12px] text-ink-muted">
           <tr class="bg-surface">
+            <!-- Account takes whatever the rest leave: the names are the long, variable thing
+                 here, and the figures beside them are all about the same width. -->
             <th class="rounded-tl-2xl px-4 py-3 font-normal">Account</th>
-            <th class="hidden w-36 px-4 py-3 font-normal sm:table-cell">Screens</th>
-            <th class="hidden w-44 px-4 py-3 font-normal sm:table-cell">Storage</th>
-            <th class="hidden w-32 px-4 py-3 font-normal md:table-cell">Created</th>
-            <th class="w-14 rounded-tr-2xl px-2 py-3"><span class="sr-only">Actions</span></th>
+            <th class="hidden w-40 px-4 py-3 font-normal md:table-cell lg:w-44">Username</th>
+            <th class="hidden w-32 px-4 py-3 font-normal md:table-cell lg:w-40">Name</th>
+            <th class="hidden w-24 px-4 py-3 font-normal sm:table-cell">Screens</th>
+            <th class="hidden w-32 px-4 py-3 font-normal sm:table-cell">Storage</th>
+            <th class="hidden w-24 px-4 py-3 font-normal xl:table-cell">Created</th>
+            <th class="w-12 rounded-tr-2xl px-2 py-3"><span class="sr-only">Actions</span></th>
           </tr>
         </thead>
 
         <tbody v-if="isLoading && !accounts.length" class="divide-y divide-line" aria-busy="true">
           <tr v-for="i in 3" :key="i">
-            <td class="px-4 py-3.5">
-              <SkeletonBlock class="h-3.5 w-40 max-w-full rounded-md" />
-              <SkeletonBlock class="mt-1.5 h-3 w-24 max-w-full rounded-md" />
-            </td>
+            <td class="px-4 py-3.5"><SkeletonBlock class="h-3.5 w-40 max-w-full rounded-md" /></td>
+            <td class="hidden px-4 py-3.5 md:table-cell"><SkeletonBlock class="h-3 w-24 rounded-md" /></td>
+            <td class="hidden px-4 py-3.5 md:table-cell"><SkeletonBlock class="h-3 w-24 rounded-md" /></td>
             <td class="hidden px-4 py-3.5 sm:table-cell"><SkeletonBlock class="h-3 w-16 rounded-md" /></td>
             <td class="hidden px-4 py-3.5 sm:table-cell"><SkeletonBlock class="h-3 w-24 rounded-md" /></td>
-            <td class="hidden px-4 py-3.5 md:table-cell"><SkeletonBlock class="h-3 w-20 rounded-md" /></td>
+            <td class="hidden px-4 py-3.5 xl:table-cell"><SkeletonBlock class="h-3 w-20 rounded-md" /></td>
             <td />
           </tr>
         </tbody>
 
-        <tbody v-else class="divide-y divide-line">
-          <tr v-for="a in rows" :key="a.id">
-            <td class="px-4 py-3">
-              <p class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                <span class="truncate font-medium text-ink">{{ a.name }}</span>
-                <span v-if="KIND_TONE[a.kind]" :class="[BADGE, TONES[KIND_TONE[a.kind]!]]">
-                  {{ kindLabel(a.kind) }}
-                </span>
-              </p>
-              <p v-if="!a.users.length" class="text-[13px] text-danger">no users</p>
-              <!-- The owner, then the sub accounts they made, tucked under them and marked. -->
-              <ul v-else class="mt-1 flex flex-col gap-1 text-[13px]">
-                <li
-                  v-for="u in a.users"
-                  :key="u.id"
-                  class="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5"
-                  :class="[u.role !== 'owner' && 'ml-2 border-l-2 border-line pl-2', !u.is_active && 'opacity-60']"
+        <template v-else>
+          <tbody v-for="a in rows" :key="a.id" class="border-t border-line">
+            <!-- The account and its main user are one line: the account was issued to them, so
+                 they need no badge saying so. -->
+            <tr :class="mainUser(a) && !mainUser(a)!.is_active && 'opacity-60'">
+              <td class="px-4 py-3 align-top">
+                <p class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                  <span class="truncate font-medium text-ink">{{ a.name }}</span>
+                  <span v-if="KIND_TONE[a.kind]" :class="[BADGE, TONES[KIND_TONE[a.kind]!]]">
+                    {{ kindLabel(a.kind) }}
+                  </span>
+                  <span v-if="mainUser(a) && !mainUser(a)!.is_active" :class="[BADGE, TONES.muted]">
+                    Deactivated
+                  </span>
+                </p>
+
+                <!-- Narrow screens: no Username or Name column, so the people stack here. -->
+                <div class="mt-1 flex flex-col gap-1 text-[13px] md:hidden">
+                  <p v-if="mainUser(a)" class="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                    <span class="truncate text-ink">{{ mainUser(a)!.display_name }}</span>
+                    <span class="truncate text-ink-muted">@{{ mainUser(a)!.username }}</span>
+                  </p>
+                  <p v-else class="text-danger">no users</p>
+                  <p
+                    v-for="u in otherUsers(a)"
+                    :key="u.id"
+                    class="ml-2 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 border-l-2 border-line pl-2"
+                    :class="!u.is_active && 'opacity-60'"
+                  >
+                    <span class="truncate text-ink">{{ u.display_name }}</span>
+                    <span class="truncate text-ink-muted">@{{ u.username }}</span>
+                    <span v-for="b in badges(u)" :key="b.label" :class="[BADGE, TONES[b.tone]]">{{ b.label }}</span>
+                  </p>
+                  <!-- Phones: no Screens or Storage column either, so each figure names itself. -->
+                  <p class="text-ink-muted sm:hidden">
+                    <span :class="atScreenLimit(a) && 'text-danger'">{{ screensTextMobile(a) }}</span>
+                    ·
+                    <span :class="atStorageLimit(a) && 'text-danger'">{{ storageTextMobile(a) }}</span>
+                  </p>
+                </div>
+              </td>
+
+              <td class="hidden truncate px-4 py-3 align-top text-ink-muted md:table-cell">
+                <span v-if="mainUser(a)">@{{ mainUser(a)!.username }}</span>
+                <span v-else class="text-danger">no users</span>
+              </td>
+              <td class="hidden truncate px-4 py-3 align-top text-ink md:table-cell">
+                {{ mainUser(a)?.display_name ?? '—' }}
+              </td>
+              <td class="hidden px-4 py-3 align-top whitespace-nowrap tabular-nums sm:table-cell"
+                  :class="atScreenLimit(a) ? 'text-danger' : 'text-ink'">
+                {{ screensText(a) }}
+              </td>
+              <td class="hidden px-4 py-3 align-top whitespace-nowrap tabular-nums sm:table-cell"
+                  :class="atStorageLimit(a) ? 'text-danger' : 'text-ink'">
+                {{ storageText(a) }}
+              </td>
+              <td class="hidden px-4 py-3 align-top whitespace-nowrap text-ink-muted xl:table-cell">
+                {{ date(a.created_at) }}
+              </td>
+              <td class="px-2 py-3 align-top">
+                <!-- No menu at all on an account this person may not act on, rather than a menu
+                     whose only item answers 403. -->
+                <OverflowMenu
+                  v-if="maySetLimits(a)"
+                  v-slot="{ close }"
+                  class="ml-auto w-fit"
+                  :label="`Actions for ${a.name}`"
                 >
+                  <button type="button" role="menuitem" :class="[MENU_ITEM, 'text-ink']" @click="close(); openLimits(a)">
+                    <IconTune class="size-4 shrink-0 text-ink-muted" aria-hidden="true" />Edit limits
+                  </button>
+                </OverflowMenu>
+              </td>
+            </tr>
+
+            <!-- The people the account made, a row each, under it. Only where the name columns
+                 exist; below `md` they are in the cell above instead. The account's own columns
+                 stay empty: its screens and storage are counted once, on its own row. -->
+            <tr
+              v-for="u in otherUsers(a)"
+              :key="u.id"
+              class="hidden md:table-row"
+              :class="!u.is_active && 'opacity-60'"
+            >
+              <td class="px-4 pb-3" />
+              <td class="truncate px-4 pb-3 text-[13px] text-ink-muted">
+                <span class="border-l-2 border-line pl-2">@{{ u.username }}</span>
+              </td>
+              <td class="px-4 pb-3 text-[13px]">
+                <span class="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
                   <span class="truncate text-ink">{{ u.display_name }}</span>
-                  <span class="truncate text-ink-muted">@{{ u.username }}</span>
                   <span v-for="b in badges(u)" :key="b.label" :class="[BADGE, TONES[b.tone]]">{{ b.label }}</span>
-                </li>
-              </ul>
-              <!-- Phones: no Screens/Storage columns, so the figures go here. -->
-              <p class="mt-1 text-[13px] text-ink-muted sm:hidden">
-                <span :class="atScreenLimit(a) && 'text-danger'">{{ screensTextMobile(a) }}</span>
-                ·
-                <span :class="atStorageLimit(a) && 'text-danger'">{{ storageTextMobile(a) }}</span>
-              </p>
-            </td>
-            <td class="hidden px-4 py-3 whitespace-nowrap tabular-nums sm:table-cell"
-                :class="atScreenLimit(a) ? 'text-danger' : 'text-ink'">
-              {{ screensText(a) }}
-            </td>
-            <td class="hidden px-4 py-3 whitespace-nowrap tabular-nums sm:table-cell"
-                :class="atStorageLimit(a) ? 'text-danger' : 'text-ink'">
-              {{ storageText(a) }}
-            </td>
-            <td class="hidden px-4 py-3 whitespace-nowrap text-ink-muted md:table-cell">{{ date(a.created_at) }}</td>
-            <td class="px-2 py-3">
-              <!-- No menu at all on an account this person may not act on, rather than a menu
-                   whose only item answers 403. -->
-              <OverflowMenu
-                v-if="maySetLimits(a)"
-                v-slot="{ close }"
-                class="ml-auto w-fit"
-                :label="`Actions for ${a.name}`"
-              >
-                <button type="button" role="menuitem" :class="[MENU_ITEM, 'text-ink']" @click="close(); openLimits(a)">
-                  <IconTune class="size-4 shrink-0 text-ink-muted" aria-hidden="true" />Edit limits
-                </button>
-              </OverflowMenu>
-            </td>
-          </tr>
-          <tr v-if="!rows.length">
-            <td colspan="5" class="px-4 py-10 text-center text-ink-muted">
-              {{ query ? 'No accounts match your search.' : 'No accounts yet.' }}
-            </td>
-          </tr>
-        </tbody>
+                </span>
+              </td>
+              <td class="hidden sm:table-cell" />
+              <td class="hidden sm:table-cell" />
+              <td class="hidden xl:table-cell" />
+              <td />
+            </tr>
+          </tbody>
+
+          <tbody v-if="!rows.length" class="border-t border-line">
+            <tr>
+              <td colspan="7" class="px-4 py-10 text-center text-ink-muted">
+                {{ query ? 'No accounts match your search.' : 'No accounts yet.' }}
+              </td>
+            </tr>
+          </tbody>
+        </template>
       </table>
     </div>
 
