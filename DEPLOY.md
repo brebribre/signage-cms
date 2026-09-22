@@ -12,7 +12,7 @@ registers no GitHub webhook, and the service silently stops redeploying on push.
 | `backend` | `backend` | `uvicorn app.main:app --host 0.0.0.0 --port $PORT` (via `backend/railpack.json`) | `https://api.paskall.co.id` |
 | `frontend` | `frontend` | `node server.mjs` (`npm run build` at build time) | `https://app.paskall.co.id` |
 | `web-player` | `web-player` | `node server.mjs` (`npm run build` at build time) — the browser player for smart TVs, see `web-player/README.md` | `https://player.paskall.co.id` |
-| `monitoring` | `monitoring` | `node server.mjs` (`npm run build` at build time) — Paskall staff only: issues customer accounts and their limits. Its own app, deliberately split from the customer-facing `frontend`; sign-in is `/admin/auth/login`, which refuses anyone who isn't a platform admin (`scripts/make_admin.py`). | `https://monitoring-production-69c1.up.railway.app` |
+| `monitoring` | `monitoring` | `node server.mjs` (`npm run build` at build time) — Paskall staff only: issues customer accounts and their limits. Its own app, deliberately split from the customer-facing `frontend`; sign-in is `/admin/auth/login`, which refuses anyone who isn't staff — the main user of an owner or admin account (`accounts.kind`; see `scripts/set_account_kind.py`). | `https://monitoring-production-69c1.up.railway.app` |
 | `Postgres` | — | `ghcr.io/railwayapp-templates/postgres-ssl:18` | private only |
 
 The documentation is **not** a Railway service any more. The guides live in the public repo
@@ -123,9 +123,12 @@ The service is now connected to this GitHub repo, branch `main` (`railway servic
 Until that is set, every GitHub-triggered deploy fails the same way the root-archive upload did,
 and the last successful deployment keeps serving. Set it once, then Redeploy (or push).
 
-Who can sign in: only users with `is_platform_admin` (set with `backend/scripts/make_admin.py`,
-run inside the backend service — see the "Railway one-off scripts" note in the runbook). Everyone
-else gets the same 401 as a wrong password.
+Who can sign in: the main user of an **owner** or **admin** account (`accounts.kind`). Owner
+issues admin and client accounts and sets limits on both; admin issues client accounts and sets
+client limits only; a client never gets in. Admin accounts are issued from the app itself; the
+one owner account is set by hand with `backend/scripts/set_account_kind.py --username you --kind
+owner`, run inside the backend service — see the "Railway one-off scripts" note in the runbook.
+Everyone else gets the same 401 as a wrong password.
 
 ## Environment variables (web player — `web-player`)
 

@@ -1,48 +1,53 @@
 <script setup lang="ts">
 /**
- * Every customer account, what each is allowed, how much it is using, and who is in it.
- * Two actions — make an account, change its limits. The whole app is staff-only, so there is
- * no gating here; the server refuses everyone else regardless.
+ * Every account, what each is allowed, how much it is using, and who is in it.
+ * Two actions — make an account, change its limits — and which of them a row offers depends
+ * on the kind of account you are signed in as (useStaffRights): the owner reaches admin and
+ * client accounts, a technician reaches clients only. The server refuses the rest regardless;
+ * what is hidden here is hidden to keep the page honest, not to keep anyone out.
  *
  * A blank limit field means "no limit". Storage is typed in GB here and sent as bytes, since
  * nobody thinks in bytes.
  */
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import IconAdd from '~icons/material-symbols/add'
 import IconSearch from '~icons/material-symbols/search'
 import IconTune from '~icons/material-symbols/tune'
 
 import { useAdminAccounts } from '@/hooks/useAdminAccounts'
 import { useFormat } from '@/hooks/useFormat'
+import { useStaffRights } from '@/hooks/useStaffRights'
 import AppAlert from '@/reusables/AppAlert.vue'
 import AppButton from '@/reusables/AppButton.vue'
 import AppInput from '@/reusables/AppInput.vue'
 import AppModal from '@/reusables/AppModal.vue'
+import AppSelect from '@/reusables/AppSelect.vue'
 import ModalActions from '@/reusables/ModalActions.vue'
 import OverflowMenu from '@/reusables/OverflowMenu.vue'
 import PageTitle from '@/reusables/PageTitle.vue'
 import SkeletonBlock from '@/reusables/SkeletonBlock.vue'
-import type { AdminAccountRead, AdminAccountUserRead } from '@/types/api'
+import type { AccountKind, AdminAccountRead, AdminAccountUserRead } from '@/types/api'
 
 const { accounts, isLoading, isSaving, error, formError, create, setLimits } = useAdminAccounts()
 const { bytes, date } = useFormat()
+const { issuable, maySetLimits, label: kindLabel, defaultLimits } = useStaffRights()
 
 const GB = 1024 ** 3
 
 const query = ref('')
-/** Matches the account's name, or any of its people — the owner or a sub account. */
+/** Matches the account's name, its kind, or any of its people — the owner or a sub account. */
 const rows = computed(() => {
   const q = query.value.trim().toLowerCase()
   return accounts.value.filter(
     (a) =>
       !q ||
-      [a.name, ...a.users.flatMap((u) => [u.username, u.display_name])].some((v) =>
+      [a.name, kindLabel(a.kind), ...a.users.flatMap((u) => [u.username, u.display_name])].some((v) =>
         v.toLowerCase().includes(q),
       ),
   )
 })
 
-// --- Who is in an account: the owner, and the sub accounts they made, marked as such ---
+// --- Marks: what kind of account this is, and who is in it ---
 
 const BADGE = 'inline-flex items-center rounded-full px-2 py-0.5 text-[11px] leading-4 whitespace-nowrap ring-1 ring-inset'
 const TONES = {
@@ -52,14 +57,15 @@ const TONES = {
   ink: 'bg-ink text-ink-inverse ring-ink',
 } as const
 
+/** Only the accounts that are *not* ordinary customers carry a badge. A mark on every row
+ *  marks nothing; a mark on the two that can sign in here is worth reading. */
+const KIND_TONE: Partial<Record<AccountKind, keyof typeof TONES>> = { owner: 'ink', admin: 'brand' }
+
 /** Same marks as the customer's own Users page, so a role reads the same everywhere. */
 function badges(u: AdminAccountUserRead): { label: string; tone: keyof typeof TONES }[] {
   const out: { label: string; tone: keyof typeof TONES }[] = [
     u.role === 'owner' ? { label: 'Owner', tone: 'green' } : { label: 'Sub account', tone: 'brand' },
   ]
-  // Paskall staff: this person can sign in here, to this monitoring app. Marked so it is
-  // never a mystery who holds that key.
-  if (u.is_platform_admin) out.push({ label: 'Admin', tone: 'ink' })
   if (!u.is_active) out.push({ label: 'Deactivated', tone: 'muted' })
   return out
 }
@@ -85,10 +91,27 @@ function bytesToGbText(value: number | null): string {
 // --- Create ---
 
 const adding = ref(false)
-const form = ref({ name: '', username: '', display_name: '', password: '', screens: '1', storageGb: '1' })
+/** Client unless this person cannot issue one — the common case first, either way. */
+const blank = () => {
+  const kind: AccountKind = issuable.value.includes('client') ? 'client' : (issuable.value[0] ?? 'client')
+  return { kind, name: '', username: '', display_name: '', password: '', ...defaultLimits(kind) }
+}
+const form = ref(blank())
+
+/** The dropdown only earns its place when there is a choice: a technician issues clients and
+ *  nothing else, so they get a line of text instead. */
+const kindOptions = computed(() => issuable.value.map((k) => ({ value: k, label: kindLabel(k) })))
+
+/** Picking a type fills in what that type normally gets — 15 screens and 5 GB for an admin,
+ *  no limit for a client. Typed over freely; this is a starting point, not a rule. */
+watch(
+  () => form.value.kind,
+  (kind) => Object.assign(form.value, defaultLimits(kind)),
+)
 
 async function onCreate() {
   const ok = await create({
+    kind: form.value.kind,
     name: form.value.name,
     username: form.value.username,
     display_name: form.value.display_name,
@@ -98,8 +121,13 @@ async function onCreate() {
   })
   if (ok) {
     adding.value = false
-    form.value = { name: '', username: '', display_name: '', password: '', screens: '1', storageGb: '1' }
+    form.value = blank()
   }
+}
+
+function openCreate() {
+  form.value = blank()
+  adding.value = true
 }
 
 // --- Edit limits ---
@@ -157,9 +185,9 @@ const MENU_ITEM = 'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-le
 
 <template>
   <div class="flex flex-col gap-6">
-    <PageTitle title="Accounts" subtitle="Every customer account, what each is allowed, and how much it is using.">
+    <PageTitle title="Accounts" subtitle="Every account, what each is allowed, and how much it is using.">
       <template #actions>
-        <AppButton size="sm" @click="adding = true">
+        <AppButton v-if="issuable.length" size="sm" @click="openCreate">
           <IconAdd class="size-4" aria-hidden="true" />
           New account
         </AppButton>
@@ -171,7 +199,7 @@ const MENU_ITEM = 'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-le
       <input
         v-model="query"
         type="search"
-        placeholder="Search by account or person"
+        placeholder="Search by account, type or person"
         aria-label="Search accounts and their people"
         class="h-9 w-full rounded-lg border border-line-strong bg-canvas pr-3 pl-9 text-sm text-ink
                placeholder:text-ink-subtle focus:border-ink focus:outline-none"
@@ -211,7 +239,12 @@ const MENU_ITEM = 'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-le
         <tbody v-else class="divide-y divide-line">
           <tr v-for="a in rows" :key="a.id">
             <td class="px-4 py-3">
-              <p class="truncate font-medium text-ink">{{ a.name }}</p>
+              <p class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                <span class="truncate font-medium text-ink">{{ a.name }}</span>
+                <span v-if="KIND_TONE[a.kind]" :class="[BADGE, TONES[KIND_TONE[a.kind]!]]">
+                  {{ kindLabel(a.kind) }}
+                </span>
+              </p>
               <p v-if="!a.users.length" class="text-[13px] text-danger">no users</p>
               <!-- The owner, then the sub accounts they made, tucked under them and marked. -->
               <ul v-else class="mt-1 flex flex-col gap-1 text-[13px]">
@@ -243,7 +276,14 @@ const MENU_ITEM = 'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-le
             </td>
             <td class="hidden px-4 py-3 whitespace-nowrap text-ink-muted md:table-cell">{{ date(a.created_at) }}</td>
             <td class="px-2 py-3">
-              <OverflowMenu v-slot="{ close }" class="ml-auto w-fit" :label="`Actions for ${a.name}`">
+              <!-- No menu at all on an account this person may not act on, rather than a menu
+                   whose only item answers 403. -->
+              <OverflowMenu
+                v-if="maySetLimits(a)"
+                v-slot="{ close }"
+                class="ml-auto w-fit"
+                :label="`Actions for ${a.name}`"
+              >
                 <button type="button" role="menuitem" :class="[MENU_ITEM, 'text-ink']" @click="close(); openLimits(a)">
                   <IconTune class="size-4 shrink-0 text-ink-muted" aria-hidden="true" />Edit limits
                 </button>
@@ -262,8 +302,21 @@ const MENU_ITEM = 'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-le
     <!-- Create -->
     <AppModal v-if="adding" title="New account" @close="adding = false">
       <form class="flex flex-col gap-3" @submit.prevent="onCreate">
+        <div v-if="kindOptions.length > 1" class="flex flex-col gap-1.5">
+          <label for="a-kind" class="text-[13px] text-ink-muted">Account type</label>
+          <AppSelect id="a-kind" v-model="form.kind" :options="kindOptions" />
+          <p class="text-[13px] text-ink-subtle">
+            {{ form.kind === 'admin'
+              ? 'A technician: uses the CMS and this monitoring app, and can issue client accounts.'
+              : 'A customer: the CMS only.' }}
+          </p>
+        </div>
+        <p v-else class="text-[13px] text-ink-subtle">
+          A client account: a customer, with access to the CMS only.
+        </p>
+
         <AppInput id="a-name" v-model="form.name" label="Account name" required placeholder="Kopi Kenangan Jakarta" />
-        <p class="pt-1 text-[12px] font-medium tracking-wider text-ink-subtle uppercase">Owner</p>
+        <p class="pt-1 text-[12px] font-medium tracking-wider text-ink-subtle uppercase">Main user</p>
         <AppInput id="a-username" v-model="form.username" label="Username" required
                   hint="They sign in with this. Letters, digits, dot, underscore, hyphen." />
         <AppInput id="a-display" v-model="form.display_name" label="Name" required />

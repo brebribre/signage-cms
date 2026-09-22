@@ -3,12 +3,13 @@ import { computed, ref } from 'vue'
 import { useAdminApi } from '@/api/useAdminApi'
 import { ApiError } from '@/api/request'
 import { useAuthStore } from '@/stores/useAuthStore'
-import type { LoginBody, UserRead } from '@/types/api'
+import type { LoginBody, StaffRead } from '@/types/api'
 
 /**
  * Containers reach the auth store through here, never directly. Being "signed in" here means
- * /admin/me answered 200, which it only does for a platform admin — so there is no separate
- * "is admin" check anywhere in this app: signed in *is* admin.
+ * /admin/me answered 200, which it only does for staff — so there is no separate "are they
+ * staff" check anywhere in this app: signed in *is* staff. What a given member of staff may
+ * do is a second question, answered by useStaffRights.
  */
 export function useAuth() {
   const store = useAuthStore()
@@ -19,8 +20,10 @@ export function useAuth() {
 
   const user = computed(() => store.user)
   const isSignedIn = computed(() => store.user !== null)
+  /** The kind of account the signed-in person belongs to — owner or admin, never client. */
+  const kind = computed(() => store.user?.kind ?? null)
 
-  function apply(me: UserRead) {
+  function apply(me: StaffRead) {
     store.user = me
     store.resolved = true
   }
@@ -65,5 +68,5 @@ export function useAuth() {
     }
   }
 
-  return { user, isSignedIn, isLoading, error, resolve, login, logout }
+  return { user, kind, isSignedIn, isLoading, error, resolve, login, logout }
 }

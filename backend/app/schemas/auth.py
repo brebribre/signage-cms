@@ -4,7 +4,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from app.models import UserRole
+from app.models import AccountKind, UserRole
 
 # Used by schemas/admin.py's AdminAccountCreate — the one place a username is chosen, now that
 # there is no public signup. Checked there as well as in the service: the schema is the
@@ -21,6 +21,9 @@ class LoginRequest(BaseModel):
 class AccountRead(BaseModel):
     id: uuid.UUID
     name: str
+    # owner / admin / client — see models/account.py::AccountKind. Display only here; the
+    # monitoring app's routes check it again on every call.
+    kind: AccountKind
     default_timezone: str
 
 
@@ -39,8 +42,6 @@ class UserRead(BaseModel):
     display_name: str
     role: UserRole
     is_active: bool
-    # So the frontend can show the Admin section. Display only — /admin/* checks it again.
-    is_platform_admin: bool
     created_at: datetime
 
 

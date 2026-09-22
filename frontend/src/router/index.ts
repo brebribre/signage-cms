@@ -11,7 +11,7 @@ const router = createRouter({
       component: () => import('@/views/LoginView.vue'),
       meta: { public: true },
     },
-    // There is no public signup — accounts are issued by a platform admin. Kept as a redirect
+    // There is no public signup — accounts are issued from the monitoring app. Kept as a redirect
     // so an old link still lands somewhere sensible.
     { path: '/signup', redirect: { name: 'login' } },
     {

@@ -45,10 +45,10 @@ class User(SQLModel, table=True):
         sa_column=enum_column(UserRole, nullable=False, index=True),
     )
     is_active: bool = Field(default=True)
-    # Fortu staff: may read and change *every* account through /admin/*. A flag, not a third
-    # UserRole, so no existing `role == OWNER` check has to learn about it and the user still
-    # belongs to an ordinary account. Only scripts/make_admin.py sets it — no API can.
-    is_platform_admin: bool = Field(default=False)
+    # There is no per-user "staff" flag. Whether someone may use the monitoring app comes from
+    # their account's kind (models/account.py::AccountKind) together with this role: the owner
+    # of an owner or admin account may, a manager never may. See services/admin.py::is_staff.
+
     # SET NULL: deleting the owner who created a manager must not delete the manager.
     created_by: uuid.UUID | None = Field(
         default=None,

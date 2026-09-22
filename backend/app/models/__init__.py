@@ -5,7 +5,7 @@ Every table module must be imported here: Alembic's autogenerate walks
 out empty and the omission is silent.
 """
 
-from app.models.account import Account
+from app.models.account import Account, AccountKind
 from app.models.admin_action import AdminAction
 from app.models.campaign import Campaign, CampaignDevice
 from app.models.device import Device, DeviceAccess, DeviceOrientation, DevicePlatform, DeviceUpdateState
@@ -20,6 +20,7 @@ from app.models.user import User, UserRole
 
 __all__ = [
     "Account",
+    "AccountKind",
     "AdminAction",
     "Campaign",
     "CampaignDevice",

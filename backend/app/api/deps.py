@@ -14,6 +14,7 @@ from sqlmodel import Session
 from app.config import get_settings
 from app.infra.db import session_scope
 from app.models import Device, DeviceAccess, User, UserRole
+from app.services import admin as admin_service
 from app.services import devices as device_service
 from app.services.session import read_session_token
 
@@ -67,21 +68,21 @@ def require_owner(user: CurrentUser) -> User:
 RequireOwner = Annotated[User, Depends(require_owner)]
 
 
-def require_platform_admin(user: CurrentUser) -> User:
-    """Fortu staff only — the /admin/* routes, which reach across every account.
+def require_staff(user: CurrentUser, session: DbSession) -> User:
+    """Paskall staff only — the /admin/* routes, which reach across every account.
 
-    This is the one place the "you only ever see your own account" rule is set aside, so it
-    is its own dependency rather than a widening of `require_owner`: nothing a customer can
-    call ever passes through here.
+    Staff means the main user of an owner or admin account (services/admin.py::is_staff). This
+    is the one place the "you only ever see your own account" rule is set aside, so it is its
+    own dependency rather than a widening of `require_owner`: nothing a customer can call ever
+    passes through here. What a given member of staff may *do* is decided per call, from their
+    account's kind, inside services/admin.py.
     """
-    if not user.is_platform_admin:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Platform admin access required"
-        )
+    if not admin_service.is_staff(session, user):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Staff access required")
     return user
 
 
-RequirePlatformAdmin = Annotated[User, Depends(require_platform_admin)]
+RequireStaff = Annotated[User, Depends(require_staff)]
 
 
 def device_for_user(device_id: uuid.UUID, user: CurrentUser, session: DbSession) -> Device:

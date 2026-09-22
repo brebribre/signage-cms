@@ -2,7 +2,7 @@ import { request } from '@/api/request'
 import type { AccountRead, LoginBody, MeResponse } from '@/types/api'
 
 /** Transport only: call, parse, type, return. No loading state, no business rules. No signup
- *  here either — accounts are issued by a platform admin (see useAdminApi). */
+ *  here either — accounts are issued from the monitoring app. */
 export function useAuthApi() {
   return {
     me: () => request<MeResponse>('GET', '/me'),

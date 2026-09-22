@@ -2,16 +2,19 @@
 
 export type UserRole = 'owner' | 'manager'
 
-/** Who is signed in here. Always a platform admin — /admin/me refuses anyone else. */
-export interface UserRead {
+/** What sort of account this is — which decides who may use this app and what they may do.
+ *  - `owner`: Paskall itself. One only, no limits. Issues admin and client accounts.
+ *  - `admin`: a technician. Uses this app too, but issues client accounts only.
+ *  - `client`: a customer. The CMS only, never this app. */
+export type AccountKind = 'owner' | 'admin' | 'client'
+
+/** Who is signed in here. Always staff — /admin/me refuses everyone else — and `kind` is
+ *  their account's kind, which is what decides what this app offers them. */
+export interface StaffRead {
   id: string
   username: string
-  email: string | null
   display_name: string
-  role: UserRole
-  is_active: boolean
-  is_platform_admin: boolean
-  created_at: string
+  kind: AccountKind
 }
 
 export interface LoginBody {
@@ -19,8 +22,8 @@ export interface LoginBody {
   password: string
 }
 
-/** One person who can sign in to a customer account: the owner, or a sub account (manager)
- *  the owner created. */
+/** One person who can sign in to an account: its main user (owner), or a sub account
+ *  (manager) they created. */
 export interface AdminAccountUserRead {
   id: string
   username: string
@@ -28,17 +31,16 @@ export interface AdminAccountUserRead {
   role: UserRole
   is_active: boolean
   created_at: string
-  /** Can sign in to this monitoring app (Paskall staff). */
-  is_platform_admin: boolean
 }
 
-/** One customer account: its limits and how much of each is used. A null limit means
+/** One account: its kind, its limits and how much of each is used. A null limit means
  *  unlimited. */
 export interface AdminAccountRead {
   id: string
   name: string
+  kind: AccountKind
   created_at: string
-  /** The first owner's username — what the admin tells the customer to sign in with. */
+  /** The first owner's username — what staff tell the customer to sign in with. */
   owner_username: string | null
   /** Everyone in the account, owners first, so sub accounts sit under the owner. */
   users: AdminAccountUserRead[]
@@ -50,6 +52,7 @@ export interface AdminAccountRead {
 
 export interface AdminAccountCreateBody {
   name: string
+  kind: AccountKind
   username: string
   password: string
   display_name: string

@@ -4,19 +4,20 @@ import type {
   AdminAccountRead,
   AdminLimitsUpdateBody,
   LoginBody,
-  UserRead,
+  StaffRead,
 } from '@/types/api'
 
 /** Transport only. Everything this app calls lives under /admin/*, and the server refuses
- *  anyone who isn't a platform admin on every one of them. */
+ *  anyone who isn't staff on every one of them — and checks again, per call, what that
+ *  particular member of staff may do. */
 export function useAdminApi() {
   return {
-    // Sign-in. Same username and password as the CMS; a non-admin gets a plain 401.
-    me: () => request<UserRead>('GET', '/admin/me'),
-    login: (body: LoginBody) => request<UserRead>('POST', '/admin/auth/login', body),
+    // Sign-in. Same username and password as the CMS; anyone who isn't staff gets a plain 401.
+    me: () => request<StaffRead>('GET', '/admin/me'),
+    login: (body: LoginBody) => request<StaffRead>('POST', '/admin/auth/login', body),
     logout: () => request<void>('POST', '/admin/auth/logout'),
 
-    // Customer accounts.
+    // Accounts of every kind.
     listAccounts: () => request<AdminAccountRead[]>('GET', '/admin/accounts'),
     createAccount: (body: AdminAccountCreateBody) =>
       request<AdminAccountRead>('POST', '/admin/accounts', body),

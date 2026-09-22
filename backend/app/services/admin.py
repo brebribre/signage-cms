@@ -1,8 +1,18 @@
-"""What a platform admin does to customer accounts: list them, make them, set their limits.
+"""What staff do to accounts from the monitoring app: list them, issue them, set their limits.
+
+Who may do what is one table, `MAY_ISSUE`, keyed by the kind of account the signed-in person
+belongs to (models/account.py::AccountKind):
+
+    owner  → issues admin and client accounts, and changes the limits of both
+    admin  → issues client accounts, and changes client limits only
+
+Nobody issues a second owner account, and nobody sets limits on the one there is: `owner` is
+in nobody's row of the table, and that is the whole rule. Both are checked here, in the
+service, so no route can forget.
 
 Every function here takes an explicit `account_id`, never a `user` whose account is implied.
 That is the whole difference from the rest of services/: customer code asks "show me my
-things", this asks "show me account X's things". Keeping the two apart is what stops an admin
+things", this asks "show me account X's things". Keeping the two apart is what stops a staff
 path from ever being reachable through a customer route by accident.
 
 Each write also leaves an `AdminAction` row — who did what, to which account, when.
@@ -14,15 +24,31 @@ from datetime import datetime
 
 from sqlmodel import Session, select
 
-from app.models import Account, AdminAction, User, UserRole
+from app.models import Account, AccountKind, AdminAction, User, UserRole
 from app.services import auth as auth_service
 from app.services import devices as device_service
 from app.services import operations
 from app.services.errors import DomainError
 
+#: Which kinds of account each kind of staff may issue — and, the same table, whose limits
+#: they may change. A kind absent as a key is not staff at all.
+MAY_ISSUE: dict[AccountKind, frozenset[AccountKind]] = {
+    AccountKind.OWNER: frozenset({AccountKind.ADMIN, AccountKind.CLIENT}),
+    AccountKind.ADMIN: frozenset({AccountKind.CLIENT}),
+}
+
+#: What a new admin account gets when the request leaves the limits out.
+ADMIN_DEFAULT_MAX_SCREENS = 15
+ADMIN_DEFAULT_STORAGE_BYTES = 5 * 1024**3
+
 
 class AccountNotFound(DomainError):
     pass
+
+
+class NotAllowed(DomainError):
+    """The signed-in staff member may not do this to this kind of account. The message is
+    written for the person who tried, and the route shows it as it is."""
 
 
 @dataclass(frozen=True)
@@ -33,13 +59,13 @@ class UserSummary:
     role: UserRole
     is_active: bool
     created_at: datetime
-    is_platform_admin: bool = False
 
 
 @dataclass(frozen=True)
 class AccountSummary:
     id: uuid.UUID
     name: str
+    kind: AccountKind
     created_at: datetime
     owner_username: str | None
     users: list[UserSummary]
@@ -47,6 +73,55 @@ class AccountSummary:
     screens_used: int
     storage_quota_bytes: int | None
     storage_used_bytes: int
+
+
+# --- Who is staff, and what they may do ----------------------------------------------------
+
+
+def kind_of(session: Session, user: User) -> AccountKind:
+    account = session.get(Account, user.account_id)
+    # A user always has an account (the foreign key says so); the fallback only keeps a
+    # half-deleted row from ever reading as staff.
+    return account.kind if account is not None else AccountKind.CLIENT
+
+
+def is_staff(session: Session, user: User) -> bool:
+    """May this person use the monitoring app? The main user of an owner or admin account.
+    A sub account (manager) never may, whatever account it is in."""
+    return user.role == UserRole.OWNER and kind_of(session, user) in MAY_ISSUE
+
+
+def may_issue(session: Session, user: User) -> frozenset[AccountKind]:
+    """The kinds this staff member may issue and set limits on. Empty for a non-staff user."""
+    return MAY_ISSUE.get(kind_of(session, user), frozenset())
+
+
+def default_limits(kind: AccountKind) -> tuple[int | None, int | None]:
+    """(max_screens, storage_quota_bytes) for a new account of this kind when the request
+    says nothing. An admin account starts with the standard allowance; a client is unlimited
+    until staff type a number, as before."""
+    if kind == AccountKind.ADMIN:
+        return ADMIN_DEFAULT_MAX_SCREENS, ADMIN_DEFAULT_STORAGE_BYTES
+    return None, None
+
+
+def _check_may_issue(session: Session, *, admin: User, kind: AccountKind) -> None:
+    if kind == AccountKind.OWNER:
+        raise NotAllowed("There is only one owner account, and it already exists")
+    if kind not in may_issue(session, admin):
+        raise NotAllowed(f"An {kind_of(session, admin)} account can only issue client accounts")
+
+
+def _check_may_limit(session: Session, *, admin: User, account: Account) -> None:
+    if account.kind == AccountKind.OWNER:
+        raise NotAllowed("The owner account has no limits")
+    if account.kind not in may_issue(session, admin):
+        raise NotAllowed(
+            f"An {kind_of(session, admin)} account can only change a client account's limits"
+        )
+
+
+# --- Reading ------------------------------------------------------------------------------
 
 
 def _users(session: Session, account_id: uuid.UUID) -> list[UserSummary]:
@@ -64,7 +139,6 @@ def _users(session: Session, account_id: uuid.UUID) -> list[UserSummary]:
             role=u.role,
             is_active=u.is_active,
             created_at=u.created_at,
-            is_platform_admin=u.is_platform_admin,
         )
         for u in rows
     ]
@@ -75,6 +149,7 @@ def _summary(session: Session, account: Account) -> AccountSummary:
     return AccountSummary(
         id=account.id,
         name=account.name,
+        kind=account.kind,
         created_at=account.created_at,
         owner_username=next((u.username for u in users if u.role == UserRole.OWNER), None),
         users=users,
@@ -102,6 +177,8 @@ def _limit_text(value: int | None) -> str:
 
 
 def list_accounts(session: Session) -> list[AccountSummary]:
+    """Every account, whoever asks — an admin sees the owner and other admins too, and the
+    app simply offers no actions on the ones they may not touch."""
     accounts = session.exec(select(Account).order_by(Account.created_at.desc())).all()
     return [_summary(session, a) for a in accounts]
 
@@ -113,10 +190,14 @@ def get_account(session: Session, *, account_id: uuid.UUID) -> AccountSummary:
     return _summary(session, account)
 
 
+# --- Writing ------------------------------------------------------------------------------
+
+
 def create_account(
     session: Session,
     *,
     admin: User,
+    kind: AccountKind,
     name: str,
     username: str,
     password: str,
@@ -126,8 +207,9 @@ def create_account(
     storage_quota_bytes: int | None,
 ) -> AccountSummary:
     """The account and its owner come from `auth.signup` — now its only caller, since there is
-    no public signup — so there is exactly one way an account gets born. The limits and the
-    log row go on afterwards, in the same session, before anything is committed."""
+    no public signup — so there is exactly one way an account gets born. The kind, the limits
+    and the log row go on afterwards, in the same session, before anything is committed."""
+    _check_may_issue(session, admin=admin, kind=kind)
     owner = auth_service.signup(
         session,
         username=username,
@@ -137,6 +219,7 @@ def create_account(
         account_name=name,
     )
     account = session.get(Account, owner.account_id)
+    account.kind = kind
     account.max_screens = max_screens
     account.storage_quota_bytes = storage_quota_bytes
     session.add(account)
@@ -146,7 +229,7 @@ def create_account(
         account=account,
         action="create_account",
         detail=(
-            f"owner {owner.username}; screens {_limit_text(max_screens)}; "
+            f"{kind} account; owner {owner.username}; screens {_limit_text(max_screens)}; "
             f"storage {_limit_text(storage_quota_bytes)} bytes"
         ),
     )
@@ -163,6 +246,7 @@ def set_limits(
     account = session.get(Account, account_id)
     if account is None:
         raise AccountNotFound(str(account_id))
+    _check_may_limit(session, admin=admin, account=account)
 
     described: list[str] = []
     if "max_screens" in changes:

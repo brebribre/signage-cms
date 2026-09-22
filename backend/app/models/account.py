@@ -1,10 +1,30 @@
 import uuid
 from datetime import datetime
+from enum import StrEnum
 
 from sqlalchemy import BigInteger, Column
 from sqlmodel import Field, SQLModel
 
-from app.models.base import tz_column, utcnow
+from app.models.base import enum_column, tz_column, utcnow
+
+
+class AccountKind(StrEnum):
+    """What sort of account this is — which decides who can use the monitoring app and what
+    they may do there. See services/admin.py for the rules in one table.
+
+    - OWNER: Paskall itself. Exactly one. No limits, ever. Issues admin and client accounts.
+    - ADMIN: a technician's own account. Signs in to the monitoring app too, but may only issue
+      client accounts and change client limits.
+    - CLIENT: a customer. The CMS only — never the monitoring app.
+
+    An account's kind is about the *account*: its main user (UserRole.OWNER) is the one who
+    inherits the monitoring access, and a sub account (UserRole.MANAGER) never does, whatever
+    the account. So a technician's sub accounts are ordinary CMS users like anyone's.
+    """
+
+    OWNER = "owner"
+    ADMIN = "admin"
+    CLIENT = "client"
 
 
 class Account(SQLModel, table=True):
@@ -18,11 +38,17 @@ class Account(SQLModel, table=True):
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     name: str
+    # Client by default: an account only becomes owner or admin by being issued as one from the
+    # monitoring app, or by scripts/set_account_kind.py. No customer-facing route can change it.
+    kind: AccountKind = Field(
+        default=AccountKind.CLIENT,
+        sa_column=enum_column(AccountKind, nullable=False, server_default="client"),
+    )
     # Bytes. None means unlimited, which is the default — a quota that appears without anyone
     # setting it would block uploads for reasons nobody chose.
     storage_quota_bytes: int | None = Field(default=None, sa_column=Column(BigInteger, nullable=True))
     # How many screens may be paired. None means unlimited, same rule as the storage quota.
-    # Set by a platform admin (api/routes/admin.py) — never by the account itself.
+    # Set from the monitoring app (api/routes/admin.py) — never by the account itself.
     max_screens: int | None = Field(default=None)
     # IANA name every newly paired screen starts in (Settings → General). A default, not a
     # constraint: each screen's own timezone is still its own, and changing this moves no screen

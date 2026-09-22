@@ -1,10 +1,11 @@
-"""Platform admin: the monitoring app's sign-in, and issuing customer accounts and their limits.
+"""The monitoring app's routes: its sign-in, and issuing accounts and their limits.
 
-Every route here takes `RequirePlatformAdmin` (or, for sign-in itself, refuses anyone who
-isn't one) and nothing else for authorization. These are the only routes that reach across
-accounts, and they live in their own file so that stays obvious — no customer-facing route
-is ever widened to "also works for admins". The monitoring frontend calls nothing outside
-`/admin/*`.
+Every route here takes `RequireStaff` (or, for sign-in itself, refuses anyone who isn't staff)
+and nothing else for authorization; what a given member of staff may do to a given account is
+then decided inside services/admin.py from their account's kind. These are the only routes
+that reach across accounts, and they live in their own file so that stays obvious — no
+customer-facing route is ever widened to "also works for staff". The monitoring frontend calls
+nothing outside `/admin/*`.
 """
 
 import uuid
@@ -12,17 +13,19 @@ import uuid
 from fastapi import APIRouter, HTTPException, Response, status
 
 from app.api.auth_common import UNAUTHORIZED, clear_session_cookie, set_session_cookie
-from app.api.deps import DbSession, RequirePlatformAdmin
+from app.api.deps import DbSession, RequireStaff
+from app.models import User
 from app.schemas.admin import (
     AdminAccountCreate,
     AdminAccountRead,
     AdminAccountUserRead,
     AdminLimitsUpdate,
+    StaffRead,
 )
-from app.schemas.auth import LoginRequest, UserRead
+from app.schemas.auth import LoginRequest
 from app.services import admin as admin_service
 from app.services import auth as auth_service
-from app.services.admin import AccountNotFound
+from app.services.admin import AccountNotFound, NotAllowed
 from app.services.errors import EmailTaken, InvalidCredentials, UsernameTaken
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -30,15 +33,25 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 NOT_FOUND = HTTPException(status.HTTP_404_NOT_FOUND, "Account not found")
 
 
+def _staff(session, user: User) -> StaffRead:
+    return StaffRead(
+        id=user.id,
+        username=user.username,
+        display_name=user.display_name,
+        kind=admin_service.kind_of(session, user),
+    )
+
+
 # --- Sign-in for the monitoring app --------------------------------------------------------
 
 
-@router.post("/auth/login", response_model=UserRead)
-def admin_login(body: LoginRequest, response: Response, session: DbSession) -> UserRead:
-    """Same username and password as the CMS, but only a platform admin gets in.
+@router.post("/auth/login", response_model=StaffRead)
+def admin_login(body: LoginRequest, response: Response, session: DbSession) -> StaffRead:
+    """Same username and password as the CMS, but only staff get in — the main user of an
+    owner or admin account.
 
     A customer who tries gets the *same* 401 as a wrong password — same status, same body —
-    so trying tells them nothing, not even that an admin sign-in exists.
+    so trying tells them nothing, not even that a staff sign-in exists.
     """
     try:
         user = auth_service.authenticate(
@@ -46,10 +59,10 @@ def admin_login(body: LoginRequest, response: Response, session: DbSession) -> U
         )
     except InvalidCredentials:
         raise UNAUTHORIZED from None
-    if not user.is_platform_admin:
+    if not admin_service.is_staff(session, user):
         raise UNAUTHORIZED
     set_session_cookie(response, user.id)
-    return UserRead.model_validate(user, from_attributes=True)
+    return _staff(session, user)
 
 
 @router.post("/auth/logout", status_code=status.HTTP_204_NO_CONTENT)
@@ -57,13 +70,14 @@ def admin_logout(response: Response) -> None:
     clear_session_cookie(response)
 
 
-@router.get("/me", response_model=UserRead)
-def admin_me(admin: RequirePlatformAdmin) -> UserRead:
-    """Who is signed in to the monitoring app. 403 for a customer's session, 401 for none."""
-    return UserRead.model_validate(admin, from_attributes=True)
+@router.get("/me", response_model=StaffRead)
+def admin_me(staff: RequireStaff, session: DbSession) -> StaffRead:
+    """Who is signed in to the monitoring app, and their kind. 403 for a customer's session,
+    401 for none."""
+    return _staff(session, staff)
 
 
-# --- Customer accounts ---------------------------------------------------------------------
+# --- Accounts ------------------------------------------------------------------------------
 
 
 def _read(summary: admin_service.AccountSummary) -> AdminAccountRead:
@@ -73,28 +87,38 @@ def _read(summary: admin_service.AccountSummary) -> AdminAccountRead:
 
 
 @router.get("/accounts", response_model=list[AdminAccountRead])
-def list_accounts(admin: RequirePlatformAdmin, session: DbSession) -> list[AdminAccountRead]:
+def list_accounts(staff: RequireStaff, session: DbSession) -> list[AdminAccountRead]:
     return [_read(s) for s in admin_service.list_accounts(session)]
 
 
 @router.post("/accounts", response_model=AdminAccountRead, status_code=status.HTTP_201_CREATED)
 def create_account(
-    body: AdminAccountCreate, admin: RequirePlatformAdmin, session: DbSession
+    body: AdminAccountCreate, staff: RequireStaff, session: DbSession
 ) -> AdminAccountRead:
-    """Make an account and its first owner. The admin passes the username and password on to
-    the customer themselves."""
+    """Make an account and its first owner. Staff pass the username and password on to the
+    person themselves. A limit left out of the request gets the kind's default — 15 screens
+    and 5 GB for an admin account, no limit for a client — while one sent as null is
+    explicitly unlimited."""
+    max_screens, storage_quota_bytes = admin_service.default_limits(body.kind)
+    if "max_screens" in body.model_fields_set:
+        max_screens = body.max_screens
+    if "storage_quota_bytes" in body.model_fields_set:
+        storage_quota_bytes = body.storage_quota_bytes
     try:
         summary = admin_service.create_account(
             session,
-            admin=admin,
+            admin=staff,
+            kind=body.kind,
             name=body.name,
             username=body.username,
             password=body.password,
             display_name=body.display_name,
             email=body.email,
-            max_screens=body.max_screens,
-            storage_quota_bytes=body.storage_quota_bytes,
+            max_screens=max_screens,
+            storage_quota_bytes=storage_quota_bytes,
         )
+    except NotAllowed as exc:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, str(exc)) from None
     except UsernameTaken:
         raise HTTPException(status.HTTP_409_CONFLICT, "That username is taken") from None
     except EmailTaken:
@@ -104,7 +128,7 @@ def create_account(
 
 @router.get("/accounts/{account_id}", response_model=AdminAccountRead)
 def get_account(
-    account_id: uuid.UUID, admin: RequirePlatformAdmin, session: DbSession
+    account_id: uuid.UUID, staff: RequireStaff, session: DbSession
 ) -> AdminAccountRead:
     try:
         return _read(admin_service.get_account(session, account_id=account_id))
@@ -114,13 +138,15 @@ def get_account(
 
 @router.patch("/accounts/{account_id}", response_model=AdminAccountRead)
 def set_limits(
-    account_id: uuid.UUID, body: AdminLimitsUpdate, admin: RequirePlatformAdmin, session: DbSession
+    account_id: uuid.UUID, body: AdminLimitsUpdate, staff: RequireStaff, session: DbSession
 ) -> AdminAccountRead:
     """Change one or both limits. A field sent as `null` becomes unlimited; a field left out
-    is untouched."""
+    is untouched. 403 when this member of staff may not touch this kind of account."""
     changes = {k: getattr(body, k) for k in body.model_fields_set}
     try:
-        summary = admin_service.set_limits(session, admin=admin, account_id=account_id, changes=changes)
+        summary = admin_service.set_limits(session, admin=staff, account_id=account_id, changes=changes)
     except AccountNotFound:
         raise NOT_FOUND from None
+    except NotAllowed as exc:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, str(exc)) from None
     return _read(summary)

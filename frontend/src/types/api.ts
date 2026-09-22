@@ -2,6 +2,10 @@
 
 export type UserRole = 'owner' | 'manager'
 
+/** What sort of account this is. `owner` is Paskall itself and `admin` a technician — both
+ *  also reach the monitoring app; `client` is a customer, the CMS only. */
+export type AccountKind = 'owner' | 'admin' | 'client'
+
 export interface UserRead {
   id: string
   username: string
@@ -9,14 +13,13 @@ export interface UserRead {
   display_name: string
   role: UserRole
   is_active: boolean
-  /** Fortu staff — may use /admin/*. Display only; the server checks it again. */
-  is_platform_admin: boolean
   created_at: string
 }
 
 export interface AccountRead {
   id: string
   name: string
+  kind: AccountKind
   /** IANA name newly paired screens start in (Settings → General). */
   default_timezone: string
 }
