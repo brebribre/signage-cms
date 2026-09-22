@@ -134,10 +134,10 @@ const router = createRouter({
               meta: { ownerOnly: true },
             },
             {
-              path: 'updates',
-              name: 'settings-updates',
-              component: () => import('@/containers/PlayerRolloutsContainer.vue'),
-              meta: { ownerOnly: true },
+              // What the account may use: screens and storage against their limits.
+              path: 'limits',
+              name: 'settings-limits',
+              component: () => import('@/containers/LimitsContainer.vue'),
             },
           ],
         },

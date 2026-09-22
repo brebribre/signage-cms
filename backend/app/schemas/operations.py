@@ -12,6 +12,17 @@ class StorageRead(BaseModel):
     file_count: int
 
 
+class LimitsRead(BaseModel):
+    """What the account may use, and how much of it is used — for the customer's own eyes.
+    The limits themselves are set by Paskall staff in the monitoring app; None is unlimited."""
+
+    screens_used: int
+    max_screens: int | None
+    storage_used_bytes: int
+    storage_quota_bytes: int | None
+    file_count: int
+
+
 class DeviceHealthRead(BaseModel):
     device_id: uuid.UUID
     name: str

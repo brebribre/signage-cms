@@ -22,7 +22,7 @@ const { isOwner } = useAuth()
 const ALL_TABS = [
   { value: 'settings-general', label: 'General', ownerOnly: false },
   { value: 'settings-users', label: 'User management', ownerOnly: true },
-  { value: 'settings-updates', label: 'Software updates', ownerOnly: true },
+  { value: 'settings-limits', label: 'Plan & limits', ownerOnly: false },
 ]
 const tabs = computed(() => ALL_TABS.filter((t) => isOwner.value || !t.ownerOnly))
 

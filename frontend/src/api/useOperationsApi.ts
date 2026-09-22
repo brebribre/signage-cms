@@ -2,6 +2,7 @@ import { request } from '@/api/request'
 import type {
   DeviceEventRead,
   DeviceHealthRead,
+  LimitsRead,
   PlayEventRead,
   StorageRead,
   FleetEventRead,
@@ -10,6 +11,8 @@ import type {
 export function useOperationsApi() {
   return {
     storage: () => request<StorageRead>('GET', '/storage'),
+    /** Screens and storage: used against allowed. */
+    limits: () => request<LimitsRead>('GET', '/limits'),
     fleetHealth: () => request<DeviceHealthRead[]>('GET', '/health/devices'),
     events: (deviceId: string) =>
       request<DeviceEventRead[]>('GET', `/devices/${deviceId}/events`),

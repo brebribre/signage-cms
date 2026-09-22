@@ -130,8 +130,7 @@ const newerRelease = computed(() => {
   <div>
     <h2 class="text-sm text-ink">Software update</h2>
     <p class="mt-0.5 text-[13px] text-ink-muted">
-      Push a specific build to just this screen, independent of the fleet rollout in
-      Settings &gt; Software updates.
+      Push a specific build to just this screen, independent of the fleet rollout.
     </p>
     <p v-if="device.device_owner === false" class="mt-2 rounded-lg bg-raised px-3 py-2 text-[13px] text-ink-muted">
       This screen is set up as <b class="text-ink">Basic</b>: the player isn't Device Owner, so it can't

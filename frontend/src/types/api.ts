@@ -515,6 +515,15 @@ export interface StorageRead {
   file_count: number
 }
 
+/** The account's plan as figures — see Settings → Plan & limits. `null` limits are unlimited. */
+export interface LimitsRead {
+  screens_used: number
+  max_screens: number | null
+  storage_used_bytes: number
+  storage_quota_bytes: number | null
+  file_count: number
+}
+
 export interface DeviceHealthRead {
   device_id: string
   name: string

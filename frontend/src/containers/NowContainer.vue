@@ -6,6 +6,7 @@ import IconErrorOutline from '~icons/material-symbols/error-outline'
 import IconPlaylistPlay from '~icons/material-symbols/playlist-play'
 import IconTv from '~icons/material-symbols/tv-outline'
 
+import { useAccountLimits } from '@/hooks/useAccountLimits'
 import { useCampaigns } from '@/hooks/useCampaigns'
 import { useDevices } from '@/hooks/useDevices'
 import { useFleetHealth } from '@/hooks/useFleetHealth'
@@ -45,6 +46,8 @@ const { devices: health, storage, offline, withErrors, isLoading: healthLoading 
 /** Everything the health endpoint doesn't count as offline — the hero card's line of context. */
 const online = computed(() => health.value.filter((d) => d.is_online))
 const { items: playlists, isLoading: playlistsLoading, error: playlistsError } = usePlaylists()
+/** The account's screen limit, so the Screens figure reads "3 of 5" rather than a bare count. */
+const { limits } = useAccountLimits()
 const { items: campaigns, isLoading: campaignsLoading } = useCampaigns()
 /** Distinct screens covered by any campaign — a screen in two campaigns counts once. */
 const campaignScreens = computed(() => new Set(campaigns.value.flatMap((c) => c.device_ids)).size)
@@ -145,8 +148,11 @@ function quotaPercent(used: number, quota: number | null): number | null {
 
     <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
       <!-- One coloured card per row, and it is the figure the page is about. -->
+      <!-- "3 of 5" when the account has a screen limit, so the headroom is visible at a glance. -->
       <StatCard
-        label="Screens" :value="devices.length" tone="brand" openable :loading="devicesLoading && !devices.length"
+        label="Screens"
+        :value="limits?.max_screens != null ? `${devices.length} of ${limits.max_screens}` : devices.length"
+        tone="brand" openable :loading="devicesLoading && !devices.length"
         :hint="devices.length ? `${online.length} online now` : 'None paired yet'"
         @open="router.push({ name: 'devices' })"
       />

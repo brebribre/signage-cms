@@ -3,7 +3,7 @@ import type { DeviceRead } from '@/types/api'
 /**
  * One screen's software update, as something a person can read — derived from the pin the CMS
  * set and whatever the screen has reported since. Pure, so the Screens page, the screen's own
- * page and the Software updates list all tell the same story.
+ * page tells the same story wherever an update is shown.
  *
  * The states are the ones every device-management product ends up with (queued → downloading →
  * installing → done / failed), plus the two that only exist from the CMS's side of the wire:

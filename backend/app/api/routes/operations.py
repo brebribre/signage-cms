@@ -8,6 +8,7 @@ from app.schemas.operations import (
     DeviceHealthRead,
     PlayEventRead,
     StorageRead,
+    LimitsRead,
 )
 from app.services import operations
 
@@ -27,6 +28,29 @@ def storage(user: CurrentUser, session: DbSession) -> StorageRead:
     return StorageRead(
         used_bytes=operations.storage_used(session, user.account_id),
         quota_bytes=account.storage_quota_bytes if account else None,
+        file_count=int(count),
+    )
+
+
+@router.get("/limits", response_model=LimitsRead)
+def limits(user: CurrentUser, session: DbSession) -> LimitsRead:
+    """The account's plan as figures: screens used against the limit, storage used against the
+    quota. Read-only here; the limits are set from the monitoring app."""
+    from sqlmodel import func, select
+
+    from app.services import devices as device_service
+
+    account = session.get(Account, user.account_id)
+    count = session.exec(
+        select(func.count(Media.id)).where(
+            Media.account_id == user.account_id, Media.status == MediaStatus.READY
+        )
+    ).one()
+    return LimitsRead(
+        screens_used=device_service.count_claimed(session, account_id=user.account_id),
+        max_screens=account.max_screens if account else None,
+        storage_used_bytes=operations.storage_used(session, user.account_id),
+        storage_quota_bytes=account.storage_quota_bytes if account else None,
         file_count=int(count),
     )
 
