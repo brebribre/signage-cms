@@ -91,8 +91,9 @@ function onCancelClick() {
 }
 
 /** The picker stays available once an update has finished either way — but not while one is
- *  in flight, where a second instruction would only race the first. */
-const showPicker = computed(() => !view.value || !view.value.busy)
+ *  in flight, where a second instruction would only race the first, and not on a Basic screen,
+ *  which can't act on it: there, the note above points at the releases page instead. */
+const showPicker = computed(() => props.device.device_owner !== false && (!view.value || !view.value.busy))
 
 /** Where a person installs a build by hand — the docs' list of every release. Shown for a
  *  Basic screen, which can't install one itself. */
@@ -150,7 +151,7 @@ const newerRelease = computed(() => {
       </span>
     </p>
 
-    <AppCard class="mt-3 flex flex-col gap-4">
+    <AppCard v-if="view || showPicker" class="mt-3 flex flex-col gap-4">
       <div v-if="view" class="flex items-start gap-3" aria-live="polite">
         <span class="mt-0.5 flex size-6 shrink-0 items-center justify-center">
           <AppSpinner v-if="view.busy" size="md" class="text-ink" :label="view.title" />
