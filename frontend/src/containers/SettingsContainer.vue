@@ -37,7 +37,7 @@ function open(name: string) {
   <div class="flex flex-col gap-6">
     <PageTitle
       title="Settings"
-      :subtitle="Account defaults, your team, and what your plan allows."
+      :subtitle="isOwner ? 'Account defaults, your team, and what your plan allows.' : undefined"
     />
     <!-- One tab is no choice at all. -->
     <AppTabs v-if="tabs.length > 1" :items="tabs" :model-value="current" @update:model-value="open" />
