@@ -67,8 +67,7 @@ const rows = computed(() => {
       <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <p class="text-sm text-ink">{{ row.label }}</p>
         <p class="text-sm tabular-nums">
-          <b :class="tone(row.fraction)">{{ row.used }}</b>
-          <span class="text-ink-muted"> {{ row.limit }}</span>
+          <b :class="tone(row.fraction)">{{ row.used }}</b>{{ ' ' }}<span class="text-ink-muted">{{ row.limit }}</span>
         </p>
       </div>
       <ProgressBar v-if="row.fraction !== null" :value="row.fraction" />
