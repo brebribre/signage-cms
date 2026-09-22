@@ -19,6 +19,9 @@ class AdminAccountUserRead(BaseModel):
     role: UserRole
     is_active: bool
     created_at: datetime
+    # Can sign in to the monitoring app — Paskall staff. Shown so it is never a mystery who
+    # holds that key; set only by scripts/make_admin.py.
+    is_platform_admin: bool = False
 
 
 class AdminAccountRead(BaseModel):

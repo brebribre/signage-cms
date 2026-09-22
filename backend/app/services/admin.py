@@ -33,6 +33,7 @@ class UserSummary:
     role: UserRole
     is_active: bool
     created_at: datetime
+    is_platform_admin: bool = False
 
 
 @dataclass(frozen=True)
@@ -63,6 +64,7 @@ def _users(session: Session, account_id: uuid.UUID) -> list[UserSummary]:
             role=u.role,
             is_active=u.is_active,
             created_at=u.created_at,
+            is_platform_admin=u.is_platform_admin,
         )
         for u in rows
     ]

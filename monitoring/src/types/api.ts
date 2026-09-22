@@ -28,6 +28,8 @@ export interface AdminAccountUserRead {
   role: UserRole
   is_active: boolean
   created_at: string
+  /** Can sign in to this monitoring app (Paskall staff). */
+  is_platform_admin: boolean
 }
 
 /** One customer account: its limits and how much of each is used. A null limit means

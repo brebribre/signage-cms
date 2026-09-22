@@ -49,6 +49,7 @@ const TONES = {
   green: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
   brand: 'bg-brand-soft text-brand ring-brand/20',
   muted: 'bg-surface text-ink-muted ring-line',
+  ink: 'bg-ink text-ink-inverse ring-ink',
 } as const
 
 /** Same marks as the customer's own Users page, so a role reads the same everywhere. */
@@ -56,6 +57,9 @@ function badges(u: AdminAccountUserRead): { label: string; tone: keyof typeof TO
   const out: { label: string; tone: keyof typeof TONES }[] = [
     u.role === 'owner' ? { label: 'Owner', tone: 'green' } : { label: 'Sub account', tone: 'brand' },
   ]
+  // Paskall staff: this person can sign in here, to this monitoring app. Marked so it is
+  // never a mystery who holds that key.
+  if (u.is_platform_admin) out.push({ label: 'Admin', tone: 'ink' })
   if (!u.is_active) out.push({ label: 'Deactivated', tone: 'muted' })
   return out
 }
