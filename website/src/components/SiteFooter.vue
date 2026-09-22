@@ -26,7 +26,7 @@ const year = new Date().getFullYear()
     <div class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-5 py-8 text-[13px] sm:px-8">
       <img :src="wordmark" alt="Paskall" class="h-5 w-auto brightness-0 invert opacity-70" />
       <p>© {{ year }} Paskall. Digital signage that runs itself.</p>
-      <a href="https://practical-benevolence-production-b7b2.up.railway.app" class="transition-colors hover:text-white">Sign in to the CMS</a>
+      <a href="https://app.paskall.co.id" class="transition-colors hover:text-white">Sign in to the CMS</a>
     </div>
   </footer>
 </template>

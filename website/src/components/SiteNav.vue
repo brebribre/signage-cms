@@ -40,7 +40,7 @@ onBeforeUnmount(() => window.removeEventListener('scroll', onScroll))
       </ul>
       <div class="hidden items-center gap-4 md:flex">
         <a
-          href="https://practical-benevolence-production-b7b2.up.railway.app"
+          href="https://app.paskall.co.id"
           class="text-sm transition-colors"
           :class="past ? 'text-ink-muted hover:text-ink' : 'text-white/80 hover:text-white'"
         >Sign in</a>

@@ -9,9 +9,9 @@ registers no GitHub webhook, and the service silently stops redeploying on push.
 
 | Service | Root directory | What it runs | Public URL |
 |---|---|---|---|
-| `backend` | `backend` | `uvicorn app.main:app --host 0.0.0.0 --port $PORT` (via `backend/railpack.json`) | `https://signage-cms-production.up.railway.app` |
-| `frontend` | `frontend` | `node server.mjs` (`npm run build` at build time) | `https://practical-benevolence-production-b7b2.up.railway.app` |
-| `web-player` | `web-player` | `node server.mjs` (`npm run build` at build time) — the browser player for smart TVs, see `web-player/README.md` | `https://web-player-production-cbfe.up.railway.app` |
+| `backend` | `backend` | `uvicorn app.main:app --host 0.0.0.0 --port $PORT` (via `backend/railpack.json`) | `https://api.paskall.co.id` |
+| `frontend` | `frontend` | `node server.mjs` (`npm run build` at build time) | `https://app.paskall.co.id` |
+| `web-player` | `web-player` | `node server.mjs` (`npm run build` at build time) — the browser player for smart TVs, see `web-player/README.md` | `https://player.paskall.co.id` |
 | `monitoring` | `monitoring` | `node server.mjs` (`npm run build` at build time) — Paskall staff only: issues customer accounts and their limits. Its own app, deliberately split from the customer-facing `frontend`; sign-in is `/admin/auth/login`, which refuses anyone who isn't a platform admin (`scripts/make_admin.py`). | `https://monitoring-production-69c1.up.railway.app` |
 | `Postgres` | — | `ghcr.io/railwayapp-templates/postgres-ssl:18` | private only |
 
@@ -78,7 +78,7 @@ of names. The ones that matter for *this* deploy, beyond local defaults:
 | `SECRET_KEY` | a real 64-char value | Generated once with `python -c "import secrets; print(secrets.token_urlsafe(48))"`. Rotating it invalidates every existing session — see the runbook below. |
 | `COOKIE_SECURE` | `true` | Still required — the cookie must only ever be sent over HTTPS, cross-site or not. |
 | `COOKIE_SAMESITE` | `lax` | No longer needs to be `none` — see "Why the frontend proxies the API" above. If this still reads `none` on the live service, it's harmless (a same-site cookie marked `None` still works), but `lax` is the more correct, slightly more CSRF-resistant value now that the browser sees this as a same-site cookie. |
-| `FRONTEND_ORIGIN` | `https://practical-benevolence-production-b7b2.up.railway.app` | Governs CORS for anything that calls the backend directly rather than through the proxy — local dev, and any future non-browser client. No longer in the critical path for the deployed CMS's own session cookie. |
+| `FRONTEND_ORIGIN` | `https://app.paskall.co.id` | Governs CORS for anything that calls the backend directly rather than through the proxy — local dev, and any future non-browser client. No longer in the critical path for the deployed CMS's own session cookie. |
 | `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` | set, not shown | Object Read & Write only, scoped to `fortu-cms`. Deliberately **not** an Admin token — see the R2 CORS section below for what that costs. |
 | `LOG_LEVEL` | `INFO` | `DEBUG` locally is too noisy for production logs. |
 
@@ -86,7 +86,7 @@ of names. The ones that matter for *this* deploy, beyond local defaults:
 
 | Variable | Value here | Why |
 |---|---|---|
-| `BACKEND_URL` | `https://signage-cms-production.up.railway.app` | Read by `server.mjs` **at runtime** — where it proxies `/api/*` to. Not a `VITE_` variable: those are baked into the client bundle at *build* time and are unreachable from this server-side process. Unset locally, it falls back to `http://localhost:8001`. |
+| `BACKEND_URL` | `https://api.paskall.co.id` | Read by `server.mjs` **at runtime** — where it proxies `/api/*` to. Not a `VITE_` variable: those are baked into the client bundle at *build* time and are unreachable from this server-side process. Unset locally, it falls back to `http://localhost:8001`. |
 
 `frontend/.env.production` (committed — no secrets in it) bakes `VITE_API_BASE_URL=/api` into
 the build at compile time — the client always calls its own origin, relatively, and never
@@ -97,7 +97,7 @@ it — editing it alone does nothing to an already-built `dist/`.
 
 | Variable | Value here | Why |
 |---|---|---|
-| `BACKEND_URL` | `https://signage-cms-production.up.railway.app` | Read by `monitoring/server.mjs` at runtime — where it proxies `/api/*` to, exactly as `frontend` does. The client only ever calls `/api` on its own origin, so the session cookie is first-party and the backend needs no CORS entry for this app. |
+| `BACKEND_URL` | `https://api.paskall.co.id` | Read by `monitoring/server.mjs` at runtime — where it proxies `/api/*` to, exactly as `frontend` does. The client only ever calls `/api` on its own origin, so the session cookie is first-party and the backend needs no CORS entry for this app. |
 
 No `VITE_` variables: `monitoring/src/api/request.ts` hard-codes `/api`, and in local dev the Vite
 server proxies it to `http://localhost:8001` (`monitoring/vite.config.ts`). Locally the app runs
@@ -131,7 +131,7 @@ else gets the same 401 as a wrong password.
 
 | Variable | Value here | Why |
 |---|---|---|
-| `BACKEND_URL` | `https://signage-cms-production.up.railway.app` | Where `server.mjs` proxies `/api/*`, exactly like `frontend`'s. A screen only ever talks to the web player's own origin, so the backend needs no CORS entry for it. |
+| `BACKEND_URL` | `https://api.paskall.co.id` | Where `server.mjs` proxies `/api/*`, exactly like `frontend`'s. A screen only ever talks to the web player's own origin, so the backend needs no CORS entry for it. |
 
 Created 2026-09-16 with `railway add --service web-player --repo brebribre/signage-cms`, which
 does create the GitHub deploy trigger. The root directory is **not** settable with
@@ -141,7 +141,7 @@ Settings → Source → Root directory in the dashboard. A screen reloads itself
 within 5 minutes (it compares `RAILWAY_DEPLOYMENT_ID` from `/version.json`).
 
 **Offline pictures need one more R2 CORS origin** — add
-`https://web-player-production-cbfe.up.railway.app` to the bucket policy below (done 2026-09-17).
+`https://player.paskall.co.id` to the bucket policy below (done 2026-09-17).
 Without it web screens stream everything from R2 instead of caching it.
 
 **`backend` needs ffmpeg** — `backend/railpack.json` installs it (`deploy.aptPackages`). The API
@@ -168,7 +168,7 @@ the other:
      "AllowedOrigins": [
        "http://localhost:5173",
        "http://127.0.0.1:5173",
-       "https://practical-benevolence-production-b7b2.up.railway.app"
+       "https://app.paskall.co.id"
      ],
      "AllowedMethods": ["PUT", "GET", "HEAD"],
      "AllowedHeaders": ["Content-Type"],
@@ -185,11 +185,13 @@ the other:
 
 ## Custom domain
 
-Not set up yet — both services are on their Railway-assigned `*.up.railway.app` URLs. **Do this
-before any real device is paired**: the Android player stores the API base URL it was
-provisioned with, and moving the domain afterwards means revisiting every paired screen. This
-is no longer needed to fix the session cookie (see "Why the frontend proxies the API" above) —
-it's purely about not having to re-provision every screen later.
+Set up 2026-09-22 on `paskall.co.id` (DNS at Hostinger): `app` (frontend), `player`
+(web-player), `api` (backend), `monitoring`, each a CNAME to the per-service target Railway
+prints from `railway domain status <name> --service <svc> --json`; certificates took ~2 hours
+to issue and needed the `_railway-verify.<name>` TXT records as well. `docs.paskall.co.id` is
+GitHub Pages (brebribre/paskall-docs). The Railway-assigned `*.up.railway.app` addresses still
+work alongside — the Android player builds before 1.3.8 have the old API address compiled in,
+so it must stay reachable until every screen runs a newer build.
 
 ## Rotating the R2 key
 

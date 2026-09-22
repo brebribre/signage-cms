@@ -21,14 +21,16 @@ android {
         // Overridable for a test install over a screen (or emulator) that already carries a higher
         // test build: ./gradlew assembleRelease -PversionCode=200 -PversionName=1.2.0-emu. A real
         // release never passes these; it edits the two numbers here.
-        versionCode = (project.findProperty("versionCode") as String?)?.toInt() ?: 38
-        versionName = (project.findProperty("versionName") as String?) ?: "1.3.7"
+        versionCode = (project.findProperty("versionCode") as String?)?.toInt() ?: 39
+        versionName = (project.findProperty("versionName") as String?) ?: "1.3.8"
 
         // The API base URL is compiled in, not configured on the device — a screen with no
         // keyboard cannot be asked to type one. Override per build:
         //   ./gradlew assembleRelease -PapiBaseUrl=https://your-api.example.com
+        // The API's own domain since 1.3.8 (2026-09-22). Builds before that carry the old
+        // Railway address, which stays reachable for them.
         val apiBaseUrl = (project.findProperty("apiBaseUrl") as String?)
-            ?: "https://signage-cms-production.up.railway.app"
+            ?: "https://api.paskall.co.id"
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
         // Plain HTTP is only ever allowed for a build that was explicitly pointed at a plain-HTTP
         // backend (a developer's own machine). The production address is HTTPS, so a production
