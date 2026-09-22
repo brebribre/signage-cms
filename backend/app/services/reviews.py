@@ -3,7 +3,7 @@
 
 The rule in one line: **a manager's save that would change a screen waits for the owner.**
 Everything that does not reach a screen — uploads, a playlist nobody plays, a rename — applies
-at once, as before. See docs/user-access-management.html.
+at once, as before. See ACCOUNTS.md.
 """
 
 import uuid

@@ -123,7 +123,8 @@ The service is now connected to this GitHub repo, branch `main` (`railway servic
 Until that is set, every GitHub-triggered deploy fails the same way the root-archive upload did,
 and the last successful deployment keeps serving. Set it once, then Redeploy (or push).
 
-Who can sign in: the main user of an **owner** or **admin** account (`accounts.kind`). Owner
+Who can sign in: the main user of an **owner** or **admin** account (`accounts.kind`); the
+whole model is written up in [ACCOUNTS.md](ACCOUNTS.md). Owner
 issues admin and client accounts and sets limits on both; admin issues client accounts and sets
 client limits only; a client never gets in. Admin accounts are issued from the app itself; the
 one owner account is set by hand with `backend/scripts/set_account_kind.py --username you --kind

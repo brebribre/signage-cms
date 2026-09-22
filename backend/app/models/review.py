@@ -5,7 +5,7 @@ that is on air, a campaign, a schedule — the change is parked here instead of 
 the owner approves or rejects it from the Reviews page. The full request is kept as sent, so
 approving replays exactly what the manager asked for, as them, with their screen grants.
 
-See docs/user-access-management.html for the rules and the knobs.
+See ACCOUNTS.md for the rules and the knobs.
 """
 
 import uuid
