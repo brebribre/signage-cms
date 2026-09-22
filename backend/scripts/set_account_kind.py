@@ -23,6 +23,11 @@ from app.models import Account, AccountKind, User, UserRole
 from app.services import auth as auth_service
 
 
+def article(kind: AccountKind) -> str:
+    """"an admin account", "a client account" — the message reads as a sentence either way."""
+    return "an" if str(kind)[0] in "aeiou" else "a"
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--username", required=True, help="anyone in the account")
@@ -37,7 +42,7 @@ def main() -> None:
         account = session.get(Account, user.account_id)
 
         if account.kind == wanted:
-            print(f"\n  {account.name!r} is already a {wanted} account. Nothing changed.\n")
+            print(f"\n  {account.name!r} is already {article(wanted)} {wanted} account. Nothing changed.\n")
             return
 
         if wanted == AccountKind.OWNER:
@@ -57,7 +62,7 @@ def main() -> None:
         account.kind = wanted
         session.add(account)
         session.commit()
-        print(f"\n  {account.name!r} is now a {wanted} account (was {was}).")
+        print(f"\n  {account.name!r} is now {article(wanted)} {wanted} account (was {was}).")
 
         # Who that gives the monitoring app to — the account's main users, never sub accounts.
         mains = session.exec(
