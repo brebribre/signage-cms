@@ -26,6 +26,13 @@ Both of those stay with the owner.
 
 **Client** is a customer. They never see the monitoring app.
 
+A note on the word **owner**, which the system uses for two different things. An *owner
+account* is Paskall itself, the kind in the table above. An *owner role* is the main user of any
+account, as opposed to a sub account. They are unrelated. The monitoring app writes the role as
+**Main user** for exactly that reason, so an Admin account does not appear to have an owner
+sitting inside it. The CMS still says Owner to customers, where there is no account kind on
+screen to confuse it with.
+
 ## Who counts as staff
 
 Staff means the **main user** of an owner or admin account. That is the person the account was
@@ -95,6 +102,35 @@ the current one admin or client first.
 
 In production this runs inside the backend container. See the Railway notes in
 [DEPLOY.md](DEPLOY.md).
+
+## Deleting an account
+
+Also by hand, and also with no API behind it: deleting is not undoable, and it is not something a
+customer or a technician should be able to do. It prints what would go and changes nothing until
+you add `--yes`.
+
+```bash
+.venv/bin/python -m scripts.delete_account --username someone
+```
+
+```bash
+.venv/bin/python -m scripts.delete_account --username someone --yes
+```
+
+It takes the account's people, screens, media, playlists, campaigns, schedules and reviews with
+it. The owner account is refused outright. The admin action log keeps its record of the account,
+name and all, because a history that vanishes with the thing it describes is no history.
+
+Order matters inside it, which is the reason this is a script rather than one delete statement. A
+scene pointing at a file holds that file back on purpose, so that deleting a file still on air is
+refused rather than silently punching a hole in a running screen. Playlists therefore go first,
+then everything else follows the account.
+
+The files themselves stay in R2. Reclaim them afterwards:
+
+```bash
+.venv/bin/python -m scripts.sweep_orphans --delete
+```
 
 ## Checking it still works
 

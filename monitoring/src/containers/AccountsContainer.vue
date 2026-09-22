@@ -58,13 +58,19 @@ const TONES = {
 } as const
 
 /** Only the accounts that are *not* ordinary customers carry a badge. A mark on every row
- *  marks nothing; a mark on the two that can sign in here is worth reading. */
+ *  marks nothing; a mark on the two that can sign in here is worth reading. This is the only
+ *  badge on the page allowed to say "Owner", and it means the account kind — Paskall itself. */
 const KIND_TONE: Partial<Record<AccountKind, keyof typeof TONES>> = { owner: 'ink', admin: 'brand' }
 
-/** Same marks as the customer's own Users page, so a role reads the same everywhere. */
+/** "Main user", not "Owner", even though the role is called `owner` in the data. This page
+ *  already uses Owner for a *kind of account* — Paskall's own — and one word for two ideas made
+ *  "Fortu Digital [Admin]" sit directly above "Fortu Digital @fortu [Owner]", which reads like a
+ *  contradiction. Main user pairs with Sub account, which is the distinction this badge is
+ *  actually drawing. The CMS keeps saying Owner to customers, where there is no kind to clash
+ *  with. */
 function badges(u: AdminAccountUserRead): { label: string; tone: keyof typeof TONES }[] {
   const out: { label: string; tone: keyof typeof TONES }[] = [
-    u.role === 'owner' ? { label: 'Owner', tone: 'green' } : { label: 'Sub account', tone: 'brand' },
+    u.role === 'owner' ? { label: 'Main user', tone: 'green' } : { label: 'Sub account', tone: 'brand' },
   ]
   if (!u.is_active) out.push({ label: 'Deactivated', tone: 'muted' })
   return out
