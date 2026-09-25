@@ -1,7 +1,9 @@
 <script setup lang="ts">
 /**
- * The hero's picture: the CMS in the middle, standing in a soft dome, and the screens it runs
- * floating round it. Pick a playlist in the CMS and every screen changes.
+ * The hero's picture, laid out the way a product-page hero is: the CMS in the middle, standing in
+ * a soft dome with thin arcs round it, and four cards floating at its corners, two of them
+ * coloured stat cards, one the pairing code, and one a screen playing what the CMS has on air.
+ * Pick a playlist in the CMS and the screen changes.
  *
  * Below a wide page there is no room for the screens to float, so the hero shows the Publish
  * scene instead: one totem in front of the CMS, publishing to it, on the sweep of the blues.
@@ -10,23 +12,21 @@
  * cycling the moment someone picks a playlist themselves, because taking the wheel and then
  * being overridden is the rudest thing an auto-playing demo can do.
  */
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
+import IconBolt from '~icons/material-symbols/bolt'
+import IconDevices from '~icons/material-symbols/devices-outline'
 
 import CmsWindow from './CmsWindow.vue'
 import PublishScene from './PublishScene.vue'
 import ScreenCard from './ScreenCard.vue'
-import { SLIDE_COUNT } from '@/data/slides'
+import SlideArt from './SlideArt.vue'
+import { SLIDE_COUNT, useSlides } from '@/data/slides'
 import { useI18n } from '@/i18n'
 
-/** Where each screen floats round the CMS, on a wide page. */
-const PLACES = [
-  { pos: 'lg:left-0 lg:top-10 lg:w-56', delay: 0 },
-  { portrait: true, pos: 'lg:left-16 lg:bottom-6 lg:w-36', delay: 160 },
-  { portrait: true, pos: 'lg:right-14 lg:top-0 lg:w-36', delay: 320 },
-  { pos: 'lg:right-0 lg:bottom-16 lg:w-56', delay: 480 },
-]
 const { m } = useI18n()
-const SCREENS = computed(() => PLACES.map((p, i) => ({ ...p, ...m.value.hero.screens[i] })))
+const slides = useSlides()
+/** The fleet the CMS says it is playing on; one of them floats beside it. */
+const FLEET = 4
 
 const CYCLE_MS = 3600
 const active = ref(0)
@@ -64,18 +64,41 @@ onBeforeUnmount(() => { if (timer) clearInterval(timer) })
     </div>
 
     <!-- The CMS, centre stage, on a wide page. -->
-    <div class="relative mx-auto hidden max-w-[40rem] lg:absolute lg:inset-x-0 lg:bottom-0 lg:block">
-      <CmsWindow :active="active" :screens="SCREENS.length" @select="choose" />
+    <div class="relative mx-auto hidden max-w-[40rem] lg:absolute lg:inset-x-0 lg:bottom-0 lg:block lg:max-w-[34rem] xl:max-w-[40rem]">
+      <CmsWindow :active="active" :screens="FLEET" @select="choose" />
     </div>
 
-    <!-- The screens it runs, floating round it where there is room for them. -->
-    <ul class="hidden lg:block">
-      <li
-        v-for="(s, i) in SCREENS" :key="i"
-        class="float lg:absolute" :class="s.pos" :style="{ '--float-delay': `${-i * 1.4}s` }"
-      >
-        <ScreenCard :active="active" :name="s.name" :kind="s.kind" :portrait="s.portrait" :delay="s.delay" />
-      </li>
-    </ul>
+    <!-- The cards at its corners, on a wide page. -->
+    <div class="pointer-events-none absolute inset-0 hidden lg:block">
+      <!-- A stat, top left. -->
+      <div class="float pointer-events-auto absolute left-0 top-0 w-48 rounded-3xl bg-sky-strong p-5 xl:w-56 xl:p-6 shadow-[0_24px_60px_-30px_rgba(0,24,77,0.45)]" style="--float-delay: -1s">
+        <IconBolt class="size-8 text-brand-deep" aria-hidden="true" />
+        <p class="display mt-6 text-4xl text-brand-deep">{{ m.hero.press.value }}</p>
+        <p class="mt-1 text-sm text-brand-deep/75">{{ m.hero.press.label }}</p>
+      </div>
+
+      <!-- The pairing code, bottom left. -->
+      <div class="float pointer-events-auto absolute bottom-10 left-0 flex w-64 xl:left-10 xl:w-72 items-center gap-4 rounded-3xl bg-white p-3 shadow-[0_24px_60px_-28px_rgba(0,24,77,0.45)] ring-1 ring-line" style="--float-delay: -3s">
+        <div class="h-24 w-20 shrink-0 overflow-hidden rounded-2xl ring-1 ring-line">
+          <SlideArt :slide="slides[3]" thumb />
+        </div>
+        <div class="min-w-0">
+          <p class="text-sm leading-snug text-ink">{{ m.hero.pair }}</p>
+          <p class="mt-2.5 inline-block rounded-full bg-brand-deep px-3 py-1 font-mono text-xs tracking-[0.2em] text-white">K7P 2QX</p>
+        </div>
+      </div>
+
+      <!-- A screen playing what the CMS has on air, top right. -->
+      <div class="float pointer-events-auto absolute -top-16 right-6 w-36 xl:right-10 xl:w-40" style="--float-delay: -2s">
+        <ScreenCard :active="active" :name="m.hero.screens[2].name" :kind="m.hero.screens[2].kind" portrait />
+      </div>
+
+      <!-- A stat, bottom right. -->
+      <div class="float pointer-events-auto absolute bottom-6 right-0 w-48 rounded-3xl bg-brand-bright p-5 text-white xl:w-52 xl:p-6 shadow-[0_24px_60px_-30px_rgba(0,24,77,0.6)]" style="--float-delay: -4s">
+        <IconDevices class="size-8" aria-hidden="true" />
+        <p class="display mt-5 text-3xl leading-tight">{{ m.hero.any.value }}</p>
+        <p class="mt-1 text-sm text-white/85">{{ m.hero.any.label }}</p>
+      </div>
+    </div>
   </div>
 </template>

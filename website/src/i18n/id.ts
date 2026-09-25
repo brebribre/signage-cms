@@ -27,6 +27,9 @@ const id: Messages = {
     campaign: 'Kampanye toko',
     hint: 'Pilih playlist. Semua layar ikut berubah.',
     picker: 'Yang ditayangkan layar',
+    press: { value: '1 klik', label: 'Untuk memperbarui semua layar' },
+    any: { value: 'Layar apa pun', label: 'Android, smart TV, dan browser' },
+    pair: 'Hubungkan layar dengan kode enam huruf',
   },
   slides: [
     { name: 'Jam buka', title: 'Buka sampai 21.00', sub: 'Dapur tutup pukul 20.30' },

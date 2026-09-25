@@ -33,6 +33,10 @@ const en = {
     campaign: 'Store campaign',
     hint: 'Pick a playlist. Every screen changes.',
     picker: 'What the screens play',
+    /** The cards floating round the CMS on a wide page. */
+    press: { value: '1 press', label: 'To update every screen' },
+    any: { value: 'Any screen', label: 'Android, smart TVs and browsers' },
+    pair: 'Pair a screen with a six-letter code',
   },
   /** What the demo screens play, and what the demo CMS calls each playlist. */
   slides: [
