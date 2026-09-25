@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import IconPlay from '~icons/material-symbols/play-circle-outline'
+
 import HeroStage from './HeroStage.vue'
 import { useI18n } from '@/i18n'
 
@@ -21,6 +23,10 @@ const { m } = useI18n()
         <div class="reveal mt-9 flex flex-wrap items-center justify-center gap-3">
           <a href="#contact" class="rounded-full bg-brand-deep px-6 py-3.5 text-sm font-medium text-white transition-colors hover:bg-brand">
             {{ m.hero.cta }}
+          </a>
+          <a href="/demo" class="inline-flex items-center gap-2 rounded-full bg-white/80 px-6 py-3.5 text-sm font-medium text-ink ring-1 ring-ink/70 backdrop-blur transition-colors hover:bg-ink hover:text-white">
+            <IconPlay class="size-5" />
+            {{ m.hero.demo }}
           </a>
           <a href="https://app.paskall.co.id" class="rounded-full bg-white/80 px-6 py-3.5 text-sm font-medium text-ink ring-1 ring-ink/70 backdrop-blur transition-colors hover:bg-ink hover:text-white">
             {{ m.nav.signIn }}

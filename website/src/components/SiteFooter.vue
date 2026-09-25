@@ -4,16 +4,17 @@ import IconArrowForward from '~icons/material-symbols/arrow-forward'
 
 import LocaleSwitch from './LocaleSwitch.vue'
 import wordmark from '@/assets/paskall-wordmark.png'
+import { homeSection } from '@/composables/usePage'
 import { useI18n } from '@/i18n'
 
 const year = new Date().getFullYear()
 const { m } = useI18n()
 const LINKS = computed(() => [
-  { href: '#connect', label: m.value.nav.links.screens },
-  { href: '#design', label: m.value.nav.links.content },
-  { href: '#publish', label: m.value.nav.links.publish },
-  { href: '#platforms', label: m.value.nav.links.platforms },
-  { href: '#faq', label: m.value.nav.links.faq },
+  { href: homeSection('connect'), label: m.value.nav.links.screens },
+  { href: homeSection('design'), label: m.value.nav.links.content },
+  { href: homeSection('publish'), label: m.value.nav.links.publish },
+  { href: homeSection('platforms'), label: m.value.nav.links.platforms },
+  { href: homeSection('faq'), label: m.value.nav.links.faq },
 ])
 const mailto = computed(() => `mailto:hello@paskall.com?subject=${encodeURIComponent(m.value.footer.mailSubject)}`)
 </script>

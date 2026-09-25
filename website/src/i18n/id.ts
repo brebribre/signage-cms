@@ -18,6 +18,7 @@ const id: Messages = {
     title: 'Cara cerdas mengelola layar Anda.',
     subtitle: 'Gambar, video, dan situs web, di layar apa pun.',
     cta: 'Minta akses',
+    demo: 'Lihat demo',
     screens: [
       { name: 'TV Lobi', kind: 'Android box' },
       { name: 'Totem pintu masuk', kind: 'Smart TV' },
@@ -97,6 +98,14 @@ const id: Messages = {
     lead: 'Pantau dari mana saja.',
     rest: 'Paskall CMS bisa dipakai di ponsel, tablet, dan monitor.',
     monitorAlt: 'Dasbor Paskall di monitor',
+  },
+  demo: {
+    metaTitle: 'Paskall. Demo',
+    lead: 'Lihat langsung di layar sungguhan.',
+    rest: 'Hubungkan, pilih, tayangkan, direkam apa adanya.',
+    videoLabel: 'Demo: Paskall CMS di laptop di samping TV yang berubah di setiap langkah',
+    left: 'Paskall CMS',
+    right: 'Layar sungguhan',
   },
   faq: {
     title: 'Pertanyaan yang Sering Diajukan',

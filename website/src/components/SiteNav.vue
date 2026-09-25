@@ -5,15 +5,16 @@ import IconMenu from '~icons/material-symbols/menu'
 
 import LocaleSwitch from './LocaleSwitch.vue'
 import wordmark from '@/assets/paskall-wordmark.png'
+import { homeSection } from '@/composables/usePage'
 import { useI18n } from '@/i18n'
 
 const { m } = useI18n()
 const LINKS = computed(() => [
-  { href: '#connect', label: m.value.nav.links.screens },
-  { href: '#design', label: m.value.nav.links.content },
-  { href: '#publish', label: m.value.nav.links.publish },
-  { href: '#platforms', label: m.value.nav.links.platforms },
-  { href: '#faq', label: m.value.nav.links.faq },
+  { href: homeSection('connect'), label: m.value.nav.links.screens },
+  { href: homeSection('design'), label: m.value.nav.links.content },
+  { href: homeSection('publish'), label: m.value.nav.links.publish },
+  { href: homeSection('platforms'), label: m.value.nav.links.platforms },
+  { href: homeSection('faq'), label: m.value.nav.links.faq },
 ])
 const open = ref(false)
 /** Clear over the hero at the top; white, with a hairline and a little blur, once the page
@@ -32,7 +33,7 @@ onBeforeUnmount(() => window.removeEventListener('scroll', onScroll))
     :class="onHero ? 'border-b border-transparent bg-transparent' : 'border-b border-line bg-canvas/90 backdrop-blur'"
   >
     <nav class="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 sm:px-8" :aria-label="m.nav.label">
-      <a href="#top" class="flex items-center">
+      <a :href="homeSection('top')" class="flex items-center">
         <img :src="wordmark" alt="Paskall" class="h-6 w-auto transition-all duration-300"  />
       </a>
       <ul class="hidden items-center gap-8 lg:flex">

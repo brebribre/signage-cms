@@ -24,6 +24,7 @@ const en = {
     title: 'The smart way to run your screens.',
     subtitle: 'Pictures, videos and websites, on any display.',
     cta: 'Request access',
+    demo: 'See demo',
     screens: [
       { name: 'Lobby TV', kind: 'Android box' },
       { name: 'Entrance totem', kind: 'Smart TV' },
@@ -106,6 +107,14 @@ const en = {
     lead: 'Observe from anywhere.',
     rest: 'Paskall CMS works on your phone, tablet and monitor.',
     monitorAlt: 'The Paskall dashboard on a monitor',
+  },
+  demo: {
+    metaTitle: 'Paskall. Demo',
+    lead: 'See it on a real screen.',
+    rest: 'Pair, pick, deploy, filmed as it happened.',
+    videoLabel: 'Demo: the Paskall CMS on a laptop beside a TV that changes as each step is done',
+    left: 'Paskall CMS',
+    right: 'The real screen',
   },
   faq: {
     title: 'Frequently Asked Questions',
