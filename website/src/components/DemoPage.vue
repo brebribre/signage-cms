@@ -25,9 +25,9 @@ watchEffect(() => { document.title = m.value.demo.metaTitle })
     <!-- Phones get the portrait cut, the CMS above the screen, which fills their width; wider
          pages get the side-by-side one. Neither loads until play is pressed, so the hidden one
          costs nothing. -->
-    <div class="reveal mx-auto mt-10 max-w-md overflow-hidden rounded-[1.5rem] bg-[#111317] p-2 shadow-[0_40px_100px_-40px_rgba(0,24,77,0.45)] sm:hidden">
+    <div class="reveal mx-auto mt-10 max-w-md overflow-hidden rounded-xl bg-[#111317] p-2 shadow-[0_40px_100px_-40px_rgba(0,24,77,0.45)] sm:hidden">
       <video
-        class="block aspect-[9/16] w-full rounded-[1rem]"
+        class="block aspect-[9/16] w-full rounded-lg"
         src="/media/paskall-demo-portrait.mp4"
         poster="/media/paskall-demo-portrait-poster.webp"
         :aria-label="m.demo.videoLabel"
@@ -36,9 +36,9 @@ watchEffect(() => { document.title = m.value.demo.metaTitle })
         preload="none"
       />
     </div>
-    <div class="reveal mt-12 hidden overflow-hidden rounded-[2rem] bg-[#111317] p-3 shadow-[0_40px_100px_-40px_rgba(0,24,77,0.45)] sm:block">
+    <div class="reveal mt-12 hidden overflow-hidden rounded-2xl bg-[#111317] p-3 shadow-[0_40px_100px_-40px_rgba(0,24,77,0.45)] sm:block">
       <video
-        class="block aspect-[1920/744] w-full rounded-[1.4rem]"
+        class="block aspect-[1920/744] w-full rounded-xl"
         src="/media/paskall-demo.mp4"
         poster="/media/paskall-demo-poster.webp"
         :aria-label="m.demo.videoLabel"

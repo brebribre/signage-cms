@@ -71,20 +71,20 @@ onBeforeUnmount(() => { if (timer) clearInterval(timer) })
     <!-- The cards at its corners, on a wide page. -->
     <div class="pointer-events-none absolute inset-0 hidden lg:block">
       <!-- A stat, top left. -->
-      <div class="float pointer-events-auto absolute left-0 top-0 w-48 rounded-3xl bg-sky-strong p-5 xl:w-56 xl:p-6 shadow-[0_24px_60px_-30px_rgba(0,24,77,0.45)]" style="--float-delay: -1s">
+      <div class="float pointer-events-auto absolute left-0 top-0 w-48 rounded-xl bg-sky-strong p-5 xl:w-56 xl:p-6 shadow-[0_24px_60px_-30px_rgba(0,24,77,0.45)]" style="--float-delay: -1s">
         <IconBolt class="size-8 text-brand-deep" aria-hidden="true" />
         <p class="display mt-6 text-4xl text-brand-deep">{{ m.hero.press.value }}</p>
         <p class="mt-1 text-sm text-brand-deep/75">{{ m.hero.press.label }}</p>
       </div>
 
       <!-- The pairing code, bottom left. -->
-      <div class="float pointer-events-auto absolute bottom-10 left-0 flex w-64 xl:left-10 xl:w-72 items-center gap-4 rounded-3xl bg-white p-3 shadow-[0_24px_60px_-28px_rgba(0,24,77,0.45)] ring-1 ring-line" style="--float-delay: -3s">
-        <div class="h-24 w-20 shrink-0 overflow-hidden rounded-2xl ring-1 ring-line">
+      <div class="float pointer-events-auto absolute bottom-10 left-0 flex w-64 xl:left-10 xl:w-72 items-center gap-4 rounded-xl bg-white p-3 shadow-[0_24px_60px_-28px_rgba(0,24,77,0.45)] ring-1 ring-line" style="--float-delay: -3s">
+        <div class="h-24 w-20 shrink-0 overflow-hidden rounded-lg ring-1 ring-line">
           <SlideArt :slide="slides[3]" thumb />
         </div>
         <div class="min-w-0">
           <p class="text-sm leading-snug text-ink">{{ m.hero.pair }}</p>
-          <p class="mt-2.5 inline-block rounded-full bg-brand-deep px-3 py-1 font-mono text-xs tracking-[0.2em] text-white">K7P 2QX</p>
+          <p class="mt-2.5 inline-block rounded-md bg-brand-deep px-3 py-1 font-mono text-xs tracking-[0.2em] text-white">K7P 2QX</p>
         </div>
       </div>
 
@@ -94,7 +94,7 @@ onBeforeUnmount(() => { if (timer) clearInterval(timer) })
       </div>
 
       <!-- A stat, bottom right. -->
-      <div class="float pointer-events-auto absolute bottom-6 right-0 w-48 rounded-3xl bg-brand-bright p-5 text-white xl:w-52 xl:p-6 shadow-[0_24px_60px_-30px_rgba(0,24,77,0.6)]" style="--float-delay: -4s">
+      <div class="float pointer-events-auto absolute bottom-6 right-0 w-48 rounded-xl bg-brand-bright p-5 text-white xl:w-52 xl:p-6 shadow-[0_24px_60px_-30px_rgba(0,24,77,0.6)]" style="--float-delay: -4s">
         <IconDevices class="size-8" aria-hidden="true" />
         <p class="display mt-5 text-3xl leading-tight">{{ m.hero.any.value }}</p>
         <p class="mt-1 text-sm text-white/85">{{ m.hero.any.label }}</p>

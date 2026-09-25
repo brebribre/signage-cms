@@ -21,7 +21,7 @@ const LINKS = computed(() => [
   <!-- The closing card: the same pastel rounded shape as the features, with the ask in it:
        the Request access form, which every Request access button scrolls to. -->
   <section id="contact" class="mx-auto max-w-7xl px-5 pb-10 sm:px-8">
-    <div class="reveal relative overflow-hidden rounded-[2rem] bg-sky px-6 py-16 text-center sm:rounded-[2.5rem] sm:py-24">
+    <div class="reveal relative overflow-hidden rounded-xl bg-sky px-6 py-16 text-center sm:rounded-2xl sm:py-24">
       <div class="hero-ring pointer-events-none absolute -bottom-48 left-1/2 h-96 w-[48rem] -translate-x-1/2 rounded-full" aria-hidden="true" />
       <div class="hero-ring pointer-events-none absolute -bottom-72 left-1/2 h-[36rem] w-[64rem] -translate-x-1/2 rounded-full" aria-hidden="true" />
       <h2 class="relative mx-auto max-w-2xl text-4xl leading-[1.1] sm:text-6xl">{{ m.footer.title }}</h2>

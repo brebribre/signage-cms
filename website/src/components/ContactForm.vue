@@ -61,18 +61,18 @@ async function submit() {
   }
 }
 
-const field = 'mt-1.5 block w-full rounded-xl bg-white px-4 py-3 text-base text-ink ring-1 ring-line outline-none transition-shadow placeholder:text-ink-subtle focus:ring-2 focus:ring-brand'
+const field = 'mt-1.5 block w-full rounded-lg bg-white px-4 py-3 text-base text-ink ring-1 ring-line outline-none transition-shadow placeholder:text-ink-subtle focus:ring-2 focus:ring-brand'
 </script>
 
 <template>
   <div class="relative mx-auto mt-10 max-w-xl text-left">
-    <div v-if="state === 'sent'" class="rounded-3xl bg-white/80 px-6 py-10 text-center ring-1 ring-line backdrop-blur" role="status">
+    <div v-if="state === 'sent'" class="rounded-xl bg-white/80 px-6 py-10 text-center ring-1 ring-line backdrop-blur" role="status">
       <IconCheck class="mx-auto size-10 text-emerald-600" />
       <p class="display mt-4 text-2xl text-ink">{{ f.sentTitle }}</p>
       <p class="mt-2 text-ink-muted">{{ f.sentBody }}</p>
     </div>
 
-    <form v-else class="rounded-3xl bg-white/70 p-5 ring-1 ring-line backdrop-blur sm:p-8" novalidate @submit.prevent="submit">
+    <form v-else class="rounded-xl bg-white/70 p-5 ring-1 ring-line backdrop-blur sm:p-8" novalidate @submit.prevent="submit">
       <div class="grid gap-4 sm:grid-cols-2">
         <label class="block sm:col-span-2">
           <span class="text-sm font-medium text-ink">{{ f.name }}</span>
@@ -103,15 +103,11 @@ const field = 'mt-1.5 block w-full rounded-xl bg-white px-4 py-3 text-base text-
 
       <button
         type="submit" :disabled="state === 'sending'"
-        class="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand-deep px-6 py-4 text-base font-medium text-white transition-colors hover:bg-brand disabled:opacity-70"
+        class="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-action px-6 py-4 text-base font-medium text-white transition-colors hover:bg-action-hover disabled:opacity-70"
       >
         {{ state === 'sending' ? f.sending : m.footer.cta }} <IconArrowForward v-if="state !== 'sending'" class="size-5" />
       </button>
       <p v-if="state === 'failed'" class="mt-3 text-center text-sm text-red-600" role="alert">{{ f.errors.send }}</p>
     </form>
-
-    <p class="mt-5 text-center text-sm text-ink-muted">
-      {{ f.orEmail }} <a href="mailto:hello@paskall.com" class="text-brand underline underline-offset-4">hello@paskall.com</a>
-    </p>
   </div>
 </template>

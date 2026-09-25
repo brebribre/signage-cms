@@ -91,7 +91,7 @@ onBeforeUnmount(stop)
 
       <template #visual>
         <!-- Running off the card's right and bottom edges. -->
-        <BrowserFrame :label="TABS[active].chrome" class="rounded-tl-2xl border-r-0 border-b-0">
+        <BrowserFrame :label="TABS[active].chrome" class="rounded-tl-xl border-r-0 border-b-0">
           <div class="relative aspect-[16/9] w-full bg-page">
             <img
               v-for="(t, i) in TABS" :key="t.n"

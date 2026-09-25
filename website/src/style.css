@@ -30,6 +30,11 @@
   --color-brand-soft: #eef2fd;
   --color-brand-deep: #00184d;
   --color-accent: #00d4ff;
+  /* The site's own buttons: an electric cobalt, the logo blue made brighter, so the one thing
+     to press stands out from the navy type. White on it passes AA (5.5:1); hover settles to the
+     logo blue itself. */
+  --color-action: #0057ff;
+  --color-action-hover: #003399;
 
   /* The pastel card tones: a periwinkle from the brand blue, a sky from the accent. */
   --color-tint: #e3eafc;

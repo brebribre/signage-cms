@@ -9,7 +9,7 @@
 </script>
 
 <template>
-  <article class="relative flex h-full flex-col overflow-hidden rounded-[2rem] bg-brand-soft ring-1 ring-tint-strong/60">
+  <article class="relative flex h-full flex-col overflow-hidden rounded-2xl bg-brand-soft ring-1 ring-tint-strong/60">
     <div class="relative p-6 sm:p-8 lg:p-10">
       <slot />
     </div>

@@ -16,7 +16,7 @@ const en = {
   nav: {
     label: 'Site',
     menu: 'Menu',
-    links: { screens: 'Screens', content: 'Content', publish: 'Publish', platforms: 'Platforms', faq: 'FAQ', demo: 'Demo' },
+    links: { screens: 'Screens', content: 'Content', publish: 'Publish', platforms: 'Platforms', faq: 'FAQ', home: 'Home', demo: 'Demo' },
     signIn: 'Sign in',
     requestAccess: 'Request access',
   },
@@ -141,7 +141,6 @@ const en = {
       sending: 'Sending…',
       sentTitle: 'Thank you!',
       sentBody: 'We’ve got your request and will be in touch soon.',
-      orEmail: 'Or write to us at',
       errors: {
         name: 'Please enter your name.',
         contact: 'Please leave an email or a phone number so we can reach you.',

@@ -9,12 +9,14 @@ import { homeSection } from '@/composables/usePage'
 import { useI18n } from '@/i18n'
 
 const { m } = useI18n()
-/** Only links that open another page. The home page's sections are reached by scrolling, and
- *  the footer still lists them. */
+/** The site's two pages. Sign in and Request access are buttons, beside them. */
 const LINKS = computed(() => [
+  { href: homeSection('top'), label: m.value.nav.links.home },
   { href: '/demo', label: m.value.nav.links.demo },
-  { href: 'https://app.paskall.co.id', label: m.value.nav.signIn },
 ])
+/** The hero's two button looks, so every button on the site is the same shape. */
+const PRIMARY = 'rounded-lg bg-action font-medium text-white transition-colors hover:bg-action-hover'
+const SECONDARY = 'rounded-lg bg-white/80 font-medium text-ink ring-1 ring-ink/70 backdrop-blur transition-colors hover:bg-ink hover:text-white'
 const open = ref(false)
 /** Clear over the hero at the top; white, with a hairline and a little blur, once the page
  *  moves under it. */
@@ -38,35 +40,40 @@ onBeforeUnmount(() => { document.documentElement.style.overflow = '' })
     "
   >
     <nav class="mx-auto flex w-full max-w-7xl items-center justify-between px-5 py-4 sm:px-8" :aria-label="m.nav.label">
-      <a :href="homeSection('top')" class="flex items-center">
-        <img :src="wordmark" alt="Paskall" class="h-6 w-auto transition-all duration-300"  />
-      </a>
-      <div class="hidden items-center gap-6 lg:flex">
-        <LocaleSwitch />
-        <a v-for="l in LINKS" :key="l.href" :href="l.href" class="text-sm font-medium text-ink transition-colors hover:text-brand">{{ l.label }}</a>
-        <a
-          href="#contact" class="rounded-full bg-brand-deep px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand"
-        >{{ m.nav.requestAccess }}</a>
+      <div class="flex items-center gap-10">
+        <a :href="homeSection('top')" class="flex items-center">
+          <img :src="wordmark" alt="Paskall" class="h-6 w-auto transition-all duration-300"  />
+        </a>
+        <ul class="hidden items-center gap-8 lg:flex">
+          <li v-for="l in LINKS" :key="l.href">
+            <a :href="l.href" class="text-sm font-medium text-ink transition-colors hover:text-brand">{{ l.label }}</a>
+          </li>
+        </ul>
+      </div>
+      <div class="hidden items-center gap-3 lg:flex">
+        <LocaleSwitch class="mr-2" />
+        <a href="https://app.paskall.co.id" :class="SECONDARY" class="px-5 py-2.5 text-sm">{{ m.nav.signIn }}</a>
+        <a href="#contact" :class="PRIMARY" class="px-5 py-2.5 text-sm">{{ m.nav.requestAccess }}</a>
       </div>
       <div class="flex items-center gap-2 lg:hidden">
         <LocaleSwitch />
-        <button type="button" class="rounded-full bg-white/80 p-2 text-ink backdrop-blur" :aria-label="m.nav.menu" :aria-expanded="open" @click="open = !open">
+        <button type="button" class="rounded-lg bg-white/80 p-2 text-ink backdrop-blur" :aria-label="m.nav.menu" :aria-expanded="open" @click="open = !open">
           <component :is="open ? IconClose : IconMenu" class="size-6" />
         </button>
       </div>
     </nav>
-    <!-- On a phone the menu takes the whole screen under the bar: the links large, the ask at
-         the foot where a thumb reaches it. -->
+    <!-- On a phone the menu takes the whole screen under the bar: the pages large, and the two
+         buttons at the foot where a thumb reaches them. -->
     <div v-if="open" class="flex flex-1 flex-col overflow-y-auto border-t border-line px-5 pb-10 pt-8 lg:hidden">
       <ul class="flex flex-col gap-6">
         <li v-for="l in LINKS" :key="l.href">
           <a :href="l.href" class="display block text-3xl text-ink" @click="open = false">{{ l.label }}</a>
         </li>
       </ul>
-      <a
-        href="#contact" class="mt-auto block rounded-full bg-brand-deep px-6 py-4 text-center text-base font-medium text-white"
-        @click="open = false"
-      >{{ m.nav.requestAccess }}</a>
+      <div class="mt-auto flex flex-col gap-3">
+        <a href="#contact" :class="PRIMARY" class="block px-6 py-4 text-center text-base" @click="open = false">{{ m.nav.requestAccess }}</a>
+        <a href="https://app.paskall.co.id" :class="SECONDARY" class="block px-6 py-4 text-center text-base">{{ m.nav.signIn }}</a>
+      </div>
     </div>
   </header>
 </template>

@@ -10,7 +10,7 @@ const id: Messages = {
   nav: {
     label: 'Situs',
     menu: 'Menu',
-    links: { screens: 'Layar', content: 'Konten', publish: 'Publikasi', platforms: 'Platform', faq: 'FAQ', demo: 'Demo' },
+    links: { screens: 'Layar', content: 'Konten', publish: 'Publikasi', platforms: 'Platform', faq: 'FAQ', home: 'Beranda', demo: 'Demo' },
     signIn: 'Masuk',
     requestAccess: 'Request Akses',
   },
@@ -132,7 +132,6 @@ const id: Messages = {
       sending: 'Mengirim…',
       sentTitle: 'Terima kasih!',
       sentBody: 'Permintaan Anda sudah kami terima, dan kami akan segera menghubungi Anda.',
-      orEmail: 'Atau tulis ke kami di',
       errors: {
         name: 'Mohon isi nama Anda.',
         contact: 'Mohon isi email atau nomor telepon agar kami bisa menghubungi Anda.',

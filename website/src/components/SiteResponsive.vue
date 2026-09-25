@@ -13,7 +13,7 @@ const { m } = useI18n()
 <template>
   <section id="responsive" class="mx-auto max-w-7xl px-5 pt-16 sm:px-8 sm:pt-20">
     <div
-      class="brand-sweep reveal relative overflow-hidden rounded-[2rem] px-5 pt-12 text-white sm:rounded-[2.5rem] sm:px-10 sm:pt-14"
+      class="brand-sweep reveal relative overflow-hidden rounded-xl px-5 pt-12 text-white sm:rounded-2xl sm:px-10 sm:pt-14"
     >
       <!-- Faint rings behind the devices, echoing the hero's dome. -->
       <div class="pointer-events-none absolute -bottom-[30rem] hidden sm:block left-1/2 size-[60rem] -translate-x-1/2 rounded-full border border-white/10" aria-hidden="true" />

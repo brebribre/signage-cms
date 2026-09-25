@@ -28,9 +28,9 @@ const PLATFORMS = computed(() => LOOKS.map((l, i) => ({ ...l, ...m.value.platfor
         <ul class="grid gap-2.5 pr-6 pb-6 pt-2 sm:gap-3 sm:pr-8 sm:pb-8 lg:pr-10 lg:pb-10 @xl:grid-cols-3">
           <li
             v-for="p in PLATFORMS" :key="p.badge"
-            class="flex items-start gap-3 rounded-3xl bg-white/90 p-4 shadow-[0_20px_50px_-30px_rgba(0,24,77,0.5)] ring-1 ring-white backdrop-blur @xl:flex-col @xl:gap-4 @xl:p-5"
+            class="flex items-start gap-3 rounded-xl bg-white/90 p-4 shadow-[0_20px_50px_-30px_rgba(0,24,77,0.5)] ring-1 ring-white backdrop-blur @xl:flex-col @xl:gap-4 @xl:p-5"
           >
-            <span class="flex size-10 shrink-0 items-center justify-center rounded-xl @xl:size-12 @xl:rounded-2xl" :class="p.badge">
+            <span class="flex size-10 shrink-0 items-center justify-center rounded-lg @xl:size-12 @xl:rounded-lg" :class="p.badge">
               <component :is="p.icon" class="size-6 @xl:size-7" aria-hidden="true" />
             </span>
             <span>
