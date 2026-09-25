@@ -57,9 +57,21 @@ h1, h2, h3, .display { font-family: var(--font-display); font-weight: 500; lette
   letter-spacing: 0.08em; text-transform: uppercase; line-height: 1.4;
 }
 
-/* The hero's arc: a soft dome of brand tint the product stands in, with two thin rings round it. */
-.hero-dome { background: radial-gradient(120% 100% at 50% 100%, #b9ccf6 0%, #dbe5fb 45%, #eef2fd 75%); }
-.hero-ring { border: 1px solid rgba(0, 51, 153, 0.12); }
+/*
+  The hero's wash: the brand blues glowing in from the top corners and fading to white by the
+  time the page reaches the venue strip, so the headline sits in colour without the ink losing
+  contrast.
+*/
+.hero-wash {
+  background:
+    radial-gradient(55% 50% at 12% 0%, rgba(0, 118, 221, 0.38) 0%, transparent 70%),
+    radial-gradient(50% 45% at 90% 8%, rgba(0, 212, 255, 0.32) 0%, transparent 70%),
+    radial-gradient(70% 60% at 50% 100%, rgba(31, 85, 196, 0.22) 0%, transparent 70%),
+    linear-gradient(180deg, #dbe6fd 0%, #eef3fe 45%, #f7f9ff 80%, #ffffff 100%);
+}
+/* The arc the CMS stands in: a dome of brand blue, deepest at its floor, with two thin rings. */
+.hero-dome { background: radial-gradient(120% 100% at 50% 100%, #0076dd 0%, #4f8fe8 30%, #a9c6f6 62%, #dfe9fd 85%); }
+.hero-ring { border: 1px solid rgba(0, 51, 153, 0.16); }
 
 /* Sections reveal as they arrive: a small, meaningful motion, not a show. */
 .reveal { opacity: 0; transform: translateY(18px); transition: opacity 0.7s cubic-bezier(0.2, 0.7, 0.2, 1), transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1); }
@@ -78,12 +90,6 @@ h1, h2, h3, .display { font-family: var(--font-display); font-weight: 500; lette
 @keyframes tab-progress { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 .tab-progress { animation: tab-progress 4s linear forwards; }
 
-/*
-  A packet running down a wire (SitePublish). Each path declares pathLength="100", so one dash
-  length works for a long trunk and a short drop alike, and the offset simply sweeps past.
-*/
-@keyframes pulse-run { from { stroke-dashoffset: 116; } to { stroke-dashoffset: -16; } }
-.pulse-path { stroke-dasharray: 16 100; animation: pulse-run var(--dur, 0.5s) linear var(--delay, 0s) both; }
 /* A screen changing what it plays: the new content pushes the old one up and out. */
 .swap-enter-active, .swap-leave-active { transition: transform 0.45s cubic-bezier(0.2, 0.7, 0.2, 1); transition-delay: var(--swap-delay, 0ms); }
 .swap-enter-from { transform: translateY(100%); }
@@ -94,7 +100,6 @@ h1, h2, h3, .display { font-family: var(--font-display); font-weight: 500; lette
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 
 @media (prefers-reduced-motion: reduce) {
-  .float, .marquee, .tab-progress, .pulse-path { animation: none; }
-  .pulse-path { opacity: 0; }
+  .float, .marquee, .tab-progress { animation: none; }
   .swap-enter-active, .swap-leave-active, .fade-enter-active, .fade-leave-active { transition: none; }
 }

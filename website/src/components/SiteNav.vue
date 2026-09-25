@@ -23,7 +23,7 @@ onBeforeUnmount(() => window.removeEventListener('scroll', onScroll))
 <template>
   <header
     class="fixed inset-x-0 top-0 z-50 transition-all duration-300"
-    :class="past || open ? 'border-b border-line bg-canvas/90 backdrop-blur' : 'border-b border-transparent bg-canvas'"
+    :class="past || open ? 'border-b border-line bg-canvas/90 backdrop-blur' : 'border-b border-transparent bg-transparent'"
   >
     <nav class="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 sm:px-8" aria-label="Site">
       <a href="#top" class="flex items-center">

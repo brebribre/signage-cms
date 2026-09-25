@@ -1,50 +1,50 @@
 <script setup lang="ts">
 /**
- * Publishing, animated: press once in the CMS and the change runs down the wire to every
- * screen. The screens swap on a stagger rather than together, because that is what it looks
- * like in life and it is what makes the picture read as sending rather than cutting.
+ * Publishing, animated: press once in the CMS, a bar fills as the change goes out, then each
+ * screen downloads it in turn and swaps to the new slide. The screens are the same cards the
+ * hero floats round the CMS, so the page tells one story in one visual language.
  *
  * The loop only runs while the section is on screen, and not at all for a visitor who asked
  * for less motion, who gets the finished state instead.
  */
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import IconArrowForward from '~icons/material-symbols/arrow-forward'
-import IconCheck from '~icons/material-symbols/check'
+import IconCheck from '~icons/material-symbols/check-circle'
+import IconUpload from '~icons/material-symbols/upload'
 
 import FeatureCard from './FeatureCard.vue'
+import ScreenCard from './ScreenCard.vue'
+import { SLIDES } from '@/data/slides'
 
-/** Two campaigns, alternating, so every press genuinely changes what the screens show. */
-const CAMPAIGNS = [
-  { name: 'Welcome', title: 'Welcome', sub: 'Wifi: guest', from: '#00184d', to: '#1f55c4' },
-  { name: 'Autumn menu', title: 'Autumn menu', sub: '2 for 1 until 5pm', from: '#002f96', to: '#0076dd' },
+const SCREENS = [
+  { name: 'Lobby TV', kind: 'Android box' },
+  { name: 'Entrance', kind: 'Smart TV' },
+  { name: 'Cafe', kind: 'Browser' },
 ]
-const SCREENS = ['Lobby TV', 'Entrance totem', 'Cafe screen']
+/** How far apart the screens update, the way a fleet actually does. */
+const STAGGER_MS = 220
+const SEND_MS = 800
+const SYNC_MS = 900
+const PERIOD_MS = 5200
 
-const PERIOD_MS = 4600
-const ARRIVE_MS = 1150
-const RESET_MS = 3100
-
-const cycle = ref(0)
-const state = ref<'idle' | 'sending' | 'done'>('idle')
-/** What the last press sent, so the card keeps naming it while it says "Published" rather
- *  than flipping to the next draft the instant the screens change. */
-const pending = ref(CAMPAIGNS[1])
-/** Bumped on every press, and used to re-key the pulses so their animation restarts. */
-const pulse = ref(0)
+type State = 'idle' | 'sending' | 'syncing' | 'done'
+const state = ref<State>('idle')
+/** What the screens are playing, and what the card is about to send. */
+const live = ref(0)
+const next = () => (live.value + 1) % SLIDES.length
+const outgoing = ref(next())
 const root = ref<HTMLElement>()
 const timers: number[] = []
 let loop: number | undefined
 
-const live = () => cycle.value % CAMPAIGNS.length
-/** The card shows the next draft while it is idle, and what is in flight while it is not. */
-const card = () => (state.value === 'idle' ? CAMPAIGNS[(cycle.value + 1) % CAMPAIGNS.length] : pending.value)
-
 function press() {
-  pending.value = CAMPAIGNS[(cycle.value + 1) % CAMPAIGNS.length]
+  outgoing.value = next()
   state.value = 'sending'
-  pulse.value++
-  timers.push(window.setTimeout(() => { cycle.value++; state.value = 'done' }, ARRIVE_MS))
-  timers.push(window.setTimeout(() => { state.value = 'idle' }, RESET_MS))
+  timers.push(window.setTimeout(() => { state.value = 'syncing' }, SEND_MS))
+  // The slide changes as the first bar fills; each screen's own swap is delayed by its stagger.
+  timers.push(window.setTimeout(() => { live.value = outgoing.value }, SEND_MS + SYNC_MS))
+  timers.push(window.setTimeout(() => { state.value = 'done' }, SEND_MS + SYNC_MS + STAGGER_MS * SCREENS.length + 300))
+  timers.push(window.setTimeout(() => { state.value = 'idle'; outgoing.value = next() }, PERIOD_MS - 700))
 }
 function stop() {
   if (loop) { clearInterval(loop); loop = undefined }
@@ -52,7 +52,7 @@ function stop() {
 }
 function start() {
   if (loop) return
-  press()
+  timers.push(window.setTimeout(press, 600))
   loop = window.setInterval(press, PERIOD_MS)
 }
 
@@ -63,77 +63,59 @@ onMounted(() => {
   onBeforeUnmount(() => io.disconnect())
 })
 onBeforeUnmount(stop)
+
+const thumb = (i: number) => {
+  const s = SLIDES[i]
+  return s.src ? { backgroundImage: `url(${s.src})` } : { background: `linear-gradient(135deg, ${s.from}, ${s.to})` }
+}
 </script>
 
 <template>
   <section id="publish" ref="root">
     <FeatureCard tone="tint" tag="Publish">
       <template #visual>
-        <div class="rounded-3xl bg-white/70 p-4 ring-1 ring-white sm:p-6">
-          <!-- The press. -->
-          <div class="mx-auto w-full max-w-xs rounded-2xl bg-white p-3 shadow-[0_20px_50px_-28px_rgba(0,24,77,0.5)] ring-1 ring-line">
+        <div class="rounded-3xl bg-white/60 p-4 ring-1 ring-white sm:p-6">
+          <!-- The campaign being sent, with its progress along its foot. -->
+          <div class="relative mx-auto max-w-sm overflow-hidden rounded-2xl bg-white p-3 shadow-[0_20px_50px_-28px_rgba(0,24,77,0.5)] ring-1 ring-line">
             <div class="flex items-center gap-3">
-              <span
-                class="size-9 shrink-0 rounded-lg"
-                :style="{ background: `linear-gradient(135deg, ${card().from}, ${card().to})` }"
-                aria-hidden="true"
-              />
+              <span class="h-10 w-14 shrink-0 rounded-lg bg-cover bg-center transition-all duration-500" :style="thumb(outgoing)" aria-hidden="true" />
               <span class="min-w-0 flex-1">
-                <span class="block truncate text-sm text-ink">{{ card().name }}</span>
-                <span class="block text-[11px] text-ink-subtle">3 screens</span>
+                <span class="block truncate text-sm text-ink">{{ SLIDES[outgoing].name }}</span>
+                <span class="block text-[11px] text-ink-subtle">
+                  {{ state === 'idle' ? `Ready for ${SCREENS.length} screens` : state === 'done' ? `On ${SCREENS.length} of ${SCREENS.length} screens` : `Sending to ${SCREENS.length} screens` }}
+                </span>
               </span>
               <span
-                class="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs transition-all duration-200"
-                :class="{
-                  'bg-brand-deep text-white': state === 'idle',
-                  'scale-95 bg-brand text-white': state === 'sending',
-                  'bg-emerald-100 text-emerald-700': state === 'done',
-                }"
+                class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition-colors duration-300"
+                :class="state === 'done' ? 'bg-emerald-50 text-emerald-700' : state === 'idle' ? 'bg-brand-deep text-white' : 'bg-brand-soft text-brand'"
               >
                 <IconCheck v-if="state === 'done'" class="size-3.5" aria-hidden="true" />
-                {{ state === 'sending' ? 'Publishing' : state === 'done' ? 'Published' : 'Publish' }}
+                <IconUpload v-else class="size-3.5" :class="state !== 'idle' && 'animate-pulse'" aria-hidden="true" />
+                {{ state === 'idle' ? 'Publish' : state === 'done' ? 'Published' : 'Publishing' }}
               </span>
+            </div>
+            <div class="absolute inset-x-0 bottom-0 h-1 bg-brand-soft" aria-hidden="true">
+              <div
+                class="h-full origin-left bg-gradient-to-r from-brand to-brand-bright"
+                :class="state === 'idle' ? 'scale-x-0 transition-none' : 'scale-x-100 transition-transform duration-[800ms] ease-out'"
+              />
             </div>
           </div>
 
-          <!-- The wire. The faint paths are always there; the bright ones run on each press. -->
-          <svg class="h-14 w-full sm:h-16" viewBox="0 0 300 80" preserveAspectRatio="none" aria-hidden="true">
-            <g fill="none" stroke="rgba(0,51,153,0.25)" stroke-width="1" stroke-dasharray="4 4">
-              <path d="M150 0 V34" /><path d="M50 34 H250" />
-              <path d="M50 34 V80" /><path d="M150 34 V80" /><path d="M250 34 V80" />
-            </g>
-            <g :key="pulse" fill="none" stroke="#0076dd" stroke-width="2" stroke-linecap="round">
-              <path class="pulse-path" style="--dur: 0.45s" pathLength="100" d="M150 0 V34" />
-              <path class="pulse-path" style="--dur: 0.4s; --delay: 0.35s" pathLength="100" d="M150 34 H50" />
-              <path class="pulse-path" style="--dur: 0.4s; --delay: 0.35s" pathLength="100" d="M150 34 H250" />
-              <path class="pulse-path" style="--dur: 0.35s; --delay: 0.7s" pathLength="100" d="M50 34 V80" />
-              <path class="pulse-path" style="--dur: 0.35s; --delay: 0.55s" pathLength="100" d="M150 34 V80" />
-              <path class="pulse-path" style="--dur: 0.35s; --delay: 0.7s" pathLength="100" d="M250 34 V80" />
-            </g>
-          </svg>
+          <!-- A soft beam down to the screens, lit while the change is travelling. -->
+          <div class="relative mx-auto h-10 w-px bg-brand/15" aria-hidden="true">
+            <div
+              class="absolute inset-x-0 top-0 h-full origin-top bg-gradient-to-b from-brand-bright to-accent transition-transform duration-500 ease-out"
+              :class="state === 'sending' || state === 'syncing' ? 'scale-y-100' : 'scale-y-0'"
+            />
+          </div>
 
-          <!-- The screens, changing on a stagger. -->
           <ul class="grid grid-cols-3 gap-2.5 sm:gap-4">
-            <li
-              v-for="(name, idx) in SCREENS" :key="name"
-              class="rounded-2xl bg-white p-2 shadow-[0_16px_40px_-28px_rgba(0,24,77,0.5)] ring-1 ring-line sm:p-2.5"
-            >
-              <!-- The new content pushes the old one off the top, rather than fading through it:
-                   two sets of words dissolving over each other reads as a glitch, not a change.
-                   Each screen is a little later than the last, the way a fleet actually updates. -->
-              <div class="relative h-16 overflow-hidden rounded-xl sm:h-20" :style="{ '--swap-delay': `${idx * 160}ms` }">
-                <Transition name="swap">
-                  <span
-                    :key="live()"
-                    class="absolute inset-0 flex flex-col justify-center px-2.5"
-                    :style="{ background: `linear-gradient(135deg, ${CAMPAIGNS[live()].from}, ${CAMPAIGNS[live()].to})` }"
-                  >
-                    <span class="display truncate text-[11px] text-white sm:text-sm">{{ CAMPAIGNS[live()].title }}</span>
-                    <span class="truncate text-[9px] text-white/70 sm:text-[11px]">{{ CAMPAIGNS[live()].sub }}</span>
-                  </span>
-                </Transition>
-              </div>
-              <p class="mt-2 truncate px-0.5 text-[11px] text-ink sm:text-sm">{{ name }}</p>
+            <li v-for="(s, i) in SCREENS" :key="s.name">
+              <ScreenCard
+                :active="live" :name="s.name" :kind="s.kind"
+                :delay="i * STAGGER_MS" :sync="state === 'syncing' ? 'filling' : state === 'done' ? 'done' : 'idle'"
+              />
             </li>
           </ul>
         </div>

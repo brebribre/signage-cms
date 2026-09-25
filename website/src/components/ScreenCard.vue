@@ -6,7 +6,11 @@
  */
 import { SLIDES } from '@/data/slides'
 
-defineProps<{ active: number; name: string; kind: string; portrait?: boolean; delay?: number }>()
+defineProps<{
+  active: number; name: string; kind: string; portrait?: boolean; delay?: number
+  /** A publish on its way to this screen: a thin bar fills along its foot, then fades. */
+  sync?: 'idle' | 'filling' | 'done'
+}>()
 </script>
 
 <template>
@@ -26,13 +30,27 @@ defineProps<{ active: number; name: string; kind: string; portrait?: boolean; de
           </div>
         </div>
       </Transition>
+      <!-- The download, drawn as a bar that fills and then fades once the new slide is in. -->
+      <div v-if="sync" class="absolute inset-x-0 bottom-0 h-1 bg-white/20" aria-hidden="true">
+        <div
+          class="h-full origin-left bg-accent"
+          :class="{
+            'scale-x-0 opacity-0': sync === 'idle',
+            'scale-x-100 opacity-100 transition-transform duration-[900ms] ease-out': sync === 'filling',
+            'scale-x-100 opacity-0 transition-opacity duration-500': sync === 'done',
+          }"
+          :style="{ transitionDelay: sync === 'filling' ? `${delay ?? 0}ms` : '0ms' }"
+        />
+      </div>
     </div>
     <div class="flex items-center justify-between gap-2 px-1 pt-2.5 pb-0.5">
       <span class="min-w-0">
         <span class="block truncate text-[13px] text-ink">{{ name }}</span>
         <span class="block truncate text-[11px] text-ink-subtle">{{ kind }}</span>
       </span>
-      <span class="size-2 shrink-0 rounded-full bg-emerald-500" aria-label="Online" />
+      <slot name="status">
+        <span class="size-2 shrink-0 rounded-full bg-emerald-500" aria-label="Online" />
+      </slot>
     </div>
   </div>
 </template>

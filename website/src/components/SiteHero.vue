@@ -3,7 +3,7 @@ import HeroStage from './HeroStage.vue'
 </script>
 
 <template>
-  <section id="top" class="relative overflow-hidden pt-28 sm:pt-36">
+  <section id="top" class="hero-wash relative overflow-hidden pt-28 sm:pt-36">
     <div class="mx-auto max-w-7xl px-5 sm:px-8">
       <div class="mx-auto max-w-3xl text-center">
         <h1 class="reveal text-5xl leading-[1.05] text-ink sm:text-6xl lg:text-7xl">
