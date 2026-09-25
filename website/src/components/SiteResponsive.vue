@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * The CMS on every size of screen a person might run it from: a monitor with the real
- * dashboard, and a tablet and a phone with the same overview laid out for them. The one dark
+ * dashboard, and a tablet and a phone with the same overview laid out for them. The one blue
  * card on the page, so it lands as a change of pace.
  */
 import IconMonitor from '~icons/material-symbols/desktop-windows-outline'
@@ -20,7 +20,7 @@ const DEVICES = [
 <template>
   <section id="responsive" class="mx-auto max-w-7xl px-5 pt-16 sm:px-8 sm:pt-20">
     <div
-      class="navy-glow reveal relative overflow-hidden rounded-[2rem] px-5 pt-12 text-white sm:rounded-[2.5rem] sm:px-10 sm:pt-14"
+      class="brand-sweep reveal relative overflow-hidden rounded-[2rem] px-5 pt-12 text-white sm:rounded-[2.5rem] sm:px-10 sm:pt-14"
     >
       <!-- Faint rings behind the devices, echoing the hero's dome. -->
       <div class="pointer-events-none absolute -bottom-[30rem] hidden sm:block left-1/2 size-[60rem] -translate-x-1/2 rounded-full border border-white/10" aria-hidden="true" />

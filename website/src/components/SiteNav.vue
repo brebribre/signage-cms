@@ -13,7 +13,7 @@ const LINKS = [
   { href: '#faq', label: 'FAQ' },
 ]
 const open = ref(false)
-/** White on the navy hero at the top; ink on white, with a hairline and a little blur, once the
+/** White on the blue hero at the top; ink on white, with a hairline and a little blur, once the
  *  page moves under it. */
 const past = ref(false)
 const onScroll = () => { past.value = window.scrollY > 12 }

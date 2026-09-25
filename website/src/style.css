@@ -57,18 +57,9 @@ h1, h2, h3, .display { font-family: var(--font-display); font-weight: 500; lette
   letter-spacing: 0.08em; text-transform: uppercase; line-height: 1.4;
 }
 
-/*
-  The navy with glows the hero and the responsive card share: the brand blues and the cyan
-  accent lighting a deep navy from the corners and the floor.
-*/
-.navy-glow {
-  background-color: var(--color-brand-deep);
-  background-image:
-    radial-gradient(60% 50% at 15% 0%, rgba(0, 118, 221, 0.55) 0%, transparent 70%),
-    radial-gradient(45% 45% at 90% 20%, rgba(0, 212, 255, 0.35) 0%, transparent 70%),
-    radial-gradient(70% 60% at 50% 110%, rgba(31, 85, 196, 0.8) 0%, transparent 70%);
-}
-/* The arc the CMS stands in: a glow of blue rising off the floor of the navy, with two thin rings. */
+/* The brand sweep the hero and the responsive card share: the logo's two blues, corner to corner. */
+.brand-sweep { background: linear-gradient(to bottom right, #002f96, #0076dd); }
+/* The arc the CMS stands in: a glow rising off the floor of the blue, with two thin rings. */
 .hero-dome { background: radial-gradient(120% 100% at 50% 100%, rgba(0, 212, 255, 0.45) 0%, rgba(0, 118, 221, 0.4) 35%, rgba(79, 143, 232, 0.14) 70%, transparent 90%); }
 .hero-ring { border: 1px solid rgba(0, 51, 153, 0.16); }
 .hero-ring-inverse { border-color: rgba(255, 255, 255, 0.12); }
