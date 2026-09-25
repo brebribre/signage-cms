@@ -10,27 +10,33 @@ const PLANS = [
 </script>
 
 <template>
-  <section id="plans" class="mx-auto max-w-6xl px-5 py-20 sm:px-8 sm:py-28">
-    <div class="reveal max-w-2xl">
-      <p class="text-[13px] uppercase tracking-wider text-brand">Plans</p>
-      <h2 class="mt-3 text-3xl sm:text-4xl">Priced per screen.</h2>
-      <p class="mt-4 text-ink-muted">Pay for screens, never for storage.</p>
+  <section id="plans" class="mx-auto max-w-7xl px-5 py-20 sm:px-8 sm:py-28">
+    <div class="reveal text-center">
+      <span class="tag text-brand-deep">Pricing</span>
+      <h2 class="mt-5 text-4xl leading-[1.1] sm:text-5xl">Priced per screen</h2>
+      <p class="mt-5 text-lg text-ink-muted">Pay for screens, never for storage.</p>
     </div>
-    <ul class="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+    <ul class="mt-14 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       <li
         v-for="p in PLANS" :key="p.name"
-        class="reveal flex flex-col rounded-2xl border p-6"
-        :class="p.featured ? 'border-brand bg-brand-soft/40' : 'border-line bg-canvas'"
+        class="reveal flex flex-col rounded-3xl p-7"
+        :class="p.featured ? 'bg-brand-deep text-white' : 'bg-tint/60 ring-1 ring-tint-strong/60'"
       >
-        <h3 class="text-lg">{{ p.name }}</h3>
-        <p class="display mt-1 text-2xl">{{ p.price }}</p>
-        <p class="mt-1 text-sm text-ink-muted">{{ p.blurb }}</p>
-        <ul class="mt-5 mb-6 flex flex-col gap-2 text-sm">
+        <div class="flex items-center justify-between gap-2">
+          <h3 class="text-lg">{{ p.name }}</h3>
+          <span v-if="p.featured" class="rounded-full bg-accent px-2.5 py-0.5 text-[11px] font-semibold text-brand-deep">Popular</span>
+        </div>
+        <p class="display mt-3 text-3xl">{{ p.price }}</p>
+        <p class="mt-1 text-sm" :class="p.featured ? 'text-white/70' : 'text-ink-muted'">{{ p.blurb }}</p>
+        <ul class="mt-6 mb-8 flex flex-col gap-2.5 text-sm">
           <li v-for="pt in p.points" :key="pt" class="flex items-start gap-2">
-            <IconCheck class="mt-0.5 size-4 shrink-0 text-brand" /> {{ pt }}
+            <IconCheck class="mt-0.5 size-4 shrink-0" :class="p.featured ? 'text-accent' : 'text-brand'" /> {{ pt }}
           </li>
         </ul>
-        <a href="#contact" class="mt-auto inline-flex justify-center rounded-full px-4 py-2 text-sm transition-colors" :class="p.featured ? 'bg-brand text-ink-inverse hover:bg-hover' : 'border border-line-strong text-ink hover:border-ink'">Talk to us</a>
+        <a
+          href="#contact" class="mt-auto inline-flex justify-center rounded-full px-4 py-2.5 text-sm font-medium transition-colors"
+          :class="p.featured ? 'bg-white text-brand-deep hover:bg-sky' : 'bg-brand-deep text-white hover:bg-brand'"
+        >Talk to us</a>
       </li>
     </ul>
   </section>

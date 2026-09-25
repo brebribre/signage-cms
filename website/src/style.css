@@ -5,15 +5,16 @@
   page about it read as one thing: Outfit for display type, Inter for reading, ink on white,
   and the brand blues sampled from the logo (#002f96 → #0076dd, flat mass #003399).
 
-  The layout follows the shape Stripe made standard for infrastructure products: an angled
-  gradient band behind the hero, left-aligned headlines with the product beside them rather
-  than under them, a numbers strip, two-column sections whose heading stays put while the
-  detail scrolls, and one dark section to change the pace.
+  The layout is the calm, card-led shape of a modern product page: a centred headline with the
+  product in the middle of a soft arc and a few stat cards floating round it, a strip of where
+  it runs, then big rounded pastel cards, each with a small outlined tag, a heading and the
+  thing itself. The pastels are tints of the brand blues and the cyan accent rather than a new
+  palette, so the page stays Paskall's.
 */
 @theme {
   --font-sans: "Inter Variable", "Helvetica Neue", Helvetica, Arial, sans-serif;
   --font-display: "Outfit Variable", "Inter Variable", "Helvetica Neue", Arial, sans-serif;
-  --tracking-heading: -0.02em;
+  --tracking-heading: -0.025em;
 
   --color-page: #f1f3f7;
   --color-canvas: #ffffff;
@@ -30,6 +31,12 @@
   --color-brand-deep: #00184d;
   --color-accent: #00d4ff;
 
+  /* The pastel card tones: a periwinkle from the brand blue, a sky from the accent. */
+  --color-tint: #e3eafc;
+  --color-tint-strong: #cbd8f8;
+  --color-sky: #dff6ff;
+  --color-sky-strong: #a8ecff;
+
   --color-ink: #101111;
   --color-ink-muted: #5f6368;
   --color-ink-subtle: #9aa0a6;
@@ -42,31 +49,30 @@ section[id] { scroll-margin-top: 5rem; }
 body { background: var(--color-canvas); color: var(--color-ink); font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
 h1, h2, h3, .display { font-family: var(--font-display); font-weight: 500; letter-spacing: var(--tracking-heading); }
 
-/*
-  The angled band. Stripe's hero is a gradient that ends on a diagonal rather than a straight
-  edge, which is what stops a coloured header looking like a coloured header. Drawn as a
-  clipped block so the angle is real geometry, not a rotated box with overflow to mop up.
-*/
-.angled-band {
-  background:
-    radial-gradient(60% 90% at 78% 8%, rgba(0, 212, 255, 0.5) 0%, transparent 55%),
-    radial-gradient(70% 80% at 12% 0%, rgba(31, 85, 196, 0.85) 0%, transparent 60%),
-    linear-gradient(135deg, #00184d 0%, #002f96 42%, #0076dd 100%);
-  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 7vw), 0 100%);
+/* The small outlined label above a heading. */
+.tag {
+  display: inline-flex; align-items: center; gap: 0.375rem;
+  border: 1px solid currentColor; border-radius: 9999px;
+  padding: 0.2rem 0.7rem; font-size: 11px; font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase; line-height: 1.4;
 }
-/* The mirror of it, for a band that starts on a diagonal. */
-.angled-band-up { clip-path: polygon(0 7vw, 100% 0, 100% 100%, 0 100%); }
 
-.brand-text { background: linear-gradient(90deg, #0076dd, #00d4ff); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.brand-gradient { background: linear-gradient(135deg, #002f96 0%, #003399 45%, #0076dd 100%); }
+/* The hero's arc: a soft dome of brand tint the product stands in, with two thin rings round it. */
+.hero-dome { background: radial-gradient(120% 100% at 50% 100%, #b9ccf6 0%, #dbe5fb 45%, #eef2fd 75%); }
+.hero-ring { border: 1px solid rgba(0, 51, 153, 0.12); }
 
 /* Sections reveal as they arrive: a small, meaningful motion, not a show. */
 .reveal { opacity: 0; transform: translateY(18px); transition: opacity 0.7s cubic-bezier(0.2, 0.7, 0.2, 1), transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1); }
 .reveal.is-in { opacity: 1; transform: none; }
 @media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } }
 
-/* A faint grid, the way infrastructure companies draw "a system". */
-.dot-grid { background-image: radial-gradient(rgba(16, 17, 17, 0.07) 1px, transparent 1px); background-size: 24px 24px; }
+/* The hero's stat cards drift, slightly and out of step, so the picture is alive but not busy. */
+@keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+.float { animation: float 6s ease-in-out infinite; animation-delay: var(--float-delay, 0s); }
+
+/* The venue strip scrolls on its own; the list is doubled so the loop has no seam. */
+@keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.marquee { animation: marquee 32s linear infinite; }
 
 /* The tab tour's countdown: how long the tab showing has left. */
 @keyframes tab-progress { from { transform: scaleX(0); } to { transform: scaleX(1); } }
@@ -83,13 +89,12 @@ h1, h2, h3, .display { font-family: var(--font-display); font-weight: 500; lette
 .swap-enter-from { transform: translateY(100%); }
 .swap-leave-to { transform: translateY(-100%); }
 
-@media (prefers-reduced-motion: reduce) {
-  .tab-progress, .pulse-path { animation: none; }
-  .pulse-path { opacity: 0; }
-  .swap-enter-active, .swap-leave-active { transition: none; }
-}
-
 /* A step's headline changing under its badges: short enough not to be a wait. */
 .fade-enter-active, .fade-leave-active { transition: opacity 0.18s linear; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
-@media (prefers-reduced-motion: reduce) { .fade-enter-active, .fade-leave-active { transition: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .float, .marquee, .tab-progress, .pulse-path { animation: none; }
+  .pulse-path { opacity: 0; }
+  .swap-enter-active, .swap-leave-active, .fade-enter-active, .fade-leave-active { transition: none; }
+}

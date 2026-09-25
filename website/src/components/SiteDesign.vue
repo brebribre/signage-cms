@@ -10,6 +10,7 @@
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 
 import BrowserFrame from './BrowserFrame.vue'
+import FeatureCard from './FeatureCard.vue'
 
 const TABS = [
   {
@@ -60,50 +61,9 @@ onBeforeUnmount(stop)
 </script>
 
 <template>
-  <section id="design" ref="root" class="mx-auto max-w-7xl px-5 py-20 sm:px-8 sm:py-28">
-    <div class="grid gap-10 lg:grid-cols-12 lg:gap-12">
-      <div class="lg:col-span-5">
-        <div class="lg:sticky lg:top-28">
-          <p class="reveal text-[13px] font-medium uppercase tracking-wider text-brand">Content</p>
-
-          <div class="reveal mt-4 flex flex-wrap gap-2" role="tablist" aria-label="The editor">
-            <button
-              v-for="(t, i) in TABS" :key="t.label"
-              type="button" role="tab" :aria-selected="active === i"
-              class="relative inline-flex items-center gap-2 overflow-hidden rounded-full border py-1.5 pl-1.5 pr-4 text-sm transition-colors"
-              :class="active === i ? 'border-brand bg-brand-soft text-brand' : 'border-line text-ink-muted hover:border-line-strong hover:text-ink'"
-              @click="choose(i)"
-            >
-              <span
-                class="inline-flex size-5 items-center justify-center rounded-full text-[11px]"
-                :class="active === i ? 'bg-brand text-white' : 'bg-raised text-ink-subtle'"
-              >{{ t.n }}</span>
-              {{ t.label }}
-              <!-- How long this tab has left, drawn rather than guessed at. Re-keyed so the bar
-                   restarts with the tab rather than carrying on from wherever it was. -->
-              <span
-                v-if="auto && active === i" :key="active"
-                class="tab-progress absolute inset-x-0 bottom-0 h-0.5 origin-left bg-brand"
-              />
-            </button>
-          </div>
-
-          <!-- The step's own headline and line, under the badges that choose it. Held to a
-               minimum height so a shorter step does not shuffle the page as it comes round. -->
-          <!-- The reveal lives on the wrapper, not the keyed child: a child created after the
-               observer has already swept the page would never be told it is on screen. -->
-          <div class="reveal mt-6 min-h-[11rem] sm:min-h-[9rem]">
-            <Transition name="fade" mode="out-in">
-              <div :key="active">
-                <h2 class="text-3xl leading-tight sm:text-4xl">{{ TABS[active].title }}</h2>
-                <p class="mt-4 leading-relaxed text-ink-muted">{{ TABS[active].text }}</p>
-              </div>
-            </Transition>
-          </div>
-        </div>
-      </div>
-
-      <div class="reveal lg:col-span-7">
+  <section id="design" ref="root">
+    <FeatureCard tone="sky" tag="Content" reverse>
+      <template #visual>
         <BrowserFrame :label="TABS[active].chrome">
           <div class="relative aspect-[1.6] w-full bg-page">
             <img
@@ -115,7 +75,40 @@ onBeforeUnmount(stop)
             />
           </div>
         </BrowserFrame>
+      </template>
+
+      <!-- The step's own headline and line, above the pills that choose it. Held to a minimum
+           height so a shorter step does not shuffle the card as it comes round. -->
+      <div class="mt-5 min-h-[12rem] sm:min-h-[10rem]">
+        <Transition name="fade" mode="out-in">
+          <div :key="active">
+            <h2 class="text-4xl leading-[1.1] sm:text-5xl">{{ TABS[active].title }}</h2>
+            <p class="mt-5 max-w-md leading-relaxed text-ink-muted">{{ TABS[active].text }}</p>
+          </div>
+        </Transition>
       </div>
-    </div>
+
+      <div class="mt-6 flex flex-wrap gap-2" role="tablist" aria-label="The editor">
+        <button
+          v-for="(t, i) in TABS" :key="t.label"
+          type="button" role="tab" :aria-selected="active === i"
+          class="relative inline-flex items-center gap-2 overflow-hidden rounded-full py-1.5 pl-1.5 pr-4 text-sm ring-1 transition-colors"
+          :class="active === i ? 'bg-brand-deep text-white ring-brand-deep' : 'bg-white text-ink ring-line hover:ring-line-strong'"
+          @click="choose(i)"
+        >
+          <span
+            class="inline-flex size-6 items-center justify-center rounded-full text-[11px] font-semibold"
+            :class="active === i ? 'bg-accent text-brand-deep' : 'bg-sky-strong text-brand-deep'"
+          >{{ t.n }}</span>
+          {{ t.label }}
+          <!-- How long this tab has left, drawn rather than guessed at. Re-keyed so the bar
+               restarts with the tab rather than carrying on from wherever it was. -->
+          <span
+            v-if="auto && active === i" :key="active"
+            class="tab-progress absolute inset-x-0 bottom-0 h-0.5 origin-left bg-accent"
+          />
+        </button>
+      </div>
+    </FeatureCard>
   </section>
 </template>
