@@ -1,0 +1,126 @@
+/** Every word the site says, in Indonesian. Same shape as en.ts, which the type enforces. */
+import type { Messages } from './en'
+
+const id: Messages = {
+  meta: {
+    title: 'Paskall. Digital signage yang berjalan sendiri',
+    description: 'Paskall menayangkan gambar, video, dan situs web langsung di setiap layar Anda: digital signage, smart TV, dan Android box.',
+  },
+  lang: { label: 'Bahasa', en: 'English', id: 'Bahasa Indonesia' },
+  nav: {
+    label: 'Situs',
+    menu: 'Menu',
+    links: { screens: 'Layar', content: 'Konten', publish: 'Publikasi', platforms: 'Platform', faq: 'FAQ' },
+    signIn: 'Masuk',
+    requestAccess: 'Minta akses',
+  },
+  hero: {
+    title: 'Kenali cara cerdas mengelola layar Anda',
+    subtitle: 'Gambar, video, dan situs web langsung di digital signage, smart TV, dan Android box, semuanya dikelola bersama dari satu dasbor.',
+    cta: 'Minta akses',
+    screens: [
+      { name: 'TV Lobi', kind: 'Android box' },
+      { name: 'Totem pintu masuk', kind: 'Smart TV' },
+      { name: 'Resepsionis', kind: 'Android box' },
+      { name: 'Layar kafe', kind: 'Browser' },
+    ],
+    campaign: 'Kampanye toko',
+    hint: 'Pilih playlist. Semua layar ikut berubah.',
+    picker: 'Yang ditayangkan layar',
+  },
+  slides: [
+    { name: 'Jam buka', title: 'Buka sampai 21.00', sub: 'Dapur tutup pukul 20.30' },
+    { name: 'Menu makan siang', title: 'Menu spesial hari ini', sub: 'Tanyakan di kasir' },
+    { name: 'Lowongan kerja', title: 'Kami sedang merekrut', sub: 'Pindai di resepsionis' },
+    { name: 'Selamat datang', title: 'Selamat datang', sub: 'Wifi: tamu' },
+  ],
+  online: 'Daring',
+  venues: {
+    label: 'Tempat Paskall digunakan',
+    items: ['Kafe', 'LOBI', 'klinik', 'Ritel', 'KAMPUS', 'Restoran', 'Hotel', 'SHOWROOM'],
+  },
+  features: {
+    title: 'Platform signage yang dirancang untuk berjalan sendiri',
+    subtitle: 'Hubungkan layar, rancang tayangannya, lalu publikasikan ke semua layar sekaligus.',
+  },
+  connect: {
+    tag: 'Layar',
+    title: 'Hubungkan layar Anda',
+    body: 'Satu kode untuk layar apa pun. Pemutar menampilkan enam huruf; ketikkan di dasbor, dan layar langsung bergabung. Android box, smart TV, dan browser dikelola berdampingan.',
+    statUnder: 'Kurang dari',
+    statValue: '1 menit',
+    statCaption: 'Untuk menghubungkan layar baru',
+    live: 'Aktif',
+    photoAlt: 'Layar kafe yang dijalankan Paskall',
+    screens: [
+      { name: 'TV Lobi', kind: 'Android box' },
+      { name: 'Totem pintu masuk', kind: 'Smart TV' },
+      { name: 'Layar kafe', kind: 'Browser' },
+    ],
+  },
+  design: {
+    tag: 'Konten',
+    tablist: 'Editor',
+    inPaskall: 'di Paskall',
+    tabs: [
+      { label: 'Desain', title: 'Desain konten Anda.', text: 'Foto, video, situs web langsung, dan teks dalam satu kanvas, sesuai bentuk asli layar.' },
+      { label: 'Playlist', title: 'Putar secara berurutan.', text: 'Susun desain sesuai urutan tayang, lalu atur berapa lama masing-masing tampil. Semuanya diputar bergantian.' },
+      { label: 'Jadwal', title: 'Tentukan di mana dan kapan.', text: 'Pilih layar dan jamnya. Satu putaran sepanjang hari, atau konten berbeda menurut jam dan hari.' },
+    ],
+  },
+  publish: {
+    tag: 'Publikasi',
+    title: 'Publikasikan dengan mudah',
+    body: 'Perubahan terpublikasi dalam hitungan detik.',
+    ready: 'Siap dipublikasikan',
+    sending: 'Mengirim ke layar',
+    live: 'Tayang di semua layar',
+    button: 'Publikasikan',
+    publishing: 'Mengirim',
+    published: 'Terpublikasi',
+    screens: [
+      { name: 'TV Lobi', kind: 'Android box' },
+      { name: 'Pintu masuk', kind: 'Smart TV' },
+      { name: 'Kafe', kind: 'Browser' },
+    ],
+  },
+  platforms: {
+    tag: 'Platform',
+    title: 'Dirancang untuk fleksibilitas',
+    subtitle: 'Satu pemutar, di layar apa pun yang sudah Anda miliki.',
+    items: [
+      { name: 'Android', text: 'Pasang .apk kami di Android TV box dan perangkat Android lainnya.' },
+      { name: 'Browser Smart TV', text: 'Memanfaatkan browser bawaan smart TV, tanpa perlu instalasi.' },
+      { name: 'Browser', text: 'Perangkat apa pun yang bisa menjalankan browser.' },
+    ],
+  },
+  responsive: {
+    tag: 'Responsif',
+    titleLead: 'Pantau dari',
+    titleAccent: 'mana saja',
+    body: 'Paskall CMS dirancang agar bisa diakses dari ponsel, tablet, dan monitor Anda.',
+    devices: ['Ponsel', 'Tablet', 'Monitor'],
+    monitorAlt: 'Dasbor Paskall di monitor',
+  },
+  faq: {
+    title: 'Pertanyaan yang Sering Diajukan',
+    more: 'Ada pertanyaan lain?',
+    write: 'Tulis ke kami',
+    items: [
+      { q: 'Perangkat apa yang saya butuhkan?', a: 'Android TV box atau tablet apa pun, atau smart TV dengan browser. Kendali jarak jauh penuh memerlukan pemutar Android yang diatur sebagai Device Owner, dan kami bisa membantu mengaturnya.' },
+      { q: 'Apa yang terjadi jika internet terputus?', a: 'Tidak ada yang terlihat. File tersimpan di layar, jadi tayangan terus berputar dan menyusul begitu jaringan kembali.' },
+      { q: 'Apakah staf bisa mengubah konten dengan aman?', a: 'Bisa. Mereka hanya mendapat layar yang Anda izinkan, dan setiap perubahan pada layar menunggu persetujuan Anda.' },
+      { q: 'Seberapa besar video yang bisa diunggah?', a: 'Unggah file aslinya. Paskall membuat salinan yang bisa diputar di setiap layar: 4K untuk Android box dan 1080p untuk browser TV.' },
+    ],
+  },
+  footer: {
+    tag: 'Mulai',
+    title: 'Pasang layar pertama Anda di Paskall',
+    body: 'Beri tahu kami berapa layar Anda. Kami siapkan akunnya, Anda cukup mengetik satu kode.',
+    cta: 'Minta akses',
+    signIn: 'Masuk',
+    mailSubject: 'Akses Paskall',
+  },
+}
+
+export default id

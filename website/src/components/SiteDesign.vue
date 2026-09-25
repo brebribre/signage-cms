@@ -7,28 +7,20 @@
  * All four shots are in the DOM and cross fade on opacity, so switching never shows a gap
  * while an image decodes.
  */
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 import BrowserFrame from './BrowserFrame.vue'
 import FeatureCard from './FeatureCard.vue'
+import { useI18n } from '@/i18n'
 
-const TABS = [
-  {
-    n: '1', label: 'Design', chrome: 'paskall · Scene', src: '/shots/scene.webp',
-    title: 'Design your content.',
-    text: 'Photos, video, live websites and text on one canvas, at the screen’s real shape.',
-  },
-  {
-    n: '2', label: 'Playlist', chrome: 'paskall · Playlist', src: '/shots/playlist.webp',
-    title: 'Play them in order.',
-    text: 'Put your designs in the order they should run, and set how long each one holds. They play one after another.',
-  },
-  {
-    n: '3', label: 'Schedule', chrome: 'paskall · Campaign', src: '/shots/campaign.webp',
-    title: 'Say where and when.',
-    text: 'Choose the screens and the hours. One loop all day, or different content by time and weekday.',
-  },
+/** The shots and their window titles are the CMS's own, in English; the words are the page's. */
+const SHOTS = [
+  { n: '1', chrome: 'paskall · Scene', src: '/shots/scene.webp' },
+  { n: '2', chrome: 'paskall · Playlist', src: '/shots/playlist.webp' },
+  { n: '3', chrome: 'paskall · Campaign', src: '/shots/campaign.webp' },
 ]
+const { m } = useI18n()
+const TABS = computed(() => SHOTS.map((s, i) => ({ ...s, ...m.value.design.tabs[i] })))
 const DWELL_MS = 4000
 
 const active = ref(0)
@@ -41,7 +33,7 @@ function stop() {
 }
 function start() {
   if (timer || !auto.value) return
-  timer = window.setInterval(() => { active.value = (active.value + 1) % TABS.length }, DWELL_MS)
+  timer = window.setInterval(() => { active.value = (active.value + 1) % SHOTS.length }, DWELL_MS)
 }
 function choose(i: number) {
   active.value = i
@@ -62,13 +54,13 @@ onBeforeUnmount(stop)
 
 <template>
   <section id="design" ref="root">
-    <FeatureCard tone="sky" tag="Content" reverse>
+    <FeatureCard tone="sky" :tag="m.design.tag" reverse>
       <template #visual>
         <BrowserFrame :label="TABS[active].chrome">
           <div class="relative aspect-[1.6] w-full bg-page">
             <img
-              v-for="(t, i) in TABS" :key="t.label"
-              :src="t.src" :alt="`${t.label} in Paskall`"
+              v-for="(t, i) in TABS" :key="t.n"
+              :src="t.src" :alt="`${t.label} ${m.design.inPaskall}`"
               class="absolute inset-0 size-full object-cover transition-opacity duration-500"
               :class="active === i ? 'opacity-100' : 'opacity-0'"
               loading="lazy" decoding="async"
@@ -88,16 +80,16 @@ onBeforeUnmount(stop)
         </Transition>
       </div>
 
-      <div class="mt-5 flex flex-nowrap gap-1.5 sm:mt-6 sm:gap-2" role="tablist" aria-label="The editor">
+      <div class="mt-5 flex flex-nowrap gap-1.5 sm:mt-6 sm:gap-2" role="tablist" :aria-label="m.design.tablist">
         <button
-          v-for="(t, i) in TABS" :key="t.label"
+          v-for="(t, i) in TABS" :key="t.n"
           type="button" role="tab" :aria-selected="active === i"
-          class="relative inline-flex shrink-0 items-center gap-1.5 overflow-hidden rounded-full py-1 pl-1 pr-3 text-xs ring-1 transition-colors sm:gap-2 sm:py-1.5 sm:pl-1.5 sm:pr-4 sm:text-sm"
+          class="relative inline-flex shrink-0 items-center gap-1.5 overflow-hidden rounded-full py-1 pl-3 pr-3 text-xs ring-1 min-[360px]:pl-1 transition-colors sm:gap-2 sm:py-1.5 sm:pl-1.5 sm:pr-4 sm:text-sm"
           :class="active === i ? 'bg-brand-deep text-white ring-brand-deep' : 'bg-white text-ink ring-line hover:ring-line-strong'"
           @click="choose(i)"
         >
           <span
-            class="inline-flex size-5 items-center justify-center rounded-full text-[10px] font-semibold sm:size-6 sm:text-[11px]"
+            class="hidden size-5 items-center justify-center rounded-full text-[10px] font-semibold min-[360px]:inline-flex sm:size-6 sm:text-[11px]"
             :class="active === i ? 'bg-accent text-brand-deep' : 'bg-sky-strong text-brand-deep'"
           >{{ t.n }}</span>
           {{ t.label }}

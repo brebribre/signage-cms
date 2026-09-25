@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import HeroStage from './HeroStage.vue'
+import { useI18n } from '@/i18n'
+
+const { m } = useI18n()
 </script>
 
 <template>
@@ -16,15 +19,14 @@ import HeroStage from './HeroStage.vue'
     <div class="relative mx-auto max-w-7xl px-5 sm:px-8">
       <div class="mx-auto max-w-3xl text-center">
         <h1 class="reveal text-5xl leading-[1.05] text-white sm:text-6xl lg:text-7xl">
-          Meet the smart way to manage your screens
+          {{ m.hero.title }}
         </h1>
         <p class="reveal mx-auto mt-6 max-w-lg text-[15px] leading-relaxed text-white/75 sm:text-base">
-          Pictures, videos and live websites on digital signage, smart TVs and Android boxes, all
-          run as one fleet from a single dashboard.
+          {{ m.hero.subtitle }}
         </p>
         <div class="reveal mt-9 flex flex-wrap items-center justify-center gap-3">
           <a href="#contact" class="rounded-full bg-white px-6 py-3.5 text-sm font-medium text-brand-deep transition-colors hover:bg-sky">
-            Request access
+            {{ m.hero.cta }}
           </a>
         </div>
       </div>

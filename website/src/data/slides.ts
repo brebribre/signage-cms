@@ -1,5 +1,10 @@
 /** What the hero's screens can play, and what the little CMS among them lists. One source, so the
- *  panel and the screen can never disagree about what is on air. */
+ *  panel and the screen can never disagree about what is on air. The pictures are fixed; the
+ *  words come from the current language. */
+import { computed } from 'vue'
+
+import { useI18n } from '@/i18n'
+
 export interface Slide {
   /** What the playlist is called in the CMS panel. */
   name: string
@@ -12,9 +17,15 @@ export interface Slide {
   to?: string
 }
 
-export const SLIDES: Slide[] = [
-  { name: 'Opening hours', title: 'Open until 9pm', sub: 'Kitchen closes at 8:30', from: '#002f96', to: '#0076dd' },
-  { name: 'Lunch menu', title: 'Today’s special', sub: 'Ask at the counter', src: '/shots/screen-totem.webp' },
-  { name: 'Recruiting', title: 'Now hiring', sub: 'Scan at reception', from: '#00184d', to: '#1f55c4' },
-  { name: 'Welcome', title: 'Welcome', sub: 'Wifi: guest', src: '/shots/screen-lobby.webp' },
+const LOOKS: Pick<Slide, 'src' | 'from' | 'to'>[] = [
+  { from: '#002f96', to: '#0076dd' },
+  { src: '/shots/screen-totem.webp' },
+  { from: '#00184d', to: '#1f55c4' },
+  { src: '/shots/screen-lobby.webp' },
 ]
+export const SLIDE_COUNT = LOOKS.length
+
+export function useSlides() {
+  const { m } = useI18n()
+  return computed<Slide[]>(() => LOOKS.map((look, i) => ({ ...m.value.slides[i], ...look })))
+}

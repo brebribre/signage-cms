@@ -4,20 +4,26 @@
  * kinds of places Paskall is made for, set in a mix of type the way a logo wall is, so the
  * rhythm is there without claiming names we have no right to.
  */
-const VENUES = [
-  { label: 'Cafés', cls: 'font-serif italic text-2xl' },
-  { label: 'LOBBIES', cls: 'display font-semibold tracking-[0.18em] text-xl' },
-  { label: 'clinics', cls: 'display text-2xl font-light' },
-  { label: 'Retail', cls: 'font-serif text-2xl' },
-  { label: 'CAMPUSES', cls: 'font-mono text-lg tracking-widest' },
-  { label: 'Restaurants', cls: 'display text-2xl font-bold tracking-tight' },
-  { label: 'Hotels', cls: 'font-serif italic text-2xl font-semibold' },
-  { label: 'SHOWROOMS', cls: 'display text-lg font-medium tracking-[0.3em]' },
+import { computed } from 'vue'
+
+import { useI18n } from '@/i18n'
+
+const STYLES = [
+  'font-serif italic text-2xl',
+  'display font-semibold tracking-[0.18em] text-xl',
+  'display text-2xl font-light',
+  'font-serif text-2xl',
+  'font-mono text-lg tracking-widest',
+  'display text-2xl font-bold tracking-tight',
+  'font-serif italic text-2xl font-semibold',
+  'display text-lg font-medium tracking-[0.3em]',
 ]
+const { m } = useI18n()
+const VENUES = computed(() => m.value.venues.items.map((label, i) => ({ label, cls: STYLES[i] })))
 </script>
 
 <template>
-  <section class="border-b border-line" aria-label="Where Paskall runs">
+  <section class="border-b border-line" :aria-label="m.venues.label">
     <div class="mx-auto max-w-7xl overflow-hidden px-5 py-10 sm:px-8">
       <!-- Faded at both ends so the loop slides in and out rather than being cut. -->
       <div class="[mask-image:linear-gradient(90deg,transparent,#000_12%,#000_88%,transparent)]">

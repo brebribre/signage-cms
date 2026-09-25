@@ -13,7 +13,8 @@ import IconSettings from '~icons/material-symbols/settings-outline'
 import IconTv from '~icons/material-symbols/tv-outline'
 
 import mark from '@/assets/paskall-mark.png'
-import { SLIDES } from '@/data/slides'
+import { useSlides } from '@/data/slides'
+import { useI18n } from '@/i18n'
 
 defineProps<{ active: number; screens: number }>()
 const emit = defineEmits<{ select: [index: number] }>()
@@ -26,8 +27,10 @@ const NAV = [
   { icon: IconCampaign, label: 'Campaigns', current: true },
   { icon: IconSettings, label: 'Settings' },
 ]
+const { m } = useI18n()
+const slides = useSlides()
 const thumb = (i: number) => {
-  const s = SLIDES[i]
+  const s = slides.value[i]
   return s.src ? { backgroundImage: `url(${s.src})` } : { background: `linear-gradient(135deg, ${s.from}, ${s.to})` }
 }
 </script>
@@ -58,16 +61,16 @@ const thumb = (i: number) => {
       <div class="min-w-0 flex-1 bg-page/60 p-4 sm:p-6">
         <div class="flex items-start justify-between gap-3">
           <div>
-            <p class="display text-xl text-ink sm:text-2xl">Store campaign</p>
-            <p class="mt-0.5 text-xs text-ink-muted">Pick a playlist. Every screen changes.</p>
+            <p class="display text-xl text-ink sm:text-2xl">{{ m.hero.campaign }}</p>
+            <p class="mt-0.5 text-xs text-ink-muted">{{ m.hero.hint }}</p>
           </div>
           <span class="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] text-emerald-700">
             Playing on {{ screens }} of {{ screens }}
           </span>
         </div>
 
-        <ul class="mt-4 flex flex-col gap-2" role="radiogroup" aria-label="What the screens play">
-          <li v-for="(s, i) in SLIDES" :key="s.name">
+        <ul class="mt-4 flex flex-col gap-2" role="radiogroup" :aria-label="m.hero.picker">
+          <li v-for="(s, i) in slides" :key="i">
             <button
               type="button" role="radio" :aria-checked="active === i"
               class="flex w-full items-center gap-3 rounded-2xl bg-canvas p-2 pr-3 text-left ring-1 transition-all duration-200"

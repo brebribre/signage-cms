@@ -7,19 +7,18 @@
  * The loop only runs while the section is on screen, and not at all for a visitor who asked
  * for less motion, who gets the finished state instead.
  */
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import IconCheck from '~icons/material-symbols/check-circle'
 import IconUpload from '~icons/material-symbols/upload'
 
 import FeatureCard from './FeatureCard.vue'
 import ScreenCard from './ScreenCard.vue'
-import { SLIDES } from '@/data/slides'
+import { SLIDE_COUNT, useSlides } from '@/data/slides'
+import { useI18n } from '@/i18n'
 
-const SCREENS = [
-  { name: 'Lobby TV', kind: 'Android box' },
-  { name: 'Entrance', kind: 'Smart TV' },
-  { name: 'Cafe', kind: 'Browser' },
-]
+const { m } = useI18n()
+const slides = useSlides()
+const SCREENS = computed(() => m.value.publish.screens)
 /** How far apart the screens update, the way a fleet actually does. */
 const STAGGER_MS = 220
 const SEND_MS = 800
@@ -30,7 +29,7 @@ type State = 'idle' | 'sending' | 'syncing' | 'done'
 const state = ref<State>('idle')
 /** What the screens are playing, and what the card is about to send. */
 const live = ref(0)
-const next = () => (live.value + 1) % SLIDES.length
+const next = () => (live.value + 1) % SLIDE_COUNT
 const outgoing = ref(next())
 const root = ref<HTMLElement>()
 const timers: number[] = []
@@ -42,7 +41,7 @@ function press() {
   timers.push(window.setTimeout(() => { state.value = 'syncing' }, SEND_MS))
   // The slide changes as the first bar fills; each screen's own swap is delayed by its stagger.
   timers.push(window.setTimeout(() => { live.value = outgoing.value }, SEND_MS + SYNC_MS))
-  timers.push(window.setTimeout(() => { state.value = 'done' }, SEND_MS + SYNC_MS + STAGGER_MS * SCREENS.length + 300))
+  timers.push(window.setTimeout(() => { state.value = 'done' }, SEND_MS + SYNC_MS + STAGGER_MS * SCREENS.value.length + 300))
   timers.push(window.setTimeout(() => { state.value = 'idle'; outgoing.value = next() }, PERIOD_MS - 700))
 }
 function stop() {
@@ -64,14 +63,14 @@ onMounted(() => {
 onBeforeUnmount(stop)
 
 const thumb = (i: number) => {
-  const s = SLIDES[i]
+  const s = slides.value[i]
   return s.src ? { backgroundImage: `url(${s.src})` } : { background: `linear-gradient(135deg, ${s.from}, ${s.to})` }
 }
 </script>
 
 <template>
   <section id="publish" ref="root">
-    <FeatureCard tone="tint" tag="Publish">
+    <FeatureCard tone="tint" :tag="m.publish.tag">
       <template #visual>
         <div class="rounded-3xl bg-white/60 p-4 ring-1 ring-white sm:p-6">
           <!-- The campaign being sent, with its progress along its foot. -->
@@ -79,9 +78,9 @@ const thumb = (i: number) => {
             <div class="flex items-center gap-3">
               <span class="h-10 w-12 shrink-0 rounded-lg sm:w-14 bg-cover bg-center transition-all duration-500" :style="thumb(outgoing)" aria-hidden="true" />
               <span class="min-w-0 flex-1">
-                <span class="block truncate text-sm text-ink">{{ SLIDES[outgoing].name }}</span>
+                <span class="block truncate text-sm text-ink">{{ slides[outgoing].name }}</span>
                 <span class="block truncate text-[11px] text-ink-subtle">
-                  {{ state === 'idle' ? 'Ready to publish' : state === 'done' ? 'Live on every screen' : 'Sending to screens' }}
+                  {{ state === 'idle' ? m.publish.ready : state === 'done' ? m.publish.live : m.publish.sending }}
                 </span>
               </span>
               <span
@@ -90,7 +89,7 @@ const thumb = (i: number) => {
               >
                 <IconCheck v-if="state === 'done'" class="size-3.5" aria-hidden="true" />
                 <IconUpload v-else class="size-3.5" :class="state !== 'idle' && 'animate-pulse'" aria-hidden="true" />
-                {{ state === 'idle' ? 'Publish' : state === 'done' ? 'Published' : 'Publishing' }}
+                {{ state === 'idle' ? m.publish.button : state === 'done' ? m.publish.published : m.publish.publishing }}
               </span>
             </div>
             <div class="absolute inset-x-0 bottom-0 h-1 bg-brand-soft" aria-hidden="true">
@@ -111,7 +110,7 @@ const thumb = (i: number) => {
 
           <!-- One screen on a phone, where three would be too small to read; the fleet from sm up. -->
           <ul class="grid gap-2.5 sm:grid-cols-3 sm:gap-4">
-            <li v-for="(s, i) in SCREENS" :key="s.name" :class="i === 0 ? 'mx-auto w-full max-w-[15rem] sm:max-w-none' : 'hidden sm:block'">
+            <li v-for="(s, i) in SCREENS" :key="i" :class="i === 0 ? 'mx-auto w-full max-w-[15rem] sm:max-w-none' : 'hidden sm:block'">
               <ScreenCard
                 :active="live" :name="s.name" :kind="s.kind"
                 :delay="i * STAGGER_MS" :sync="state === 'syncing' ? 'filling' : state === 'done' ? 'done' : 'idle'"
@@ -121,9 +120,9 @@ const thumb = (i: number) => {
         </div>
       </template>
 
-      <h2 class="mt-5 text-4xl leading-[1.1] sm:text-5xl">Publish them effortlessly</h2>
+      <h2 class="mt-5 text-4xl leading-[1.1] sm:text-5xl">{{ m.publish.title }}</h2>
       <p class="mt-5 max-w-md leading-relaxed text-ink-muted">
-        Changes are published in seconds.
+        {{ m.publish.body }}
       </p>
     </FeatureCard>
   </section>

@@ -4,13 +4,17 @@
  * shape, playing whatever the CMS has on air, and its name under it. The new slide pushes the
  * old one out, a little later on each screen, the way a fleet actually updates.
  */
-import { SLIDES } from '@/data/slides'
+import { useSlides } from '@/data/slides'
+import { useI18n } from '@/i18n'
 
 defineProps<{
   active: number; name: string; kind: string; portrait?: boolean; delay?: number
   /** A publish on its way to this screen: a thin bar fills along its foot, then fades. */
   sync?: 'idle' | 'filling' | 'done'
 }>()
+
+const { m } = useI18n()
+const slides = useSlides()
 </script>
 
 <template>
@@ -22,11 +26,11 @@ defineProps<{
     >
       <Transition name="swap">
         <div :key="active" class="absolute inset-0">
-          <img v-if="SLIDES[active].src" :src="SLIDES[active].src" alt="" class="size-full object-cover" decoding="async" />
-          <div v-else class="size-full" :style="{ background: `linear-gradient(150deg, ${SLIDES[active].from}, ${SLIDES[active].to})` }" />
+          <img v-if="slides[active].src" :src="slides[active].src" alt="" class="size-full object-cover" decoding="async" />
+          <div v-else class="size-full" :style="{ background: `linear-gradient(150deg, ${slides[active].from}, ${slides[active].to})` }" />
           <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-3 pb-2.5 pt-8">
-            <p class="display truncate text-sm leading-tight text-white">{{ SLIDES[active].title }}</p>
-            <p class="truncate text-[10px] text-white/75">{{ SLIDES[active].sub }}</p>
+            <p class="display truncate text-sm leading-tight text-white">{{ slides[active].title }}</p>
+            <p class="truncate text-[10px] text-white/75">{{ slides[active].sub }}</p>
           </div>
         </div>
       </Transition>
@@ -49,7 +53,7 @@ defineProps<{
         <span class="block truncate text-[11px] text-ink-subtle">{{ kind }}</span>
       </span>
       <slot name="status">
-        <span class="size-2 shrink-0 rounded-full bg-emerald-500" aria-label="Online" />
+        <span class="size-2 shrink-0 rounded-full bg-emerald-500" :aria-label="m.online" />
       </slot>
     </div>
   </div>

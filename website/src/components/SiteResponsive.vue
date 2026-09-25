@@ -8,13 +8,14 @@ import IconMonitor from '~icons/material-symbols/desktop-windows-outline'
 import IconPhone from '~icons/material-symbols/smartphone-outline'
 import IconTablet from '~icons/material-symbols/tablet-outline'
 
-import MiniCms from './MiniCms.vue'
+import { computed } from 'vue'
 
-const DEVICES = [
-  { icon: IconPhone, label: 'Phones' },
-  { icon: IconTablet, label: 'Tablets' },
-  { icon: IconMonitor, label: 'Monitors' },
-]
+import MiniCms from './MiniCms.vue'
+import { useI18n } from '@/i18n'
+
+const ICONS = [IconPhone, IconTablet, IconMonitor]
+const { m } = useI18n()
+const DEVICES = computed(() => m.value.responsive.devices.map((label, i) => ({ icon: ICONS[i], label })))
 </script>
 
 <template>
@@ -27,13 +28,13 @@ const DEVICES = [
       <div class="pointer-events-none absolute -bottom-[22rem] hidden sm:block left-1/2 size-[44rem] -translate-x-1/2 rounded-full border border-white/10" aria-hidden="true" />
 
       <div class="relative mx-auto max-w-2xl text-center">
-        <span class="tag text-accent">Responsive</span>
-        <h2 class="mt-4 text-4xl leading-[1.1] sm:text-5xl">Observe from <span class="bg-gradient-to-r from-accent to-[#7fb6ff] bg-clip-text text-transparent">anywhere</span></h2>
+        <span class="tag text-accent">{{ m.responsive.tag }}</span>
+        <h2 class="mt-4 text-4xl leading-[1.1] sm:text-5xl">{{ m.responsive.titleLead }} <span class="bg-gradient-to-r from-accent to-[#7fb6ff] bg-clip-text text-transparent">{{ m.responsive.titleAccent }}</span></h2>
         <p class="mt-4 text-lg text-white/75">
-          Paskall CMS is designed to be accessible from your phone, tablet and monitor.
+          {{ m.responsive.body }}
         </p>
         <ul class="mt-6 flex flex-wrap justify-center gap-2.5">
-          <li v-for="d in DEVICES" :key="d.label" class="flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm ring-1 ring-white/15 backdrop-blur">
+          <li v-for="(d, i) in DEVICES" :key="i" class="flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm ring-1 ring-white/15 backdrop-blur">
             <component :is="d.icon" class="size-4 text-accent" aria-hidden="true" /> {{ d.label }}
           </li>
         </ul>
@@ -47,7 +48,7 @@ const DEVICES = [
           <!-- Monitor. -->
           <div class="absolute left-[15%] top-0 w-[70%]">
             <div class="rounded-[1.4%/2.2%] bg-[#0b0e14] p-[1.1%] shadow-[0_40px_100px_-30px_rgba(0,0,0,0.7)] ring-1 ring-white/15">
-              <img src="/shots/overview.webp" alt="The Paskall dashboard on a monitor" class="block aspect-[16/10] w-full rounded-[0.6%/1%] object-cover object-left-top" loading="lazy" decoding="async" />
+              <img src="/shots/overview.webp" :alt="m.responsive.monitorAlt" class="block aspect-[16/10] w-full rounded-[0.6%/1%] object-cover object-left-top" loading="lazy" decoding="async" />
             </div>
             <div class="mx-auto h-[1.8vw] max-h-6 w-[14%] bg-gradient-to-b from-[#2a2f3a] to-[#171b23]" aria-hidden="true" />
             <div class="mx-auto h-[0.7vw] max-h-2.5 w-[34%] rounded-t-md bg-[#2a2f3a]" aria-hidden="true" />

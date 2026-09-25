@@ -7,19 +7,22 @@
  * cycling the moment someone picks a playlist themselves, because taking the wheel and then
  * being overridden is the rudest thing an auto-playing demo can do.
  */
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 import CmsWindow from './CmsWindow.vue'
 import ScreenCard from './ScreenCard.vue'
-import { SLIDES } from '@/data/slides'
+import { SLIDE_COUNT } from '@/data/slides'
+import { useI18n } from '@/i18n'
 
 /** Where each screen floats round the CMS. Only on a wide page; a phone shows the CMS alone. */
-const SCREENS = [
-  { name: 'Lobby TV', kind: 'Android box', pos: 'lg:left-0 lg:top-10 lg:w-56', delay: 0 },
-  { name: 'Entrance totem', kind: 'Smart TV', portrait: true, pos: 'lg:left-16 lg:bottom-6 lg:w-36', delay: 160 },
-  { name: 'Reception', kind: 'Android box', portrait: true, pos: 'lg:right-14 lg:top-0 lg:w-36', delay: 320 },
-  { name: 'Cafe screen', kind: 'Browser', pos: 'lg:right-0 lg:bottom-16 lg:w-56', delay: 480 },
+const PLACES = [
+  { pos: 'lg:left-0 lg:top-10 lg:w-56', delay: 0 },
+  { portrait: true, pos: 'lg:left-16 lg:bottom-6 lg:w-36', delay: 160 },
+  { portrait: true, pos: 'lg:right-14 lg:top-0 lg:w-36', delay: 320 },
+  { pos: 'lg:right-0 lg:bottom-16 lg:w-56', delay: 480 },
 ]
+const { m } = useI18n()
+const SCREENS = computed(() => PLACES.map((p, i) => ({ ...p, ...m.value.hero.screens[i] })))
 
 const CYCLE_MS = 3600
 const active = ref(0)
@@ -33,7 +36,7 @@ function choose(i: number) {
 
 onMounted(() => {
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-  timer = window.setInterval(() => { active.value = (active.value + 1) % SLIDES.length }, CYCLE_MS)
+  timer = window.setInterval(() => { active.value = (active.value + 1) % SLIDE_COUNT }, CYCLE_MS)
 })
 onBeforeUnmount(() => { if (timer) clearInterval(timer) })
 </script>
@@ -58,7 +61,7 @@ onBeforeUnmount(() => { if (timer) clearInterval(timer) })
     <!-- The screens it runs, floating round it where there is room for them. -->
     <ul class="hidden lg:block">
       <li
-        v-for="(s, i) in SCREENS" :key="s.name"
+        v-for="(s, i) in SCREENS" :key="i"
         class="float lg:absolute" :class="s.pos" :style="{ '--float-delay': `${-i * 1.4}s` }"
       >
         <ScreenCard :active="active" :name="s.name" :kind="s.kind" :portrait="s.portrait" :delay="s.delay" />

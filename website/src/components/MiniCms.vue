@@ -3,16 +3,20 @@
  * The CMS's overview at phone or tablet size, drawn in markup so it stays sharp at any width.
  * Every length is in container units (cqw), so the whole screen scales with the device frame
  * it sits in, the way a real screenshot would, without a screenshot to keep up to date.
+ *
+ * Its labels are the CMS's own and stay in English, as the CMS is; the playlist names are the
+ * customer's and follow the page's language.
  */
 import IconMenu from '~icons/material-symbols/menu'
 
 import mark from '@/assets/paskall-mark.png'
-import { SLIDES } from '@/data/slides'
+import { useSlides } from '@/data/slides'
 
 defineProps<{ size: 'phone' | 'tablet' }>()
 
+const slides = useSlides()
 const thumb = (i: number) => {
-  const s = SLIDES[i]
+  const s = slides.value[i]
   return s.src ? { backgroundImage: `url(${s.src})` } : { background: `linear-gradient(135deg, ${s.from}, ${s.to})` }
 }
 </script>
@@ -49,7 +53,7 @@ const thumb = (i: number) => {
       <ul class="mt-[3cqw] flex flex-col gap-[2.5cqw]">
         <li v-for="i in [0, 1, 3]" :key="i" class="flex items-center gap-[3cqw] rounded-[4cqw] bg-white p-[2.5cqw]">
           <span class="h-[10cqw] w-[15cqw] shrink-0 rounded-[2.5cqw] bg-cover bg-center" :style="thumb(i)" />
-          <span class="min-w-0 flex-1 truncate text-[4.5cqw] text-ink">{{ SLIDES[i].name }}</span>
+          <span class="min-w-0 flex-1 truncate text-[4.5cqw] text-ink">{{ slides[i].name }}</span>
           <span class="size-[2.5cqw] rounded-full bg-emerald-500" />
         </li>
       </ul>
@@ -81,7 +85,7 @@ const thumb = (i: number) => {
         <span class="text-ink-subtle">Errors</span>
       </div>
       <ul class="mt-[3cqw] flex flex-col gap-[2cqw]">
-        <li v-for="(s, i) in SLIDES" :key="s.name" class="flex items-center gap-[3cqw] rounded-[2.5cqw] bg-white p-[2cqw]">
+        <li v-for="(s, i) in slides" :key="i" class="flex items-center gap-[3cqw] rounded-[2.5cqw] bg-white p-[2cqw]">
           <span class="h-[7cqw] w-[11cqw] shrink-0 rounded-[1.5cqw] bg-cover bg-center" :style="thumb(i)" />
           <span class="min-w-0 flex-1">
             <span class="block truncate text-[3cqw] text-ink">{{ s.name }}</span>
