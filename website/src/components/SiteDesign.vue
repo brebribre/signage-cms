@@ -54,9 +54,13 @@ onBeforeUnmount(stop)
 
 <template>
   <section id="design" ref="root">
-    <FeatureCard tone="sky" :tag="m.design.tag" reverse>
+    <FeatureCard :tag="m.design.tag" side="left">
       <template #visual>
-        <BrowserFrame :label="TABS[active].chrome">
+        <!-- Running off the right of the card on a phone, off the left beside the words. -->
+        <BrowserFrame
+          :label="TABS[active].chrome"
+          class="rounded-tl-2xl border-r-0 border-b-0 lg:rounded-tl-none lg:rounded-tr-2xl lg:border-r lg:border-l-0"
+        >
           <div class="relative aspect-[1.6] w-full bg-page">
             <img
               v-for="(t, i) in TABS" :key="t.n"

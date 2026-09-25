@@ -67,6 +67,13 @@ h1, h2, h3, .display { font-family: var(--font-display); font-weight: 400; lette
 .hero-dome { background: radial-gradient(120% 100% at 50% 100%, #cbd8f8 0%, #e3eafc 45%, rgba(238, 242, 253, 0.6) 75%, transparent 92%); }
 .hero-ring { border: 1px solid rgba(0, 51, 153, 0.16); }
 
+/* The feature cards' sweep: the brand blues and the cyan accent in a long band, soft at both
+   ends and at its edges, that the card's picture stands on. */
+.card-sweep {
+  background: linear-gradient(90deg, rgba(127, 231, 255, 0) 0%, #7fe7ff 16%, #00b4f0 32%, #0076dd 50%, #1f55c4 66%, #7fb6ff 84%, rgba(127, 182, 255, 0) 100%);
+  filter: blur(1.5cqw);
+}
+
 /*
   The hero's wave: one wide diagonal band of the brand blues across the top right of a white
   page, lightest where it crosses the headline and deepest in the far corner, so ink stays

@@ -1,10 +1,10 @@
 <script setup lang="ts">
 /**
  * Publishing, animated, as a product shot: a signage totem standing in front of the CMS window,
- * on a sweep of the brand blues. The CMS picks the next playlist and publishes it; the button
+ * on the card's sweep of the brand blues. The CMS picks the next playlist and publishes it; the button
  * fills as it goes out, a bar runs along the foot of the totem's screen as it downloads, and
- * the new content pushes the old one off. The window runs off the panel's right edge, so the
- * pair reads as a crop of a bigger scene rather than two boxes placed side by side.
+ * the new content pushes the old one off. The window runs off the card's right and bottom edges,
+ * so the pair reads as a crop of a bigger scene rather than two boxes placed side by side.
  *
  * Every length inside the panel is in container units, so the whole picture scales as one at
  * any width, phone included.
@@ -74,13 +74,9 @@ const thumb = (i: number) => {
 
 <template>
   <section id="publish" ref="root">
-    <FeatureCard tone="tint" :tag="m.publish.tag">
+    <FeatureCard :tag="m.publish.tag" side="right">
       <template #visual>
-        <div class="@container relative aspect-[1/0.92] overflow-hidden rounded-3xl bg-gradient-to-b from-white to-brand-soft ring-1 ring-white" aria-hidden="true">
-          <!-- The sweep: a long soft band of the brand blues rising across the panel. -->
-          <div class="publish-sweep absolute -left-[30%] top-[12%] h-[66%] w-[160%] -rotate-[28deg] rounded-[50%]" />
-          <div class="absolute -left-[30%] top-[10%] h-[22%] w-[160%] -rotate-[28deg] rounded-[50%] bg-white/25 blur-[3cqw]" />
-
+        <div class="@container relative -ml-6 aspect-[1/0.9] overflow-hidden sm:-ml-10 lg:ml-0" aria-hidden="true">
           <!-- The CMS window, behind, running off the right edge. -->
           <div class="absolute bottom-[-6%] left-[40%] top-[16%] w-[74%] overflow-hidden rounded-tl-[3cqw] bg-white shadow-[0_30px_80px_-30px_rgba(0,24,77,0.55)] ring-1 ring-line">
             <div class="flex items-center gap-[1.2cqw] border-b border-line bg-surface px-[3cqw] py-[2cqw]">
