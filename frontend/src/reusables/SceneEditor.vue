@@ -422,11 +422,52 @@ function clampPosition(el: { x: number; y: number; width: number; height: number
 const resizingCorner = ref<Corner | null>(null)
 let resizeStartPointer = { x: 0, y: 0 }
 let resizeStartBox = { x: 0, y: 0, width: 0, height: 0 }
+/** Where the whole picture sits on the canvas when a corner drag starts, cropped parts included.
+ *  Null for a website or text, which have no picture to crop. */
+let resizeStartMedia: MediaPlacement | null = null
+
+/**
+ * While a picture is being scaled past the canvas edges: the whole enlarged box and where the
+ * picture sits in it, so the editor can show what runs past the edge — faded, outside the
+ * canvas — with the outline and handles on the full box, the way Canva shows an image hanging
+ * off the page. Only for the length of the drag: on release the part outside is gone for good,
+ * cropped away (see onHandlePointerMove), and only the canvas's contents are saved.
+ */
+const overflow = ref<{ key: string; box: { x: number; y: number; width: number; height: number }; media: MediaPlacement } | null>(null)
+
+/** Where an element's outline and handles go: its full box while it is being scaled past the
+ *  edge, its own box otherwise. */
+function displayBox(el: DraftElement) {
+  return overflow.value?.key === el.key ? overflow.value.box : el
+}
+
+/** The faded picture outside the canvas: the enlarged box, and the picture placed in it exactly
+ *  as the canvas places it (cropWrapperStyle's rule, relative to the full box). */
+const overflowStyle = computed(() => {
+  const o = overflow.value
+  if (!o) return null
+  return {
+    box: {
+      left: `${o.box.x * 100}%`, top: `${o.box.y * 100}%`,
+      width: `${o.box.width * 100}%`, height: `${o.box.height * 100}%`,
+    },
+    media: {
+      position: 'absolute' as const,
+      left: `${((o.media.left - o.box.x) / o.box.width) * 100}%`,
+      top: `${((o.media.top - o.box.y) / o.box.height) * 100}%`,
+      width: `${(o.media.width / o.box.width) * 100}%`,
+      height: `${(o.media.height / o.box.height) * 100}%`,
+      ...ROTATION_WRAPPER_STYLE,
+    },
+  }
+})
+const overflowElement = computed(() => elements.value.find((e) => e.key === overflow.value?.key) ?? null)
 
 function onHandlePointerDown(corner: Corner, e: PointerEvent) {
   if (!selected.value) return
   resizingCorner.value = corner
   resizeStartPointer = { x: e.clientX, y: e.clientY }
+  resizeStartMedia = mediaPlacement(selected.value)
   resizeStartBox = {
     x: selected.value.x, y: selected.value.y,
     width: selected.value.width, height: selected.value.height,
@@ -437,8 +478,15 @@ function onHandlePointerDown(corner: Corner, e: PointerEvent) {
 /** Proportional scale about the opposite corner. Worked in a single scale factor — whichever
  *  axis the pointer has moved further along — so the box's aspect never drifts, and neither does
  *  the media's crop inside it (the same crop at the same aspect is the same picture, larger).
- *  The scale stops where the moving corner would cross a canvas edge: the box caps at the edge
- *  and keeps its shape, on whichever axis runs out of room first. */
+ *
+ *  A picture can be scaled past the canvas edges, the way Canva lets an image run off the page —
+ *  which is how one that isn't the screen's shape comes to cover it. Whatever goes past an edge
+ *  is cropped away there and then: the box is cut at the edge and the crop is set so the part
+ *  still inside looks exactly as it did. So the element is never stored hanging off the screen,
+ *  nothing is shrunk or shifted to fit, and the screen shows exactly what the canvas shows.
+ *
+ *  A website or text has no picture to crop, so it still stops where the moving corner meets a
+ *  canvas edge, keeping its shape. */
 function onHandlePointerMove(e: PointerEvent) {
   if (!resizingCorner.value || !selected.value || !canvasRef.value) return
   const canvas = canvasRef.value.getBoundingClientRect()
@@ -452,14 +500,41 @@ function onHandlePointerMove(e: PointerEvent) {
     (start.width + sx * dx) / start.width,
     (start.height + sy * dy) / start.height,
   )
-  // How far the moving edges can travel from the anchored ones before touching the canvas edge.
-  // Never below 1: a box already past the edge (from before the cap) may shrink but not grow.
+  const minScale = MIN_SIZE / Math.min(start.width, start.height)
   const anchorX = sx === 1 ? start.x : start.x + start.width
   const anchorY = sy === 1 ? start.y : start.y + start.height
+
+  const m = resizeStartMedia
+  if (m) {
+    const scale = Math.max(minScale, wanted)
+    // Scale the whole picture and its box about the anchored corner, then cut the box at the
+    // canvas edges. The anchor is on the canvas, so something is always left.
+    const about = (v: number, anchor: number) => anchor + (v - anchor) * scale
+    const media = {
+      left: about(m.left, anchorX), top: about(m.top, anchorY),
+      width: m.width * scale, height: m.height * scale,
+    }
+    const full = {
+      x: about(start.x, anchorX), y: about(start.y, anchorY),
+      width: start.width * scale, height: start.height * scale,
+    }
+    const left = Math.max(0, full.x)
+    const top = Math.max(0, full.y)
+    const right = Math.min(1, full.x + full.width)
+    const bottom = Math.min(1, full.y + full.height)
+    // Past the tightest crop a scene can save, the picture simply stops growing.
+    if (setCropWindow(selected.value, { x: left, y: top, width: right - left, height: bottom - top }, media)) {
+      const past = full.x < 0 || full.y < 0 || full.x + full.width > 1 || full.y + full.height > 1
+      overflow.value = past ? { key: selected.value.key, box: full, media } : null
+    }
+    return
+  }
+
+  // How far the moving edges can travel from the anchored ones before touching the canvas edge.
+  // Never below 1: a box already past the edge (from before the cap) may shrink but not grow.
   const roomX = sx === 1 ? 1 - anchorX : anchorX
   const roomY = sy === 1 ? 1 - anchorY : anchorY
   const maxScale = Math.max(1, Math.min(roomX / start.width, roomY / start.height))
-  const minScale = MIN_SIZE / Math.min(start.width, start.height)
   const scale = Math.max(minScale, Math.min(wanted, maxScale))
   const width = start.width * scale
   const height = start.height * scale
@@ -471,6 +546,8 @@ function onHandlePointerMove(e: PointerEvent) {
 
 function onHandlePointerUp(e: PointerEvent) {
   resizingCorner.value = null
+  resizeStartMedia = null
+  overflow.value = null
   releaseCapture(e)
 }
 
@@ -485,6 +562,7 @@ const HANDLE_CURSOR: Record<Corner, string> = {
 }
 
 type Edge = 'n' | 's' | 'e' | 'w'
+type MediaPlacement = { left: number; top: number; width: number; height: number }
 const EDGES: Edge[] = ['n', 's', 'e', 'w']
 
 const resizingEdge = ref<Edge | null>(null)
@@ -492,7 +570,7 @@ let edgeStartPointer = { x: 0, y: 0 }
 let edgeStartBox = { x: 0, y: 0, width: 0, height: 0 }
 /** Where the whole media sits on the canvas (fractions), cropped parts included — held fixed for
  *  the length of a side-crop drag. Null for a website, which has nothing to crop. */
-let edgeMedia: { left: number; top: number; width: number; height: number } | null = null
+let edgeMedia: MediaPlacement | null = null
 
 /**
  * A Fit (or legacy Stretch) element shows its media letterboxed inside a larger box. Cropping
@@ -520,17 +598,46 @@ function fillToVisibleMedia(el: DraftElement) {
   el.cropZoom = 1
 }
 
+/** Where the whole picture sits on the canvas, cropped parts included, for an element that has
+ *  one — after turning a Fit element into the Fill that looks the same, since cropping works on
+ *  what is visible. Null for a website or text. */
+function mediaPlacement(el: DraftElement): MediaPlacement | null {
+  if (!el.mediaWidth || !el.mediaHeight) return null
+  fillToVisibleMedia(el)
+  const rect = currentCropRect(el, el.cropX ?? 0.5, el.cropY ?? 0.5)
+  const width = el.width / rect.w
+  const height = el.height / rect.h
+  return { left: el.x - rect.x * width, top: el.y - rect.y * height, width, height }
+}
+
+/**
+ * Show `box` of the picture that sits at `m`: the box becomes the element's, and the crop centre
+ * and zoom are set to reproduce that window (resolveCropRect's inverse). False, with nothing
+ * changed, when the window would be tighter than a scene can save.
+ */
+function setCropWindow(el: DraftElement, box: { x: number; y: number; width: number; height: number }, m: MediaPlacement): boolean {
+  if (!el.mediaWidth || !el.mediaHeight || box.width <= 0 || box.height <= 0) return false
+  // The visible window as a fraction of the media, and the zoom resolveCropRect needs to produce
+  // a window that size at this box's aspect.
+  const w = box.width / m.width
+  const h = box.height / m.height
+  const eff = effectiveDimensions(el.mediaWidth, el.mediaHeight, el.rotationDegrees)
+  const mediaAspect = eff.width / eff.height
+  const boxAspect = (box.width / box.height) * canvasAspect.value
+  const fullWindowW = mediaAspect > boxAspect ? boxAspect / mediaAspect : 1
+  const zoom = Math.max(1, fullWindowW / w)
+  if (zoom > MAX_CROP_ZOOM) return false
+  Object.assign(el, box)
+  el.cropZoom = zoom
+  el.cropX = (box.x - m.left) / m.width + w / 2
+  el.cropY = (box.y - m.top) / m.height + h / 2
+  return true
+}
+
 function onEdgeHandlePointerDown(edge: Edge, e: PointerEvent) {
   const el = selected.value
   if (!el) return
-  edgeMedia = null
-  if (el.mediaWidth && el.mediaHeight) {
-    fillToVisibleMedia(el)
-    const rect = currentCropRect(el, el.cropX ?? 0.5, el.cropY ?? 0.5)
-    const width = el.width / rect.w
-    const height = el.height / rect.h
-    edgeMedia = { left: el.x - rect.x * width, top: el.y - rect.y * height, width, height }
-  }
+  edgeMedia = mediaPlacement(el)
   resizingEdge.value = edge
   edgeStartPointer = { x: e.clientX, y: e.clientY }
   edgeStartBox = { x: el.x, y: el.y, width: el.width, height: el.height }
@@ -575,22 +682,8 @@ function onEdgeHandlePointerMove(e: PointerEvent) {
     Object.assign(el, box)
     return
   }
-
-  // The visible window as a fraction of the media, and the zoom resolveCropRect needs to produce
-  // a window that size at this box's aspect.
-  const w = box.width / m.width
-  const h = box.height / m.height
-  const eff = effectiveDimensions(el.mediaWidth, el.mediaHeight, el.rotationDegrees)
-  const mediaAspect = eff.width / eff.height
-  const boxAspect = (box.width / box.height) * canvasAspect.value
-  const fullWindowW = mediaAspect > boxAspect ? boxAspect / mediaAspect : 1
-  const zoom = Math.max(1, fullWindowW / w)
-  if (zoom > MAX_CROP_ZOOM) return // cropped as far as a scene can be
-
-  Object.assign(el, box)
-  el.cropZoom = zoom
-  el.cropX = (box.x - m.left) / m.width + w / 2
-  el.cropY = (box.y - m.top) / m.height + h / 2
+  // Cropped as far as a scene can be: the side stops.
+  setCropWindow(el, box, m)
 }
 
 function onEdgeHandlePointerUp(e: PointerEvent) {
@@ -1078,7 +1171,7 @@ function apply() {
         ref="stageRef"
         class="flex min-w-0 flex-1 touch-none items-center justify-center overflow-hidden bg-surface p-4 select-none
                lg:touch-auto lg:overflow-auto lg:p-6"
-        :class="!isWide && 'pb-4'"
+        :class="[!isWide && 'pb-4', overflow && 'lg:!overflow-hidden']"
         @click.self="select(null)"
       >
         <div class="flex justify-center" :style="frameOuterStyle" @click.self="select(null)">
@@ -1090,6 +1183,29 @@ function apply() {
             @dragover.prevent
             @drop.prevent="onCanvasDrop"
           >
+            <!-- While a picture is scaled past the edges: all of it, faded. It sits under the
+                 canvas contents, so inside the canvas the real picture covers it and only the part
+                 past the edges shows. Gone on release, when that part is cropped away. -->
+            <div
+              v-if="overflowStyle && overflowElement"
+              class="pointer-events-none absolute opacity-40"
+              :style="overflowStyle.box"
+              aria-hidden="true"
+            >
+              <div class="absolute inset-0 overflow-hidden">
+                <div :style="overflowStyle.media">
+                  <img
+                    v-if="overflowElement.kind === 'image' || overflowElement.thumbnailUrl"
+                    :src="overflowElement.kind === 'image' ? overflowElement.url : overflowElement.thumbnailUrl!"
+                    alt=""
+                    class="absolute max-w-none select-none"
+                    :style="rotationStyle(overflowElement.rotationDegrees)"
+                    draggable="false"
+                  />
+                </div>
+              </div>
+            </div>
+
             <!-- What the screen shows, clipped to the frame: an element hanging off the canvas
                  is cut off here exactly as the device will cut it off. `pointer-events-none` so
                  a click on bare canvas still reaches the frame below and deselects. -->
@@ -1159,8 +1275,8 @@ function apply() {
                   selectedKey === el.key && 'outline outline-2 outline-offset-2 outline-white',
                 ]"
                 :style="{
-                  left: `${el.x * 100}%`, top: `${el.y * 100}%`,
-                  width: `${el.width * 100}%`, height: `${el.height * 100}%`,
+                  left: `${displayBox(el).x * 100}%`, top: `${displayBox(el).y * 100}%`,
+                  width: `${displayBox(el).width * 100}%`, height: `${displayBox(el).height * 100}%`,
                   zIndex: el.zIndex,
                 }"
                 @pointerdown="onElementPointerDown(el, $event)"

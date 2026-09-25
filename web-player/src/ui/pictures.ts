@@ -18,6 +18,8 @@
  * before this file existed.
  */
 
+import { type CropSpec, fileRect } from './crop'
+
 export interface Box {
   width: number
   height: number
@@ -88,16 +90,32 @@ export function canvasSize(box: Box): Box {
 
 /** Draws `url` into `canvas`, fitted to `box`. Resolves when the picture is on the canvas;
  *  rejects if it never loads or cannot be drawn. The canvas may already be on screen —
- *  transparent until this lands, like an `<img>` before its first paint. */
-export async function paintPicture(canvas: HTMLCanvasElement, url: string, box: Box, fit: Fit): Promise<void> {
+ *  transparent until this lands, like an `<img>` before its first paint.
+ *
+ *  A cover (Fill) picture with `crop` draws exactly the window the CMS editor showed — see
+ *  ui/crop.ts — which with no crop saved is the same centred cover as before. */
+export async function paintPicture(canvas: HTMLCanvasElement, url: string, box: Box, fit: Fit, crop?: PictureCrop): Promise<void> {
   const img = await loadImage(url)
   const size = canvasSize(box)
   canvas.width = size.width
   canvas.height = size.height
   const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('no 2d context')
-  const r = fitRects({ width: img.naturalWidth, height: img.naturalHeight }, size, fit)
+  const natural = { width: img.naturalWidth, height: img.naturalHeight }
+  if (fit === 'cover' && crop) {
+    const r = fileRect(crop.fileWidth ?? natural.width, crop.fileHeight ?? natural.height, box.width, box.height, crop)
+    ctx.drawImage(img, r.x * natural.width, r.y * natural.height, r.w * natural.width, r.h * natural.height, 0, 0, size.width, size.height)
+    return
+  }
+  const r = fitRects(natural, size, fit)
   ctx.drawImage(img, r.sx, r.sy, r.sw, r.sh, r.dx, r.dy, r.dw, r.dh)
+}
+
+/** What paintPicture needs to draw a cropped Fill picture: the crop, and the file's stored size
+ *  when the manifest has it (the decoded size otherwise). */
+export interface PictureCrop extends CropSpec {
+  fileWidth?: number | null
+  fileHeight?: number | null
 }
 
 /** Whether this browser's canvas can blur while drawing (`ctx.filter`, Chromium 52+). Checked

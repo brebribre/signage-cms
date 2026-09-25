@@ -1,6 +1,12 @@
 package com.fortu.player.playback
 
 import android.annotation.SuppressLint
+import kotlin.math.roundToInt
+import androidx.media3.common.VideoSize
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.layout.Layout
+import android.media.ExifInterface
+import android.graphics.BitmapFactory
 import android.content.Context
 import android.util.Log
 import android.view.LayoutInflater
@@ -288,7 +294,9 @@ fun PlaybackSurface(
      * first frame never paints" bug the pool exists to avoid.
      */
     val useSurfaceView = slots.all { s ->
-        s.elements.none { it.kind == "video" && it.rotationDegrees != 0 }
+        // A cropped video is larger than its box and relies on the box to cut it off, which
+        // only a window-composited TextureView honours — same as a rotated one.
+        s.elements.none { it.kind == "video" && (it.rotationDegrees != 0 || it.hasCrop) }
     }
 
     val videoElementsInSlot = slot.elements.filter { it.kind == "video" }
@@ -382,13 +390,19 @@ fun PlaybackSurface(
                                     animationSpec = tween(300),
                                     label = "image-crossfade",
                                 ) { file ->
-                                    AsyncImage(
-                                        model = file,
-                                        contentDescription = null,
-                                        contentScale = contentScaleFor(element.fit),
-                                        modifier = Modifier.fillMaxSize(),
-                                        onError = { Log.e("FortuPlayer", "image failed to load: ${element.id}", it.result.throwable) },
-                                    )
+                                    // A cropped Fill picture is laid out so the window the CMS
+                                    // editor chose fills the box (see Crop.kt); anything else
+                                    // scales exactly as it always has.
+                                    val size = if (element.hasCrop) remember(file) { pictureSize(element, file) } else null
+                                    CropWindow(size?.let { cropWindow(element, it) }) {
+                                        AsyncImage(
+                                            model = file,
+                                            contentDescription = null,
+                                            contentScale = if (size != null) ContentScale.FillBounds else contentScaleFor(element.fit),
+                                            modifier = Modifier.fillMaxSize(),
+                                            onError = { Log.e("FortuPlayer", "image failed to load: ${element.id}", it.result.throwable) },
+                                        )
+                                    }
                                 }
                             }
                             KIND_WEB -> WebsiteElement(element.url, onPlaybackError)
@@ -743,9 +757,30 @@ private fun PooledVideoSurface(
         }
     }
 
+    // The decoded size, for a cropped video whose manifest predates `media_width` — see Crop.kt.
+    var decodedSize by remember(exo) { mutableStateOf(displaySize(exo.videoSize)) }
+    DisposableEffect(exo) {
+        val sizeListener = object : Player.Listener {
+            override fun onVideoSizeChanged(videoSize: VideoSize) {
+                decodedSize = displaySize(videoSize)
+            }
+        }
+        exo.addListener(sizeListener)
+        onDispose { exo.removeListener(sizeListener) }
+    }
+    // Stretched to fill a window laid out so the editor's chosen part fills the box, when the
+    // element has a crop and its size is known; otherwise the resize mode alone, as before. The
+    // window is always there — identity when unused — so the view never leaves composition.
+    val cropSize = element?.takeIf { it.hasCrop }?.let { el ->
+        el.mediaWidth?.takeIf { it > 0 }?.let { w -> el.mediaHeight?.takeIf { it > 0 }?.let { h -> Pair(w.toFloat(), h.toFloat()) } }
+            ?: decodedSize
+    }
+    val window = if (element != null && cropSize != null) cropWindow(element, cropSize) else null
+
     // Keyed on the surface type: changing it means a different View entirely, so the old one
     // has to go. Only a new manifest can flip it, never an ordinary slot transition.
     key(useSurfaceView) {
+      CropWindow(window) {
         AndroidView(
             factory = { ctx ->
                 // Inflated, not `PlayerView(ctx)` directly — the surface type is an XML attribute.
@@ -768,7 +803,8 @@ private fun PooledVideoSurface(
                 // ExoPlayer instance without this View ever being recreated, and factory only
                 // runs once at creation.
                 it.player = exo
-                it.resizeMode = resizeModeFor(element?.fit ?: "contain")
+                it.resizeMode =
+                    if (window != null) AspectRatioFrameLayout.RESIZE_MODE_FILL else resizeModeFor(element?.fit ?: "contain")
                 it.visibility = if (active) View.VISIBLE else View.INVISIBLE
                 // Only meaningful while this pool member is active; an inactive one's exo.volume
                 // would otherwise leak into whatever plays on it next.
@@ -776,5 +812,71 @@ private fun PooledVideoSurface(
             },
             modifier = Modifier.fillMaxSize(),
         )
+      }
     }
+}
+
+/**
+ * Lays [content] out so the part `window(boxWidth, boxHeight)` of it — fractions of the
+ * content — exactly fills this box, and cuts off the rest. The box is the one `RotatedContent`
+ * hands down, before its turn, which is the frame Crop.kt's [fileRect] works in. A null window
+ * lays the content out at the box's own size, exactly as a plain `fillMaxSize` would.
+ */
+@Composable
+private fun CropWindow(window: ((Float, Float) -> CropRect)?, content: @Composable () -> Unit) {
+    Layout(content = content, modifier = Modifier.fillMaxSize().clipToBounds()) { measurables, constraints ->
+        val boxW = constraints.maxWidth
+        val boxH = constraints.maxHeight
+        val r = window?.invoke(boxW.toFloat(), boxH.toFloat())
+        if (r == null || r.w <= 0f || r.h <= 0f) {
+            val placeables = measurables.map { it.measure(Constraints.fixed(boxW, boxH)) }
+            return@Layout layout(boxW, boxH) { placeables.forEach { it.place(0, 0) } }
+        }
+        val w = (boxW / r.w).roundToInt().coerceAtLeast(1)
+        val h = (boxH / r.h).roundToInt().coerceAtLeast(1)
+        val placeables = measurables.map { it.measure(Constraints.fixed(w, h)) }
+        layout(boxW, boxH) {
+            placeables.forEach { it.place((-r.x * w).roundToInt(), (-r.y * h).roundToInt()) }
+        }
+    }
+}
+
+/** The window for [element]'s crop, given the file's size (width, height). */
+private fun cropWindow(element: ManifestElement, fileSize: Pair<Float, Float>): (Float, Float) -> CropRect =
+    { innerW, innerH ->
+        fileRect(fileSize.first, fileSize.second, innerW, innerH, element.rotationDegrees, element.cropX, element.cropY, element.cropZoom)
+    }
+
+/**
+ * A picture's size the way the CMS measured it: the manifest's `media_width`/`media_height`
+ * when the backend sent them, else the file's header read here — turned for its EXIF
+ * orientation, since the browser that measured it at upload shows it turned too. Null when
+ * neither is known, and the picture then scales as it always has.
+ */
+private fun pictureSize(element: ManifestElement, file: File): Pair<Float, Float>? {
+    val w = element.mediaWidth
+    val h = element.mediaHeight
+    if (w != null && h != null && w > 0 && h > 0) return Pair(w.toFloat(), h.toFloat())
+    return runCatching {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(file.path, bounds)
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+        val orientation = ExifInterface(file.path).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
+        val turned = orientation in listOf(
+            ExifInterface.ORIENTATION_TRANSPOSE, ExifInterface.ORIENTATION_ROTATE_90,
+            ExifInterface.ORIENTATION_TRANSVERSE, ExifInterface.ORIENTATION_ROTATE_270,
+        )
+        if (turned) Pair(bounds.outHeight.toFloat(), bounds.outWidth.toFloat())
+        else Pair(bounds.outWidth.toFloat(), bounds.outHeight.toFloat())
+    }.getOrNull()
+}
+
+/** A decoded video's size as it is shown: pixel aspect applied, turned if the file says so.
+ *  Null until the decoder knows it. */
+private fun displaySize(size: VideoSize): Pair<Float, Float>? {
+    if (size.width <= 0 || size.height <= 0) return null
+    val w = size.width * size.pixelWidthHeightRatio
+    val h = size.height.toFloat()
+    val turned = size.unappliedRotationDegrees == 90 || size.unappliedRotationDegrees == 270
+    return if (turned) Pair(h, w) else Pair(w, h)
 }

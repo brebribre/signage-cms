@@ -2,7 +2,8 @@ import { KIND_TEXT, KIND_WEB, type ManifestElement, type ManifestSlot, type Text
 import { STREAM_SOURCE_PREFIX } from '../engine'
 import { blurSource, posterKey } from '../sceneBackground'
 import { feedStream, type StreamFeed } from './streamFeed'
-import { canvasSupported, paintBlur, paintPicture, type Box, type Fit } from './pictures'
+import { cropStyle, fileRect } from './crop'
+import { canvasSupported, paintBlur, paintPicture, type Box, type Fit, type PictureCrop } from './pictures'
 
 /**
  * The loop — the Android player's `playback/PlaybackSurface.kt`, in the DOM.
@@ -39,6 +40,44 @@ export interface PlaybackCallbacks {
   onError: (message: string) => void
   /** 0-1, read whenever a video with sound starts or the CMS changes it. */
   volume: () => number
+}
+
+/** The editor's crop for an element, as ui/crop.ts and paintPicture take it. */
+function cropOf(element: ManifestElement): PictureCrop {
+  return {
+    cropX: element.crop_x, cropY: element.crop_y, cropZoom: element.crop_zoom,
+    rotation: element.rotation_degrees ?? 0,
+    fileWidth: element.media_width, fileHeight: element.media_height,
+  }
+}
+
+/**
+ * A Fill `<img>` or `<video>` placed so the window the CMS editor chose fills its box, the rest
+ * cut off by the box — the same picture the canvas showed, not a re-centred cover. Placed at
+ * once from the file's stored size when the manifest has it; otherwise as soon as the browser
+ * knows the decoded size (`event`), and a plain centred cover until then.
+ */
+function placeCropped(
+  media: HTMLImageElement | HTMLVideoElement,
+  element: ManifestElement,
+  box: Box,
+  decoded: () => Box,
+  event: 'load' | 'loadedmetadata',
+) {
+  if (element.fit !== 'cover') return
+  const crop = cropOf(element)
+  const place = (fileW: number, fileH: number) => {
+    if (!fileW || !fileH || !box.width || !box.height) return
+    Object.assign(media.style, cropStyle(fileRect(fileW, fileH, box.width, box.height, crop), box.width, box.height))
+  }
+  if (crop.fileWidth && crop.fileHeight) {
+    place(crop.fileWidth, crop.fileHeight)
+    return
+  }
+  media.addEventListener(event, () => {
+    const size = decoded()
+    place(size.width, size.height)
+  }, { once: true })
 }
 
 const objectFit = (fit: string | undefined) => (fit === 'cover' ? 'cover' : fit === 'stretch' ? 'fill' : 'contain')
@@ -161,7 +200,7 @@ export class PlaybackSurface {
       return ready
     }
     const canvas = document.createElement('canvas')
-    this.track(layer, paintPicture(canvas, url, box, fit).catch(() => {
+    this.track(layer, paintPicture(canvas, url, box, fit, cropOf(element)).catch(() => {
       this.cb.onError(`${this.nameOf(element)}: image failed to load`)
     }))
     return canvas
@@ -191,7 +230,7 @@ export class PlaybackSurface {
       const url = this.sources[element.checksum] ?? element.url
       prepared.pictures.set(position, canvas)
       // A failure here is not reported: the slot will try again when it is shown, and report then.
-      void paintPicture(canvas, url, this.innerBox(element, width, height), objectFit(element.fit)).catch(() => {
+      void paintPicture(canvas, url, this.innerBox(element, width, height), objectFit(element.fit), cropOf(element)).catch(() => {
         if (this.prepared === prepared) prepared.pictures.delete(position)
       })
     })
@@ -460,6 +499,7 @@ export class PlaybackSurface {
       img.decoding = 'async'
       img.style.objectFit = fit
       img.onerror = () => this.cb.onError(`${this.nameOf(element)}: image failed to load`)
+      placeCropped(img, element, box, () => ({ width: img.naturalWidth, height: img.naturalHeight }), 'load')
       img.src = src
       return img
     }
@@ -470,6 +510,7 @@ export class PlaybackSurface {
       video.autoplay = true
       video.preload = 'auto'
       video.style.objectFit = fit
+      placeCropped(video, element, box, () => ({ width: video.videoWidth, height: video.videoHeight }), 'loadedmetadata')
       video.setAttribute('playsinline', '')
       // Every video is silent unless the CMS says it carries sound, same as Android.
       video.muted = !element.has_audio

@@ -121,6 +121,8 @@ def get_manifest(device: CurrentDevice, session: DbSession, request: Request) ->
                         crop_x=el.crop_x,
                         crop_y=el.crop_y,
                         crop_zoom=el.crop_zoom,
+                        media_width=el.media_width,
+                        media_height=el.media_height,
                         stream_url=el.stream_url,
                         stream_bytes=el.stream_bytes,
                         stream_checksum=el.stream_checksum,

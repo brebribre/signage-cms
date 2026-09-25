@@ -96,6 +96,10 @@ data class ManifestElement(
     @SerialName("crop_x") val cropX: Float? = null,
     @SerialName("crop_y") val cropY: Float? = null,
     @SerialName("crop_zoom") val cropZoom: Float? = null,
+    /** The file's size as stored at upload — the numbers the CMS editor worked the crop out
+     *  from (see playback/Crop.kt). Null from an older backend; the decoded size is used then. */
+    @SerialName("media_width") val mediaWidth: Int? = null,
+    @SerialName("media_height") val mediaHeight: Int? = null,
     /** A video's thumbnail — what a blurred scene background shows for it
      *  (see playback/SceneBackground.kt). Null for anything else, or an older backend. */
     @SerialName("poster_url") val posterUrl: String? = null,

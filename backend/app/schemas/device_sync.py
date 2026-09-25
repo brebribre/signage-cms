@@ -51,12 +51,17 @@ class ManifestElement(BaseModel):
     fit: ItemFit
     has_audio: bool
     rotation_degrees: int
-    # Pan/zoom within the element's box — see PlaylistItemElement. Not applied by any player
-    # build yet (rotation isn't either, until the multi-element rendering work lands), but
-    # sent regardless so the wire shape doesn't need a second migration once it is.
+    # Pan/zoom within the element's box — see PlaylistItemElement. Applied to a Fill element by
+    # web player builds from 2026-09-25 and Android player 1.4.0 (earlier builds show a centred
+    # cover and ignore these). Null means exactly that centred cover.
     crop_x: float | None = None
     crop_y: float | None = None
     crop_zoom: float | None = None
+    # The file's own size, as stored at upload — the same numbers the CMS editor works the crop
+    # out from, so a screen resolves the very same window. Null for a website or text, and for a
+    # file whose size was never measured; a player then uses the size of what it decoded.
+    media_width: int | None = None
+    media_height: int | None = None
     # A video's streaming copy (fragmented MP4, services/video_streams.py) — what a web screen
     # caches and feeds to Media Source Extensions, since a TV browser can't play a cached plain
     # file. `stream_mime` carries the codecs MediaSource needs. All null until the copy exists,

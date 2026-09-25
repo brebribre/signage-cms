@@ -182,6 +182,10 @@ class ManifestElement:
     crop_x: float | None = None
     crop_y: float | None = None
     crop_zoom: float | None = None
+    #: The file's stored size — see schemas/device_sync.py. Not part of the version: it never
+    #: changes for a given file, and a player falls back to the decoded size without it.
+    media_width: int | None = None
+    media_height: int | None = None
     stream_url: str | None = None
     stream_bytes: int | None = None
     stream_checksum: str | None = None
@@ -314,6 +318,8 @@ def build_manifest(session: Session, device: Device, *, version: str) -> Manifes
                     crop_x=el.crop_x,
                     crop_y=el.crop_y,
                     crop_zoom=el.crop_zoom,
+                    media_width=media.width if media else None,
+                    media_height=media.height if media else None,
                     stream_url=(
                         storage.presign_get(media.stream_key, settings.device_presign_ttl_seconds)
                         if media and media.stream_key

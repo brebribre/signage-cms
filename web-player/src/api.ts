@@ -40,6 +40,14 @@ export interface ManifestElement {
   fit?: string
   has_audio?: boolean
   rotation_degrees?: number
+  /** A Fill element's crop from the CMS editor: centre and zoom — see ui/crop.ts. All null for a
+   *  plain centred cover. */
+  crop_x?: number | null
+  crop_y?: number | null
+  crop_zoom?: number | null
+  /** The file's size as stored at upload — the numbers the editor worked the crop out from. */
+  media_width?: number | null
+  media_height?: number | null
   /** A video's streaming copy — fragmented MP4 made at upload, played through MediaSource. See
    *  `storedFile` in engine.ts. Absent until the backend has made it, and for anything else. */
   stream_url?: string | null
