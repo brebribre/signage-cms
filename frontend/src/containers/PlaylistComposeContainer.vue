@@ -17,7 +17,7 @@ import DropZone from '@/reusables/DropZone.vue'
 import ModalActions from '@/reusables/ModalActions.vue'
 import UploadStatus from '@/reusables/UploadStatus.vue'
 import type { PlaylistSummary } from '@/types/api'
-import { SUPPORTED_FILE_TYPES } from '@/utils/mediaTypes'
+import { SUPPORTED_FILE_TYPES, ACCEPTED_MEDIA } from '@/utils/mediaTypes'
 
 const props = defineProps<{ playlist: PlaylistSummary | null }>()
 const emit = defineEmits<{ saved: [id: string]; close: [] }>()
@@ -53,7 +53,7 @@ async function onSave() {
     <form class="flex flex-col gap-4" @submit.prevent="onSave">
       <AppInput v-if="!playlist" id="compose-name" v-model="name" placeholder="Name" required />
 
-      <DropZone accept="image/*,video/*" label="Drop images or videos" :hint="SUPPORTED_FILE_TYPES" @files="add" />
+      <DropZone :accept="ACCEPTED_MEDIA" label="Drop images or videos" :hint="SUPPORTED_FILE_TYPES" @files="add" />
 
       <ul v-if="jobs.length" class="flex flex-col gap-2">
         <li v-for="j in jobs" :key="j.id" class="flex items-center gap-3 text-[13px]">

@@ -1,3 +1,4 @@
+import { mediaContentType } from '@/utils/mediaTypes'
 import { computed, reactive, ref } from 'vue'
 
 import { ApiError } from '@/api/request'
@@ -56,7 +57,7 @@ function drawToJpeg(source: CanvasImageSource, w: number, h: number): Promise<Bl
 async function probe(file: File): Promise<Probe> {
   const url = URL.createObjectURL(file)
   try {
-    if (file.type.startsWith('image/')) {
+    if (mediaContentType(file).startsWith('image/')) {
       const img = new Image()
       await new Promise((res, rej) => {
         img.onload = res
@@ -153,9 +154,10 @@ export function useMediaUpload(onUploaded?: (media: MediaRead) => void) {
       const info = await probe(job.file)
 
       job.status = 'uploading'
+      const contentType = mediaContentType(job.file)
       const ticket = await api.startUpload({
         filename: job.file.name,
-        content_type: job.file.type,
+        content_type: contentType,
         size_bytes: job.file.size,
       })
 
@@ -166,7 +168,7 @@ export function useMediaUpload(onUploaded?: (media: MediaRead) => void) {
         ? put(ticket.thumbnail_upload_url, info.thumbnail, 'image/jpeg')
         : Promise.resolve(null)
       const [etag] = await Promise.all([
-        put(ticket.upload_url, job.file, job.file.type, (f) => {
+        put(ticket.upload_url, job.file, contentType, (f) => {
           job.progress = f
         }),
         thumbnailPut,

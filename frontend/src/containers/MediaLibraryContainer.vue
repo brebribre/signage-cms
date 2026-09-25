@@ -25,7 +25,7 @@ const { items, visible, counts, filter, isLoading, error, prepend, removeMany, r
 // A just-uploaded video shows "Optimising" until its playback copy exists — a few seconds to a
 // few minutes, done on the server. Poll while any is, so the badge clears by itself.
 const PROCESSING_POLL_MS = 5_000
-const anyProcessing = computed(() => items.value.some((m) => m.kind === 'video' && !m.playback_ready))
+const anyProcessing = computed(() => items.value.some((m) => !m.playback_ready))
 let processingTimer: ReturnType<typeof setTimeout> | null = null
 function stopProcessingPoll() {
   if (processingTimer !== null) clearTimeout(processingTimer)
@@ -219,7 +219,7 @@ const STATUS_LABEL: Record<string, string> = {
         :thumbnail-url="m.thumbnail_url"
         :selectable="selecting"
         :selected="selected.has(m.id)"
-        :processing="m.kind === 'video' && !m.playback_ready"
+        :processing="!m.playback_ready"
         @click="onTile(m.id)"
       />
     </div>

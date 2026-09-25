@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ACCEPTED_MEDIA } from '@/utils/mediaTypes'
 /**
  * "Add media" as one surface: pick what you already have, or add what you don't, without
  * leaving the playlist you are in the middle of building.
@@ -136,7 +137,7 @@ function confirm() {
           </span>
         </button>
         <input
-          ref="fileInput" type="file" accept="image/*,video/*" multiple class="hidden"
+          ref="fileInput" type="file" :accept="ACCEPTED_MEDIA" multiple class="hidden"
           @change="onFiles"
         />
 

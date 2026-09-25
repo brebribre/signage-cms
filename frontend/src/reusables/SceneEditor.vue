@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ACCEPTED_MEDIA } from '@/utils/mediaTypes'
 import { computed, onMounted, onUnmounted, ref, shallowReactive, watch } from 'vue'
 import IconArrowBack from '~icons/material-symbols/arrow-back'
 import IconBolt from '~icons/material-symbols/bolt'
@@ -1188,7 +1189,7 @@ function apply() {
             Upload, or drop files here
           </button>
           <input
-            ref="mediaInput" type="file" accept="image/*,video/*" multiple class="hidden"
+            ref="mediaInput" type="file" :accept="ACCEPTED_MEDIA" multiple class="hidden"
             @change="onMediaFiles"
           />
 

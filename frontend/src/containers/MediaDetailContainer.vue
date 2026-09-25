@@ -79,6 +79,15 @@ async function onDelete() {
             <template v-else>As uploaded — it already fits every screen</template>
           </dd>
         </div>
+        <!-- A picture only has something to say while it is being converted, or if it couldn't be
+             — see backend/app/services/pictures.py. -->
+        <div v-if="media.kind === 'image' && (media.playback_error || !media.playback_ready)" class="col-span-2">
+          <dt class="text-[13px] text-ink-muted">Copy for screens</dt>
+          <dd class="text-sm" :class="media.playback_error ? 'text-danger' : 'text-ink'">
+            <template v-if="media.playback_error">Couldn't be converted — {{ media.playback_error }}. Screens get it as uploaded.</template>
+            <template v-else>Converting… screens get it in a moment.</template>
+          </dd>
+        </div>
       </dl>
 
       <div>

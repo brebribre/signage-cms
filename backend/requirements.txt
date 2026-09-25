@@ -10,5 +10,7 @@ itsdangerous>=2.2
 argon2-cffi>=23.1
 boto3>=1.35
 Pillow>=11.0
+# HEIC/HEIF (iPhone photos) for services/pictures.py, which turns them into JPEG on upload.
+pillow-heif>=0.18
 httpx>=0.27
 paho-mqtt>=2.1

@@ -25,16 +25,22 @@ from app.models import (
 )
 from app.services.errors import DomainError
 
-# Deliberately narrow. h.264/AAC in MP4 is the only combination a cheap Android stick is
-# certain to decode in hardware; h.265 and VP9 are a coin flip, and software decoding a 4K
-# file means dropped frames rather than a clean failure. Refusing at upload is far kinder
-# than a screen that stutters in a lobby.
+# What an upload may be. Screens never get these as they are: every video is converted to the
+# one H.264 MP4 shape every box decodes in hardware (services/video_streams.py), and every
+# picture to JPEG or PNG at most 4K (services/pictures.py) — so accepting an iPhone's .mov and
+# HEIC costs nothing on screen. GIF is not accepted for now: neither player animates it, so a
+# screen would show only its first frame while the CMS shows it moving.
 ALLOWED_MIME: dict[str, MediaKind] = {
     "image/jpeg": MediaKind.IMAGE,
     "image/png": MediaKind.IMAGE,
     "image/webp": MediaKind.IMAGE,
-    "image/gif": MediaKind.IMAGE,
+    "image/heic": MediaKind.IMAGE,
+    "image/heif": MediaKind.IMAGE,
+    "image/avif": MediaKind.IMAGE,
+    "image/tiff": MediaKind.IMAGE,
+    "image/bmp": MediaKind.IMAGE,
     "video/mp4": MediaKind.VIDEO,
+    "video/quicktime": MediaKind.VIDEO,
 }
 
 
@@ -165,10 +171,10 @@ def complete_upload(
     session.commit()
     session.refresh(media)
 
-    if media.kind == MediaKind.VIDEO:
-        from app.services import video_streams
+    # Every upload is brought into shape on the server, and only the converted copy is kept.
+    from app.services import video_streams
 
-        video_streams.enqueue(media.id)
+    video_streams.enqueue(media.id, replace_original=True)
     return media
 
 
@@ -237,8 +243,15 @@ def view_url(media: Media, ttl: int | None = None) -> str:
 
 def playback_ready(media: Media) -> bool:
     """Whether screens can have this file in its playable form — see Media.playback_key. A
-    video that failed processing counts as ready too: screens get the original, as before."""
-    return media.kind != MediaKind.VIDEO or media.playback_key is not None or media.playback_error is not None
+    picture is once it is JPEG, PNG or WebP (services/pictures.py). A file that failed
+    processing counts as ready too: screens get it as it is, rather than nothing."""
+    if media.playback_error is not None:
+        return True
+    if media.kind == MediaKind.IMAGE:
+        from app.services.pictures import SCREEN_SAFE_MIME
+
+        return media.mime_type in SCREEN_SAFE_MIME
+    return media.playback_key is not None
 
 
 def playback_key(media: Media) -> str:

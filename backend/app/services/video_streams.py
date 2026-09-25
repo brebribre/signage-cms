@@ -22,7 +22,14 @@ front, the media in small independent chunks — for web screens, whose smart-TV
 open a plain file from their own cache but can be fed one piece by piece through Media Source
 Extensions (the way YouTube plays on them). A stream copy, never a second encode.
 
-Runs on one background thread in the API process, one video at a time — a dev-phase choice
+**Only the converted copy is kept** for a fresh upload: once the playback copy exists it becomes
+the file itself — `storage_key`, type, size and checksum all point at it — and the upload is
+deleted (`replace_original`). A video that can't be converted keeps its upload, so nothing is
+lost to a failure; one queued at startup from before this rule keeps its original too. Pictures
+go through the same queue — see services/pictures.py for their rules — and a video or picture
+whose browser couldn't make a library preview (an iPhone HEVC .mov, a HEIC photo) gets one here.
+
+Runs on one background thread in the API process, one file at a time — a dev-phase choice
 that keeps this free of any queue infrastructure. On startup it picks up any ready video that
 has no playback copy yet (older uploads, or ones interrupted by a deploy). Without ffmpeg on
 the machine it logs once and does nothing; screens then get the originals, as they did before
@@ -45,6 +52,7 @@ from pathlib import Path
 from sqlmodel import Session, select
 
 from app.infra import storage
+from app.services import pictures
 from app.models import Media, MediaKind, MediaStatus
 
 logger = logging.getLogger(__name__)
@@ -369,15 +377,20 @@ def _sha256(path: Path) -> str:
 # --- The worker ---------------------------------------------------------------------------
 
 
-def process(media_id: uuid.UUID) -> None:
-    """Make, upload and record one video's playback copy, then its streaming copy. Never
-    raises. A failure in the second step keeps the first: a screen that can't stream still
-    gets the normalised file."""
+def process(media_id: uuid.UUID, replace_original: bool = False) -> None:
+    """Make, upload and record one video's playback copy, then its streaming copy — or bring one
+    picture into shape. Never raises. A failure in the second step keeps the first: a screen that
+    can't stream still gets the normalised file."""
     from app.infra.db import engine
 
     with Session(engine) as session:
         media = session.get(Media, media_id)
-        if media is None or media.kind != MediaKind.VIDEO or media.status != MediaStatus.READY:
+        if media is None or media.status != MediaStatus.READY:
+            return
+        if media.kind == MediaKind.IMAGE:
+            _process_picture(session, media, replace_original)
+            return
+        if not ffmpeg_available():
             return
         if media.playback_key and stream_needs_remake(media):
             _remake_stream(session, media)
@@ -429,6 +442,13 @@ def process(media_id: uuid.UUID) -> None:
         media.playback_key, media.playback_size_bytes = play_key, play_size
         media.playback_checksum, media.playback_reencoded = play_checksum, reencoded
         media.playback_error = None
+        original_key = media.storage_key
+        if replace_original:
+            # Only the converted copy is kept: it becomes the file itself.
+            media.storage_key, media.mime_type = play_key, "video/mp4"
+            media.size_bytes, media.checksum = play_size, play_checksum
+            if not media.filename.lower().endswith(".mp4"):
+                media.filename = pictures.converted_filename(media.filename, "mp4")
         # The probe of the copy is the truth about what screens will show.
         media.width, media.height = after.width or media.width, after.height or media.height
         if after.duration:
@@ -446,6 +466,10 @@ def process(media_id: uuid.UUID) -> None:
         # superseded; only after the row points elsewhere is it safe to remove.
         if old_stream_key and old_stream_key != strm_key:
             storage.delete_object(old_stream_key)
+        if replace_original and original_key != play_key:
+            storage.delete_object(original_key)
+        if media.thumbnail_key is None:
+            _video_thumbnail(session, media_id)
         logger.info(
             "media %s ready: playback %d bytes%s", media_id, play_size,
             f", stream {stream_result[1]} bytes" if stream_result else f", no stream copy ({stream_error})",
@@ -497,37 +521,138 @@ def _record_error(session: Session, media_id: uuid.UUID, message: str) -> None:
         session.commit()
 
 
-_queue: "queue.Queue[uuid.UUID]" = queue.Queue()
+def _process_picture(session: Session, media: Media, replace_original: bool) -> None:
+    """Apply services/pictures.py's rules to one picture. A converted picture replaces the
+    upload (when `replace_original`); one that was already fine is left as it is. Either way a
+    picture without a library preview gets one. Never raises."""
+    media_id = media.id
+    thumb_key = f"media/{media.account_id}/{media.id}/thumb.jpg"
+    try:
+        with tempfile.TemporaryDirectory(prefix="fortu-picture-") as tmp:
+            source = Path(tmp) / "source"
+            storage.download_file(media.storage_key, str(source))
+            result = pictures.normalise(source, Path(tmp))
+            new_key = None
+            size = checksum = None
+            if result.converted:
+                new_key = f"media/{media.account_id}/{media.id}/{pictures.converted_filename(media.filename, result.extension)}"
+                size, checksum = result.path.stat().st_size, _sha256(result.path)
+                storage.upload_file(str(result.path), new_key, result.mime)
+            made_thumb = False
+            if media.thumbnail_key is None:
+                thumb = Path(tmp) / "thumb.jpg"
+                pictures.thumbnail(result.path, thumb)
+                storage.upload_file(str(thumb), thumb_key, "image/jpeg")
+                made_thumb = True
+    except pictures.PictureError as exc:
+        logger.warning("picture %s could not be converted: %s", media_id, exc)
+        _record_error(session, media_id, str(exc))
+        return
+    except Exception as exc:  # storage or anything unexpected: record, never kill the worker
+        logger.exception("picture processing failed for media %s", media_id)
+        _record_error(session, media_id, f"processing failed: {exc}"[:500])
+        return
+
+    media = session.get(Media, media_id)
+    if media is None:  # deleted while converting — don't leave the copies behind
+        if new_key:
+            storage.delete_object(new_key)
+        return
+    original_key = media.storage_key
+    media.width, media.height = result.width, result.height
+    if made_thumb:
+        media.thumbnail_key = thumb_key
+    if new_key and replace_original:
+        media.storage_key, media.mime_type = new_key, result.mime
+        media.size_bytes, media.checksum = size, checksum
+        media.filename = pictures.converted_filename(media.filename, result.extension)
+    elif new_key:
+        # Kept alongside, as a video's playback copy is: screens get the converted one.
+        media.playback_key, media.playback_size_bytes, media.playback_checksum = new_key, size, checksum
+    media.playback_error = None
+    session.add(media)
+    session.commit()
+    if new_key and replace_original and original_key != new_key:
+        storage.delete_object(original_key)
+    logger.info("picture %s: %s", media_id, f"converted to {result.mime}" if new_key else "already fine")
+
+
+def _video_thumbnail(session: Session, media_id: uuid.UUID) -> None:
+    """A library preview for a video whose browser couldn't make one at upload — typically an
+    iPhone .mov in H.265, which Chrome can't open. A frame a second in, from the playback copy.
+    Best effort: without one the library shows a placeholder, as before."""
+    media = session.get(Media, media_id)
+    if media is None or media.playback_key is None or media.thumbnail_key is not None:
+        return
+    thumb_key = f"media/{media.account_id}/{media.id}/thumb.jpg"
+    try:
+        with tempfile.TemporaryDirectory(prefix="fortu-thumb-") as tmp:
+            playback = Path(tmp) / "playback.mp4"
+            frame = Path(tmp) / "frame.jpg"
+            thumb = Path(tmp) / "thumb.jpg"
+            storage.download_file(media.playback_key, str(playback))
+            seek = "1" if (media.duration_seconds or 0) > 1.5 else "0"
+            _run(["ffmpeg", "-v", "error", "-y", "-ss", seek, "-i", str(playback), "-frames:v", "1", str(frame)])
+            pictures.thumbnail(frame, thumb)
+            storage.upload_file(str(thumb), thumb_key, "image/jpeg")
+    except Exception:  # noqa: BLE001 — a missing preview is not worth failing anything over
+        logger.warning("no preview frame for video %s", media_id, exc_info=True)
+        return
+    media = session.get(Media, media_id)
+    if media is not None:
+        media.thumbnail_key = thumb_key
+        session.add(media)
+        session.commit()
+
+
+_queue: "queue.Queue[tuple[uuid.UUID, bool]]" = queue.Queue()
 _worker: threading.Thread | None = None
 _worker_lock = threading.Lock()
 
 
 def _loop() -> None:
     while True:
-        media_id = _queue.get()
-        process(media_id)
+        media_id, replace_original = _queue.get()
+        process(media_id, replace_original)
         _queue.task_done()
 
 
-def enqueue(media_id: uuid.UUID) -> None:
-    """Queue one video. Returns at once; safe to call for anything (non-videos are skipped)."""
+def enqueue(media_id: uuid.UUID, replace_original: bool = False) -> None:
+    """Queue one video or picture. Returns at once. `replace_original` for a fresh upload: the
+    converted copy then replaces it (see the module note)."""
     global _worker
-    if not ffmpeg_available():
-        return
     with _worker_lock:
         if _worker is None:
-            _worker = threading.Thread(target=_loop, name="video-processing", daemon=True)
+            _worker = threading.Thread(target=_loop, name="media-processing", daemon=True)
             _worker.start()
-    _queue.put(media_id)
+    _queue.put((media_id, replace_original))
 
 
 def enqueue_missing() -> int:
-    """Queue every ready video without a playback copy yet. Called at startup — this is also
+    """Queue every ready video without a playback copy yet, and every picture still in a form
+    screens can't show (an upload interrupted by a restart). Called at startup — this is also
     how every video uploaded before playback copies existed gets one."""
+    from app.infra.db import engine
+
+    with Session(engine) as session:
+        # Pictures first, and replaced: formats that need converting were never accepted before
+        # the picture rules existed, so any such row is a fresh upload that didn't finish.
+        pending_pictures = [
+            m.id for m in session.exec(
+                select(Media).where(
+                    Media.kind == MediaKind.IMAGE, Media.status == MediaStatus.READY,
+                    Media.playback_error.is_(None),
+                )
+            ).all()
+            if m.mime_type not in pictures.SCREEN_SAFE_MIME
+        ]
+    for media_id in pending_pictures:
+        enqueue(media_id, replace_original=True)
+    if pending_pictures:
+        logger.info("queued %d picture(s) to convert", len(pending_pictures))
     if not ffmpeg_available():
         logger.warning("ffmpeg not found — videos get no playback or streaming copy; screens play the originals")
-        return 0
-    from app.infra.db import engine
+        return len(pending_pictures)
 
     with Session(engine) as session:
         ids = list(session.exec(
@@ -546,10 +671,12 @@ def enqueue_missing() -> int:
             ).all()
             if stream_needs_remake(m)
         ]
+    # Not replaced: a video still without a copy at startup may predate "only the converted copy
+    # is kept", and its original is left as it was.
     for media_id in ids + remakes:
         enqueue(media_id)
     if ids:
         logger.info("queued %d video(s) for a playback copy", len(ids))
     if remakes:
         logger.info("queued %d video(s) to remake a streaming copy at 1080p", len(remakes))
-    return len(ids) + len(remakes)
+    return len(pending_pictures) + len(ids) + len(remakes)
