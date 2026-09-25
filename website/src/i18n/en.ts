@@ -22,7 +22,7 @@ const en = {
   },
   hero: {
     title: 'Meet the smart way to manage your screens',
-    subtitle: 'Pictures, videos and live websites on digital signage, smart TVs and Android boxes, all run as one fleet from a single dashboard.',
+    subtitle: 'Pictures, videos and live websites on digital signage, smart TVs and Android boxes.',
     cta: 'Request access',
     screens: [
       { name: 'Lobby TV', kind: 'Android box' },
@@ -46,14 +46,15 @@ const en = {
     label: 'Where Paskall runs',
     items: ['Cafés', 'LOBBIES', 'clinics', 'Retail', 'CAMPUSES', 'Restaurants', 'Hotels', 'SHOWROOMS'],
   },
+  /** A statement: the lead in ink, the rest in grey at the same size. */
   features: {
-    title: 'A signage platform designed to run itself',
-    subtitle: 'Connect a screen, design what it plays, and publish to all of them at once.',
+    lead: 'A signage platform that runs itself.',
+    rest: 'Connect a screen, design what it plays, and publish everywhere at once.',
   },
   connect: {
     tag: 'Screens',
     title: 'Connect your screens',
-    body: 'One code, any screen. The player shows six letters; type them into the dashboard and the screen joins your fleet. Android boxes, smart TVs and browsers sit side by side.',
+    body: 'Type the six-letter code from the player, and the screen joins your fleet.',
     statUnder: 'Under',
     statValue: '1 min',
     statCaption: 'To connect a new screen',
@@ -70,9 +71,9 @@ const en = {
     tablist: 'The editor',
     inPaskall: 'in Paskall',
     tabs: [
-      { label: 'Design', title: 'Design your content.', text: 'Photos, video, live websites and text on one canvas, at the screen’s real shape.' },
-      { label: 'Playlist', title: 'Play them in order.', text: 'Put your designs in the order they should run, and set how long each one holds. They play one after another.' },
-      { label: 'Schedule', title: 'Say where and when.', text: 'Choose the screens and the hours. One loop all day, or different content by time and weekday.' },
+      { label: 'Design', title: 'Design your content.', text: 'Photos, video, websites and text, at the screen’s real shape.' },
+      { label: 'Playlist', title: 'Play them in order.', text: 'Set the order, and how long each one plays.' },
+      { label: 'Schedule', title: 'Say where and when.', text: 'Pick the screens and the hours, by time and weekday.' },
     ],
   },
   publish: {
@@ -93,8 +94,8 @@ const en = {
   },
   platforms: {
     tag: 'Platforms',
-    title: 'Designed for versatility',
-    subtitle: 'One player, on whatever screen you already have.',
+    lead: 'Designed for versatility.',
+    rest: 'One player, on whatever screen you already have.',
     items: [
       { name: 'Android', text: 'Install our .apk on Android TV boxes and devices.' },
       { name: 'Smart TV browser', text: 'Utilizes the smart TV’s browser and requires no installation.' },
@@ -103,9 +104,8 @@ const en = {
   },
   responsive: {
     tag: 'Responsive',
-    titleLead: 'Observe from',
-    titleAccent: 'anywhere',
-    body: 'Paskall CMS is designed to be accessible from your phone, tablet and monitor.',
+    lead: 'Observe from anywhere.',
+    rest: 'Paskall CMS works on your phone, tablet and monitor.',
     devices: ['Phones', 'Tablets', 'Monitors'],
     monitorAlt: 'The Paskall dashboard on a monitor',
   },
@@ -123,7 +123,7 @@ const en = {
   footer: {
     tag: 'Get started',
     title: 'Put your first screen on Paskall',
-    body: 'Tell us how many screens. We set the account up, you type one code.',
+    body: 'Tell us how many screens. We’ll set up the account.',
     cta: 'Request access',
     signIn: 'Sign in',
     mailSubject: 'Paskall access',

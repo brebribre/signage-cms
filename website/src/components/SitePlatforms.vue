@@ -19,10 +19,11 @@ const PLATFORMS = computed(() => LOOKS.map((l, i) => ({ ...l, ...m.value.platfor
 
 <template>
   <section id="platforms" class="mx-auto max-w-7xl px-5 pt-16 sm:px-8 sm:pt-20">
-    <div class="reveal text-center">
+    <div class="reveal max-w-4xl">
       <span class="tag text-brand-deep">{{ m.platforms.tag }}</span>
-      <h2 class="mt-5 text-4xl leading-[1.1] sm:text-5xl">{{ m.platforms.title }}</h2>
-      <p class="mt-5 text-lg text-ink-muted">{{ m.platforms.subtitle }}</p>
+      <h2 class="mt-5 text-3xl leading-[1.15] sm:text-5xl sm:leading-[1.1]">
+        {{ m.platforms.lead }} <span class="text-ink-muted">{{ m.platforms.rest }}</span>
+      </h2>
     </div>
     <ul class="mt-12 grid gap-4 md:grid-cols-3">
       <li v-for="p in PLATFORMS" :key="p.badge" class="reveal flex flex-col rounded-3xl p-7" :class="p.tone">

@@ -16,7 +16,7 @@ const id: Messages = {
   },
   hero: {
     title: 'Kenali cara cerdas mengelola layar Anda',
-    subtitle: 'Gambar, video, dan situs web langsung di digital signage, smart TV, dan Android box, semuanya dikelola bersama dari satu dasbor.',
+    subtitle: 'Gambar, video, dan situs web langsung di digital signage, smart TV, dan Android box.',
     cta: 'Minta akses',
     screens: [
       { name: 'TV Lobi', kind: 'Android box' },
@@ -40,13 +40,13 @@ const id: Messages = {
     items: ['Kafe', 'LOBI', 'klinik', 'Ritel', 'KAMPUS', 'Restoran', 'Hotel', 'SHOWROOM'],
   },
   features: {
-    title: 'Platform signage yang dirancang untuk berjalan sendiri',
-    subtitle: 'Hubungkan layar, rancang tayangannya, lalu publikasikan ke semua layar sekaligus.',
+    lead: 'Platform signage yang berjalan sendiri.',
+    rest: 'Hubungkan layar, rancang tayangannya, dan publikasikan ke semua layar sekaligus.',
   },
   connect: {
     tag: 'Layar',
     title: 'Hubungkan layar Anda',
-    body: 'Satu kode untuk layar apa pun. Pemutar menampilkan enam huruf; ketikkan di dasbor, dan layar langsung bergabung. Android box, smart TV, dan browser dikelola berdampingan.',
+    body: 'Ketik kode enam huruf dari pemutar, dan layar langsung bergabung.',
     statUnder: 'Kurang dari',
     statValue: '1 menit',
     statCaption: 'Untuk menghubungkan layar baru',
@@ -63,9 +63,9 @@ const id: Messages = {
     tablist: 'Editor',
     inPaskall: 'di Paskall',
     tabs: [
-      { label: 'Desain', title: 'Desain konten Anda.', text: 'Foto, video, situs web langsung, dan teks dalam satu kanvas, sesuai bentuk asli layar.' },
-      { label: 'Playlist', title: 'Putar secara berurutan.', text: 'Susun desain sesuai urutan tayang, lalu atur berapa lama masing-masing tampil. Semuanya diputar bergantian.' },
-      { label: 'Jadwal', title: 'Tentukan di mana dan kapan.', text: 'Pilih layar dan jamnya. Satu putaran sepanjang hari, atau konten berbeda menurut jam dan hari.' },
+      { label: 'Desain', title: 'Desain konten Anda.', text: 'Foto, video, situs web, dan teks, sesuai bentuk asli layar.' },
+      { label: 'Playlist', title: 'Putar secara berurutan.', text: 'Atur urutan dan lama tayang masing-masing.' },
+      { label: 'Jadwal', title: 'Tentukan di mana dan kapan.', text: 'Pilih layar dan jamnya, menurut jam dan hari.' },
     ],
   },
   publish: {
@@ -86,8 +86,8 @@ const id: Messages = {
   },
   platforms: {
     tag: 'Platform',
-    title: 'Dirancang untuk fleksibilitas',
-    subtitle: 'Satu pemutar, di layar apa pun yang sudah Anda miliki.',
+    lead: 'Dirancang untuk fleksibilitas.',
+    rest: 'Satu pemutar, di layar apa pun yang sudah Anda miliki.',
     items: [
       { name: 'Android', text: 'Pasang .apk kami di Android TV box dan perangkat Android lainnya.' },
       { name: 'Browser Smart TV', text: 'Memanfaatkan browser bawaan smart TV, tanpa perlu instalasi.' },
@@ -96,9 +96,8 @@ const id: Messages = {
   },
   responsive: {
     tag: 'Responsif',
-    titleLead: 'Pantau dari',
-    titleAccent: 'mana saja',
-    body: 'Paskall CMS dirancang agar bisa diakses dari ponsel, tablet, dan monitor Anda.',
+    lead: 'Pantau dari mana saja.',
+    rest: 'Paskall CMS bisa dipakai di ponsel, tablet, dan monitor.',
     devices: ['Ponsel', 'Tablet', 'Monitor'],
     monitorAlt: 'Dasbor Paskall di monitor',
   },
@@ -116,7 +115,7 @@ const id: Messages = {
   footer: {
     tag: 'Mulai',
     title: 'Pasang layar pertama Anda di Paskall',
-    body: 'Beri tahu kami berapa layar Anda. Kami siapkan akunnya, Anda cukup mengetik satu kode.',
+    body: 'Beri tahu kami berapa layar Anda. Kami siapkan akunnya.',
     cta: 'Minta akses',
     signIn: 'Masuk',
     mailSubject: 'Akses Paskall',

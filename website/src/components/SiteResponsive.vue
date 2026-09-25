@@ -27,12 +27,11 @@ const DEVICES = computed(() => m.value.responsive.devices.map((label, i) => ({ i
       <div class="pointer-events-none absolute -bottom-[30rem] hidden sm:block left-1/2 size-[60rem] -translate-x-1/2 rounded-full border border-white/10" aria-hidden="true" />
       <div class="pointer-events-none absolute -bottom-[22rem] hidden sm:block left-1/2 size-[44rem] -translate-x-1/2 rounded-full border border-white/10" aria-hidden="true" />
 
-      <div class="relative mx-auto max-w-2xl text-center">
+      <div class="relative mx-auto max-w-3xl text-center">
         <span class="tag text-accent">{{ m.responsive.tag }}</span>
-        <h2 class="mt-4 text-4xl leading-[1.1] sm:text-5xl">{{ m.responsive.titleLead }} <span class="bg-gradient-to-r from-accent to-[#7fb6ff] bg-clip-text text-transparent">{{ m.responsive.titleAccent }}</span></h2>
-        <p class="mt-4 text-lg text-white/75">
-          {{ m.responsive.body }}
-        </p>
+        <h2 class="mt-4 text-3xl leading-[1.15] sm:text-5xl sm:leading-[1.1]">
+          {{ m.responsive.lead }} <span class="text-white/60">{{ m.responsive.rest }}</span>
+        </h2>
         <ul class="mt-6 flex flex-wrap justify-center gap-2.5">
           <li v-for="(d, i) in DEVICES" :key="i" class="flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm ring-1 ring-white/15 backdrop-blur">
             <component :is="d.icon" class="size-4 text-accent" aria-hidden="true" /> {{ d.label }}

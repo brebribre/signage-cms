@@ -75,7 +75,7 @@ onBeforeUnmount(stop)
 
       <!-- The step's own headline and line, above the pills that choose it. Held to a minimum
            height so a shorter step does not shuffle the card as it comes round. -->
-      <div class="mt-4 min-h-[9rem] sm:mt-5 sm:min-h-[10rem]">
+      <div class="mt-4 min-h-[8rem] sm:mt-5 sm:min-h-[9.5rem]">
         <Transition name="fade" mode="out-in">
           <div :key="active">
             <h2 class="text-3xl leading-[1.1] sm:text-5xl">{{ TABS[active].title }}</h2>
