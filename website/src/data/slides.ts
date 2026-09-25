@@ -1,4 +1,4 @@
-/** What the hero's totem can play, and what the little CMS beside it lists. One source, so the
+/** What the hero's screens can play, and what the little CMS among them lists. One source, so the
  *  panel and the screen can never disagree about what is on air. */
 export interface Slide {
   /** What the playlist is called in the CMS panel. */

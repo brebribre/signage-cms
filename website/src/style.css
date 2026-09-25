@@ -6,7 +6,7 @@
   and the brand blues sampled from the logo (#002f96 → #0076dd, flat mass #003399).
 
   The layout is the calm, card-led shape of a modern product page: a centred headline with the
-  product in the middle of a soft arc and a few stat cards floating round it, a strip of where
+  CMS in the middle of a soft arc and the screens it runs floating round it, a strip of where
   it runs, then big rounded pastel cards, each with a small outlined tag, a heading and the
   thing itself. The pastels are tints of the brand blues and the cyan accent rather than a new
   palette, so the page stays Paskall's.
@@ -66,9 +66,9 @@ h1, h2, h3, .display { font-family: var(--font-display); font-weight: 500; lette
 .reveal.is-in { opacity: 1; transform: none; }
 @media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } }
 
-/* The hero's stat cards drift, slightly and out of step, so the picture is alive but not busy. */
+/* The hero's screen cards drift, on a wide page only, slightly and out of step, so the picture is alive but not busy. */
 @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
-.float { animation: float 6s ease-in-out infinite; animation-delay: var(--float-delay, 0s); }
+@media (min-width: 64rem) { .float { animation: float 6s ease-in-out infinite; animation-delay: var(--float-delay, 0s); } }
 
 /* The venue strip scrolls on its own; the list is doubled so the loop has no seam. */
 @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
