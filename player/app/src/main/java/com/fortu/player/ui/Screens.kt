@@ -22,10 +22,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -35,6 +33,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.KeyEvent
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.focusable
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
@@ -47,8 +55,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -578,7 +584,7 @@ fun DebugOverlay(
                     .clickable(onClick = onLeaveRequested),
             )
             Text(
-                "Hold the top-left corner again to dismiss",
+                "Hold the top-left corner, or tap it five times, to close",
                 color = InkMuted,
                 fontSize = 14.sp,
                 modifier = Modifier.padding(top = 6.dp),
@@ -600,35 +606,119 @@ private fun Row2(label: String, value: String) {
     }
 }
 
+/** The CMS allows up to 20 characters (services/device_settings.py); nothing longer can match. */
+private const val MAX_PIN_LENGTH = 20
+
 /**
  * Gates "Leave player" behind the CMS-configured PIN (`ManifestSettings.appPassword`).
  * `MainActivity` only shows this when a PIN is actually set — with no PIN, the button leaves
  * at once, with nothing to enter here.
+ *
+ * A keypad of buttons, not a text field, because a text field broke over remote desktop.
+ * Remote tools reach Android through several hops (Windows Remote Desktop, then whatever
+ * bridges to the device), and typed keys get lost or changed on the way: Num Lock drifts out
+ * of step, or the tool types by reading the field back and rewriting it — and a password
+ * field reads back as dots, so the result never matches. A click on a button is the one input
+ * every remote tool passes through intact, and it needs no on-screen keyboard either.
+ *
+ * A real keyboard still works: digits (top row or number pad, whatever Num Lock says),
+ * letters for an old PIN that has them, Backspace, and Enter to submit. Each attempt clears
+ * the entry, since nobody can see what the dots hold.
  */
 @Composable
 fun LeavePinDialog(error: Boolean, onSubmit: (String) -> Unit, onDismiss: () -> Unit) {
     var pin by remember { mutableStateOf("") }
+    val focus = remember { FocusRequester() }
+    val add = { c: Char -> if (pin.length < MAX_PIN_LENGTH) pin += c }
+    val delete = { pin = pin.dropLast(1) }
+    val submit = {
+        val entered = pin
+        pin = ""
+        onSubmit(entered)
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Enter PIN to leave the player") },
         text = {
-            Column {
-                OutlinedTextField(
-                    value = pin,
-                    onValueChange = { pin = it },
-                    singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .focusRequester(focus)
+                    .focusable()
+                    .onKeyEvent { event -> pinKey(event, add, delete, submit) },
+            ) {
+                // The dots: how many digits are in, never which.
+                Text(
+                    if (pin.isEmpty()) "Tap the numbers" else "•".repeat(pin.length),
+                    color = if (pin.isEmpty()) InkMuted else Ink,
+                    fontSize = if (pin.isEmpty()) 15.sp else 26.sp,
+                    letterSpacing = if (pin.isEmpty()) 0.sp else 4.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.height(36.dp),
                 )
                 if (error) {
-                    Text(
-                        "Incorrect PIN", color = Color(0xFFB3261E), fontSize = 13.sp,
-                        modifier = Modifier.padding(top = 6.dp),
-                    )
+                    Text("Incorrect PIN", color = Color(0xFFB3261E), fontSize = 13.sp)
                 }
+                PinKeypad(onDigit = add, onDelete = delete, onClear = { pin = "" })
             }
         },
-        confirmButton = { TextButton(onClick = { onSubmit(pin) }) { Text("Leave") } },
+        confirmButton = { TextButton(onClick = submit, enabled = pin.isNotEmpty()) { Text("Leave") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
+
+    // So a keyboard works straight away, without clicking into the dialog first.
+    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+}
+
+/** 1–9 in rows of three, then Clear, 0, Delete — the layout of a phone keypad. */
+@Composable
+private fun PinKeypad(onDigit: (Char) -> Unit, onDelete: () -> Unit, onClear: () -> Unit) {
+    val rows = listOf("123", "456", "789")
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        rows.forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                row.forEach { d -> PinKey(d.toString(), onClick = { onDigit(d) }) }
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            PinKey("Clear", small = true, onClick = onClear)
+            PinKey("0", onClick = { onDigit('0') })
+            PinKey("Delete", small = true, onClick = onDelete)
+        }
+    }
+}
+
+@Composable
+private fun PinKey(label: String, small: Boolean = false, onClick: () -> Unit) {
+    FilledTonalButton(
+        onClick = onClick,
+        shape = RoundedCornerShape(12.dp),
+        contentPadding = PaddingValues(0.dp),
+        modifier = Modifier.size(width = 76.dp, height = 52.dp),
+    ) {
+        Text(label, fontSize = if (small) 14.sp else 22.sp, fontWeight = FontWeight.Medium)
+    }
+}
+
+/** A key from a real keyboard. Number-pad digits count whatever the Num Lock state, since a
+ *  remote session is exactly where Num Lock goes wrong. Enter on a focused keypad button never
+ *  reaches here — the button takes it as a click — so Enter here always means "submit". */
+private fun pinKey(event: KeyEvent, add: (Char) -> Unit, delete: () -> Unit, submit: () -> Unit): Boolean {
+    if (event.type != KeyEventType.KeyDown) return false
+    val native = event.nativeKeyEvent
+    when (native.keyCode) {
+        android.view.KeyEvent.KEYCODE_DEL -> { delete(); return true }
+        android.view.KeyEvent.KEYCODE_ENTER, android.view.KeyEvent.KEYCODE_NUMPAD_ENTER -> { submit(); return true }
+        in android.view.KeyEvent.KEYCODE_NUMPAD_0..android.view.KeyEvent.KEYCODE_NUMPAD_9 -> {
+            add('0' + (native.keyCode - android.view.KeyEvent.KEYCODE_NUMPAD_0))
+            return true
+        }
+    }
+    val c = native.unicodeChar.takeIf { it > 0 }?.toChar() ?: return false
+    if (c.isISOControl() || c.isWhitespace()) return false
+    add(c)
+    return true
 }

@@ -53,7 +53,7 @@ interface PowerScheduleValue {
 type SettingSpec =
   | { key: string; label: string; description: string; kind: 'slider'; min: number; max: number; unit?: string }
   | { key: string; label: string; description: string; kind: 'toggle'; onLabel?: string; offLabel?: string }
-  | { key: string; label: string; description: string; kind: 'text'; mask?: boolean; maxLength?: number }
+  | { key: string; label: string; description: string; kind: 'text'; mask?: boolean; maxLength?: number; numeric?: boolean }
   | { key: string; label: string; description: string; kind: 'select'; options: { value: string; label: string }[] }
   | { key: string; label: string; description: string; kind: 'power_schedule' }
 
@@ -76,8 +76,8 @@ const SETTINGS: SettingSpec[] = [
     description: "Disable touch input so the screen can't be interacted with directly.",
   },
   {
-    key: 'app_password', label: 'App lock PIN', kind: 'text', mask: true, maxLength: 20,
-    description: 'Required on the screen to exit the player app.',
+    key: 'app_password', label: 'App lock PIN', kind: 'text', mask: true, maxLength: 20, numeric: true,
+    description: '4 to 20 digits. Asked for on the screen, on a number keypad, to leave the player app.',
   },
   {
     key: 'power_schedule', label: 'Power schedule', kind: 'power_schedule',
@@ -153,7 +153,14 @@ function onSlider(spec: SettingSpec, e: Event) {
   setDraft(spec, Number((e.target as HTMLInputElement).value))
 }
 function onText(spec: SettingSpec, e: Event) {
-  setDraft(spec, (e.target as HTMLInputElement).value)
+  const input = e.target as HTMLInputElement
+  // A digits-only field drops anything else as it is typed, so a letter never gets as far as
+  // the server's refusal. The screen asks for the PIN on a number keypad.
+  if (spec.kind === 'text' && spec.numeric) {
+    const digits = input.value.replace(/\D/g, '')
+    if (digits !== input.value) input.value = digits
+  }
+  setDraft(spec, input.value)
 }
 function onSelect(spec: SettingSpec, e: Event) {
   setDraft(spec, (e.target as HTMLSelectElement).value)
@@ -334,6 +341,7 @@ const reportedMismatch = computed(() => {
                 v-else-if="spec.kind === 'text'"
                 :type="spec.mask ? 'password' : 'text'"
                 :maxlength="spec.maxLength"
+                :inputmode="spec.numeric ? 'numeric' : undefined"
                 :value="draftValue(spec) as string"
                 class="w-36 rounded-md border border-line-strong bg-canvas px-2 py-1 text-[13px]
                        text-ink focus:border-ink focus:outline-none"

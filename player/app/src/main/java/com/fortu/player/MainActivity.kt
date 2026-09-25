@@ -52,6 +52,8 @@ class MainActivity : ComponentActivity() {
     private var touchDownY = 0f
     private val mainHandler = Handler(Looper.getMainLooper())
     private var pendingLongPress: Runnable? = null
+    private var cornerTaps = 0
+    private var lastCornerTapAt = 0L
 
     /**
      * Two jobs, both of which have to happen before anything else sees the touch.
@@ -61,7 +63,8 @@ class MainActivity : ComponentActivity() {
      * edge gestures never reach an app window anyway; in lock task mode they're already blocked
      * (see KioskPolicy), and the lock can't reach them either way.
      *
-     * The hidden gesture that opens the debug overlay: hold the top-left corner. Recognised here
+     * The hidden gesture that opens the debug overlay: hold the top-left corner, or tap it five
+     * times quickly (see countCornerTap — the taps are for remote desktop). Recognised here
      * rather than in Compose, and on a timer from touch-down rather than on touch-up, because a
      * website element is a WebView that handles its own touches (people are meant to be able to
      * use it) — it answers a long press with its own text-selection menu, and the app window
@@ -81,6 +84,9 @@ class MainActivity : ComponentActivity() {
                     }
                     pendingLongPress = fire
                     mainHandler.postDelayed(fire, LONG_PRESS_MILLIS)
+                    countCornerTap(ev.eventTime)
+                } else {
+                    cornerTaps = 0
                 }
             }
             MotionEvent.ACTION_MOVE -> {
@@ -98,6 +104,25 @@ class MainActivity : ComponentActivity() {
         val metrics = resources.displayMetrics
         return x <= metrics.widthPixels * HIDDEN_CORNER_FRACTION &&
             y <= metrics.heightPixels * HIDDEN_CORNER_FRACTION
+    }
+
+    /**
+     * The other way in: five quick taps on the same corner. Needed for remote desktop, where
+     * a held press often never arrives as one — the remote tool sends it as a quick click on
+     * release, or the pointer drifts and the hold is cancelled — so the hold only worked for
+     * someone standing at the screen. Plain clicks get through every remote tool intact.
+     * Each tap must follow the last within [CORNER_TAP_GAP_MILLIS]; a tap anywhere else, or a
+     * pause, starts the count again.
+     */
+    private fun countCornerTap(at: Long) {
+        cornerTaps = if (at - lastCornerTapAt <= CORNER_TAP_GAP_MILLIS) cornerTaps + 1 else 1
+        lastCornerTapAt = at
+        if (cornerTaps >= CORNER_TAPS) {
+            cornerTaps = 0
+            // This tap also started a hold; it must not toggle the overlay a second time.
+            cancelLongPress()
+            showDebug = !showDebug
+        }
     }
 
     private fun cancelLongPress() {
@@ -311,6 +336,10 @@ class MainActivity : ComponentActivity() {
         const val LONG_PRESS_MILLIS = 900L
         const val LONG_PRESS_SLOP_DP = 24f
         const val HIDDEN_CORNER_FRACTION = 0.2f
+        /** Taps on the corner that open the overlay, and the longest pause between two of them.
+         *  Generous on the pause, since a remote session adds its own delay to every click. */
+        const val CORNER_TAPS = 5
+        const val CORNER_TAP_GAP_MILLIS = 1_000L
         /** How long a failed update stays announced on screen. Long enough to be read by
          *  whoever is walking over; the debug overlay keeps the reason after that. */
         const val UPDATE_FAILURE_BANNER_MILLIS = 120_000L

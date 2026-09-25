@@ -80,8 +80,12 @@ def _validate_power_state(value: Any) -> str:
 def _validate_app_password(value: Any) -> str:
     # A PIN typed on the device's own screen to exit the player app, not an account
     # credential — no hashing here, the device needs the plaintext to compare against.
+    # Digits only: the screen asks for it on a number keypad (so it works over remote desktop,
+    # where typed keys get mangled), which has no letters to type one with.
     if not isinstance(value, str) or not (4 <= len(value) <= 20):
-        raise InvalidSetting("app password must be between 4 and 20 characters")
+        raise InvalidSetting("The PIN must be 4 to 20 digits")
+    if not (value.isascii() and value.isdigit()):
+        raise InvalidSetting("The PIN can only contain digits (0-9)")
     return value
 
 
