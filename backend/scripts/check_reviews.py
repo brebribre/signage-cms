@@ -4,7 +4,7 @@
 
 Creates a throwaway manager granted the screen, drives every branch of the review gate as
 that manager and as the owner, prints PASS/FAIL per step, and removes what it made. The
-playlist is restored to its scenes afterwards. See docs/user-access-management.html.
+playlist is restored to its scenes afterwards. See ACCOUNTS.md for how sub accounts and reviews work.
 """
 import secrets, uuid, sys
 from fastapi.testclient import TestClient

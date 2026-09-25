@@ -11,6 +11,14 @@ const router = createRouter({
       component: () => import('@/views/LoginView.vue'),
       meta: { public: true },
     },
+    // Linked from the sign-in page: replace a password you know (a temporary one included)
+    // without signing in first, or learn who can reset one you've forgotten.
+    {
+      path: '/reset-password',
+      name: 'reset-password',
+      component: () => import('@/views/ResetPasswordView.vue'),
+      meta: { public: true },
+    },
     // A password someone else chose — issued by staff, reset, or a sub account's first — has to be
     // replaced before anything else. The server enforces it; this is where the CMS asks.
     {
