@@ -95,7 +95,19 @@ export function liveBlockReason(budget: LiveBudget, kind: DraftElement['kind']):
   return null
 }
 
-const IMAGE_DEFAULT_SECONDS = 10
+/** A scene whose length is set by hand. A scene led by a video plays to the video's own end,
+ *  so its row shows the video's length instead of a duration picker — and "set every scene's
+ *  duration" leaves it alone for the same reason. */
+export function hasOwnDuration(item: DraftItem): boolean {
+  return item.elements[0]?.kind !== 'video'
+}
+
+/** The scene's video, if it has one (a scene holds at most one — MAX_VIDEO_ELEMENTS). */
+export function sceneVideo(item: DraftItem): DraftElement | null {
+  return item.elements.find((e) => e.kind === 'video') ?? null
+}
+
+export const IMAGE_DEFAULT_SECONDS = 10
 /** Same as the server's default for a website scene: it takes a moment to load, and is
  *  usually worth reading. */
 const WEB_DEFAULT_SECONDS = 30
@@ -351,6 +363,24 @@ export function usePlaylistEditor(id: string) {
     })
   }
 
+  /** Scenes the "same duration for all" control reaches, and every video in the playlist —
+   *  what "Mute all" / "Unmute all" reach. */
+  const timedItems = computed(() => draft.value.filter(hasOwnDuration))
+  const videos = computed(() => draft.value.map(sceneVideo).filter((v): v is DraftElement => v !== null))
+  const anyVideoHasSound = computed(() => videos.value.some((v) => v.hasAudio))
+
+  /** One duration for every scene with a length of its own. Only the draft changes; Save
+   *  publishes it like any other edit. */
+  function setAllDurations(seconds: number) {
+    const value = Math.max(1, Math.round(seconds))
+    for (const item of timedItems.value) item.durationSeconds = value
+  }
+
+  /** Sound on or off for every video at once. Also only the draft, until Save. */
+  function setAllSound(on: boolean) {
+    for (const v of videos.value) v.hasAudio = on
+  }
+
   function removeAt(index: number) {
     draft.value.splice(index, 1)
   }
@@ -453,7 +483,7 @@ export function usePlaylistEditor(id: string) {
 
   return {
     playlist, draft, draftName, isLoading, isSaving, isDirty, error, saveError, deleteError,
-    pendingReview, totalSeconds, enabledCount,
-    addMedia, addWebsite, removeAt, move, save, setShuffle, remove, refresh,
+    pendingReview, totalSeconds, enabledCount, timedItems, videos, anyVideoHasSound,
+    addMedia, addWebsite, removeAt, move, save, setShuffle, remove, refresh, setAllDurations, setAllSound,
   }
 }

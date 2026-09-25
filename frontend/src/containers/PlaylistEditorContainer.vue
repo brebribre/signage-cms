@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import IconDeleteOutline from '~icons/material-symbols/delete-outline'
 import IconDragIndicator from '~icons/material-symbols/drag-indicator'
@@ -12,12 +12,14 @@ import IconVisibilityOff from '~icons/material-symbols/visibility-off'
 import IconArrowBack from '~icons/material-symbols/arrow-back'
 import IconLanguage from '~icons/material-symbols/language'
 import IconTextFields from '~icons/material-symbols/text-fields'
+import IconVolumeOff from '~icons/material-symbols/volume-off'
+import IconVolumeUp from '~icons/material-symbols/volume-up'
 
 import { useAuth } from '@/hooks/useAuth'
 import { useDevices } from '@/hooks/useDevices'
 import { useFormat } from '@/hooks/useFormat'
 import { useMedia } from '@/hooks/useMedia'
-import { createEmptyItem, usePlaylistEditor } from '@/hooks/usePlaylistEditor'
+import { IMAGE_DEFAULT_SECONDS, createEmptyItem, hasOwnDuration, sceneVideo, usePlaylistEditor } from '@/hooks/usePlaylistEditor'
 import { usePlaylistPreview } from '@/hooks/usePlaylistPreview'
 import { SCREEN_PRESETS, useScreenPresets } from '@/hooks/useScreenPresets'
 import AddMediaMenu from '@/reusables/AddMediaMenu.vue'
@@ -46,6 +48,7 @@ const id = String(route.params.id)
 const {
   playlist, draft, draftName, isLoading, isSaving, isDirty, error, saveError, pendingReview, deleteError,
   totalSeconds, enabledCount, addMedia, addWebsite, removeAt, move, save, setShuffle, remove,
+  timedItems, videos, anyVideoHasSound, setAllDurations, setAllSound,
 } = usePlaylistEditor(id)
 const { items: library, isLoading: libraryLoading, prepend } = useMedia()
 const { isOwner } = useAuth()
@@ -199,6 +202,20 @@ function closeSceneEdit() {
   editingItem.value = null
 }
 
+// "All at once": one duration for every scene that has a length of its own (photos, websites,
+// text — not videos, which play to their end), and sound on or off for every video. Both only
+// change the draft, like any other edit here, so nothing reaches a screen until Save.
+const allDuration = ref(IMAGE_DEFAULT_SECONDS)
+/** Every timed scene already at the chosen duration: Apply would change nothing. */
+const allAtDuration = computed(() => timedItems.value.every((d) => d.durationSeconds === allDuration.value))
+
+const videosWithSound = computed(() => videos.value.filter((v) => v.hasAudio).length)
+
+/** A video row's sound, said as it is now and what a click does. */
+function soundLabel(hasAudio: boolean): string {
+  return hasAudio ? 'Sound on. Click to mute this video.' : 'Muted. Click to turn this video\'s sound on.'
+}
+
 /** A row's list label — the scene's first element, plus a count if there's more than one. */
 function sceneLabel(item: DraftItem): string {
   if (!item.elements.length) return 'Empty scene'
@@ -309,11 +326,51 @@ function sceneLabel(item: DraftItem): string {
         </label>
       </div>
 
+      <!-- Apply to All. Videos keep their own length, so Duration skips them. Only the rows that apply are shown: Duration needs a scene with a
+           length of its own, Video sound needs a video. Shuffle stays outside on purpose: it
+           saves the moment it is ticked, and nothing in here does until Save. -->
+      <section
+        v-if="timedItems.length || videos.length"
+        aria-labelledby="all-scenes-title"
+        class="flex flex-col gap-3 rounded-xl bg-surface p-4"
+      >
+        <h2 id="all-scenes-title" class="text-sm text-ink">Apply to All</h2>
+
+        <div class="flex flex-col divide-y divide-line">
+          <div v-if="timedItems.length" class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-3 first:pt-0 last:pb-0">
+            <p class="text-sm text-ink">Duration</p>
+            <div class="flex items-center gap-2">
+              <DurationPicker v-model="allDuration" />
+              <AppButton variant="secondary" size="sm" :disabled="allAtDuration" @click="setAllDurations(allDuration)">
+                Apply to {{ timedItems.length }} scene{{ timedItems.length === 1 ? '' : 's' }}
+              </AppButton>
+            </div>
+          </div>
+
+          <div v-if="videos.length" class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-3 first:pt-0 last:pb-0">
+            <div class="min-w-0">
+              <p class="text-sm text-ink">Video sound</p>
+              <p class="text-[13px] text-ink-muted">
+                {{ videosWithSound }} of {{ videos.length }} video{{ videos.length === 1 ? '' : 's' }} with sound.
+              </p>
+            </div>
+            <AppButton variant="secondary" size="sm" @click="setAllSound(!anyVideoHasSound)">
+              <component :is="anyVideoHasSound ? IconVolumeOff : IconVolumeUp" class="size-4" />
+              {{ anyVideoHasSound ? 'Mute all' : 'Unmute all' }}
+            </AppButton>
+          </div>
+        </div>
+      </section>
+
       <!-- The media list comes first — it's what you're here to work on. Reference device,
            preview and Save follow, in that order, as the steps that come after placing items. -->
       <!-- Items and Add media share one column, so the button sits exactly as far below the last
            item as the items sit from each other. An empty playlist is just the button. -->
       <div class="flex flex-col gap-2">
+      <!-- Only once there are two rows: with one there is no order to change. -->
+      <p v-if="draft.length > 1" class="text-[13px] text-ink-subtle">
+        Drag and drop a row to adjust the sequence.
+      </p>
       <ul v-if="draft.length" ref="listRef" class="relative flex flex-col gap-2">
         <li
           v-for="(row, index) in draft"
@@ -373,11 +430,27 @@ function sceneLabel(item: DraftItem): string {
           </div>
 
           <div class="flex shrink-0 items-center gap-1">
+            <!-- A video's sound, at a glance and one click to change: every video starts muted,
+                 so a speaker here means someone chose sound for it. -->
+            <button
+              v-if="sceneVideo(row)"
+              type="button"
+              class="flex size-8 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-raised
+                     focus-visible:outline-2 focus-visible:outline-brand-bright"
+              :class="sceneVideo(row)!.hasAudio ? 'text-ink' : 'text-ink-subtle'"
+              :aria-label="soundLabel(sceneVideo(row)!.hasAudio)"
+              :title="soundLabel(sceneVideo(row)!.hasAudio)"
+              :aria-pressed="sceneVideo(row)!.hasAudio"
+              @click.stop="sceneVideo(row)!.hasAudio = !sceneVideo(row)!.hasAudio"
+            >
+              <component :is="sceneVideo(row)!.hasAudio ? IconVolumeUp : IconVolumeOff" class="size-4" aria-hidden="true" />
+            </button>
+
             <!-- Video plays to its own natural end — there's no trim yet, so the number here
                  would just be a promise the player doesn't keep. Everything else has no
                  natural length of its own, so it gets a real duration picker instead. -->
             <span
-              v-if="row.elements[0]?.kind === 'video'"
+              v-if="!hasOwnDuration(row)"
               class="px-2 py-1 text-[13px] tabular-nums text-ink-subtle"
             >
               {{ duration(row.elements[0]?.mediaDuration ?? row.durationSeconds) }}
