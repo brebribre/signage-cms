@@ -66,9 +66,26 @@ cd player
 # → app/build/outputs/apk/release/app-release.apk
 ```
 
-It's signed with the debug key, so it installs by sideloading with no keystore setup. That is
-fine for screens you own and sideload yourself; a Play Store listing would need a real signing
-config.
+### Signing
+
+Since 1.3.7 every build that goes to screens is signed with Paskall's own release key, kept
+outside the repo in `~/.paskall/release.keystore` with its passwords in
+`~/.paskall/keystore.properties`. `app/build.gradle.kts` uses it whenever that file exists;
+without it, or with `-PuseDebugKey`, the build is signed with the debug key and Gradle warns.
+Check a build before it ships:
+
+```bash
+apksigner verify --print-certs app/build/outputs/apk/release/app-release.apk
+```
+
+The certificate must read `CN=Paskall Player, O=Fortu Digital, C=ID`, SHA-256
+`eea378340148599f8977df652e3c303666e90a30dcea6b0c1c2e96a30e67342b`.
+
+Android only installs an update signed with the same key as the app already there, so a screen
+still running a debug-signed build (1.3.6 or older) cannot take a release-key update: it has to
+be reinstalled by hand once. Losing the key would mean that for every screen — back up
+`~/.paskall`. Debug-signed builds left in R2 can be removed with
+`backend/scripts/prune_debug_builds.py`.
 
 To point a build at a different backend:
 
@@ -227,25 +244,36 @@ maintainable or a recurring field trip.
 
 ### Releasing a new version
 
-1. Bump `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts).
-2. Build it:
+1. Bump `versionCode` and `versionName` in [`app/build.gradle.kts`](app/build.gradle.kts), and
+   commit that on its own ("Player 1.4.0: …").
+2. Build it, and check it is signed with the release key (see Signing above):
    ```bash
-   ./gradlew assembleRelease
+   ./gradlew clean assembleRelease
    ```
 3. Upload to R2 — the script reads the version straight out of the APK, so the published
-   version can never disagree with what the binary reports:
+   version can never disagree with what the binary reports. It needs `aapt2` from the Android
+   build-tools on your PATH:
    ```bash
    cd ../backend
    .venv/bin/python -m scripts.publish_player_apk \
      ../player/app/build/outputs/apk/release/app-release.apk
    ```
-4. It uploads, verifies, and prints the two variables to set. **Uploading does not publish** —
-   setting these does, and it pushes an install to every screen at once, so it stays a
-   deliberate act:
+4. **Uploading does not publish.** Rolling out does, and it pushes an install to every screen at
+   once, so it stays a deliberate act. It runs against the live database, from inside the
+   backend container (see DEPLOY.md); `--list` first shows what is live, to roll back to:
    ```bash
-   railway variables --service signage-cms \
-     --set 'PLAYER_LATEST_VERSION=1.1.0' \
-     --set 'PLAYER_APK_KEY=apks/fortu-player-1.1.0.apk'
+   railway ssh --service backend -- python -m scripts.rollout_player --list
+   ```
+   ```bash
+   railway ssh --service backend -- python -m scripts.rollout_player 1.4.0
+   ```
+5. Tag the commit that was built, and push the tag, so every build on a screen can be traced
+   back to its code:
+   ```bash
+   git tag -a player-v1.4.0 <commit> -m "Player 1.4.0 — rolled out to every screen on <date>"
+   ```
+   ```bash
+   git push origin player-v1.4.0
    ```
 
 Screens pick it up on their next heartbeat (~30 s) and install silently. **Rolling back is the
