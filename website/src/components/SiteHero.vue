@@ -11,13 +11,12 @@ const { m } = useI18n()
     <div class="hero-wave pointer-events-none" aria-hidden="true" />
 
     <div class="relative mx-auto max-w-7xl px-5 sm:px-8">
-      <div class="mx-auto max-w-3xl text-center">
-        <h1 class="reveal text-5xl leading-[1.05] text-ink sm:text-6xl lg:text-7xl">
-          {{ m.hero.title }}
+      <div class="mx-auto max-w-4xl text-center">
+        <!-- One statement, as the sections below have: the claim in ink, what it covers in grey,
+             at the same size, rather than a headline over small print. -->
+        <h1 class="reveal text-4xl leading-[1.1] text-ink sm:text-5xl lg:text-6xl lg:leading-[1.05]">
+          {{ m.hero.title }} <span class="text-ink-muted">{{ m.hero.subtitle }}</span>
         </h1>
-        <p class="reveal mx-auto mt-6 max-w-lg text-[15px] leading-relaxed text-ink-muted sm:text-base">
-          {{ m.hero.subtitle }}
-        </p>
         <div class="reveal mt-9 flex flex-wrap items-center justify-center gap-3">
           <a href="#contact" class="rounded-full bg-brand-deep px-6 py-3.5 text-sm font-medium text-white transition-colors hover:bg-brand">
             {{ m.hero.cta }}

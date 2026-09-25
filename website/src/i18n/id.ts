@@ -15,7 +15,7 @@ const id: Messages = {
     requestAccess: 'Minta akses',
   },
   hero: {
-    title: 'Kenali cara cerdas mengelola layar Anda',
+    title: 'Kenali cara cerdas mengelola layar Anda.',
     subtitle: 'Gambar, video, dan situs web langsung di digital signage, smart TV, dan Android box.',
     cta: 'Minta akses',
     screens: [
@@ -44,7 +44,6 @@ const id: Messages = {
     rest: 'Hubungkan layar, rancang tayangannya, dan publikasikan ke semua layar sekaligus.',
   },
   connect: {
-    tag: 'Layar',
     title: 'Hubungkan layar Anda',
     body: 'Ketik kode enam huruf dari pemutar, dan layar langsung bergabung.',
     statUnder: 'Kurang dari',
@@ -59,7 +58,6 @@ const id: Messages = {
     ],
   },
   design: {
-    tag: 'Konten',
     tablist: 'Editor',
     inPaskall: 'di Paskall',
     tabs: [
@@ -69,7 +67,6 @@ const id: Messages = {
     ],
   },
   publish: {
-    tag: 'Publikasi',
     title: 'Publikasikan dengan mudah',
     body: 'Perubahan terpublikasi dalam hitungan detik.',
     ready: 'Siap dipublikasikan',
@@ -85,7 +82,6 @@ const id: Messages = {
     ],
   },
   platforms: {
-    tag: 'Platform',
     lead: 'Dirancang untuk fleksibilitas.',
     rest: 'Satu pemutar, di layar apa pun yang sudah Anda miliki.',
     items: [
@@ -95,10 +91,8 @@ const id: Messages = {
     ],
   },
   responsive: {
-    tag: 'Responsif',
     lead: 'Pantau dari mana saja.',
     rest: 'Paskall CMS bisa dipakai di ponsel, tablet, dan monitor.',
-    devices: ['Ponsel', 'Tablet', 'Monitor'],
     monitorAlt: 'Dasbor Paskall di monitor',
   },
   faq: {
@@ -113,7 +107,6 @@ const id: Messages = {
     ],
   },
   footer: {
-    tag: 'Mulai',
     title: 'Pasang layar pertama Anda di Paskall',
     body: 'Beri tahu kami berapa layar Anda. Kami siapkan akunnya.',
     cta: 'Minta akses',

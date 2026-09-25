@@ -4,18 +4,10 @@
  * dashboard, and a tablet and a phone with the same overview laid out for them. The one blue
  * card on the page, so it lands as a change of pace.
  */
-import IconMonitor from '~icons/material-symbols/desktop-windows-outline'
-import IconPhone from '~icons/material-symbols/smartphone-outline'
-import IconTablet from '~icons/material-symbols/tablet-outline'
-
-import { computed } from 'vue'
-
 import MiniCms from './MiniCms.vue'
 import { useI18n } from '@/i18n'
 
-const ICONS = [IconPhone, IconTablet, IconMonitor]
 const { m } = useI18n()
-const DEVICES = computed(() => m.value.responsive.devices.map((label, i) => ({ icon: ICONS[i], label })))
 </script>
 
 <template>
@@ -28,15 +20,9 @@ const DEVICES = computed(() => m.value.responsive.devices.map((label, i) => ({ i
       <div class="pointer-events-none absolute -bottom-[22rem] hidden sm:block left-1/2 size-[44rem] -translate-x-1/2 rounded-full border border-white/10" aria-hidden="true" />
 
       <div class="relative mx-auto max-w-3xl text-center">
-        <span class="tag text-accent">{{ m.responsive.tag }}</span>
-        <h2 class="mt-4 text-3xl leading-[1.15] sm:text-5xl sm:leading-[1.1]">
+        <h2 class="text-3xl leading-[1.15] sm:text-5xl sm:leading-[1.1]">
           {{ m.responsive.lead }} <span class="text-white/60">{{ m.responsive.rest }}</span>
         </h2>
-        <ul class="mt-6 flex flex-wrap justify-center gap-2.5">
-          <li v-for="(d, i) in DEVICES" :key="i" class="flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm ring-1 ring-white/15 backdrop-blur">
-            <component :is="d.icon" class="size-4 text-accent" aria-hidden="true" /> {{ d.label }}
-          </li>
-        </ul>
       </div>
 
       <!-- The devices. Positions are percentages of the stage, so the group keeps its shape at

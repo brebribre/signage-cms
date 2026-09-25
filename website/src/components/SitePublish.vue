@@ -74,9 +74,9 @@ const thumb = (i: number) => {
 
 <template>
   <section id="publish" ref="root">
-    <FeatureCard :tag="m.publish.tag" side="right">
+    <FeatureCard>
       <template #visual>
-        <div class="@container relative -ml-6 aspect-[1/0.9] overflow-hidden sm:-ml-10 lg:ml-0" aria-hidden="true">
+        <div class="@container relative -ml-6 aspect-[1/0.9] overflow-hidden sm:-ml-8 lg:-ml-10" aria-hidden="true">
           <!-- The CMS window, behind, running off the right edge. -->
           <div class="absolute bottom-[-6%] left-[40%] top-[16%] w-[74%] overflow-hidden rounded-tl-[3cqw] bg-white shadow-[0_30px_80px_-30px_rgba(0,24,77,0.55)] ring-1 ring-line">
             <div class="flex items-center gap-[1.2cqw] border-b border-line bg-surface px-[3cqw] py-[2cqw]">
@@ -128,10 +128,10 @@ const thumb = (i: number) => {
             </div>
           </div>
 
-          <!-- The totem, in front: a dark screen on a pale base. -->
+          <!-- The totem, in front: a screen in a thin pale frame, on a pale base. -->
           <div class="absolute left-[5%] top-[10%] w-[38%]">
-            <div class="rounded-[6cqw] bg-[#0b0e14] p-[1.6cqw] shadow-[0_40px_60px_-30px_rgba(0,24,77,0.7)] ring-1 ring-black/30">
-              <div class="relative aspect-[9/15] overflow-hidden rounded-[4.6cqw] bg-brand-deep">
+            <div class="rounded-[6cqw] bg-white p-[0.9cqw] shadow-[0_40px_60px_-30px_rgba(0,24,77,0.6)] ring-1 ring-line">
+              <div class="relative aspect-[9/15] overflow-hidden rounded-[5.2cqw] bg-brand-deep">
                 <Transition name="swap">
                   <div :key="live" class="absolute inset-0">
                     <img v-if="slides[live].src" :src="slides[live].src" alt="" class="size-full object-cover" decoding="async" />
@@ -161,10 +161,8 @@ const thumb = (i: number) => {
         </div>
       </template>
 
-      <h2 class="mt-5 text-4xl leading-[1.1] sm:text-5xl">{{ m.publish.title }}</h2>
-      <p class="mt-5 max-w-md leading-relaxed text-ink-muted">
-        {{ m.publish.body }}
-      </p>
+      <h3 class="text-3xl leading-[1.1] sm:text-4xl">{{ m.publish.title }}</h3>
+      <p class="mt-3 max-w-md leading-relaxed text-ink-muted">{{ m.publish.body }}</p>
     </FeatureCard>
   </section>
 </template>

@@ -12,7 +12,7 @@ const SCREENS = computed(() => m.value.connect.screens.map((s, i) => ({ ...s, sr
 
 <template>
   <section id="connect">
-    <FeatureCard :tag="m.connect.tag" side="right">
+    <FeatureCard>
       <template #visual>
         <!-- A photo of a screen in its place, running off the card's corner, with the stat and
              the fleet laid over it. -->
@@ -41,10 +41,8 @@ const SCREENS = computed(() => m.value.connect.screens.map((s, i) => ({ ...s, sr
         </div>
       </template>
 
-      <h2 class="mt-5 text-4xl leading-[1.1] sm:text-5xl">{{ m.connect.title }}</h2>
-      <p class="mt-5 max-w-md leading-relaxed text-ink-muted">
-        {{ m.connect.body }}
-      </p>
+      <h3 class="text-3xl leading-[1.1] sm:text-4xl">{{ m.connect.title }}</h3>
+      <p class="mt-3 max-w-md leading-relaxed text-ink-muted">{{ m.connect.body }}</p>
     </FeatureCard>
   </section>
 </template>

@@ -1,10 +1,11 @@
 <script setup lang="ts">
 /**
- * The editor, shown rather than described: four tabs that turn over on their own, so a visitor
- * who does nothing still sees all of it. Clicking a tab takes the wheel for good, because an
- * auto-playing tour that overrides the person watching it is worse than no tour.
+ * The editor, shown rather than described: three steps that turn over on their own, so a
+ * visitor who does nothing still sees all of it, with a row of small bars under the words that
+ * says which step is showing and how long it has left. Clicking a bar takes the wheel for good,
+ * because an auto-playing tour that overrides the person watching it is worse than no tour.
  *
- * All four shots are in the DOM and cross fade on opacity, so switching never shows a gap
+ * All three shots are in the DOM and cross fade on opacity, so switching never shows a gap
  * while an image decodes.
  */
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
@@ -54,57 +55,54 @@ onBeforeUnmount(stop)
 
 <template>
   <section id="design" ref="root">
-    <FeatureCard :tag="m.design.tag" side="left">
-      <template #visual>
-        <!-- Running off the right of the card on a phone, off the left beside the words. -->
-        <BrowserFrame
-          :label="TABS[active].chrome"
-          class="rounded-tl-2xl border-r-0 border-b-0 lg:rounded-tl-none lg:rounded-tr-2xl lg:border-r lg:border-l-0"
+    <FeatureCard>
+      <!-- The step's own title and line. Held to a minimum height so a shorter step does not
+           shuffle the card as it comes round. -->
+      <div class="min-h-[7.5rem] sm:min-h-[8.5rem]">
+        <Transition name="fade" mode="out-in">
+          <div :key="active">
+            <h3 class="text-3xl leading-[1.1] sm:text-4xl">{{ TABS[active].title }}</h3>
+            <p class="mt-3 max-w-md leading-relaxed text-ink-muted">{{ TABS[active].text }}</p>
+          </div>
+        </Transition>
+      </div>
+
+      <div class="mt-4 flex items-center gap-1" role="tablist" :aria-label="m.design.tablist">
+        <button
+          v-for="(t, i) in TABS" :key="t.n"
+          type="button" role="tab" :aria-selected="active === i" :aria-label="t.label"
+          class="group py-2 pr-1"
+          @click="choose(i)"
         >
-          <div class="relative aspect-[1.6] w-full bg-page">
+          <span
+            class="relative block h-1.5 overflow-hidden rounded-full transition-all duration-300"
+            :class="active === i ? 'w-10 bg-brand-deep/15' : 'w-1.5 bg-line-strong group-hover:bg-ink-subtle'"
+          >
+            <!-- How long this step has left, drawn rather than guessed at. Re-keyed so the bar
+                 restarts with the step rather than carrying on from wherever it was. -->
+            <span
+              v-if="active === i" :key="active"
+              class="absolute inset-0 origin-left rounded-full bg-brand-deep"
+              :class="auto && 'tab-progress'"
+            />
+          </span>
+        </button>
+      </div>
+
+      <template #visual>
+        <!-- Running off the card's right and bottom edges. -->
+        <BrowserFrame :label="TABS[active].chrome" class="rounded-tl-2xl border-r-0 border-b-0">
+          <div class="relative aspect-[16/9] w-full bg-page">
             <img
               v-for="(t, i) in TABS" :key="t.n"
               :src="t.src" :alt="`${t.label} ${m.design.inPaskall}`"
-              class="absolute inset-0 size-full object-cover transition-opacity duration-500"
+              class="absolute inset-0 size-full object-cover object-left-top transition-opacity duration-500"
               :class="active === i ? 'opacity-100' : 'opacity-0'"
               loading="lazy" decoding="async"
             />
           </div>
         </BrowserFrame>
       </template>
-
-      <!-- The step's own headline and line, above the pills that choose it. Held to a minimum
-           height so a shorter step does not shuffle the card as it comes round. -->
-      <div class="mt-4 min-h-[8rem] sm:mt-5 sm:min-h-[9.5rem]">
-        <Transition name="fade" mode="out-in">
-          <div :key="active">
-            <h2 class="text-3xl leading-[1.1] sm:text-5xl">{{ TABS[active].title }}</h2>
-            <p class="mt-3 max-w-md text-[15px] leading-relaxed text-ink-muted sm:mt-5 sm:text-base">{{ TABS[active].text }}</p>
-          </div>
-        </Transition>
-      </div>
-
-      <div class="mt-5 flex flex-nowrap gap-1.5 sm:mt-6 sm:gap-2" role="tablist" :aria-label="m.design.tablist">
-        <button
-          v-for="(t, i) in TABS" :key="t.n"
-          type="button" role="tab" :aria-selected="active === i"
-          class="relative inline-flex shrink-0 items-center gap-1.5 overflow-hidden rounded-full py-1 pl-3 pr-3 text-xs ring-1 min-[360px]:pl-1 transition-colors sm:gap-2 sm:py-1.5 sm:pl-1.5 sm:pr-4 sm:text-sm"
-          :class="active === i ? 'bg-brand-deep text-white ring-brand-deep' : 'bg-white text-ink ring-line hover:ring-line-strong'"
-          @click="choose(i)"
-        >
-          <span
-            class="hidden size-5 items-center justify-center rounded-full text-[10px] font-semibold min-[360px]:inline-flex sm:size-6 sm:text-[11px]"
-            :class="active === i ? 'bg-accent text-brand-deep' : 'bg-sky-strong text-brand-deep'"
-          >{{ t.n }}</span>
-          {{ t.label }}
-          <!-- How long this tab has left, drawn rather than guessed at. Re-keyed so the bar
-               restarts with the tab rather than carrying on from wherever it was. -->
-          <span
-            v-if="auto && active === i" :key="active"
-            class="tab-progress absolute inset-x-0 bottom-0 h-0.5 origin-left bg-accent"
-          />
-        </button>
-      </div>
     </FeatureCard>
   </section>
 </template>

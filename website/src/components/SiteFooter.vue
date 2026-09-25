@@ -24,8 +24,7 @@ const mailto = computed(() => `mailto:hello@paskall.com?subject=${encodeURICompo
     <div class="reveal relative overflow-hidden rounded-[2rem] bg-sky px-6 py-16 text-center sm:rounded-[2.5rem] sm:py-24">
       <div class="hero-ring pointer-events-none absolute -bottom-48 left-1/2 h-96 w-[48rem] -translate-x-1/2 rounded-full" aria-hidden="true" />
       <div class="hero-ring pointer-events-none absolute -bottom-72 left-1/2 h-[36rem] w-[64rem] -translate-x-1/2 rounded-full" aria-hidden="true" />
-      <span class="tag relative text-brand-deep">{{ m.footer.tag }}</span>
-      <h2 class="relative mx-auto mt-5 max-w-2xl text-4xl leading-[1.1] sm:text-6xl">{{ m.footer.title }}</h2>
+      <h2 class="relative mx-auto max-w-2xl text-4xl leading-[1.1] sm:text-6xl">{{ m.footer.title }}</h2>
       <p class="relative mx-auto mt-5 max-w-xl text-lg text-ink-muted">
         {{ m.footer.body }}
       </p>

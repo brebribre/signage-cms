@@ -20,7 +20,7 @@ const slides = useSlides()
 <template>
   <div class="rounded-3xl bg-white p-2.5 shadow-[0_24px_60px_-28px_rgba(0,24,77,0.45)] ring-1 ring-line">
     <div
-      class="relative overflow-hidden rounded-2xl bg-brand-deep ring-4 ring-[#0b0e14]"
+      class="relative overflow-hidden rounded-2xl bg-brand-deep ring-1 ring-black/5"
       :class="portrait ? 'aspect-video lg:aspect-[9/14]' : 'aspect-video'"
       :style="{ '--swap-delay': `${delay ?? 0}ms` }"
     >

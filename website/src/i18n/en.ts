@@ -21,7 +21,7 @@ const en = {
     requestAccess: 'Request access',
   },
   hero: {
-    title: 'Meet the smart way to manage your screens',
+    title: 'Meet the smart way to manage your screens.',
     subtitle: 'Pictures, videos and live websites on digital signage, smart TVs and Android boxes.',
     cta: 'Request access',
     screens: [
@@ -52,7 +52,6 @@ const en = {
     rest: 'Connect a screen, design what it plays, and publish everywhere at once.',
   },
   connect: {
-    tag: 'Screens',
     title: 'Connect your screens',
     body: 'Type the six-letter code from the player, and the screen joins your fleet.',
     statUnder: 'Under',
@@ -67,7 +66,6 @@ const en = {
     ],
   },
   design: {
-    tag: 'Content',
     tablist: 'The editor',
     inPaskall: 'in Paskall',
     tabs: [
@@ -77,7 +75,6 @@ const en = {
     ],
   },
   publish: {
-    tag: 'Publish',
     title: 'Publish them effortlessly',
     body: 'Changes are published in seconds.',
     ready: 'Ready to publish',
@@ -93,7 +90,6 @@ const en = {
     ],
   },
   platforms: {
-    tag: 'Platforms',
     lead: 'Designed for versatility.',
     rest: 'One player, on whatever screen you already have.',
     items: [
@@ -103,10 +99,8 @@ const en = {
     ],
   },
   responsive: {
-    tag: 'Responsive',
     lead: 'Observe from anywhere.',
     rest: 'Paskall CMS works on your phone, tablet and monitor.',
-    devices: ['Phones', 'Tablets', 'Monitors'],
     monitorAlt: 'The Paskall dashboard on a monitor',
   },
   faq: {
@@ -121,7 +115,6 @@ const en = {
     ],
   },
   footer: {
-    tag: 'Get started',
     title: 'Put your first screen on Paskall',
     body: 'Tell us how many screens. We’ll set up the account.',
     cta: 'Request access',

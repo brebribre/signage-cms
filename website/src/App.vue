@@ -5,7 +5,6 @@ import SiteFeatures from '@/components/SiteFeatures.vue'
 import SiteFooter from '@/components/SiteFooter.vue'
 import SiteHero from '@/components/SiteHero.vue'
 import SiteNav from '@/components/SiteNav.vue'
-import SitePlatforms from '@/components/SitePlatforms.vue'
 import SiteResponsive from '@/components/SiteResponsive.vue'
 import SiteVenues from '@/components/SiteVenues.vue'
 
@@ -18,7 +17,6 @@ useReveal()
     <SiteHero />
     <SiteVenues />
     <SiteFeatures />
-    <SitePlatforms />
     <SiteResponsive />
     <SiteFaq />
   </main>
