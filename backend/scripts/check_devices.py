@@ -145,6 +145,24 @@ def main() -> None:
             except device_service.DeviceNotFound:
                 check(label, True)
 
+    print("\na screen that can tell how it hangs")
+    r = device.post("/devices/pair", json={"platform": "android", "detected_orientation": "270"})
+    check("pairing accepts the screen's own reading", r.status_code == 201, str(r.status_code))
+    mounted = r.json()
+    r = device.get(f"/devices/pair/{mounted['poll_token']}", params={"detected_orientation": "180"})
+    check("a later reading on the poll is taken while waiting", r.status_code == 200, str(r.status_code))
+    r = o.post("/devices/claim", json={"pairing_code": mounted["pairing_code"], "name": "Sensor"})
+    check("claimed", r.status_code == 201, str(r.status_code))
+    check("its orientation follows the latest reading",
+          r.json()["orientation"] == "180" and r.json()["detected_orientation"] == "180", r.text[:160])
+    unsure = device.post("/devices/pair").json()
+    r = o.post("/devices/claim", json={"pairing_code": unsure["pairing_code"], "name": "No sensor"})
+    check("a screen that can't tell keeps the default and says so",
+          r.json()["orientation"] == "90" and r.json()["detected_orientation"] is None, r.text[:160])
+    check("a reading that isn't a quarter turn is refused",
+          device.get(f"/devices/pair/{unsure['poll_token']}", params={"detected_orientation": "45"}).status_code == 422)
+    # Both screens sit in the check's own account, which cleanup() removes.
+
     print("\nmanaging the screen")
     r = o.patch(f"/devices/{device_id}", json={"playlist_id": str(playlist_id), "orientation": "portrait"})
     check("a playlist can be assigned", r.json()["playlist_id"] == str(playlist_id))

@@ -40,6 +40,7 @@ class PlayerEngineTest {
         // Virtual time, like everything else here: the stall watchdog, download speed and the
         // update backoff all read the clock, and a wall clock would make them untestable.
         clock: () -> Long = { testScheduler.currentTime },
+        detectMount: () -> String? = { null },
     ) = PlayerEngine(
         api = api,
         store = store,
@@ -55,6 +56,7 @@ class PlayerEngineTest {
         io = UnconfinedTestDispatcher(testScheduler),
         push = push,
         clock = clock,
+        detectMount = detectMount,
     )
 
     // --- pairing --------------------------------------------------------------------------
@@ -110,6 +112,21 @@ class PlayerEngineTest {
 
         assertEquals("device-token", store.storedToken)
         assertEquals("Lobby", store.storedName)
+        job.cancelAndJoin()
+    }
+
+    @Test
+    fun `the screen's own mounting goes with the code, and with every check while it waits`() = runTest {
+        val api = FakeApi().apply { pollsBeforeClaim = 3; manifest = manifest() }
+        var reading = "270"
+        val e = engine(api = api, detectMount = { reading })
+        val job = launch { e.run() }
+        advanceTimeBy(6_000)
+        reading = "90" // lifted onto the wall while the code was up
+        advanceTimeBy(12_000)
+
+        assertEquals("270", api.detectedOrientations.first())
+        assertEquals("90", api.detectedOrientations.last())
         job.cancelAndJoin()
     }
 

@@ -42,8 +42,12 @@ class FakeApi : PlayerApi {
     var manifestCalls = 0
     val heartbeats = mutableListOf<HeartbeatRequest>()
 
-    override fun startPairing(): PairStartResponse {
+    /** The mounting the player reported, per call, so a test can assert it was sent. */
+    val detectedOrientations = mutableListOf<String?>()
+
+    override fun startPairing(detectedOrientation: String?): PairStartResponse {
         startPairingCalls++
+        detectedOrientations += detectedOrientation
         startPairingThrows?.let { throw it }
         return PairStartResponse(
             deviceId = "dev-1",
@@ -54,8 +58,9 @@ class FakeApi : PlayerApi {
         )
     }
 
-    override fun pollPairing(pollToken: String): PairPollResponse? {
+    override fun pollPairing(pollToken: String, detectedOrientation: String?): PairPollResponse? {
         pollCalls++
+        detectedOrientations += detectedOrientation
         if (pairingExpired) return null
         val claimed = pollCalls >= pollsBeforeClaim
         return PairPollResponse(

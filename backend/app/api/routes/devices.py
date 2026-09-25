@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, status
 
 from app.api.deps import CurrentUser, DbSession, DeviceForUser, RequireOwner
 from app.api.review_gate import needs_review, park
-from app.models import Playlist, ReviewKind
+from app.models import DeviceOrientation, Playlist, ReviewKind
 from app.config import get_settings
 from app.schemas.devices import (
     ClaimRequest,
@@ -51,7 +51,10 @@ def start_pairing(session: DbSession, body: PairStartRequest | None = None) -> P
     """Called by a screen on first boot. Deliberately unauthenticated — the device has no
     credential yet, and this is how it gets one. The body only says which player is asking;
     the Android player sends none."""
-    device = device_service.start_pairing(session, platform=(body or PairStartRequest()).platform)
+    body = body or PairStartRequest()
+    device = device_service.start_pairing(
+        session, platform=body.platform, detected_orientation=body.detected_orientation
+    )
     return PairStartResponse(
         device_id=device.id,
         pairing_code=device.pairing_code,
@@ -62,14 +65,18 @@ def start_pairing(session: DbSession, body: PairStartRequest | None = None) -> P
 
 
 @router.get("/devices/pair/{poll_token}", response_model=PairPollResponse)
-def poll_pairing(poll_token: str, session: DbSession) -> PairPollResponse:
+def poll_pairing(
+    poll_token: str, session: DbSession, detected_orientation: DeviceOrientation | None = None
+) -> PairPollResponse:
     """Polled by the screen every few seconds until a human claims it.
 
     The token comes back exactly once; a second call with the same poll token is a 404,
     because the poll token is destroyed when the plaintext is handed over.
     """
     try:
-        device, token, mqtt_password = device_service.poll_pairing(session, poll_token=poll_token)
+        device, token, mqtt_password = device_service.poll_pairing(
+            session, poll_token=poll_token, detected_orientation=detected_orientation
+        )
     except PairingNotFound:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Unknown or expired pairing") from None
 

@@ -19,7 +19,9 @@ export function useDevices() {
   const claimError = ref<string | null>(null)
   /** Set while a just-claimed screen is being waited on, so the UI can show the handshake
    *  rather than a spinner that means nothing. */
-  const connecting = ref<{ id: string; name: string; connected: boolean } | null>(null)
+  /** The screen being connected. `detectedOrientation` is what it worked out for itself about
+   *  how it hangs — already applied by the claim — or null when pairing must ask. */
+  const connecting = ref<{ id: string; name: string; connected: boolean; detectedOrientation: DeviceOrientation | null } | null>(null)
 
   async function refresh() {
     isLoading.value = true
@@ -55,14 +57,15 @@ export function useDevices() {
     connecting.value = null
     try {
       const device = await api.claim(body)
-      connecting.value = { id: device.id, name: device.name, connected: false }
+      const detectedOrientation = device.detected_orientation ?? null
+      connecting.value = { id: device.id, name: device.name, connected: false, detectedOrientation }
 
       const deadline = Date.now() + CONNECT_TIMEOUT_MS
       while (Date.now() < deadline) {
         await new Promise((r) => setTimeout(r, 1500))
         const fresh = await api.get(device.id)
         if (fresh.paired_at) {
-          connecting.value = { id: device.id, name: device.name, connected: true }
+          connecting.value = { id: device.id, name: device.name, connected: true, detectedOrientation }
           await refresh()
           return true
         }

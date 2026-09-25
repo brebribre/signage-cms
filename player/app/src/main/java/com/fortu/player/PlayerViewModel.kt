@@ -12,6 +12,7 @@ import com.fortu.player.data.DeviceStore
 import com.fortu.player.data.MediaCache
 import com.fortu.player.kiosk.DeviceSettingsApplier
 import com.fortu.player.kiosk.KioskPolicy
+import com.fortu.player.kiosk.MountDetector
 import com.fortu.player.kiosk.SelfUpdater
 import com.fortu.player.kiosk.UpdateOutcome
 import com.fortu.player.push.MqttPushClient
@@ -47,6 +48,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         apiBaseUrl = BuildConfig.API_BASE_URL,
         canSelfUpdate = { SelfUpdater.isSupported(app) },
         isDeviceOwner = { KioskPolicy.isDeviceOwner(app) },
+        detectMount = { MountDetector.detect(app) },
         installUpdate = { update, onProgress -> SelfUpdater.downloadAndInstall(app, api.http, update, onProgress) },
         consumeInstallFailure = { UpdateOutcome.consumeFailure() },
         applySettings = { settings -> DeviceSettingsApplier.apply(app, settings) },

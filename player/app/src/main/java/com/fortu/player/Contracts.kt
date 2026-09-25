@@ -24,9 +24,12 @@ import java.io.File
  */
 
 interface PlayerApi {
-    fun startPairing(): PairStartResponse
-    /** Null when the pairing expired or was already collected (HTTP 404). */
-    fun pollPairing(pollToken: String): PairPollResponse?
+    /** [detectedOrientation]: how the screen finds itself mounted, if it can tell (kiosk/Mount.kt)
+     *  — sent so the CMS need not ask. */
+    fun startPairing(detectedOrientation: String? = null): PairStartResponse
+    /** Null when the pairing expired or was already collected (HTTP 404). Carries the latest
+     *  [detectedOrientation] too, since a screen may be lifted onto the wall while it waits. */
+    fun pollPairing(pollToken: String, detectedOrientation: String? = null): PairPollResponse?
     /** Null when the server answered 304 — nothing changed. */
     fun fetchManifest(token: String, etag: String?): Manifest?
     fun heartbeat(token: String, body: HeartbeatRequest): HeartbeatResponse

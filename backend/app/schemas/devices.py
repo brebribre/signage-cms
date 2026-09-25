@@ -12,6 +12,9 @@ class DeviceRead(BaseModel):
     location: str
     timezone: str
     orientation: DeviceOrientation
+    # What the screen worked out for itself while it waited to be paired, if anything. The CMS
+    # skips "How is the screen mounted?" when this is set, since `orientation` already follows it.
+    detected_orientation: DeviceOrientation | None = None
     # "android" or "web" — web screens update by reloading, so APK rollouts skip them.
     platform: DevicePlatform
     playlist_id: uuid.UUID | None
@@ -58,9 +61,11 @@ class DeviceLiveWrite(BaseModel):
 
 
 class PairStartRequest(BaseModel):
-    """Optional: the Android player posts an empty body, which is read as "android"."""
+    """Optional: an Android player before 1.4.1 posts an empty body, which is read as "android"."""
 
     platform: DevicePlatform = DevicePlatform.ANDROID
+    # How the screen finds itself mounted, if it can tell — see Device.detected_orientation.
+    detected_orientation: DeviceOrientation | None = None
 
 
 class PairStartResponse(BaseModel):

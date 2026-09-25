@@ -40,10 +40,15 @@ class ApiClient(
             .build()
     }
 
-    override fun startPairing(): PairStartResponse {
+    override fun startPairing(detectedOrientation: String?): PairStartResponse {
+        // An empty body still reads as "android" on the server; the reading rides along when
+        // there is one.
+        val body = detectedOrientation
+            ?.let { """{"platform":"android","detected_orientation":"$it"}""".toRequestBody("application/json".toMediaType()) }
+            ?: ByteArray(0).toRequestBody()
         val req = Request.Builder()
             .url("$baseUrl/devices/pair")
-            .post(ByteArray(0).toRequestBody())
+            .post(body)
             .build()
         http.newCall(req).execute().use { res ->
             if (!res.isSuccessful) throw IOException("pair failed: HTTP ${res.code}")
@@ -52,8 +57,9 @@ class ApiClient(
     }
 
     /** Returns null when the pairing has expired or was already collected (HTTP 404). */
-    override fun pollPairing(pollToken: String): PairPollResponse? {
-        val req = Request.Builder().url("$baseUrl/devices/pair/$pollToken").get().build()
+    override fun pollPairing(pollToken: String, detectedOrientation: String?): PairPollResponse? {
+        val query = detectedOrientation?.let { "?detected_orientation=$it" } ?: ""
+        val req = Request.Builder().url("$baseUrl/devices/pair/$pollToken$query").get().build()
         http.newCall(req).execute().use { res ->
             if (res.code == 404) return null
             if (!res.isSuccessful) throw IOException("poll failed: HTTP ${res.code}")

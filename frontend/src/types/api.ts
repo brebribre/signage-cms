@@ -223,6 +223,9 @@ export interface DeviceRead {
   /** IANA name. Schedules are expressed in this screen's local wall clock. */
   timezone: string
   orientation: DeviceOrientation
+  /** How the screen found itself mounted while it waited to be paired — its gravity sensor, or
+   *  its own rotation setting. Null when it couldn't tell; then pairing asks. */
+  detected_orientation?: DeviceOrientation | null
   platform: DevicePlatform
   playlist_id: string | null
   screen_width: number | null

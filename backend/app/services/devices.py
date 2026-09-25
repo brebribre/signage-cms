@@ -115,7 +115,12 @@ def sweep_expired(session: Session) -> int:
     return result.rowcount or 0
 
 
-def start_pairing(session: Session, *, platform: DevicePlatform = DevicePlatform.ANDROID) -> Device:
+def start_pairing(
+    session: Session,
+    *,
+    platform: DevicePlatform = DevicePlatform.ANDROID,
+    detected_orientation: DeviceOrientation | None = None,
+) -> Device:
     """Called by the **device**, unauthenticated, on first boot.
 
     Creates a row belonging to nobody. That is the one place in the schema where a row
@@ -130,6 +135,7 @@ def start_pairing(session: Session, *, platform: DevicePlatform = DevicePlatform
         # shoulder-surfed off the screen cannot be exchanged for a token.
         poll_token=secrets.token_urlsafe(32),
         pairing_expires_at=utcnow() + timedelta(seconds=settings.pairing_code_ttl_seconds),
+        detected_orientation=detected_orientation,
     )
     session.add(device)
     session.commit()
@@ -137,7 +143,9 @@ def start_pairing(session: Session, *, platform: DevicePlatform = DevicePlatform
     return device
 
 
-def poll_pairing(session: Session, *, poll_token: str) -> tuple[Device, str | None, str | None]:
+def poll_pairing(
+    session: Session, *, poll_token: str, detected_orientation: DeviceOrientation | None = None
+) -> tuple[Device, str | None, str | None]:
     """Called by the device every few seconds.
 
     Returns `(device, plaintext_token_or_None, mqtt_password_or_None)`.
@@ -161,6 +169,12 @@ def poll_pairing(session: Session, *, poll_token: str) -> tuple[Device, str | No
     if device.account_id is None:
         if device.pairing_expires_at and device.pairing_expires_at < utcnow():
             raise PairingNotFound(poll_token)
+        # The latest reading wins: an installer may power a screen up on the floor and only
+        # then lift it onto the wall. Only while waiting — once claimed it's the CMS's to set.
+        if detected_orientation is not None and detected_orientation != device.detected_orientation:
+            device.detected_orientation = detected_orientation
+            session.add(device)
+            session.commit()
         return device, None, None  # still waiting for a human
 
     token = secrets.token_urlsafe(32)
@@ -229,6 +243,9 @@ def claim(
     # Starts in the account's default zone (Settings → General); changeable per screen after.
     device.timezone = _account_default_timezone(session, user)
     device.location = location.strip()
+    # The screen already knows how it hangs: use that, and the CMS won't ask.
+    if device.detected_orientation is not None:
+        device.orientation = device.detected_orientation
     session.add(device)
 
     # A manager who claims a screen must be able to reach it afterwards; without this they

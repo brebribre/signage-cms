@@ -11,12 +11,12 @@ import AppInput from '@/reusables/AppInput.vue'
 import ConnectAnimation from '@/reusables/ConnectAnimation.vue'
 import ModalActions from '@/reusables/ModalActions.vue'
 import type { ClaimBody, DeviceOrientation } from '@/types/api'
-import { ORIENTATIONS } from '@/utils/orientation'
+import { ORIENTATIONS, orientationLabel } from '@/utils/orientation'
 
 const props = defineProps<{
   isSaving: boolean
   claimError: string | null
-  connecting: { id: string; name: string; connected: boolean } | null
+  connecting: { id: string; name: string; connected: boolean; detectedOrientation?: DeviceOrientation | null } | null
 }>()
 const emit = defineEmits<{
   submit: [body: ClaimBody]
@@ -30,6 +30,16 @@ const form = ref({ pairing_code: '', name: '', location: '' })
 /** Asked once the screen has connected: a totem stood on the wrong side shows everything
  *  upside down, and the moment it's paired is when someone is actually looking at it. */
 const orientation = ref<DeviceOrientation>('90')
+
+/** Set when the screen worked out its own mounting (its gravity sensor, or its own rotation
+ *  setting) — the claim has already applied it, so there's nothing to ask. `changing` opens
+ *  the question anyway, for the rare screen that read itself wrong. */
+const detected = computed(() => props.connecting?.detectedOrientation ?? null)
+const changing = ref(false)
+function startChanging() {
+  if (detected.value) orientation.value = detected.value
+  changing.value = true
+}
 
 /** The handshake only shows once this form has actually been submitted — `claimError` and
  *  `connecting` live in the caller's hook and can be left over from an earlier attempt. */
@@ -53,8 +63,31 @@ const handshake = computed<'connecting' | 'connected' | 'failed' | null>(() => {
 </script>
 
 <template>
-  <!-- Connected: the one question left is how the panel is mounted. -->
-  <div v-if="handshake === 'connected'" class="flex flex-col gap-3">
+  <!-- Connected, and the screen could tell how it hangs: nothing to ask. -->
+  <div v-if="handshake === 'connected' && detected && !changing" class="flex flex-col gap-3">
+    <div class="flex flex-col items-center gap-1 rounded-lg bg-surface px-3 py-3">
+      <ConnectAnimation state="connected" />
+      <p class="text-[13px] text-ink">{{ connecting?.name }} connected</p>
+    </div>
+    <div class="flex items-center gap-3 rounded-xl border border-line px-3 py-3">
+      <span class="flex size-10 shrink-0 items-center justify-center">
+        <IconTv class="size-8" :style="{ transform: `rotate(${detected}deg)` }" aria-hidden="true" />
+      </span>
+      <div class="min-w-0">
+        <p class="text-sm text-ink">{{ orientationLabel(detected) }}</p>
+        <p class="text-[13px] text-ink-muted">The screen worked out how it's mounted, and uses it already.</p>
+      </div>
+    </div>
+    <AppAlert v-if="claimError" tone="danger">{{ claimError }}</AppAlert>
+    <ModalActions>
+      <AppButton variant="secondary" size="sm" type="button" :disabled="isSaving" @click="startChanging">Change</AppButton>
+      <AppButton size="sm" type="button" :loading="isSaving" @click="emit('done', null)">Done</AppButton>
+    </ModalActions>
+  </div>
+
+  <!-- Connected: the one question left is how the panel is mounted — asked only when the screen
+       couldn't tell (a TV box has no sensor), or someone chose to change what it found. -->
+  <div v-else-if="handshake === 'connected'" class="flex flex-col gap-3">
     <div class="flex flex-col items-center gap-1 rounded-lg bg-surface px-3 py-3">
       <ConnectAnimation state="connected" />
       <p class="text-[13px] text-ink">{{ connecting?.name }} connected</p>

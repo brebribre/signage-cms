@@ -132,6 +132,15 @@ class Device(SQLModel, table=True):
         sa_column=enum_column(DeviceOrientation, nullable=False),
     )
 
+    # How the screen found itself mounted while it showed its pairing code: its gravity sensor,
+    # or failing that its own Android rotation setting. Null when it couldn't tell — a TV box has
+    # no sensor, and the TV it drives says landscape however it hangs. Copied into `orientation`
+    # when the code is typed (services/devices.py::claim), so the CMS only asks when it's null.
+    detected_orientation: DeviceOrientation | None = Field(
+        default=None,
+        sa_column=enum_column(DeviceOrientation, nullable=True),
+    )
+
     platform: DevicePlatform = Field(
         default=DevicePlatform.ANDROID,
         sa_column=enum_column(DevicePlatform, nullable=False, server_default=DevicePlatform.ANDROID.value),

@@ -218,6 +218,10 @@ class PlayerEngine(
      *  screen and explain what it can't do. Separate from [canSelfUpdate] because the two may
      *  one day differ (an assisted install needs no policy). */
     private val isDeviceOwner: () -> Boolean = { false },
+    /** How the screen finds itself mounted, as a CMS orientation value, or null when it can't
+     *  tell — `kiosk/MountDetector`. Sent while pairing so the CMS need not ask. Blocking, for a
+     *  moment; only ever called on [io]. */
+    private val detectMount: () -> String? = { null },
     /** Downloads and hands the APK to the system, calling back with (bytes so far, total)
      *  as it goes — `kiosk/SelfUpdater`. Blocking; only ever called on [io]. */
     private val installUpdate: (UpdateInfo, (Long, Long?) -> Unit) -> InstallResult =
@@ -421,7 +425,7 @@ class PlayerEngine(
         val host = apiBaseUrl.substringAfter("://").substringBefore("/")
 
         val pair = try {
-            api.startPairing()
+            api.startPairing(detectMount())
         } catch (e: Exception) {
             // No network yet: say so on screen instead of showing a code that cannot work.
             _state.value = PlayerState.Pairing(
@@ -440,7 +444,7 @@ class PlayerEngine(
             delay(pair.pollSeconds * 1000L)
             checks++
             val poll = try {
-                api.pollPairing(pair.pollToken)
+                api.pollPairing(pair.pollToken, detectMount())
             } catch (e: Exception) {
                 _debug.update { it.copy(lastError = e.message) }
                 _state.value = PlayerState.Pairing(
