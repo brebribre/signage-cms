@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Publishing, animated, as a product shot: a signage totem standing in front of the CMS window.
+ * Publishing, animated, as a product shot: a signage totem standing beside the CMS window.
  * The CMS picks the next playlist and publishes it; the button fills as it goes out, a bar runs
  * along the foot of the totem's screen as it downloads, and the new content pushes the old one
  * off. The window runs off the scene's right and bottom
@@ -72,8 +72,9 @@ onBeforeUnmount(stop)
 
 <template>
   <div ref="root" class="@container relative aspect-[1/0.9] overflow-hidden" aria-hidden="true">
-    <!-- The CMS window, behind, running off the right edge. -->
-    <div class="absolute bottom-[-6%] left-[40%] top-[16%] w-[74%] overflow-hidden rounded-tl-[3cqw] bg-white shadow-[0_30px_80px_-30px_rgba(0,24,77,0.55)] ring-1 ring-line">
+    <!-- The CMS window, beside the totem with a clear gap between them, running off the right
+         edge. -->
+    <div class="absolute bottom-[-6%] left-[50%] top-[16%] w-[64%] overflow-hidden rounded-tl-[3cqw] bg-white shadow-[0_30px_80px_-30px_rgba(0,24,77,0.55)] ring-1 ring-line">
       <div class="flex items-center gap-[1.2cqw] border-b border-line bg-surface px-[3cqw] py-[2cqw]">
         <span class="size-[1.8cqw] rounded-full bg-line-strong" /><span class="size-[1.8cqw] rounded-full bg-line-strong" /><span class="size-[1.8cqw] rounded-full bg-line-strong" />
       </div>
