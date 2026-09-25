@@ -13,7 +13,7 @@ import CmsWindow from './CmsWindow.vue'
 import ScreenCard from './ScreenCard.vue'
 import { SLIDES } from '@/data/slides'
 
-/** Where each screen floats on a wide page; on a narrow one they line up under the CMS. */
+/** Where each screen floats round the CMS. Only on a wide page; a phone shows the CMS alone. */
 const SCREENS = [
   { name: 'Lobby TV', kind: 'Android box', pos: 'lg:left-0 lg:top-10 lg:w-56', delay: 0 },
   { name: 'Entrance totem', kind: 'Smart TV', portrait: true, pos: 'lg:left-16 lg:bottom-6 lg:w-36', delay: 160 },
@@ -49,13 +49,14 @@ onBeforeUnmount(() => { if (timer) clearInterval(timer) })
       </div>
     </div>
 
-    <!-- The CMS, centre stage. -->
-    <div class="relative mx-auto max-w-[40rem] pt-4 lg:absolute lg:inset-x-0 lg:bottom-0">
+    <!-- The CMS, centre stage. On a phone it is the whole picture, cropped to its top half so
+         it runs off the foot of the hero the way it stands in the dome on a wide page. -->
+    <div class="relative mx-auto max-h-[17rem] max-w-[40rem] overflow-hidden pt-4 sm:max-h-[24rem] lg:absolute lg:inset-x-0 lg:bottom-0 lg:max-h-none">
       <CmsWindow :active="active" :screens="SCREENS.length" @select="choose" />
     </div>
 
-    <!-- The screens it runs. -->
-    <ul class="relative mt-6 grid grid-cols-2 items-start gap-3 pb-10 sm:grid-cols-4 lg:static lg:mt-0 lg:block lg:pb-0">
+    <!-- The screens it runs, floating round it where there is room for them. -->
+    <ul class="hidden lg:block">
       <li
         v-for="(s, i) in SCREENS" :key="s.name"
         class="float lg:absolute" :class="s.pos" :style="{ '--float-delay': `${-i * 1.4}s` }"

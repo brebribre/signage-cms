@@ -40,31 +40,34 @@ const DEVICES = [
       </div>
 
       <!-- The devices. Positions are percentages of the stage, so the group keeps its shape at
-           every width. -->
-      <div class="relative mx-auto mt-12 aspect-[16/9.4] max-w-5xl sm:mt-16">
-        <!-- Monitor. -->
-        <div class="absolute left-[15%] top-0 w-[70%]">
-          <div class="rounded-[1.4%/2.2%] bg-[#0b0e14] p-[1.1%] shadow-[0_40px_100px_-30px_rgba(0,0,0,0.7)] ring-1 ring-white/15">
-            <img src="/shots/overview.webp" alt="The Paskall dashboard on a monitor" class="block aspect-[16/10] w-full rounded-[0.6%/1%] object-cover object-left-top" loading="lazy" decoding="async" />
+           every width, and the window over it shows only their top halves, running off the
+           card's foot, so the card stays short. -->
+      <div class="relative mx-auto mt-12 aspect-[16/5.2] max-w-5xl overflow-hidden sm:mt-16">
+        <div class="absolute inset-x-0 top-0 aspect-[16/9.4]">
+          <!-- Monitor. -->
+          <div class="absolute left-[15%] top-0 w-[70%]">
+            <div class="rounded-[1.4%/2.2%] bg-[#0b0e14] p-[1.1%] shadow-[0_40px_100px_-30px_rgba(0,0,0,0.7)] ring-1 ring-white/15">
+              <img src="/shots/overview.webp" alt="The Paskall dashboard on a monitor" class="block aspect-[16/10] w-full rounded-[0.6%/1%] object-cover object-left-top" loading="lazy" decoding="async" />
+            </div>
+            <div class="mx-auto h-[1.8vw] max-h-6 w-[14%] bg-gradient-to-b from-[#2a2f3a] to-[#171b23]" aria-hidden="true" />
+            <div class="mx-auto h-[0.7vw] max-h-2.5 w-[34%] rounded-t-md bg-[#2a2f3a]" aria-hidden="true" />
           </div>
-          <div class="mx-auto h-[1.8vw] max-h-6 w-[14%] bg-gradient-to-b from-[#2a2f3a] to-[#171b23]" aria-hidden="true" />
-          <div class="mx-auto h-[0.7vw] max-h-2.5 w-[34%] rounded-t-md bg-[#2a2f3a]" aria-hidden="true" />
-        </div>
 
-        <!-- Tablet. -->
-        <div class="float absolute bottom-0 left-0 w-[27%]" style="--float-delay: -2s">
-          <div class="rounded-[9%/7%] bg-[#0b0e14] p-[3.5%] shadow-[0_30px_80px_-24px_rgba(0,0,0,0.75)] ring-1 ring-white/20">
-            <div class="aspect-[3/4] overflow-hidden rounded-[5%/4%]">
-              <MiniCms size="tablet" />
+          <!-- Tablet. -->
+          <div class="float absolute left-0 top-[20%] w-[27%]" style="--float-delay: -2s">
+            <div class="rounded-[9%/7%] bg-[#0b0e14] p-[3.5%] shadow-[0_30px_80px_-24px_rgba(0,0,0,0.75)] ring-1 ring-white/20">
+              <div class="aspect-[3/4] overflow-hidden rounded-[5%/4%]">
+                <MiniCms size="tablet" />
+              </div>
             </div>
           </div>
-        </div>
 
-        <!-- Phone. -->
-        <div class="float absolute bottom-0 right-[5%] w-[15%]" style="--float-delay: -4s">
-          <div class="rounded-[18%/8.5%] bg-[#0b0e14] p-[5%] shadow-[0_30px_80px_-24px_rgba(0,0,0,0.75)] ring-1 ring-white/20">
-            <div class="aspect-[9/19.5] overflow-hidden rounded-[13%/6%]">
-              <MiniCms size="phone" />
+          <!-- Phone. -->
+          <div class="float absolute right-[5%] top-[26%] w-[15%]" style="--float-delay: -4s">
+            <div class="rounded-[18%/8.5%] bg-[#0b0e14] p-[5%] shadow-[0_30px_80px_-24px_rgba(0,0,0,0.75)] ring-1 ring-white/20">
+              <div class="aspect-[9/19.5] overflow-hidden rounded-[13%/6%]">
+                <MiniCms size="phone" />
+              </div>
             </div>
           </div>
         </div>

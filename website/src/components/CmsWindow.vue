@@ -33,7 +33,7 @@ const thumb = (i: number) => {
 </script>
 
 <template>
-  <figure class="overflow-hidden rounded-3xl border border-line lg:rounded-b-none lg:border-b-0 bg-canvas shadow-[0_40px_90px_-40px_rgba(0,24,77,0.55)]">
+  <figure class="overflow-hidden rounded-t-3xl border border-b-0 border-line bg-canvas shadow-[0_40px_90px_-40px_rgba(0,24,77,0.55)]">
     <!-- The browser chrome. -->
     <div class="flex items-center gap-1.5 border-b border-line bg-surface px-4 py-3">
       <span class="size-2.5 rounded-full bg-line-strong" /><span class="size-2.5 rounded-full bg-line-strong" /><span class="size-2.5 rounded-full bg-line-strong" />
