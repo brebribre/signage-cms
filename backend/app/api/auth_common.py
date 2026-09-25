@@ -17,11 +17,12 @@ UNAUTHORIZED = HTTPException(
 )
 
 
-def set_session_cookie(response: Response, user_id) -> None:
+def set_session_cookie(response: Response, user) -> None:
+    """A cookie for `user`, carrying their current session version (services/session.py)."""
     settings = get_settings()
     response.set_cookie(
         key=settings.session_cookie_name,
-        value=create_session_token(user_id),
+        value=create_session_token(user.id, user.session_version),
         max_age=settings.session_max_age_seconds,
         httponly=True,          # JS must never be able to read it
         secure=settings.cookie_secure,

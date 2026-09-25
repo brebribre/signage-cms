@@ -8,6 +8,9 @@ export function useAuthApi() {
     me: () => request<MeResponse>('GET', '/me'),
     login: (body: LoginBody) => request<MeResponse>('POST', '/auth/login', body),
     logout: () => request<void>('POST', '/auth/logout'),
+    /** Replace your own password. Other sessions end; this one gets a fresh cookie. */
+    changePassword: (body: { current_password: string; new_password: string }) =>
+      request<MeResponse>('POST', '/auth/password', body),
     /** Account-wide settings. Owner-only. */
     updateAccount: (body: { default_timezone?: string }) => request<AccountRead>('PATCH', '/account', body),
   }

@@ -39,6 +39,8 @@ class AdminAccountUserRead(BaseModel):
     role: UserRole
     is_active: bool
     created_at: datetime
+    # Still on a password someone else chose; they haven't signed in to pick their own yet.
+    must_change_password: bool = False
 
 
 class AdminAccountRead(BaseModel):
@@ -97,6 +99,13 @@ class AdminAccountCreate(BaseModel):
                 "letters, digits, dot, underscore and hyphen only"
             )
         return value
+
+
+class AdminPasswordReset(BaseModel):
+    """A temporary password for the account's main user. Staff hand it over themselves; the
+    person replaces it at their next sign-in."""
+
+    password: str = Field(min_length=8, max_length=200)
 
 
 class AdminLimitsUpdate(BaseModel):

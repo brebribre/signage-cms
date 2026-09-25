@@ -154,6 +154,12 @@ def main() -> None:
     r = issue(b, "newtech3", kind="admin", max_screens=2)
     check("one limit sent, the other defaulted", r.json()["max_screens"] == 2 and r.json()["storage_quota_bytes"] == 5 * GB)
     nt = TestClient(app).post("/admin/auth/login", json={"identifier": f"{PREFIX}-newtech", "password": PASSWORD})
+    check("the new technician's issued password is temporary: the CMS first (403)",
+          nt.status_code == 403 and "CMS" in nt.json().get("detail", ""), f"{nt.status_code} {nt.text[:80]}")
+    cms = TestClient(app)
+    cms.post("/auth/login", json={"identifier": f"{PREFIX}-newtech", "password": PASSWORD})
+    cms.post("/auth/password", json={"current_password": PASSWORD, "new_password": PASSWORD + "-own"})
+    nt = TestClient(app).post("/admin/auth/login", json={"identifier": f"{PREFIX}-newtech", "password": PASSWORD + "-own"})
     check("the new technician can sign in to the monitoring app as admin",
           nt.status_code == 200 and nt.json().get("kind") == "admin", f"{nt.status_code} {nt.text[:80]}")
     r = issue(b, "second-owner", kind="owner")

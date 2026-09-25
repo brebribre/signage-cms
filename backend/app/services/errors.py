@@ -24,3 +24,8 @@ class InvalidCredentials(DomainError):
     account-existence oracle, and `is_active` in particular would leak that a subuser had
     been suspended.
     """
+
+
+class SamePassword(DomainError):
+    """A new password identical to the one being replaced — for a temporary one, the whole point
+    is that the person picks something the giver doesn't know."""

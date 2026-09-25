@@ -21,6 +21,9 @@ export function useAdminApi() {
     listAccounts: () => request<AdminAccountRead[]>('GET', '/admin/accounts'),
     createAccount: (body: AdminAccountCreateBody) =>
       request<AdminAccountRead>('POST', '/admin/accounts', body),
+    /** A temporary password for the account's main user; they choose their own at next sign-in. */
+    resetPassword: (id: string, password: string) =>
+      request<AdminAccountRead>('POST', `/admin/accounts/${id}/password`, { password }),
     setLimits: (id: string, body: AdminLimitsUpdateBody) =>
       request<AdminAccountRead>('PATCH', `/admin/accounts/${id}`, body),
   }

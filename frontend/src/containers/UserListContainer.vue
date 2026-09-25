@@ -208,7 +208,7 @@ function reach(u: AccountUserRead): string {
                   <IconTvOutline class="size-4 shrink-0 text-ink-muted" aria-hidden="true" />Change screens
                 </button>
                 <button type="button" role="menuitem" :class="[MENU_ITEM, 'text-ink']" @click="close(); settingPassword = u">
-                  <IconKeyOutline class="size-4 shrink-0 text-ink-muted" aria-hidden="true" />Set password
+                  <IconKeyOutline class="size-4 shrink-0 text-ink-muted" aria-hidden="true" />Reset password
                 </button>
                 <button
                   type="button" role="menuitem" :class="[MENU_ITEM, 'text-ink']" :disabled="isSaving"
@@ -242,7 +242,7 @@ function reach(u: AccountUserRead): string {
                   hint="They sign in with this — no email needed" />
         <AppInput id="u-name" v-model="form.display_name" label="Name" required />
         <AppInput id="u-password" v-model="form.password" label="Password" type="password"
-                  required hint="At least 8 characters. You can change it later." />
+                  required hint="Temporary — they choose their own when they first sign in. At least 8 characters." />
         <div v-if="devices.length">
           <p class="mb-1 text-[13px] text-ink-muted">Screens they can manage</p>
           <ul class="max-h-40 overflow-y-auto">
@@ -288,12 +288,13 @@ function reach(u: AccountUserRead): string {
     </AppModal>
 
     <!-- Password -->
-    <AppModal v-if="settingPassword" :title="`New password for ${settingPassword.display_name}`"
+    <AppModal v-if="settingPassword" :title="`Reset password for ${settingPassword.display_name}`"
               @close="settingPassword = null">
       <p class="mb-3 text-[13px] text-ink-muted">
-        There is no email reset — you set the password and pass it on.
+        Set a temporary password and pass it on. They choose their own when they next sign in, and
+        are signed out everywhere until then.
       </p>
-      <AppInput id="u-newpw" v-model="newPassword" label="Password" type="password" required />
+      <AppInput id="u-newpw" v-model="newPassword" label="Temporary password" type="password" required />
       <ModalActions>
         <AppButton variant="secondary" size="sm" @click="settingPassword = null">Cancel</AppButton>
         <AppButton size="sm" :loading="isSaving" :disabled="newPassword.length < 8" @click="savePassword">

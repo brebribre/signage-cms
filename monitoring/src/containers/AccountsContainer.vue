@@ -15,6 +15,7 @@ import { computed, ref, watch } from 'vue'
 import IconAdd from '~icons/material-symbols/add'
 import IconSearch from '~icons/material-symbols/search'
 import IconTune from '~icons/material-symbols/tune'
+import IconKey from '~icons/material-symbols/key-outline'
 
 import { useAdminAccounts } from '@/hooks/useAdminAccounts'
 import { useExpiry } from '@/hooks/useExpiry'
@@ -31,7 +32,7 @@ import PageTitle from '@/reusables/PageTitle.vue'
 import SkeletonBlock from '@/reusables/SkeletonBlock.vue'
 import type { AccountKind, AdminAccountRead, AdminAccountUserRead } from '@/types/api'
 
-const { accounts, isLoading, isSaving, error, formError, create, setLimits } = useAdminAccounts()
+const { accounts, isLoading, isSaving, error, formError, create, setLimits, resetPassword } = useAdminAccounts()
 const { bytes, date } = useFormat()
 const { issuable, maySetLimits, label: kindLabel, defaultLimits } = useStaffRights()
 const { toExpiresAt, toDayField, lastDayText, daysLeft, endsSoon } = useExpiry()
@@ -187,6 +188,34 @@ async function saveLimits() {
   if (ok) editing.value = null
 }
 
+// --- Reset password: a temporary one for the main user, who picks their own at next sign-in ---
+
+const resetting = ref<AdminAccountRead | null>(null)
+const tempPassword = ref('')
+const resetDone = ref<string | null>(null)
+
+/** Twelve characters with no look-alikes (no 0/O, 1/l/I), easy to read out or type from a
+ *  message. From the browser's cryptographic generator, not Math.random. */
+function generatePassword(): string {
+  const alphabet = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  const bytes = crypto.getRandomValues(new Uint32Array(12))
+  return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join('')
+}
+
+function openReset(a: AdminAccountRead) {
+  tempPassword.value = generatePassword()
+  resetDone.value = null
+  resetting.value = a
+}
+
+async function saveReset() {
+  if (!resetting.value) return
+  const who = mainUser(resetting.value)
+  if (await resetPassword(resetting.value.id, tempPassword.value)) {
+    resetDone.value = who ? `@${who.username}` : resetting.value.name
+  }
+}
+
 // --- Display ---
 
 // Desktop columns already say "Screens" / "Storage", so the cell stays terse.
@@ -303,6 +332,11 @@ const MENU_ITEM = 'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-le
                   <span v-if="mainUser(a) && !mainUser(a)!.is_active" :class="[BADGE, TONES.muted]">
                     Deactivated
                   </span>
+                  <!-- Still on the password staff handed over: they haven't signed in to choose their own. -->
+                  <span v-if="mainUser(a)?.must_change_password" :class="[BADGE, TONES.muted]"
+                        title="They haven't signed in yet to choose their own password">
+                    Temporary password
+                  </span>
                   <span v-if="endBadge(a)" :class="[BADGE, TONES[endBadge(a)!.tone]]">{{ endBadge(a)!.label }}</span>
                 </p>
 
@@ -369,6 +403,9 @@ const MENU_ITEM = 'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-le
                   <button type="button" role="menuitem" :class="[MENU_ITEM, 'text-ink']" @click="close(); openLimits(a)">
                     <IconTune class="size-4 shrink-0 text-ink-muted" aria-hidden="true" />Edit limits
                   </button>
+                  <button type="button" role="menuitem" :class="[MENU_ITEM, 'text-ink']" @click="close(); openReset(a)">
+                    <IconKey class="size-4 shrink-0 text-ink-muted" aria-hidden="true" />Reset password
+                  </button>
                 </OverflowMenu>
               </td>
             </tr>
@@ -433,7 +470,7 @@ const MENU_ITEM = 'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-le
                   hint="They sign in with this. Letters, digits, dot, underscore, hyphen." />
         <AppInput id="a-display" v-model="form.display_name" label="Name" required />
         <AppInput id="a-password" v-model="form.password" label="Password" type="password" required
-                  hint="At least 8 characters. You pass this on to them yourself — there is no email." />
+                  hint="Temporary: they choose their own when they first sign in, so you never know it. At least 8 characters." />
         <p class="pt-1 text-[12px] font-medium tracking-wider text-ink-subtle uppercase">Limits</p>
         <div class="grid grid-cols-2 gap-3">
           <AppInput id="a-screens" v-model="form.screens" label="Screens" type="number" min="0" step="1"
@@ -446,6 +483,41 @@ const MENU_ITEM = 'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-le
         <ModalActions>
           <AppButton variant="secondary" size="sm" type="button" @click="adding = false">Cancel</AppButton>
           <AppButton size="sm" type="submit" :loading="isSaving" :disabled="form.password.length < 8">Create</AppButton>
+        </ModalActions>
+      </form>
+    </AppModal>
+
+    <!-- Reset password -->
+    <AppModal v-if="resetting" :title="`Reset password for ${resetting.name}`" @close="resetting = null">
+      <div v-if="resetDone" class="flex flex-col gap-3">
+        <p class="text-sm text-ink">
+          Done. Give {{ resetDone }} this password:
+        </p>
+        <p class="rounded-lg bg-surface px-3 py-2 font-mono text-base tracking-wide text-ink select-all">{{ tempPassword }}</p>
+        <p class="text-[13px] text-ink-muted">
+          They'll choose their own as soon as they sign in. Their other sessions have been signed out.
+        </p>
+        <ModalActions>
+          <AppButton size="sm" type="button" @click="resetting = null">Close</AppButton>
+        </ModalActions>
+      </div>
+      <form v-else class="flex flex-col gap-3" @submit.prevent="saveReset">
+        <p class="text-[13px] text-ink-muted">
+          For someone who's forgotten theirs. This sets a temporary password for
+          {{ mainUser(resetting) ? `@${mainUser(resetting)!.username}` : 'the main user' }}, and signs them out
+          everywhere. They choose their own as soon as they sign in with it.
+        </p>
+        <div class="flex items-end gap-2">
+          <div class="min-w-0 flex-1">
+            <AppInput id="r-password" v-model="tempPassword" label="Temporary password" class="font-mono" required />
+          </div>
+          <AppButton variant="secondary" size="sm" type="button" class="mb-0.5" @click="tempPassword = generatePassword()">
+            Generate
+          </AppButton>
+        </div>
+        <ModalActions>
+          <AppButton variant="secondary" size="sm" type="button" @click="resetting = null">Cancel</AppButton>
+          <AppButton size="sm" type="submit" :loading="isSaving" :disabled="tempPassword.length < 8">Reset password</AppButton>
         </ModalActions>
       </form>
     </AppModal>

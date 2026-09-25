@@ -20,6 +20,7 @@ from app.schemas.admin import (
     AdminAccountRead,
     AdminAccountUserRead,
     AdminLimitsUpdate,
+    AdminPasswordReset,
     StaffRead,
 )
 from app.schemas.auth import LoginRequest
@@ -70,7 +71,14 @@ def admin_login(body: LoginRequest, response: Response, session: DbSession) -> S
         )
     if not admin_service.is_staff(session, user):
         raise UNAUTHORIZED
-    set_session_cookie(response, user.id)
+    if user.must_change_password:
+        # Right password, but a temporary one: it has to be replaced first, and that's done in
+        # the CMS, where every account signs in.
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "This password is temporary. Sign in to the CMS first to choose your own, then sign in here.",
+        )
+    set_session_cookie(response, user)
     return _staff(session, user)
 
 
@@ -155,6 +163,24 @@ def set_limits(
     changes = {k: getattr(body, k) for k in body.model_fields_set}
     try:
         summary = admin_service.set_limits(session, admin=staff, account_id=account_id, changes=changes)
+    except AccountNotFound:
+        raise NOT_FOUND from None
+    except NotAllowed as exc:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, str(exc)) from None
+    return _read(summary)
+
+
+@router.post("/accounts/{account_id}/password", response_model=AdminAccountRead)
+def reset_password(
+    account_id: uuid.UUID, body: AdminPasswordReset, staff: RequireStaff, session: DbSession
+) -> AdminAccountRead:
+    """A temporary password for the account's main user, for a customer who has forgotten
+    theirs. They choose their own at next sign-in. 403 when this member of staff may not touch
+    this kind of account."""
+    try:
+        summary = admin_service.reset_password(
+            session, admin=staff, account_id=account_id, password=body.password
+        )
     except AccountNotFound:
         raise NOT_FOUND from None
     except NotAllowed as exc:

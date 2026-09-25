@@ -31,6 +31,11 @@ with Session(engine) as s:
             s, owner=owner, username="review-test-mgr", password=secrets.token_urlsafe(16),
             display_name="Review Test Manager", email=None, device_ids=[uuid.UUID(SCREEN)],
         )
+    # Its password was chosen by the owner, so it's temporary and every route but changing it is
+    # refused; these checks are about reviews, so the manager stands in as having picked their own.
+    mgr.must_change_password = False
+    s.add(mgr)
+    s.commit()
     MGR = mgr.id
     # Clean slate for the test account's reviews.
     for r in s.exec(select(ContentReview).where(ContentReview.account_id == owner.account_id)).all():

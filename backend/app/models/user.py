@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from enum import StrEnum
 
-from sqlalchemy import Column, ForeignKey
+from sqlalchemy import Boolean, Column, ForeignKey, Integer
 from sqlmodel import Field, SQLModel
 
 from app.models.base import enum_column, tz_column, utcnow
@@ -45,6 +45,19 @@ class User(SQLModel, table=True):
         sa_column=enum_column(UserRole, nullable=False, index=True),
     )
     is_active: bool = Field(default=True)
+    # Set whenever someone else chose this password — staff issuing the account or resetting it,
+    # an owner making or resetting a sub account. Until the person picks their own, the server
+    # refuses everything but that (api/deps.py), so whoever handed the password over never
+    # knows the one actually in use.
+    must_change_password: bool = Field(
+        default=False, sa_column=Column(Boolean, nullable=False, server_default="false")
+    )
+    # Written into the session cookie (services/session.py). Bumped whenever the password
+    # changes, which turns every cookie issued before — a colleague's, or one opened with a
+    # temporary password — into a stale one the server no longer accepts.
+    session_version: int = Field(
+        default=1, sa_column=Column(Integer, nullable=False, server_default="1")
+    )
     # There is no per-user "staff" flag. Whether someone may use the monitoring app comes from
     # their account's kind (models/account.py::AccountKind) together with this role: the owner
     # of an owner or admin account may, a manager never may. See services/admin.py::is_staff.

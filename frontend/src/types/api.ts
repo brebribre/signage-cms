@@ -14,6 +14,9 @@ export interface UserRead {
   role: UserRole
   is_active: boolean
   created_at: string
+  /** Someone else chose this password (staff, or the account's main user). Until they choose
+   *  their own, the server refuses everything else and the CMS shows only that step. */
+  must_change_password?: boolean
 }
 
 export interface AccountRead {

@@ -48,6 +48,15 @@ class UserRead(BaseModel):
     role: UserRole
     is_active: bool
     created_at: datetime
+    # Someone else chose this password; the CMS asks for a new one before anything else.
+    must_change_password: bool = False
+
+
+class PasswordChange(BaseModel):
+    """The signed-in person replaces their own password. The current one is always asked for."""
+
+    current_password: str = Field(min_length=1, max_length=200)
+    new_password: str = Field(min_length=8, max_length=200)
 
 
 class MeResponse(BaseModel):
