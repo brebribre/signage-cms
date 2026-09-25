@@ -1,8 +1,13 @@
 <script setup lang="ts">
 /**
- * Publishing, animated: press once in the CMS, a bar fills as the change goes out, then each
- * screen downloads it in turn and swaps to the new slide. The screens are the same cards the
- * hero floats round the CMS, so the page tells one story in one visual language.
+ * Publishing, animated, as a product shot: a signage totem standing in front of the CMS window,
+ * on a sweep of the brand blues. The CMS picks the next playlist and publishes it; the button
+ * fills as it goes out, a bar runs along the foot of the totem's screen as it downloads, and
+ * the new content pushes the old one off. The window runs off the panel's right edge, so the
+ * pair reads as a crop of a bigger scene rather than two boxes placed side by side.
+ *
+ * Every length inside the panel is in container units, so the whole picture scales as one at
+ * any width, phone included.
  *
  * The loop only runs while the section is on screen, and not at all for a visitor who asked
  * for less motion, who gets the finished state instead.
@@ -11,16 +16,16 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import IconCheck from '~icons/material-symbols/check-circle'
 import IconUpload from '~icons/material-symbols/upload'
 
+import mark from '@/assets/paskall-mark.png'
+
 import FeatureCard from './FeatureCard.vue'
-import ScreenCard from './ScreenCard.vue'
 import { SLIDE_COUNT, useSlides } from '@/data/slides'
 import { useI18n } from '@/i18n'
 
 const { m } = useI18n()
 const slides = useSlides()
-const SCREENS = computed(() => m.value.publish.screens)
-/** How far apart the screens update, the way a fleet actually does. */
-const STAGGER_MS = 220
+/** The one screen the picture publishes to. */
+const screen = computed(() => m.value.publish.screens[0])
 const SEND_MS = 800
 const SYNC_MS = 900
 const PERIOD_MS = 5200
@@ -39,9 +44,8 @@ function press() {
   outgoing.value = next()
   state.value = 'sending'
   timers.push(window.setTimeout(() => { state.value = 'syncing' }, SEND_MS))
-  // The slide changes as the first bar fills; each screen's own swap is delayed by its stagger.
-  timers.push(window.setTimeout(() => { live.value = outgoing.value }, SEND_MS + SYNC_MS))
-  timers.push(window.setTimeout(() => { state.value = 'done' }, SEND_MS + SYNC_MS + STAGGER_MS * SCREENS.value.length + 300))
+  // The slide changes as the screen's download bar fills.
+  timers.push(window.setTimeout(() => { live.value = outgoing.value; state.value = 'done' }, SEND_MS + SYNC_MS))
   timers.push(window.setTimeout(() => { state.value = 'idle'; outgoing.value = next() }, PERIOD_MS - 700))
 }
 function stop() {
@@ -72,51 +76,92 @@ const thumb = (i: number) => {
   <section id="publish" ref="root">
     <FeatureCard tone="tint" :tag="m.publish.tag">
       <template #visual>
-        <div class="rounded-3xl bg-white/60 p-4 ring-1 ring-white sm:p-6">
-          <!-- The campaign being sent, with its progress along its foot. -->
-          <div class="relative mx-auto max-w-sm overflow-hidden rounded-2xl bg-white p-3 shadow-[0_20px_50px_-28px_rgba(0,24,77,0.5)] ring-1 ring-line">
-            <div class="flex items-center gap-3">
-              <span class="h-10 w-12 shrink-0 rounded-lg sm:w-14 bg-cover bg-center transition-all duration-500" :style="thumb(outgoing)" aria-hidden="true" />
-              <span class="min-w-0 flex-1">
-                <span class="block truncate text-sm text-ink">{{ slides[outgoing].name }}</span>
-                <span class="block truncate text-[11px] text-ink-subtle">
-                  {{ state === 'idle' ? m.publish.ready : state === 'done' ? m.publish.live : m.publish.sending }}
-                </span>
-              </span>
-              <span
-                class="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-xs transition-colors duration-300"
-                :class="state === 'done' ? 'bg-emerald-50 text-emerald-700' : state === 'idle' ? 'bg-brand-deep text-white' : 'bg-brand-soft text-brand'"
-              >
-                <IconCheck v-if="state === 'done'" class="size-3.5" aria-hidden="true" />
-                <IconUpload v-else class="size-3.5" :class="state !== 'idle' && 'animate-pulse'" aria-hidden="true" />
-                {{ state === 'idle' ? m.publish.button : state === 'done' ? m.publish.published : m.publish.publishing }}
-              </span>
+        <div class="@container relative aspect-[1/0.92] overflow-hidden rounded-3xl bg-gradient-to-b from-white to-brand-soft ring-1 ring-white" aria-hidden="true">
+          <!-- The sweep: a long soft band of the brand blues rising across the panel. -->
+          <div class="publish-sweep absolute -left-[30%] top-[12%] h-[66%] w-[160%] -rotate-[28deg] rounded-[50%]" />
+          <div class="absolute -left-[30%] top-[10%] h-[22%] w-[160%] -rotate-[28deg] rounded-[50%] bg-white/25 blur-[3cqw]" />
+
+          <!-- The CMS window, behind, running off the right edge. -->
+          <div class="absolute bottom-[-6%] left-[40%] top-[16%] w-[74%] overflow-hidden rounded-tl-[3cqw] bg-white shadow-[0_30px_80px_-30px_rgba(0,24,77,0.55)] ring-1 ring-line">
+            <div class="flex items-center gap-[1.2cqw] border-b border-line bg-surface px-[3cqw] py-[2cqw]">
+              <span class="size-[1.8cqw] rounded-full bg-line-strong" /><span class="size-[1.8cqw] rounded-full bg-line-strong" /><span class="size-[1.8cqw] rounded-full bg-line-strong" />
             </div>
-            <div class="absolute inset-x-0 bottom-0 h-1 bg-brand-soft" aria-hidden="true">
+            <div class="py-[4cqw] pl-[8cqw] pr-[4cqw]">
+              <div class="flex items-center gap-[2cqw]">
+                <img :src="mark" alt="" class="h-[4cqw] w-auto" />
+                <span class="display truncate text-[3.6cqw] text-ink">{{ m.hero.campaign }}</span>
+              </div>
+              <p class="mt-[3cqw] flex items-center gap-[1.2cqw] text-[2.4cqw] text-ink-subtle">
+                <span class="size-[1.4cqw] rounded-full bg-emerald-500" /> {{ screen.name }} · {{ screen.kind }}
+              </p>
+
+              <ul class="mt-[3cqw] divide-y divide-line overflow-hidden rounded-[2cqw] ring-1 ring-line">
+                <li
+                  v-for="(s, i) in slides" :key="i"
+                  class="flex items-center gap-[2cqw] px-[2.5cqw] py-[1.8cqw] transition-colors duration-300"
+                  :class="i === outgoing ? 'bg-brand-soft' : 'bg-white'"
+                >
+                  <span
+                    class="flex size-[2.6cqw] shrink-0 items-center justify-center rounded-full ring-1 transition-colors duration-300"
+                    :class="i === outgoing ? 'ring-brand' : 'ring-line-strong'"
+                  ><span v-if="i === outgoing" class="size-[1.4cqw] rounded-full bg-brand" /></span>
+                  <span class="h-[4.5cqw] w-[7cqw] shrink-0 rounded-[1cqw] bg-cover bg-center" :style="thumb(i)" />
+                  <span class="min-w-0 truncate text-[2.8cqw] text-ink">{{ s.name }}</span>
+                  <span v-if="i === live" class="shrink-0 rounded-full bg-emerald-50 px-[1.6cqw] py-[0.4cqw] text-[2.1cqw] text-emerald-700">On air</span>
+                </li>
+              </ul>
+
+              <p class="mt-[3cqw] truncate text-[2.4cqw] text-ink-muted">
+                {{ state === 'idle' ? m.publish.ready : state === 'done' ? m.publish.live : m.publish.sending }}
+              </p>
+              <!-- The press, filling as the change goes out. -->
               <div
-                class="h-full origin-left bg-gradient-to-r from-brand to-brand-bright"
-                :class="state === 'idle' ? 'scale-x-0 transition-none' : 'scale-x-100 transition-transform duration-[800ms] ease-out'"
-              />
+                class="relative mt-[1.5cqw] overflow-hidden rounded-[2cqw] py-[2.4cqw] text-center text-[2.8cqw] font-medium text-white transition-colors duration-300"
+                :class="state === 'done' ? 'bg-emerald-600' : 'bg-brand-deep'"
+              >
+                <div
+                  class="absolute inset-0 origin-left bg-brand-bright"
+                  :class="state === 'sending' || state === 'syncing' ? 'scale-x-100 transition-transform duration-[800ms] ease-out' : 'scale-x-0 transition-none'"
+                />
+                <span class="relative inline-flex items-center gap-[1.2cqw]">
+                  <IconCheck v-if="state === 'done'" class="size-[3cqw]" />
+                  <IconUpload v-else class="size-[3cqw]" />
+                  {{ state === 'idle' ? m.publish.button : state === 'done' ? m.publish.published : m.publish.publishing }}
+                </span>
+              </div>
             </div>
           </div>
 
-          <!-- A soft beam down to the screens, lit while the change is travelling. -->
-          <div class="relative mx-auto h-10 w-px bg-brand/15" aria-hidden="true">
-            <div
-              class="absolute inset-x-0 top-0 h-full origin-top bg-gradient-to-b from-brand-bright to-accent transition-transform duration-500 ease-out"
-              :class="state === 'sending' || state === 'syncing' ? 'scale-y-100' : 'scale-y-0'"
-            />
+          <!-- The totem, in front: a dark screen on a pale base. -->
+          <div class="absolute left-[5%] top-[10%] w-[38%]">
+            <div class="rounded-[6cqw] bg-[#0b0e14] p-[1.6cqw] shadow-[0_40px_60px_-30px_rgba(0,24,77,0.7)] ring-1 ring-black/30">
+              <div class="relative aspect-[9/15] overflow-hidden rounded-[4.6cqw] bg-brand-deep">
+                <Transition name="swap">
+                  <div :key="live" class="absolute inset-0">
+                    <img v-if="slides[live].src" :src="slides[live].src" alt="" class="size-full object-cover" decoding="async" />
+                    <div v-else class="size-full" :style="{ background: `linear-gradient(160deg, ${slides[live].from}, ${slides[live].to})` }" />
+                    <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/30 to-transparent px-[3cqw] pb-[5cqw] pt-[14cqw] text-center">
+                      <p class="display text-[4.6cqw] leading-tight text-white">{{ slides[live].title }}</p>
+                      <p class="mt-[0.8cqw] text-[2.4cqw] text-white/75">{{ slides[live].sub }}</p>
+                    </div>
+                  </div>
+                </Transition>
+                <!-- The download: a bar along the foot of the screen, then gone. -->
+                <div class="absolute inset-x-0 bottom-0 h-[1cqw] bg-white/15">
+                  <div
+                    class="h-full origin-left bg-accent"
+                    :class="{
+                      'scale-x-0 opacity-0': state === 'idle' || state === 'sending',
+                      'scale-x-100 opacity-100 transition-transform duration-[900ms] ease-out': state === 'syncing',
+                      'scale-x-100 opacity-0 transition-opacity duration-500': state === 'done',
+                    }"
+                  />
+                </div>
+              </div>
+            </div>
+            <div class="mx-auto h-[4cqw] w-[26%] bg-gradient-to-b from-[#c9d4ea] to-[#e6ecf7]" />
+            <div class="mx-auto h-[3cqw] w-[88%] rounded-t-[1.5cqw] rounded-b-[4cqw] bg-gradient-to-b from-white to-[#dfe6f5] shadow-[0_20px_30px_-18px_rgba(0,24,77,0.6)] ring-1 ring-white" />
           </div>
-
-          <!-- One screen on a phone, where three would be too small to read; the fleet from sm up. -->
-          <ul class="grid gap-2.5 sm:grid-cols-3 sm:gap-4">
-            <li v-for="(s, i) in SCREENS" :key="i" :class="i === 0 ? 'mx-auto w-full max-w-[15rem] sm:max-w-none' : 'hidden sm:block'">
-              <ScreenCard
-                :active="live" :name="s.name" :kind="s.kind"
-                :delay="i * STAGGER_MS" :sync="state === 'syncing' ? 'filling' : state === 'done' ? 'done' : 'idle'"
-              />
-            </li>
-          </ul>
         </div>
       </template>
 
