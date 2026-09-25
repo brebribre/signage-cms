@@ -81,8 +81,8 @@ const thumb = (i: number) => {
               <span class="h-10 w-14 shrink-0 rounded-lg bg-cover bg-center transition-all duration-500" :style="thumb(outgoing)" aria-hidden="true" />
               <span class="min-w-0 flex-1">
                 <span class="block truncate text-sm text-ink">{{ SLIDES[outgoing].name }}</span>
-                <span class="block text-[11px] text-ink-subtle">
-                  {{ state === 'idle' ? `Ready for ${SCREENS.length} screens` : state === 'done' ? `On ${SCREENS.length} of ${SCREENS.length} screens` : `Sending to ${SCREENS.length} screens` }}
+                <span class="block truncate text-[11px] text-ink-subtle">
+                  {{ state === 'idle' ? 'Ready to publish' : state === 'done' ? 'Live on every screen' : 'Sending to screens' }}
                 </span>
               </span>
               <span
@@ -110,8 +110,9 @@ const thumb = (i: number) => {
             />
           </div>
 
-          <ul class="grid grid-cols-3 gap-2.5 sm:gap-4">
-            <li v-for="(s, i) in SCREENS" :key="s.name">
+          <!-- One screen on a phone, where three would be too small to read; the fleet from sm up. -->
+          <ul class="grid gap-2.5 sm:grid-cols-3 sm:gap-4">
+            <li v-for="(s, i) in SCREENS" :key="s.name" :class="i === 0 ? 'mx-auto w-full max-w-[15rem] sm:max-w-none' : 'hidden sm:block'">
               <ScreenCard
                 :active="live" :name="s.name" :kind="s.kind"
                 :delay="i * STAGGER_MS" :sync="state === 'syncing' ? 'filling' : state === 'done' ? 'done' : 'idle'"
@@ -123,8 +124,7 @@ const thumb = (i: number) => {
 
       <h2 class="mt-5 text-4xl leading-[1.1] sm:text-5xl">Publish them effortlessly</h2>
       <p class="mt-5 max-w-md leading-relaxed text-ink-muted">
-        One press, and the change runs to every screen in seconds. Each screen keeps its files, so
-        it carries on playing if the internet drops and catches up when it returns.
+        Changes are published in seconds.
       </p>
       <a href="#contact" class="mt-8 inline-flex items-center gap-2 rounded-full bg-brand-deep px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-brand">
         Request access <IconArrowForward class="size-4" />

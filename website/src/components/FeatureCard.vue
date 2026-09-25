@@ -12,7 +12,7 @@ defineProps<{ tone: 'tint' | 'sky'; tag: string; reverse?: boolean }>()
     class="reveal overflow-hidden rounded-[2rem] p-6 sm:rounded-[2.5rem] sm:p-10 lg:p-14"
     :class="tone === 'tint' ? 'bg-tint' : 'bg-sky'"
   >
-    <div class="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
+    <div class="grid items-center gap-8 lg:grid-cols-2 lg:gap-16">
       <!-- Under the words on a phone; beside them, on either side, on a wide page. -->
       <div class="order-last" :class="reverse ? 'lg:order-last' : 'lg:order-first'">
         <slot name="visual" />

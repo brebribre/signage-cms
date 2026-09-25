@@ -79,25 +79,25 @@ onBeforeUnmount(stop)
 
       <!-- The step's own headline and line, above the pills that choose it. Held to a minimum
            height so a shorter step does not shuffle the card as it comes round. -->
-      <div class="mt-5 min-h-[12rem] sm:min-h-[10rem]">
+      <div class="mt-4 min-h-[9rem] sm:mt-5 sm:min-h-[10rem]">
         <Transition name="fade" mode="out-in">
           <div :key="active">
-            <h2 class="text-4xl leading-[1.1] sm:text-5xl">{{ TABS[active].title }}</h2>
-            <p class="mt-5 max-w-md leading-relaxed text-ink-muted">{{ TABS[active].text }}</p>
+            <h2 class="text-3xl leading-[1.1] sm:text-5xl">{{ TABS[active].title }}</h2>
+            <p class="mt-3 max-w-md text-[15px] leading-relaxed text-ink-muted sm:mt-5 sm:text-base">{{ TABS[active].text }}</p>
           </div>
         </Transition>
       </div>
 
-      <div class="mt-6 flex flex-wrap gap-2" role="tablist" aria-label="The editor">
+      <div class="mt-5 flex flex-nowrap gap-1.5 sm:mt-6 sm:gap-2" role="tablist" aria-label="The editor">
         <button
           v-for="(t, i) in TABS" :key="t.label"
           type="button" role="tab" :aria-selected="active === i"
-          class="relative inline-flex items-center gap-2 overflow-hidden rounded-full py-1.5 pl-1.5 pr-4 text-sm ring-1 transition-colors"
+          class="relative inline-flex shrink-0 items-center gap-1.5 overflow-hidden rounded-full py-1 pl-1 pr-3 text-xs ring-1 transition-colors sm:gap-2 sm:py-1.5 sm:pl-1.5 sm:pr-4 sm:text-sm"
           :class="active === i ? 'bg-brand-deep text-white ring-brand-deep' : 'bg-white text-ink ring-line hover:ring-line-strong'"
           @click="choose(i)"
         >
           <span
-            class="inline-flex size-6 items-center justify-center rounded-full text-[11px] font-semibold"
+            class="inline-flex size-5 items-center justify-center rounded-full text-[10px] font-semibold sm:size-6 sm:text-[11px]"
             :class="active === i ? 'bg-accent text-brand-deep' : 'bg-sky-strong text-brand-deep'"
           >{{ t.n }}</span>
           {{ t.label }}
