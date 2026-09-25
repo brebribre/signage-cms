@@ -40,7 +40,7 @@ const id: Messages = {
     items: ['Kafe', 'LOBI', 'klinik', 'Ritel', 'KAMPUS', 'Restoran', 'Hotel', 'SHOWROOM'],
   },
   features: {
-    lead: 'Platform signage yang berjalan sendiri.',
+    lead: 'Paskall adalah CMS untuk signage.',
     rest: 'Hubungkan layar, rancang tayangannya, dan publikasikan ke semua layar sekaligus.',
   },
   connect: {

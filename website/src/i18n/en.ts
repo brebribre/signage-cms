@@ -48,7 +48,7 @@ const en = {
   },
   /** A statement: the lead in ink, the rest in grey at the same size. */
   features: {
-    lead: 'A signage platform that runs itself.',
+    lead: 'Paskall is a CMS for signage.',
     rest: 'Connect a screen, design what it plays, and publish everywhere at once.',
   },
   connect: {
