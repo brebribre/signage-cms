@@ -537,7 +537,7 @@ fun UpdateBanner(progress: UpdateProgress) {
 @Composable
 fun DebugOverlay(
     info: DebugInfo,
-    onExitRequested: () -> Unit = {},
+    onLeaveRequested: () -> Unit = {},
     onCheckUpdateRequested: () -> Unit = {},
 ) {
     Box(Modifier.fillMaxSize().background(Color(0xE6101111)), contentAlignment = Alignment.Center) {
@@ -566,14 +566,16 @@ fun DebugOverlay(
                     .padding(top = 16.dp)
                     .clickable(onClick = onCheckUpdateRequested),
             )
+            // "Leave", not "Exit kiosk": this really takes you out of the player, to the
+            // Android home screen, and the lock comes back when the player is opened again.
             Text(
-                "Exit kiosk",
+                "Leave player",
                 color = InkInverse,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Medium,
                 modifier = Modifier
                     .padding(top = 12.dp)
-                    .clickable(onClick = onExitRequested),
+                    .clickable(onClick = onLeaveRequested),
             )
             Text(
                 "Hold the top-left corner again to dismiss",
@@ -599,16 +601,16 @@ private fun Row2(label: String, value: String) {
 }
 
 /**
- * Gates "Exit kiosk" behind the CMS-configured PIN (`ManifestSettings.appPassword`).
- * `MainActivity` only shows this when a PIN is actually set — an unset PIN exits immediately,
- * with nothing to enter here.
+ * Gates "Leave player" behind the CMS-configured PIN (`ManifestSettings.appPassword`).
+ * `MainActivity` only shows this when a PIN is actually set — with no PIN, the button leaves
+ * at once, with nothing to enter here.
  */
 @Composable
-fun ExitPinDialog(error: Boolean, onSubmit: (String) -> Unit, onDismiss: () -> Unit) {
+fun LeavePinDialog(error: Boolean, onSubmit: (String) -> Unit, onDismiss: () -> Unit) {
     var pin by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Enter PIN to exit") },
+        title = { Text("Enter PIN to leave the player") },
         text = {
             Column {
                 OutlinedTextField(
@@ -626,7 +628,7 @@ fun ExitPinDialog(error: Boolean, onSubmit: (String) -> Unit, onDismiss: () -> U
                 }
             }
         },
-        confirmButton = { TextButton(onClick = { onSubmit(pin) }) { Text("Exit") } },
+        confirmButton = { TextButton(onClick = { onSubmit(pin) }) { Text("Leave") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }

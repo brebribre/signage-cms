@@ -1,6 +1,7 @@
 package com.fortu.player.kiosk
 
 import android.app.Activity
+import android.app.ActivityManager
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
@@ -91,6 +92,38 @@ object KioskPolicy {
             .onFailure { Log.w(TAG, "clearing launcher preference failed", it) }
 
         Log.i(TAG, "device owner policy applied")
+    }
+
+    /**
+     * Lock the screen again if it is not locked. Called every time the player comes back to the
+     * front (MainActivity.onResume).
+     *
+     * Why this is needed: "Leave player" (after the right PIN) lifts the lock and opens the
+     * Android home screen, so a technician can reach the rest of the box. Opening the player again does not start it from scratch — it
+     * is `singleTask`, so Android brings the same window back — and `apply` above only ran when
+     * it was first created. Without this, the player came back unlocked, and the next person
+     * could leave it with the Home button and no PIN at all. Now an exit lasts only until the
+     * player is on screen again.
+     *
+     * A no-op when this app is not Device Owner (it was never locked) or is locked already.
+     */
+    fun relock(activity: Activity) {
+        val context = activity.applicationContext
+        if (!isDeviceOwner(context)) return
+        if (isLocked(context)) return
+        runCatching { activity.startLockTask() }
+            .onSuccess { Log.i(TAG, "lock task re-entered on return to the player") }
+            .onFailure { Log.w(TAG, "re-entering lock task failed", it) }
+    }
+
+    private fun isLocked(context: Context): Boolean {
+        val am = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            am.lockTaskModeState != ActivityManager.LOCK_TASK_MODE_NONE
+        } else {
+            @Suppress("DEPRECATION")
+            am.isInLockTaskMode
+        }
     }
 
     /** True when this build can install an APK without any user interaction. */

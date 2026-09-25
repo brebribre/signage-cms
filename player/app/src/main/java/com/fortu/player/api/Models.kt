@@ -167,8 +167,8 @@ data class ManifestSettings(
     /** 0-100. Requires Device Owner to actually take effect; degrades to a no-op otherwise,
      *  same as everything else in `kiosk/`. */
     val brightness: Int? = null,
-    /** The PIN required to exit kiosk mode from the debug overlay. Null or blank means no
-     *  PIN is configured, and exit is unguarded. Compared in `MainActivity`, never applied
+    /** The PIN asked for by "Leave player" in the debug overlay. Null or blank means no
+     *  PIN is configured, and leaving is unguarded. Compared in `MainActivity`, never applied
      *  as a system side effect like the two above. */
     @SerialName("app_password") val appPassword: String? = null,
     /** True swallows every touch on the player, the exit gesture included — see

@@ -3,6 +3,7 @@ package com.fortu.player
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.os.Bundle
 import android.util.Log
@@ -30,7 +31,7 @@ import com.fortu.player.kiosk.KioskPolicy
 import com.fortu.player.playback.PlaybackSurface
 import com.fortu.player.ui.ClaimedScreen
 import com.fortu.player.ui.DebugOverlay
-import com.fortu.player.ui.ExitPinDialog
+import com.fortu.player.ui.LeavePinDialog
 import com.fortu.player.ui.IdleScreen
 import com.fortu.player.ui.SleepScreen
 import com.fortu.player.ui.PairingScreen
@@ -105,7 +106,7 @@ class MainActivity : ComponentActivity() {
     }
 
     /** Menu on a USB keyboard or remote opens the debug overlay. That is the local way out
-     *  when touch is locked: Tab to "Exit kiosk", Enter, type the PIN. */
+     *  when touch is locked: Tab to "Leave player", Enter, type the PIN. */
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (event.keyCode == KeyEvent.KEYCODE_MENU) {
             if (event.action == KeyEvent.ACTION_UP) showDebug = !showDebug
@@ -264,11 +265,11 @@ class MainActivity : ComponentActivity() {
                 if (showDebug) {
                     DebugOverlay(
                         debug,
-                        onExitRequested = {
+                        onLeaveRequested = {
                             val pin = settings.appPassword
                             if (pin.isNullOrBlank()) {
-                                exitKiosk()
                                 showDebug = false
+                                leavePlayer()
                             } else {
                                 exitPinError = false
                                 showExitPin = true
@@ -278,14 +279,14 @@ class MainActivity : ComponentActivity() {
                     )
                 }
                 if (showExitPin) {
-                    ExitPinDialog(
+                    LeavePinDialog(
                         error = exitPinError,
                         onDismiss = { showExitPin = false },
                         onSubmit = { entered ->
                             if (entered == settings.appPassword) {
                                 showExitPin = false
                                 showDebug = false
-                                exitKiosk()
+                                leavePlayer()
                             } else {
                                 exitPinError = true
                             }
@@ -296,9 +297,14 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /** Lifts lock task mode so the device's normal navigation becomes reachable again — the
-     *  one exit this app has. A no-op, logged rather than crashing, when the device was never
-     *  in lock task to begin with (not Device Owner, or already out of it). */
+    /** Every return to the player locks it again, so "Leave player" lasts only until someone
+     *  opens the player. Without this, coming back after an exit left it unlocked and the next
+     *  exit needed no PIN. See KioskPolicy.relock. */
+    override fun onResume() {
+        super.onResume()
+        KioskPolicy.relock(this)
+    }
+
     private companion object {
         /** Deliberately longer than the system's own long-press, so a page's own long-press
          *  (selecting text) in the corner is not immediately also this. */
@@ -310,8 +316,27 @@ class MainActivity : ComponentActivity() {
         const val UPDATE_FAILURE_BANNER_MILLIS = 120_000L
     }
 
-    private fun exitKiosk() {
+    /** The one way out this app has: lift lock task mode, then open the Android home screen.
+     *
+     *  Going home is the point. Lifting the lock alone changed nothing anyone could see — the
+     *  player stayed on screen, and only a swipe from the edge showed that Home and Back worked
+     *  again — so the button looked broken. The lock must come off first, because while it is
+     *  on Android refuses to start another app's screen. Lifting it is a no-op, logged rather
+     *  than crashing, when the device was never locked (not Device Owner); going home still
+     *  happens, so the button does the same thing everywhere. The lock comes back the next
+     *  time the player is on screen (onResume). */
+    private fun leavePlayer() {
         runCatching { stopLockTask() }
             .onFailure { Log.w("FortuPlayer", "stopLockTask failed", it) }
+        val home = Intent(Intent.ACTION_MAIN)
+            .addCategory(Intent.CATEGORY_HOME)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        runCatching { startActivity(home) }
+            .onFailure {
+                // No launcher to go to (rare on a stripped box): step aside instead, which
+                // shows whatever is underneath.
+                Log.w("FortuPlayer", "opening the home screen failed", it)
+                moveTaskToBack(true)
+            }
     }
 }
