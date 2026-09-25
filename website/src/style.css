@@ -59,6 +59,19 @@ h1, h2, h3, .display { font-family: var(--font-display); font-weight: 400; lette
 .hero-dome { background: radial-gradient(120% 100% at 50% 100%, #cbd8f8 0%, #e3eafc 45%, rgba(238, 242, 253, 0.6) 75%, transparent 92%); }
 .hero-ring { border: 1px solid rgba(0, 51, 153, 0.16); }
 
+/* The demo slides' wave: the hero's band in miniature, across a slide's top right. */
+.slide-wave {
+  background: linear-gradient(125deg, #9cc3ff 0%, #5fd9ff 30%, #2f7fe6 60%, #002f96 100%);
+  clip-path: polygon(38% 0, 100% 0, 100% 64%);
+}
+.slide-wave::after {
+  content: ""; position: absolute; inset: 0;
+  background: repeating-linear-gradient(112deg, rgba(255, 255, 255, 0.16) 0 1px, transparent 1px 6px);
+  mix-blend-mode: soft-light;
+}
+/* On the deep slide the band runs light, so it still reads against the navy. */
+.slide-wave-bright { background: linear-gradient(125deg, #7fe7ff 0%, #00b4f0 35%, #0076dd 70%, #1f55c4 100%); }
+
 /* The feature cards' sweep: the brand blues and the cyan accent in a long band, soft at both
    ends and at its edges, that the card's picture stands on. */
 .card-sweep {

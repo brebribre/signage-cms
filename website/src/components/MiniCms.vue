@@ -10,15 +10,12 @@
 import IconMenu from '~icons/material-symbols/menu'
 
 import mark from '@/assets/paskall-mark.png'
+import SlideArt from './SlideArt.vue'
 import { useSlides } from '@/data/slides'
 
 defineProps<{ size: 'phone' | 'tablet' }>()
 
 const slides = useSlides()
-const thumb = (i: number) => {
-  const s = slides.value[i]
-  return s.src ? { backgroundImage: `url(${s.src})` } : { background: `linear-gradient(135deg, ${s.from}, ${s.to})` }
-}
 </script>
 
 <template>
@@ -52,7 +49,7 @@ const thumb = (i: number) => {
       <p class="mt-[6cqw] text-[5cqw] font-medium text-ink">Now playing</p>
       <ul class="mt-[3cqw] flex flex-col gap-[2.5cqw]">
         <li v-for="i in [0, 1, 3]" :key="i" class="flex items-center gap-[3cqw] rounded-[4cqw] bg-white p-[2.5cqw]">
-          <span class="h-[10cqw] w-[15cqw] shrink-0 rounded-[2.5cqw] bg-cover bg-center" :style="thumb(i)" />
+          <span class="h-[10cqw] w-[15cqw] shrink-0 overflow-hidden rounded-[2.5cqw]"><SlideArt :slide="slides[i]" thumb /></span>
           <span class="min-w-0 flex-1 truncate text-[4.5cqw] text-ink">{{ slides[i].name }}</span>
           <span class="size-[2.5cqw] rounded-full bg-emerald-500" />
         </li>
@@ -86,7 +83,7 @@ const thumb = (i: number) => {
       </div>
       <ul class="mt-[3cqw] flex flex-col gap-[2cqw]">
         <li v-for="(s, i) in slides" :key="i" class="flex items-center gap-[3cqw] rounded-[2.5cqw] bg-white p-[2cqw]">
-          <span class="h-[7cqw] w-[11cqw] shrink-0 rounded-[1.5cqw] bg-cover bg-center" :style="thumb(i)" />
+          <span class="h-[7cqw] w-[11cqw] shrink-0 overflow-hidden rounded-[1.5cqw]"><SlideArt :slide="s" thumb /></span>
           <span class="min-w-0 flex-1">
             <span class="block truncate text-[3cqw] text-ink">{{ s.name }}</span>
             <span class="block truncate text-[2.4cqw] text-ink-subtle">{{ s.title }}</span>

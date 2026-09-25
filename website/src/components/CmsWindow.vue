@@ -13,6 +13,7 @@ import IconSettings from '~icons/material-symbols/settings-outline'
 import IconTv from '~icons/material-symbols/tv-outline'
 
 import mark from '@/assets/paskall-mark.png'
+import SlideArt from './SlideArt.vue'
 import { useSlides } from '@/data/slides'
 import { useI18n } from '@/i18n'
 
@@ -29,10 +30,6 @@ const NAV = [
 ]
 const { m } = useI18n()
 const slides = useSlides()
-const thumb = (i: number) => {
-  const s = slides.value[i]
-  return s.src ? { backgroundImage: `url(${s.src})` } : { background: `linear-gradient(135deg, ${s.from}, ${s.to})` }
-}
 </script>
 
 <template>
@@ -77,7 +74,7 @@ const thumb = (i: number) => {
               :class="active === i ? 'ring-2 ring-brand' : 'ring-line hover:ring-line-strong'"
               @click="emit('select', i)"
             >
-              <span class="h-9 w-14 shrink-0 rounded-lg bg-cover bg-center" :style="thumb(i)" aria-hidden="true" />
+              <span class="h-9 w-14 shrink-0 overflow-hidden rounded-lg ring-1 ring-line" aria-hidden="true"><SlideArt :slide="s" thumb /></span>
               <span class="min-w-0 flex-1">
                 <span class="block truncate text-sm text-ink">{{ s.name }}</span>
                 <span class="block truncate text-[11px] text-ink-subtle">{{ s.title }} · {{ s.sub }}</span>

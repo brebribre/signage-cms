@@ -20,6 +20,7 @@ import IconCheck from '~icons/material-symbols/check-circle'
 import IconUpload from '~icons/material-symbols/upload'
 
 import mark from '@/assets/paskall-mark.png'
+import SlideArt from './SlideArt.vue'
 import { SLIDE_COUNT, useSlides } from '@/data/slides'
 import { useI18n } from '@/i18n'
 
@@ -67,10 +68,6 @@ onMounted(() => {
 })
 onBeforeUnmount(stop)
 
-const thumb = (i: number) => {
-  const s = slides.value[i]
-  return s.src ? { backgroundImage: `url(${s.src})` } : { background: `linear-gradient(135deg, ${s.from}, ${s.to})` }
-}
 </script>
 
 <template>
@@ -99,7 +96,7 @@ const thumb = (i: number) => {
               class="flex size-[2.6cqw] shrink-0 items-center justify-center rounded-full ring-1 transition-colors duration-300"
               :class="i === outgoing ? 'ring-brand' : 'ring-line-strong'"
             ><span v-if="i === outgoing" class="size-[1.4cqw] rounded-full bg-brand" /></span>
-            <span class="h-[4.5cqw] w-[7cqw] shrink-0 rounded-[1cqw] bg-cover bg-center" :style="thumb(i)" />
+            <span class="h-[4.5cqw] w-[7cqw] shrink-0 overflow-hidden rounded-[1cqw] ring-1 ring-line"><SlideArt :slide="s" thumb /></span>
             <span class="min-w-0 truncate text-[2.8cqw] text-ink">{{ s.name }}</span>
             <span v-if="i === live" class="shrink-0 rounded-full bg-emerald-50 px-[1.6cqw] py-[0.4cqw] text-[2.1cqw] text-emerald-700">On air</span>
           </li>
@@ -132,12 +129,7 @@ const thumb = (i: number) => {
         <div class="relative aspect-[9/15] overflow-hidden rounded-[5.2cqw] bg-brand-deep">
           <Transition name="swap">
             <div :key="live" class="absolute inset-0">
-              <img v-if="slides[live].src" :src="slides[live].src" alt="" class="size-full object-cover" decoding="async" />
-              <div v-else class="size-full" :style="{ background: `linear-gradient(160deg, ${slides[live].from}, ${slides[live].to})` }" />
-              <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/30 to-transparent px-[3cqw] pb-[5cqw] pt-[14cqw] text-center">
-                <p class="display text-[4.6cqw] leading-tight text-white">{{ slides[live].title }}</p>
-                <p class="mt-[0.8cqw] text-[2.4cqw] text-white/75">{{ slides[live].sub }}</p>
-              </div>
+              <SlideArt :slide="slides[live]" />
             </div>
           </Transition>
           <!-- The download: a bar along the foot of the screen, then gone. -->

@@ -1,27 +1,29 @@
-/** What the hero's screens can play, and what the little CMS among them lists. One source, so the
- *  panel and the screen can never disagree about what is on air. The pictures are fixed; the
- *  words come from the current language. */
+/** What the demo screens play, and what the little CMS among them lists. One source, so the
+ *  panel and the screens can never disagree about what is on air. Each slide is drawn by
+ *  SlideArt in the site's own look; the words come from the current language. */
 import { computed } from 'vue'
 
 import { useI18n } from '@/i18n'
 
+/** A slide's look: which of the three backgrounds, and its icon. */
+export type SlideTone = 'light' | 'sky' | 'deep'
+export type SlideIcon = 'clock' | 'dish' | 'work' | 'wave'
+
 export interface Slide {
   /** What the playlist is called in the CMS panel. */
   name: string
-  /** The line the screen shows. */
+  /** The line the screen shows, and the smaller one under it. */
   title: string
   sub: string
-  /** A photo behind the words, or a gradient when there is none. */
-  src?: string
-  from?: string
-  to?: string
+  tone: SlideTone
+  icon: SlideIcon
 }
 
-const LOOKS: Pick<Slide, 'src' | 'from' | 'to'>[] = [
-  { from: '#002f96', to: '#0076dd' },
-  { src: '/shots/screen-totem.webp' },
-  { from: '#00184d', to: '#1f55c4' },
-  { src: '/shots/screen-lobby.webp' },
+const LOOKS: Pick<Slide, 'tone' | 'icon'>[] = [
+  { tone: 'light', icon: 'clock' },
+  { tone: 'sky', icon: 'dish' },
+  { tone: 'deep', icon: 'work' },
+  { tone: 'light', icon: 'wave' },
 ]
 export const SLIDE_COUNT = LOOKS.length
 
