@@ -7,7 +7,7 @@ const LINKS = [
   { href: '#connect', label: 'Screens' },
   { href: '#design', label: 'Content' },
   { href: '#publish', label: 'Publish' },
-  { href: '#plans', label: 'Pricing' },
+  { href: '#platforms', label: 'Platforms' },
   { href: '#faq', label: 'FAQ' },
 ]
 </script>

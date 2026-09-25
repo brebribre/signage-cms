@@ -126,8 +126,8 @@ const thumb = (i: number) => {
         One press, and the change runs to every screen in seconds. Each screen keeps its files, so
         it carries on playing if the internet drops and catches up when it returns.
       </p>
-      <a href="#plans" class="mt-8 inline-flex items-center gap-2 rounded-full bg-brand-deep px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-brand">
-        See pricing <IconArrowForward class="size-4" />
+      <a href="#contact" class="mt-8 inline-flex items-center gap-2 rounded-full bg-brand-deep px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-brand">
+        Request access <IconArrowForward class="size-4" />
       </a>
     </FeatureCard>
   </section>
