@@ -28,9 +28,6 @@ const { m } = useI18n()
             <IconPlay class="size-5" />
             {{ m.hero.demo }}
           </a>
-          <a href="https://app.paskall.co.id" class="rounded-full bg-white/80 px-6 py-3.5 text-sm font-medium text-ink ring-1 ring-ink/70 backdrop-blur transition-colors hover:bg-ink hover:text-white">
-            {{ m.nav.signIn }}
-          </a>
         </div>
       </div>
 

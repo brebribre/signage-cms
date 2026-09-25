@@ -12,12 +12,12 @@ const id: Messages = {
     menu: 'Menu',
     links: { screens: 'Layar', content: 'Konten', publish: 'Publikasi', platforms: 'Platform', faq: 'FAQ' },
     signIn: 'Masuk',
-    requestAccess: 'Minta akses',
+    requestAccess: 'Request Akses',
   },
   hero: {
     title: 'Cara cerdas mengelola layar Anda.',
     subtitle: 'Gambar, video, dan situs web, di layar apa pun.',
-    cta: 'Minta akses',
+    cta: 'Request Akses',
     demo: 'Lihat demo',
     screens: [
       { name: 'TV Lobi', kind: 'Android box' },
@@ -121,7 +121,7 @@ const id: Messages = {
   footer: {
     title: 'Pasang layar pertama Anda di Paskall',
     body: 'Beri tahu kami berapa layar Anda. Kami siapkan akunnya.',
-    cta: 'Minta akses',
+    cta: 'Request Akses',
     signIn: 'Masuk',
     mailSubject: 'Akses Paskall',
   },

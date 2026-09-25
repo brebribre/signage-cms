@@ -22,19 +22,35 @@ watchEffect(() => { document.title = m.value.demo.metaTitle })
       </h1>
     </div>
 
-    <div class="reveal mt-10 overflow-hidden rounded-[1.5rem] bg-[#111317] p-2 shadow-[0_40px_100px_-40px_rgba(0,24,77,0.45)] sm:mt-12 sm:rounded-[2rem] sm:p-3">
+    <!-- Phones get the portrait cut, the CMS above the screen, which fills their width; wider
+         pages get the side-by-side one. Neither loads until play is pressed, so the hidden one
+         costs nothing. -->
+    <div class="reveal mx-auto mt-10 max-w-md overflow-hidden rounded-[1.5rem] bg-[#111317] p-2 shadow-[0_40px_100px_-40px_rgba(0,24,77,0.45)] sm:hidden">
       <video
-        class="block aspect-[1920/744] w-full rounded-[1rem] sm:rounded-[1.4rem]"
+        class="block aspect-[9/16] w-full rounded-[1rem]"
+        src="/media/paskall-demo-portrait.mp4"
+        poster="/media/paskall-demo-portrait-poster.webp"
+        :aria-label="m.demo.videoLabel"
+        controls
+        muted
+        playsinline
+        preload="none"
+      />
+    </div>
+    <div class="reveal mt-12 hidden overflow-hidden rounded-[2rem] bg-[#111317] p-3 shadow-[0_40px_100px_-40px_rgba(0,24,77,0.45)] sm:block">
+      <video
+        class="block aspect-[1920/744] w-full rounded-[1.4rem]"
         src="/media/paskall-demo.mp4"
         poster="/media/paskall-demo-poster.webp"
         :aria-label="m.demo.videoLabel"
         controls
         muted
         playsinline
-        preload="metadata"
+        preload="none"
       />
     </div>
-    <p class="reveal mt-4 flex justify-between gap-4 px-1 text-sm text-ink-muted">
+    <!-- The portrait cut names its two halves on the video itself. -->
+    <p class="reveal mt-4 hidden justify-between gap-4 px-1 text-sm text-ink-muted sm:flex">
       <span>{{ m.demo.left }}</span>
       <span class="text-right">{{ m.demo.right }}</span>
     </p>
