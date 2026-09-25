@@ -16,7 +16,7 @@ const en = {
   nav: {
     label: 'Site',
     menu: 'Menu',
-    links: { screens: 'Screens', content: 'Content', publish: 'Publish', platforms: 'Platforms', faq: 'FAQ' },
+    links: { screens: 'Screens', content: 'Content', publish: 'Publish', platforms: 'Platforms', faq: 'FAQ', demo: 'Demo' },
     signIn: 'Sign in',
     requestAccess: 'Request access',
   },
@@ -110,8 +110,7 @@ const en = {
   },
   demo: {
     metaTitle: 'Paskall. Demo',
-    lead: 'See it on a real screen.',
-    rest: 'Pair, pick, deploy, filmed as it happened.',
+    title: 'Connecting a Screen to Publishing Content',
     videoLabel: 'Demo: the Paskall CMS on a laptop beside a TV that changes as each step is done',
     left: 'Paskall CMS',
     right: 'The real screen',

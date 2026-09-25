@@ -18,7 +18,7 @@ watchEffect(() => { document.title = m.value.demo.metaTitle })
   <section id="demo" class="mx-auto max-w-7xl px-5 pb-20 pt-28 sm:px-8 sm:pb-28 sm:pt-36">
     <div class="reveal mx-auto max-w-3xl text-center">
       <h1 class="text-4xl leading-[1.1] sm:text-5xl lg:text-6xl lg:leading-[1.05]">
-        {{ m.demo.lead }} <span class="text-ink-muted">{{ m.demo.rest }}</span>
+        {{ m.demo.title }}
       </h1>
     </div>
 
@@ -32,7 +32,6 @@ watchEffect(() => { document.title = m.value.demo.metaTitle })
         poster="/media/paskall-demo-portrait-poster.webp"
         :aria-label="m.demo.videoLabel"
         controls
-        muted
         playsinline
         preload="none"
       />
@@ -44,7 +43,6 @@ watchEffect(() => { document.title = m.value.demo.metaTitle })
         poster="/media/paskall-demo-poster.webp"
         :aria-label="m.demo.videoLabel"
         controls
-        muted
         playsinline
         preload="none"
       />

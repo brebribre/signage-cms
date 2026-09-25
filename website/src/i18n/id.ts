@@ -10,7 +10,7 @@ const id: Messages = {
   nav: {
     label: 'Situs',
     menu: 'Menu',
-    links: { screens: 'Layar', content: 'Konten', publish: 'Publikasi', platforms: 'Platform', faq: 'FAQ' },
+    links: { screens: 'Layar', content: 'Konten', publish: 'Publikasi', platforms: 'Platform', faq: 'FAQ', demo: 'Demo' },
     signIn: 'Masuk',
     requestAccess: 'Request Akses',
   },
@@ -101,8 +101,7 @@ const id: Messages = {
   },
   demo: {
     metaTitle: 'Paskall. Demo',
-    lead: 'Lihat langsung di layar sungguhan.',
-    rest: 'Hubungkan, pilih, tayangkan, direkam apa adanya.',
+    title: 'Menghubungkan Layar hingga Menayangkan Konten',
     videoLabel: 'Demo: Paskall CMS di laptop di samping TV yang berubah di setiap langkah',
     left: 'Paskall CMS',
     right: 'Layar sungguhan',
