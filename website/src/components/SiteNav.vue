@@ -16,11 +16,11 @@ const LINKS = computed(() => [
   { href: '#faq', label: m.value.nav.links.faq },
 ])
 const open = ref(false)
-/** White on the blue hero at the top; ink on white, with a hairline and a little blur, once the
- *  page moves under it. */
+/** Clear over the hero at the top; white, with a hairline and a little blur, once the page
+ *  moves under it. */
 const past = ref(false)
 const onScroll = () => { past.value = window.scrollY > 12 }
-/** Whether the bar is still over the hero, and so drawn in white. */
+/** Whether the bar is still over the top of the hero, and so drawn without a background. */
 const onHero = computed(() => !past.value && !open.value)
 onMounted(() => { onScroll(); window.addEventListener('scroll', onScroll, { passive: true }) })
 onBeforeUnmount(() => window.removeEventListener('scroll', onScroll))
@@ -33,24 +33,23 @@ onBeforeUnmount(() => window.removeEventListener('scroll', onScroll))
   >
     <nav class="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 sm:px-8" :aria-label="m.nav.label">
       <a href="#top" class="flex items-center">
-        <img :src="wordmark" alt="Paskall" class="h-6 w-auto transition-all duration-300" :class="onHero && 'brightness-0 invert'" />
+        <img :src="wordmark" alt="Paskall" class="h-6 w-auto transition-all duration-300"  />
       </a>
       <ul class="hidden items-center gap-8 lg:flex">
         <li v-for="l in LINKS" :key="l.href">
-          <a :href="l.href" class="text-sm transition-colors" :class="onHero ? 'text-white/85 hover:text-white' : 'text-ink hover:text-brand'">{{ l.label }}</a>
+          <a :href="l.href" class="text-sm text-ink transition-colors hover:text-brand">{{ l.label }}</a>
         </li>
       </ul>
       <div class="hidden items-center gap-5 lg:flex">
-        <LocaleSwitch :inverse="onHero" />
-        <a href="https://app.paskall.co.id" class="text-sm font-medium transition-colors" :class="onHero ? 'text-white hover:text-sky' : 'text-ink hover:text-brand'">{{ m.nav.signIn }}</a>
+        <LocaleSwitch />
+        <a href="https://app.paskall.co.id" class="text-sm font-medium text-ink transition-colors hover:text-brand">{{ m.nav.signIn }}</a>
         <a
-          href="#contact" class="rounded-full px-5 py-2.5 text-sm font-medium transition-colors"
-          :class="onHero ? 'bg-white text-brand-deep hover:bg-sky' : 'bg-brand-deep text-white hover:bg-brand'"
+          href="#contact" class="rounded-full bg-brand-deep px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand"
         >{{ m.nav.requestAccess }}</a>
       </div>
       <div class="flex items-center gap-2 lg:hidden">
-        <LocaleSwitch :inverse="onHero" />
-        <button type="button" class="rounded-full p-2" :class="onHero ? 'text-white' : 'text-ink'" :aria-label="m.nav.menu" :aria-expanded="open" @click="open = !open">
+        <LocaleSwitch />
+        <button type="button" class="rounded-full bg-white/80 p-2 text-ink backdrop-blur" :aria-label="m.nav.menu" :aria-expanded="open" @click="open = !open">
           <component :is="open ? IconClose : IconMenu" class="size-6" />
         </button>
       </div>
