@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import IconArrowForward from '~icons/material-symbols/arrow-forward'
-
+import ContactForm from './ContactForm.vue'
 import LocaleSwitch from './LocaleSwitch.vue'
 import wordmark from '@/assets/paskall-wordmark.png'
 import { homeSection } from '@/composables/usePage'
@@ -16,11 +15,11 @@ const LINKS = computed(() => [
   { href: homeSection('platforms'), label: m.value.nav.links.platforms },
   { href: homeSection('faq'), label: m.value.nav.links.faq },
 ])
-const mailto = computed(() => `mailto:hello@paskall.com?subject=${encodeURIComponent(m.value.footer.mailSubject)}`)
 </script>
 
 <template>
-  <!-- The closing card: the same pastel rounded shape as the features, with the ask in it. -->
+  <!-- The closing card: the same pastel rounded shape as the features, with the ask in it:
+       the Request access form, which every Request access button scrolls to. -->
   <section id="contact" class="mx-auto max-w-7xl px-5 pb-10 sm:px-8">
     <div class="reveal relative overflow-hidden rounded-[2rem] bg-sky px-6 py-16 text-center sm:rounded-[2.5rem] sm:py-24">
       <div class="hero-ring pointer-events-none absolute -bottom-48 left-1/2 h-96 w-[48rem] -translate-x-1/2 rounded-full" aria-hidden="true" />
@@ -29,17 +28,7 @@ const mailto = computed(() => `mailto:hello@paskall.com?subject=${encodeURICompo
       <p class="relative mx-auto mt-5 max-w-xl text-lg text-ink-muted">
         {{ m.footer.body }}
       </p>
-      <div class="relative mt-9 flex flex-wrap justify-center gap-3">
-        <a
-          :href="mailto"
-          class="inline-flex items-center gap-2 rounded-full bg-brand-deep px-6 py-3.5 text-sm font-medium text-white transition-colors hover:bg-brand"
-        >
-          {{ m.footer.cta }} <IconArrowForward class="size-4" />
-        </a>
-        <a href="https://app.paskall.co.id" class="rounded-full border border-ink/80 px-6 py-3.5 text-sm font-medium text-ink transition-colors hover:bg-ink hover:text-white">
-          {{ m.footer.signIn }}
-        </a>
-      </div>
+      <ContactForm />
     </div>
   </section>
   <footer class="border-t border-line">

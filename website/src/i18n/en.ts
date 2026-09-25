@@ -128,10 +128,28 @@ const en = {
   },
   footer: {
     title: 'Put your first screen on Paskall',
-    body: 'Tell us how many screens. We’ll set up the account.',
+    body: 'Leave your details and we’ll get in touch to set up your account.',
     cta: 'Request access',
     signIn: 'Sign in',
-    mailSubject: 'Paskall access',
+    form: {
+      name: 'Name',
+      company: 'Company',
+      optional: '(optional)',
+      email: 'Email',
+      phone: 'Phone number',
+      eitherHint: 'An email or a phone number, whichever you prefer. At least one.',
+      sending: 'Sending…',
+      sentTitle: 'Thank you!',
+      sentBody: 'We’ve got your request and will be in touch soon.',
+      orEmail: 'Or write to us at',
+      errors: {
+        name: 'Please enter your name.',
+        contact: 'Please leave an email or a phone number so we can reach you.',
+        email: 'That email doesn’t look right.',
+        phone: 'That phone number doesn’t look right.',
+        send: 'That didn’t go through. Check your connection and try again.',
+      },
+    },
   },
 }
 

@@ -119,10 +119,28 @@ const id: Messages = {
   },
   footer: {
     title: 'Pasang layar pertama Anda di Paskall',
-    body: 'Beri tahu kami berapa layar Anda. Kami siapkan akunnya.',
+    body: 'Tinggalkan kontak Anda, dan kami akan menghubungi Anda untuk menyiapkan akun.',
     cta: 'Request Akses',
     signIn: 'Masuk',
-    mailSubject: 'Akses Paskall',
+    form: {
+      name: 'Nama',
+      company: 'Perusahaan',
+      optional: '(opsional)',
+      email: 'Email',
+      phone: 'Nomor telepon',
+      eitherHint: 'Email atau nomor telepon, mana saja yang Anda suka. Minimal salah satu.',
+      sending: 'Mengirim…',
+      sentTitle: 'Terima kasih!',
+      sentBody: 'Permintaan Anda sudah kami terima, dan kami akan segera menghubungi Anda.',
+      orEmail: 'Atau tulis ke kami di',
+      errors: {
+        name: 'Mohon isi nama Anda.',
+        contact: 'Mohon isi email atau nomor telepon agar kami bisa menghubungi Anda.',
+        email: 'Sepertinya email itu kurang tepat.',
+        phone: 'Sepertinya nomor telepon itu kurang tepat.',
+        send: 'Gagal terkirim. Periksa koneksi Anda lalu coba lagi.',
+      },
+    },
   },
 }
 
