@@ -43,8 +43,8 @@ onBeforeUnmount(() => { if (timer) clearInterval(timer) })
     <!-- The dome and its rings, anchored to the floor the CMS stands on. -->
     <div class="pointer-events-none absolute inset-x-0 bottom-0 hidden justify-center overflow-hidden sm:flex" aria-hidden="true">
       <div class="relative h-[21rem] w-[44rem] lg:h-[24rem] lg:w-[50rem]">
-        <div class="hero-ring absolute -inset-x-40 -top-40 bottom-0 rounded-t-full border-b-0" />
-        <div class="hero-ring absolute -inset-x-20 -top-20 bottom-0 rounded-t-full border-b-0" />
+        <div class="hero-ring hero-ring-inverse absolute -inset-x-40 -top-40 bottom-0 rounded-t-full border-b-0" />
+        <div class="hero-ring hero-ring-inverse absolute -inset-x-20 -top-20 bottom-0 rounded-t-full border-b-0" />
         <div class="hero-dome absolute inset-0 rounded-t-full" />
       </div>
     </div>

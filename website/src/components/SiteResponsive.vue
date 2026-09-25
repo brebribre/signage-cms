@@ -20,11 +20,7 @@ const DEVICES = [
 <template>
   <section id="responsive" class="mx-auto max-w-7xl px-5 pt-16 sm:px-8 sm:pt-20">
     <div
-      class="reveal relative overflow-hidden rounded-[2rem] bg-brand-deep px-5 pt-14 text-white sm:rounded-[2.5rem] sm:px-10 sm:pt-20"
-      style="background-image:
-        radial-gradient(60% 50% at 15% 0%, rgba(0, 118, 221, 0.55) 0%, transparent 70%),
-        radial-gradient(45% 45% at 90% 20%, rgba(0, 212, 255, 0.35) 0%, transparent 70%),
-        radial-gradient(70% 60% at 50% 110%, rgba(31, 85, 196, 0.8) 0%, transparent 70%)"
+      class="navy-glow reveal relative overflow-hidden rounded-[2rem] px-5 pt-14 text-white sm:rounded-[2.5rem] sm:px-10 sm:pt-20"
     >
       <!-- Faint rings behind the devices, echoing the hero's dome. -->
       <div class="pointer-events-none absolute -bottom-[30rem] hidden sm:block left-1/2 size-[60rem] -translate-x-1/2 rounded-full border border-white/10" aria-hidden="true" />
@@ -32,10 +28,9 @@ const DEVICES = [
 
       <div class="relative mx-auto max-w-2xl text-center">
         <span class="tag text-accent">Responsive</span>
-        <h2 class="mt-5 text-4xl leading-[1.1] sm:text-6xl">Manage your screens <span class="bg-gradient-to-r from-accent to-[#7fb6ff] bg-clip-text text-transparent">from any screen</span></h2>
+        <h2 class="mt-5 text-4xl leading-[1.1] sm:text-6xl">Observe from <span class="bg-gradient-to-r from-accent to-[#7fb6ff] bg-clip-text text-transparent">anywhere</span></h2>
         <p class="mt-5 text-lg text-white/75">
-          The dashboard fits the device in your hand. Change what plays from your phone on the shop
-          floor, a tablet at the counter, or a monitor at your desk.
+          Paskall CMS is designed to be accessible from your phone, tablet and monitor.
         </p>
         <ul class="mt-8 flex flex-wrap justify-center gap-2.5">
           <li v-for="d in DEVICES" :key="d.label" class="flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm ring-1 ring-white/15 backdrop-blur">

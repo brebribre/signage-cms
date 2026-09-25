@@ -58,20 +58,20 @@ h1, h2, h3, .display { font-family: var(--font-display); font-weight: 500; lette
 }
 
 /*
-  The hero's wash: the brand blues glowing in from the top corners and fading to white by the
-  time the page reaches the venue strip, so the headline sits in colour without the ink losing
-  contrast.
+  The navy with glows the hero and the responsive card share: the brand blues and the cyan
+  accent lighting a deep navy from the corners and the floor.
 */
-.hero-wash {
-  background:
-    radial-gradient(55% 50% at 12% 0%, rgba(0, 118, 221, 0.38) 0%, transparent 70%),
-    radial-gradient(50% 45% at 90% 8%, rgba(0, 212, 255, 0.32) 0%, transparent 70%),
-    radial-gradient(70% 60% at 50% 100%, rgba(31, 85, 196, 0.22) 0%, transparent 70%),
-    linear-gradient(180deg, #dbe6fd 0%, #eef3fe 45%, #f7f9ff 80%, #ffffff 100%);
+.navy-glow {
+  background-color: var(--color-brand-deep);
+  background-image:
+    radial-gradient(60% 50% at 15% 0%, rgba(0, 118, 221, 0.55) 0%, transparent 70%),
+    radial-gradient(45% 45% at 90% 20%, rgba(0, 212, 255, 0.35) 0%, transparent 70%),
+    radial-gradient(70% 60% at 50% 110%, rgba(31, 85, 196, 0.8) 0%, transparent 70%);
 }
-/* The arc the CMS stands in: a dome of brand blue, deepest at its floor, with two thin rings. */
-.hero-dome { background: radial-gradient(120% 100% at 50% 100%, #0076dd 0%, #4f8fe8 30%, #a9c6f6 62%, #dfe9fd 85%); }
+/* The arc the CMS stands in: a glow of blue rising off the floor of the navy, with two thin rings. */
+.hero-dome { background: radial-gradient(120% 100% at 50% 100%, rgba(0, 212, 255, 0.45) 0%, rgba(0, 118, 221, 0.4) 35%, rgba(79, 143, 232, 0.14) 70%, transparent 90%); }
 .hero-ring { border: 1px solid rgba(0, 51, 153, 0.16); }
+.hero-ring-inverse { border-color: rgba(255, 255, 255, 0.12); }
 
 /* Sections reveal as they arrive: a small, meaningful motion, not a show. */
 .reveal { opacity: 0; transform: translateY(18px); transition: opacity 0.7s cubic-bezier(0.2, 0.7, 0.2, 1), transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1); }

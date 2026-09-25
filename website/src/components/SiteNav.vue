@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import IconClose from '~icons/material-symbols/close'
 import IconMenu from '~icons/material-symbols/menu'
 
@@ -13,9 +13,12 @@ const LINKS = [
   { href: '#faq', label: 'FAQ' },
 ]
 const open = ref(false)
-/** White on white at the top; a hairline and a little blur once the page moves under it. */
+/** White on the navy hero at the top; ink on white, with a hairline and a little blur, once the
+ *  page moves under it. */
 const past = ref(false)
 const onScroll = () => { past.value = window.scrollY > 12 }
+/** Whether the bar is still over the hero, and so drawn in white. */
+const onHero = computed(() => !past.value && !open.value)
 onMounted(() => { onScroll(); window.addEventListener('scroll', onScroll, { passive: true }) })
 onBeforeUnmount(() => window.removeEventListener('scroll', onScroll))
 </script>
@@ -23,22 +26,25 @@ onBeforeUnmount(() => window.removeEventListener('scroll', onScroll))
 <template>
   <header
     class="fixed inset-x-0 top-0 z-50 transition-all duration-300"
-    :class="past || open ? 'border-b border-line bg-canvas/90 backdrop-blur' : 'border-b border-transparent bg-transparent'"
+    :class="onHero ? 'border-b border-transparent bg-transparent' : 'border-b border-line bg-canvas/90 backdrop-blur'"
   >
     <nav class="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 sm:px-8" aria-label="Site">
       <a href="#top" class="flex items-center">
-        <img :src="wordmark" alt="Paskall" class="h-6 w-auto" />
+        <img :src="wordmark" alt="Paskall" class="h-6 w-auto transition-all duration-300" :class="onHero && 'brightness-0 invert'" />
       </a>
       <ul class="hidden items-center gap-8 md:flex">
         <li v-for="l in LINKS" :key="l.href">
-          <a :href="l.href" class="text-sm text-ink transition-colors hover:text-brand">{{ l.label }}</a>
+          <a :href="l.href" class="text-sm transition-colors" :class="onHero ? 'text-white/85 hover:text-white' : 'text-ink hover:text-brand'">{{ l.label }}</a>
         </li>
       </ul>
       <div class="hidden items-center gap-5 md:flex">
-        <a href="https://app.paskall.co.id" class="text-sm font-medium text-ink transition-colors hover:text-brand">Sign in</a>
-        <a href="#contact" class="rounded-full bg-brand-deep px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand">Request access</a>
+        <a href="https://app.paskall.co.id" class="text-sm font-medium transition-colors" :class="onHero ? 'text-white hover:text-sky' : 'text-ink hover:text-brand'">Sign in</a>
+        <a
+          href="#contact" class="rounded-full px-5 py-2.5 text-sm font-medium transition-colors"
+          :class="onHero ? 'bg-white text-brand-deep hover:bg-sky' : 'bg-brand-deep text-white hover:bg-brand'"
+        >Request access</a>
       </div>
-      <button type="button" class="rounded-full p-2 text-ink md:hidden" aria-label="Menu" :aria-expanded="open" @click="open = !open">
+      <button type="button" class="rounded-full p-2 md:hidden" :class="onHero ? 'text-white' : 'text-ink'" aria-label="Menu" :aria-expanded="open" @click="open = !open">
         <component :is="open ? IconClose : IconMenu" class="size-6" />
       </button>
     </nav>
