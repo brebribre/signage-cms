@@ -1,7 +1,5 @@
 <script setup lang="ts">
 /** Every screen, whatever it runs on, answering to one place. */
-import IconArrowForward from '~icons/material-symbols/arrow-forward'
-
 import FeatureCard from './FeatureCard.vue'
 
 const SCREENS = [
@@ -46,9 +44,6 @@ const SCREENS = [
         One code, any screen. The player shows six letters; type them into the dashboard and the
         screen joins your fleet. Android boxes, smart TVs and browsers sit side by side.
       </p>
-      <a href="#contact" class="mt-8 inline-flex items-center gap-2 rounded-full bg-brand-deep px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-brand">
-        Request access <IconArrowForward class="size-4" />
-      </a>
     </FeatureCard>
   </section>
 </template>

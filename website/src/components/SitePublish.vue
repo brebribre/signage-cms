@@ -8,7 +8,6 @@
  * for less motion, who gets the finished state instead.
  */
 import { onBeforeUnmount, onMounted, ref } from 'vue'
-import IconArrowForward from '~icons/material-symbols/arrow-forward'
 import IconCheck from '~icons/material-symbols/check-circle'
 import IconUpload from '~icons/material-symbols/upload'
 
@@ -78,7 +77,7 @@ const thumb = (i: number) => {
           <!-- The campaign being sent, with its progress along its foot. -->
           <div class="relative mx-auto max-w-sm overflow-hidden rounded-2xl bg-white p-3 shadow-[0_20px_50px_-28px_rgba(0,24,77,0.5)] ring-1 ring-line">
             <div class="flex items-center gap-3">
-              <span class="h-10 w-14 shrink-0 rounded-lg bg-cover bg-center transition-all duration-500" :style="thumb(outgoing)" aria-hidden="true" />
+              <span class="h-10 w-12 shrink-0 rounded-lg sm:w-14 bg-cover bg-center transition-all duration-500" :style="thumb(outgoing)" aria-hidden="true" />
               <span class="min-w-0 flex-1">
                 <span class="block truncate text-sm text-ink">{{ SLIDES[outgoing].name }}</span>
                 <span class="block truncate text-[11px] text-ink-subtle">
@@ -86,7 +85,7 @@ const thumb = (i: number) => {
                 </span>
               </span>
               <span
-                class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition-colors duration-300"
+                class="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-xs transition-colors duration-300"
                 :class="state === 'done' ? 'bg-emerald-50 text-emerald-700' : state === 'idle' ? 'bg-brand-deep text-white' : 'bg-brand-soft text-brand'"
               >
                 <IconCheck v-if="state === 'done'" class="size-3.5" aria-hidden="true" />
@@ -126,9 +125,6 @@ const thumb = (i: number) => {
       <p class="mt-5 max-w-md leading-relaxed text-ink-muted">
         Changes are published in seconds.
       </p>
-      <a href="#contact" class="mt-8 inline-flex items-center gap-2 rounded-full bg-brand-deep px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-brand">
-        Request access <IconArrowForward class="size-4" />
-      </a>
     </FeatureCard>
   </section>
 </template>

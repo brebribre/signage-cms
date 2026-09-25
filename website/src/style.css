@@ -44,6 +44,9 @@
 }
 
 html { scroll-behavior: smooth; color-scheme: light; }
+/* A quick second tap (opening the menu, turning a tab) must not zoom the page on a phone.
+   Pinch zoom still works. */
+html, button, a { touch-action: manipulation; }
 /* The nav is fixed, so an anchor must stop below it rather than under it. */
 section[id] { scroll-margin-top: 5rem; }
 body { background: var(--color-canvas); color: var(--color-ink); font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
@@ -63,6 +66,27 @@ h1, h2, h3, .display { font-family: var(--font-display); font-weight: 500; lette
 .hero-dome { background: radial-gradient(120% 100% at 50% 100%, rgba(0, 212, 255, 0.45) 0%, rgba(0, 118, 221, 0.4) 35%, rgba(79, 143, 232, 0.14) 70%, transparent 90%); }
 .hero-ring { border: 1px solid rgba(0, 51, 153, 0.16); }
 .hero-ring-inverse { border-color: rgba(255, 255, 255, 0.12); }
+
+/*
+  The hero's background life: two soft glows drifting slowly across the blue, and rings pulsing
+  out from the floor the CMS stands on, one after another. Slow and faint, so the page feels
+  alive without anything competing with the headline.
+*/
+@keyframes drift-a { 0% { transform: translate(0, 0) scale(1); } 100% { transform: translate(18vw, 8vh) scale(1.15); } }
+@keyframes drift-b { 0% { transform: translate(0, 0) scale(1.1); } 100% { transform: translate(-16vw, -6vh) scale(0.95); } }
+.hero-glow { position: absolute; border-radius: 9999px; filter: blur(70px); will-change: transform; }
+.hero-glow-a { animation: drift-a 16s ease-in-out infinite alternate; }
+.hero-glow-b { animation: drift-b 19s ease-in-out infinite alternate; }
+@keyframes ring-pulse {
+  0% { transform: translate(-50%, 50%) scale(0.3); opacity: 0; }
+  15% { opacity: 1; }
+  100% { transform: translate(-50%, 50%) scale(1.25); opacity: 0; }
+}
+.hero-pulse {
+  position: absolute; left: 50%; bottom: 0; width: 80rem; height: 80rem; border-radius: 9999px;
+  border: 1.5px solid rgba(255, 255, 255, 0.22); transform: translate(-50%, 50%) scale(0.3); opacity: 0;
+  animation: ring-pulse 9s cubic-bezier(0.2, 0.6, 0.3, 1) infinite; animation-delay: var(--pulse-delay, 0s);
+}
 
 /* Sections reveal as they arrive: a small, meaningful motion, not a show. */
 .reveal { opacity: 0; transform: translateY(18px); transition: opacity 0.7s cubic-bezier(0.2, 0.7, 0.2, 1), transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1); }
@@ -91,6 +115,7 @@ h1, h2, h3, .display { font-family: var(--font-display); font-weight: 500; lette
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 
 @media (prefers-reduced-motion: reduce) {
-  .float, .marquee, .tab-progress { animation: none; }
+  .float, .marquee, .tab-progress, .hero-glow-a, .hero-glow-b { animation: none; }
+  .hero-pulse { display: none; }
   .swap-enter-active, .swap-leave-active, .fade-enter-active, .fade-leave-active { transition: none; }
 }
