@@ -15,8 +15,8 @@ const id: Messages = {
     requestAccess: 'Minta akses',
   },
   hero: {
-    title: 'Kenali cara cerdas mengelola layar Anda.',
-    subtitle: 'Gambar, video, dan situs web langsung di digital signage, smart TV, dan Android box.',
+    title: 'Cara cerdas mengelola layar Anda.',
+    subtitle: 'Gambar, video, dan situs web, di layar apa pun.',
     cta: 'Minta akses',
     screens: [
       { name: 'TV Lobi', kind: 'Android box' },

@@ -21,8 +21,8 @@ const en = {
     requestAccess: 'Request access',
   },
   hero: {
-    title: 'Meet the smart way to manage your screens.',
-    subtitle: 'Pictures, videos and live websites on digital signage, smart TVs and Android boxes.',
+    title: 'The smart way to run your screens.',
+    subtitle: 'Pictures, videos and websites, on any display.',
     cta: 'Request access',
     screens: [
       { name: 'Lobby TV', kind: 'Android box' },

@@ -1,14 +1,15 @@
 <script setup lang="ts">
 /**
- * One of the feature cards, laid out the way a product page's bento is: the title and a line
- * at the top, and the thing itself below, standing on a sweep of the brand blues and running
- * off the card's right and bottom edges, as if the card were a window onto a bigger scene.
+ * One of the feature cards, in a pale brand tint so it stands off the white page, laid out the
+ * way a product page's bento is: the title and a line at the top, and the thing itself below,
+ * standing on a sweep of the brand blues and running off the card's right and bottom edges, as
+ * if the card were a window onto a bigger scene.
  * The card fills its grid cell, and the picture keeps to the foot however tall that is.
  */
 </script>
 
 <template>
-  <article class="relative flex h-full flex-col overflow-hidden rounded-[2rem] bg-white ring-1 ring-line">
+  <article class="relative flex h-full flex-col overflow-hidden rounded-[2rem] bg-brand-soft ring-1 ring-tint-strong/60">
     <div class="relative p-6 sm:p-8 lg:p-10">
       <slot />
     </div>
