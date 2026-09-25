@@ -43,9 +43,23 @@ def cleanup() -> None:
 
 
 def client_for(uid: uuid.UUID) -> TestClient:
+    """A signed-in client for `uid`, with the session version the user is on now — a password
+    change ends older sessions (services/session.py)."""
+    with Session(engine) as s:
+        version = s.get(User, uid).session_version
     c = TestClient(app)
-    c.cookies.set(settings.session_cookie_name, create_session_token(uid))
+    c.cookies.set(settings.session_cookie_name, create_session_token(uid, version))
     return c
+
+
+def chose_own_password(uid: uuid.UUID) -> None:
+    """Stands in for the person replacing the password their owner gave them, which these checks
+    are not about (scripts/check_passwords.py is) — until then every route but that is refused."""
+    with Session(engine) as s:
+        user = s.get(User, uid)
+        user.must_change_password = False
+        s.add(user)
+        s.commit()
 
 
 def main() -> None:
@@ -83,6 +97,7 @@ def main() -> None:
     check("create returns 201", r.status_code == 201, str(r.status_code))
     mgr = r.json()
     mgr_id = uuid.UUID(mgr["id"])
+    chose_own_password(mgr_id)
     check("username is lowercased", mgr["username"] == f"{PREFIX}-mgr", mgr["username"])
     check("the new user is a manager", mgr["role"] == "manager")
     check("no email is required", mgr["email"] is None)
@@ -144,6 +159,11 @@ def main() -> None:
         "identifier": f"{PREFIX}-mgr", "password": PASSWORD}).status_code == 401)
     check("a short password is refused", o.post(f"/users/{mgr_id}/password",
         json={"password": "short"}).status_code == 422)
+    check("the reset ends the manager's open session", m.get("/devices").status_code == 401)
+    check("...and the new password must be replaced before anything else",
+          fresh.get("/devices").status_code == 403)
+    chose_own_password(mgr_id)
+    m = client_for(mgr_id)
 
     print("\ndeactivation")
     check("owner deactivates the manager",

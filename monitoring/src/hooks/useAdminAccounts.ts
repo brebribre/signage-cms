@@ -45,8 +45,9 @@ export function useAdminAccounts() {
 
   const create = (body: AdminAccountCreateBody) => run(() => api.createAccount(body))
   const setLimits = (id: string, body: AdminLimitsUpdateBody) => run(() => api.setLimits(id, body))
+  const resetPassword = (id: string, password: string) => run(() => api.resetPassword(id, password))
 
   onMounted(refresh)
 
-  return { accounts, isLoading, isSaving, error, formError, refresh, create, setLimits }
+  return { accounts, isLoading, isSaving, error, formError, refresh, create, setLimits, resetPassword }
 }

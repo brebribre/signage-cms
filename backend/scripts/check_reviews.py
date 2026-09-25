@@ -4,7 +4,7 @@
 
 Creates a throwaway manager granted the screen, drives every branch of the review gate as
 that manager and as the owner, prints PASS/FAIL per step, and removes what it made. The
-playlist is restored to its scenes afterwards. See docs/user-access-management.html.
+playlist is restored to its scenes afterwards. See ACCOUNTS.md for how sub accounts and reviews work.
 """
 import secrets, uuid, sys
 from fastapi.testclient import TestClient
@@ -31,6 +31,11 @@ with Session(engine) as s:
             s, owner=owner, username="review-test-mgr", password=secrets.token_urlsafe(16),
             display_name="Review Test Manager", email=None, device_ids=[uuid.UUID(SCREEN)],
         )
+    # Its password was chosen by the owner, so it's temporary and every route but changing it is
+    # refused; these checks are about reviews, so the manager stands in as having picked their own.
+    mgr.must_change_password = False
+    s.add(mgr)
+    s.commit()
     MGR = mgr.id
     # Clean slate for the test account's reviews.
     for r in s.exec(select(ContentReview).where(ContentReview.account_id == owner.account_id)).all():

@@ -1,11 +1,11 @@
-from fastapi import APIRouter, Response, status
+from fastapi import APIRouter, HTTPException, Response, status
 
 from app.api.auth_common import UNAUTHORIZED, clear_session_cookie, set_session_cookie
 from app.api.deps import CurrentUser, DbSession
 from app.models import Account
-from app.schemas.auth import AccountRead, LoginRequest, MeResponse, UserRead
+from app.schemas.auth import AccountRead, LoginRequest, MeResponse, PasswordChange, UserRead
 from app.services import auth as auth_service
-from app.services.errors import InvalidCredentials
+from app.services.errors import InvalidCredentials, SamePassword
 
 router = APIRouter(tags=["auth"])
 
@@ -36,7 +36,7 @@ def login(body: LoginRequest, response: Response, session: DbSession) -> MeRespo
     except InvalidCredentials:
         raise UNAUTHORIZED from None
 
-    set_session_cookie(response, user.id)
+    set_session_cookie(response, user)
     return _me(session, user)
 
 
@@ -47,4 +47,25 @@ def logout(response: Response) -> None:
 
 @router.get("/me", response_model=MeResponse)
 def me(user: CurrentUser, session: DbSession) -> MeResponse:
+    return _me(session, user)
+
+
+@router.post("/auth/password", response_model=MeResponse)
+def change_password(
+    body: PasswordChange, user: CurrentUser, response: Response, session: DbSession
+) -> MeResponse:
+    """Replace your own password — required first when someone else chose it. Ends every other
+    session, and hands this one a fresh cookie so it carries on. A wrong current password is
+    400, not 401: it must not look like being signed out."""
+    try:
+        user = auth_service.change_own_password(
+            session, user=user, current=body.current_password, new=body.new_password
+        )
+    except InvalidCredentials:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Your current password isn't right") from None
+    except SamePassword:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, "Choose a password different from the current one"
+        ) from None
+    set_session_cookie(response, user)
     return _me(session, user)

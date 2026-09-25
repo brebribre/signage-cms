@@ -62,6 +62,8 @@ class UserSummary:
     role: UserRole
     is_active: bool
     created_at: datetime
+    # Still on a password staff (or their owner) chose — they haven't signed in to pick theirs.
+    must_change_password: bool
 
 
 @dataclass(frozen=True)
@@ -162,6 +164,7 @@ def _users(session: Session, account_id: uuid.UUID) -> list[UserSummary]:
             role=u.role,
             is_active=u.is_active,
             created_at=u.created_at,
+            must_change_password=u.must_change_password,
         )
         for u in rows
     ]
@@ -248,6 +251,9 @@ def create_account(
         email=email,
         account_name=name,
     )
+    # Staff typed this password, so it's temporary: the person picks their own at first sign-in.
+    owner.must_change_password = True
+    session.add(owner)
     account = session.get(Account, owner.account_id)
     account.kind = kind
     account.max_screens = max_screens
@@ -263,6 +269,41 @@ def create_account(
             f"{kind} account; owner {owner.username}; screens {_limit_text(max_screens)}; "
             f"storage {_limit_text(storage_quota_bytes)} bytes; ends {_end_text(expires_at)}"
         ),
+    )
+    session.commit()
+    session.refresh(account)
+    return _summary(session, account)
+
+
+def reset_password(
+    session: Session, *, admin: User, account_id: uuid.UUID, password: str
+) -> AccountSummary:
+    """Give the account's main user a new temporary password, for a customer who has forgotten
+    theirs. Same rule as the limits — the owner resets admin and client accounts, a technician
+    client accounts, nobody the owner account — since whoever may reset a password may take the
+    account over. The person picks their own at next sign-in, and every session they had ends.
+    The log says it happened and to whom, never what the password was."""
+    account = session.get(Account, account_id)
+    if account is None:
+        raise AccountNotFound(str(account_id))
+    if account.kind == AccountKind.OWNER:
+        raise NotAllowed("The owner account's password can only be changed by signing in to it")
+    if account.kind not in may_issue(session, admin):
+        raise NotAllowed(
+            f"An {kind_of(session, admin)} account can only reset a client account's password"
+        )
+    main = session.exec(
+        select(User)
+        .where(User.account_id == account_id, User.role == UserRole.OWNER)
+        .order_by(User.created_at)
+    ).first()
+    if main is None:
+        raise AccountNotFound(str(account_id))
+    auth_service.set_temporary_password(main, password)
+    session.add(main)
+    _log(
+        session, admin=admin, account=account, action="reset_password",
+        detail=f"temporary password for {main.username}; they choose their own at next sign-in",
     )
     session.commit()
     session.refresh(account)

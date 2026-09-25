@@ -122,6 +122,8 @@ def create_manager(
         display_name=display_name,
         role=UserRole.MANAGER,
         created_by=owner.id,
+        # The owner chose it: the sub account picks their own at first sign-in.
+        must_change_password=True,
     )
     session.add(manager)
     session.flush()
@@ -163,10 +165,11 @@ def set_password(session: Session, *, owner: User, user_id: uuid.UUID, password:
     """The owner is the recovery path.
 
     There is no email reset flow, and that is the point of allowing username-only accounts: a
-    subuser may have no address to send one to.
+    subuser may have no address to send one to. The password the owner sets is temporary: the
+    sub account chooses their own at next sign-in, and is signed out everywhere until then.
     """
     user = _target(session, owner, user_id)
-    user.password_hash = passwords.hash_password(password)
+    auth_service.set_temporary_password(user, password)
     session.add(user)
     session.commit()
 

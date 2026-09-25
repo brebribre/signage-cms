@@ -78,6 +78,31 @@ account. Only the accounts that are not ordinary customers carry an **Owner** or
 The Edit limits menu appears only on accounts you are allowed to touch. A technician can see the
 owner and other admin accounts, but gets no actions on them.
 
+## Passwords
+
+Nobody keeps a password someone else chose. Whenever one person sets another's password —
+staff issuing an account, staff resetting a forgotten one, or a main user making or resetting a
+sub account — that password is **temporary**. At the next sign-in the CMS shows only **Choose
+your own password**, and the server refuses every other request until it's done. So whoever
+handed the password over never knows the one actually in use.
+
+- **A forgotten password:** in the monitoring app, **Reset password** on the account (the same
+  rule as limits decides who may: the owner for admin and client accounts, a technician for
+  client accounts, nobody for the owner account). It offers a generated password to pass on. A
+  main user resets a sub account's from **Settings → User management**.
+- **Changing your own:** **Settings → General**, with the current password.
+- **Every change signs out everywhere else.** The session cookie carries a number that goes up
+  with each change, so a session opened with the old password stops working at once.
+- The monitoring app shows **Temporary password** on an account whose main user hasn't chosen
+  theirs yet, and the admin log records each reset — never the password itself.
+- A technician on a temporary password is sent to the CMS to choose their own before the
+  monitoring app lets them in.
+
+There is still no email reset: staff or the main user are the way back in.
+
+The rule is enforced in `backend/app/api/deps.py` (`_refuse_until_own_password`) and checked by
+`scripts/check_passwords.py`.
+
 ## Accounts that expire
 
 Any admin or client account can have an end date, shown as **Active until** in the monitoring

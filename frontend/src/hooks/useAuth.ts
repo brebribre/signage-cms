@@ -20,6 +20,8 @@ export function useAuth() {
   const account = computed(() => store.account)
   const isSignedIn = computed(() => store.user !== null)
   const isOwner = computed(() => store.user?.role === 'owner')
+  /** On a password someone else chose — see the choose-password route. */
+  const mustChangePassword = computed(() => !!store.user?.must_change_password)
 
   function apply(me: MeResponse) {
     store.user = me.user
@@ -65,6 +67,8 @@ export function useAuth() {
   }
 
   const login = (body: LoginBody) => submit(() => api.login(body))
+  const changePassword = (current: string, next: string) =>
+    submit(() => api.changePassword({ current_password: current, new_password: next }))
 
   async function logout() {
     try {
@@ -76,5 +80,5 @@ export function useAuth() {
     }
   }
 
-  return { user, account, isSignedIn, isOwner, isLoading, error, resolve, login, logout }
+  return { user, account, isSignedIn, isOwner, mustChangePassword, isLoading, error, resolve, login, changePassword, logout }
 }

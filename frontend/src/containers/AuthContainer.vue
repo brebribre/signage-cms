@@ -49,6 +49,10 @@ async function onSubmit() {
 
     <AppButton type="submit" block :loading="isLoading">Sign in</AppButton>
 
+    <router-link :to="{ name: 'reset-password' }" class="text-center text-[13px] text-brand hover:underline">
+      Reset password
+    </router-link>
+
     <p class="text-center text-[13px] text-ink-muted">
       No account yet? Accounts are set up for you — get in touch and we'll create one.
     </p>

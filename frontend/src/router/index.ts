@@ -11,6 +11,21 @@ const router = createRouter({
       component: () => import('@/views/LoginView.vue'),
       meta: { public: true },
     },
+    // Linked from the sign-in page: replace a password you know (a temporary one included)
+    // without signing in first, or learn who can reset one you've forgotten.
+    {
+      path: '/reset-password',
+      name: 'reset-password',
+      component: () => import('@/views/ResetPasswordView.vue'),
+      meta: { public: true },
+    },
+    // A password someone else chose — issued by staff, reset, or a sub account's first — has to be
+    // replaced before anything else. The server enforces it; this is where the CMS asks.
+    {
+      path: '/choose-password',
+      name: 'choose-password',
+      component: () => import('@/views/ChoosePasswordView.vue'),
+    },
     // There is no public signup — accounts are issued from the monitoring app. Kept as a redirect
     // so an old link still lands somewhere sensible.
     { path: '/signup', redirect: { name: 'login' } },
@@ -154,11 +169,18 @@ const router = createRouter({
  * the right page instead of flashing the login screen.
  */
 router.beforeEach(async (to) => {
-  const { resolve, isSignedIn, isOwner } = useAuth()
+  const { resolve, isSignedIn, isOwner, mustChangePassword } = useAuth()
   await resolve()
 
   if (!to.meta.public && !isSignedIn.value) {
     return { name: 'login', query: { next: to.fullPath } }
+  }
+  // Nothing else until the password is their own; the server refuses the rest regardless.
+  if (isSignedIn.value && mustChangePassword.value && to.name !== 'choose-password') {
+    return { name: 'choose-password', query: to.meta.public ? {} : { next: to.fullPath } }
+  }
+  if (to.name === 'choose-password' && !mustChangePassword.value) {
+    return { name: 'now' }
   }
   // Already signed in: the sign-in page has nothing to offer, so go where signing in would
   // have taken you.

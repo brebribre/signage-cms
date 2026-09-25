@@ -11,7 +11,7 @@ from sqlmodel import Session, select
 
 from app.models import Account, User, UserRole
 from app.services import passwords
-from app.services.errors import EmailTaken, InvalidCredentials, UsernameTaken
+from app.services.errors import EmailTaken, InvalidCredentials, SamePassword, UsernameTaken
 
 
 def normalise_username(username: str) -> str:
@@ -124,3 +124,30 @@ def accessible_device_ids(session: Session, user: User) -> list[uuid.UUID] | Non
         select(DeviceAccess.device_id).where(DeviceAccess.user_id == user.id)
     ).all()
     return list(rows)
+
+
+def set_temporary_password(user: User, password: str) -> None:
+    """Give `user` a password someone else chose — an issued account, a reset, a sub account.
+    They must pick their own before anything else works (api/deps.py), and every session they
+    had is ended (services/session.py). The caller adds and commits."""
+    user.password_hash = passwords.hash_password(password)
+    user.must_change_password = True
+    user.session_version += 1
+
+
+def change_own_password(session: Session, *, user: User, current: str, new: str) -> User:
+    """The signed-in person replaces their password. Needs the current one, even straight after
+    signing in: a session left open is not the same as knowing the password. Ends every other
+    session; the caller re-issues this one's cookie. Raises InvalidCredentials for a wrong
+    current password and SamePassword for no change."""
+    if not passwords.verify_password(user.password_hash, current):
+        raise InvalidCredentials()
+    if new == current:
+        raise SamePassword()
+    user.password_hash = passwords.hash_password(new)
+    user.must_change_password = False
+    user.session_version += 1
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return user

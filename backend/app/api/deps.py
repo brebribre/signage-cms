@@ -39,6 +39,27 @@ ACCOUNT_EXPIRED = (
 )
 
 
+#: All a person with a temporary password may do: learn that they must change it, change it,
+#: and sign out (which needs no session at all).
+OWN_PASSWORD_FIRST_MAY = frozenset({("GET", "/me"), ("POST", "/auth/password")})
+
+OWN_PASSWORD_REQUIRED = "Choose your own password before continuing."
+
+
+def _refuse_until_own_password(request: Request, user: User) -> None:
+    """Someone else chose this password — staff issuing or resetting the account, or an owner
+    making a sub account — so nothing else is allowed until the person picks their own. Checked
+    here, where every signed-in request passes, so no route can forget it: whoever handed the
+    password over can't use it to do anything but choose a new one, which they'd then know
+    and the owner would find they didn't."""
+    if not user.must_change_password:
+        return
+    route = request.scope.get("route")
+    if (request.method, getattr(route, "path", None)) in OWN_PASSWORD_FIRST_MAY:
+        return
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=OWN_PASSWORD_REQUIRED)
+
+
 def _refuse_if_expired(request: Request, session: Session, user: User) -> None:
     """An expired account is read-only. Checked here, where every signed-in request passes, so
     no route can forget it and a new route is covered the day it is written.
@@ -73,9 +94,10 @@ def get_current_user(request: Request, session: DbSession) -> User:
     if not token:
         raise unauthorized
 
-    user_id = read_session_token(token)
-    if user_id is None:
+    read = read_session_token(token)
+    if read is None:
         raise unauthorized
+    user_id, version = read
 
     user = session.get(User, user_id)
     if user is None:
@@ -83,6 +105,11 @@ def get_current_user(request: Request, session: DbSession) -> User:
         raise unauthorized
     if not user.is_active:
         raise unauthorized
+    # A cookie from before the password last changed — someone else's copy, or the session a
+    # temporary password was used in. See services/session.py.
+    if version != user.session_version:
+        raise unauthorized
+    _refuse_until_own_password(request, user)
     _refuse_if_expired(request, session, user)
     return user
 

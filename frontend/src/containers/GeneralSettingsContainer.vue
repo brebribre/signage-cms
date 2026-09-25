@@ -2,7 +2,8 @@
 /**
  * Settings → General: account-wide defaults, one compact row each. Staged like every other
  * setting that reaches screens — a Save appears once something has changed. The account defaults
- * are the owner's; Log out, at the bottom, is everyone's — on a phone it has no other home.
+ * are the owner's; your own password and Log out, at the bottom, are everyone's — on a phone
+ * they have no other home.
  */
 import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
@@ -14,6 +15,7 @@ import { useAuth } from '@/hooks/useAuth'
 import AppAlert from '@/reusables/AppAlert.vue'
 import AppButton from '@/reusables/AppButton.vue'
 import AppSelect from '@/reusables/AppSelect.vue'
+import ChangePasswordContainer from '@/containers/ChangePasswordContainer.vue'
 import { browserZone, zoneOptions } from '@/utils/timezones'
 
 const router = useRouter()
@@ -63,6 +65,14 @@ async function onLogout() {
           <IconCheck class="size-4 text-brand" aria-hidden="true" />
           Saved
         </span>
+      </div>
+    </div>
+
+    <!-- Everyone's: their own password, whatever their role. -->
+    <div class="flex flex-col gap-3 rounded-2xl bg-canvas px-4 py-4">
+      <p class="text-sm text-ink">Password</p>
+      <div class="max-w-sm">
+        <ChangePasswordContainer mode="settings" />
       </div>
     </div>
 

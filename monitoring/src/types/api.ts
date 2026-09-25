@@ -31,6 +31,9 @@ export interface AdminAccountUserRead {
   role: UserRole
   is_active: boolean
   created_at: string
+  /** Still on a password staff (or their main user) chose; they haven't signed in to pick
+   *  their own yet. */
+  must_change_password?: boolean
 }
 
 /** One account: its kind, its limits and how much of each is used. A null limit means
