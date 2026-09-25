@@ -19,8 +19,8 @@ const open = ref<number | null>(0)
         <h2 class="mt-5 text-4xl leading-[1.1] sm:text-5xl">Questions people ask first</h2>
         <p class="mt-5 text-ink-muted">Something else? <a href="mailto:hello@paskall.com" class="text-brand underline underline-offset-4">Write to us</a>.</p>
       </div>
-      <ul class="flex flex-col gap-3 lg:col-span-7">
-        <li v-for="(item, i) in QA" :key="item.q" class="reveal rounded-3xl transition-colors" :class="open === i ? 'bg-tint' : 'bg-surface ring-1 ring-line'">
+      <ul class="reveal flex flex-col gap-3 lg:col-span-7">
+        <li v-for="(item, i) in QA" :key="item.q" class="rounded-3xl transition-colors" :class="open === i ? 'bg-tint' : 'bg-surface ring-1 ring-line'">
           <button type="button" class="flex w-full items-center justify-between gap-4 px-6 py-5 text-left" :aria-expanded="open === i" @click="open = open === i ? null : i">
             <span class="display text-lg text-ink">{{ item.q }}</span>
             <span class="flex size-8 shrink-0 items-center justify-center rounded-full transition-colors" :class="open === i ? 'bg-brand-deep text-white' : 'bg-white text-ink ring-1 ring-line'">
