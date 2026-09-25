@@ -20,7 +20,7 @@ const DEVICES = [
 <template>
   <section id="responsive" class="mx-auto max-w-7xl px-5 pt-16 sm:px-8 sm:pt-20">
     <div
-      class="navy-glow reveal relative overflow-hidden rounded-[2rem] px-5 pt-14 text-white sm:rounded-[2.5rem] sm:px-10 sm:pt-20"
+      class="navy-glow reveal relative overflow-hidden rounded-[2rem] px-5 pt-12 text-white sm:rounded-[2.5rem] sm:px-10 sm:pt-14"
     >
       <!-- Faint rings behind the devices, echoing the hero's dome. -->
       <div class="pointer-events-none absolute -bottom-[30rem] hidden sm:block left-1/2 size-[60rem] -translate-x-1/2 rounded-full border border-white/10" aria-hidden="true" />
@@ -28,11 +28,11 @@ const DEVICES = [
 
       <div class="relative mx-auto max-w-2xl text-center">
         <span class="tag text-accent">Responsive</span>
-        <h2 class="mt-5 text-4xl leading-[1.1] sm:text-6xl">Observe from <span class="bg-gradient-to-r from-accent to-[#7fb6ff] bg-clip-text text-transparent">anywhere</span></h2>
-        <p class="mt-5 text-lg text-white/75">
+        <h2 class="mt-4 text-4xl leading-[1.1] sm:text-5xl">Observe from <span class="bg-gradient-to-r from-accent to-[#7fb6ff] bg-clip-text text-transparent">anywhere</span></h2>
+        <p class="mt-4 text-lg text-white/75">
           Paskall CMS is designed to be accessible from your phone, tablet and monitor.
         </p>
-        <ul class="mt-8 flex flex-wrap justify-center gap-2.5">
+        <ul class="mt-6 flex flex-wrap justify-center gap-2.5">
           <li v-for="d in DEVICES" :key="d.label" class="flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm ring-1 ring-white/15 backdrop-blur">
             <component :is="d.icon" class="size-4 text-accent" aria-hidden="true" /> {{ d.label }}
           </li>
@@ -42,7 +42,7 @@ const DEVICES = [
       <!-- The devices. Positions are percentages of the stage, so the group keeps its shape at
            every width, and the window over it shows only their top halves, running off the
            card's foot, so the card stays short. -->
-      <div class="relative mx-auto mt-12 aspect-[16/5.2] max-w-5xl overflow-hidden sm:mt-16">
+      <div class="relative mx-auto mt-10 aspect-[16/4.2] max-w-5xl overflow-hidden sm:mt-12">
         <div class="absolute inset-x-0 top-0 aspect-[16/9.4]">
           <!-- Monitor. -->
           <div class="absolute left-[15%] top-0 w-[70%]">

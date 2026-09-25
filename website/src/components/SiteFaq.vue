@@ -15,8 +15,7 @@ const open = ref<number | null>(0)
   <section id="faq" class="mx-auto max-w-7xl px-5 py-20 sm:px-8 sm:py-28">
     <div class="grid gap-10 lg:grid-cols-12">
       <div class="reveal lg:col-span-5">
-        <span class="tag text-brand-deep">FAQ</span>
-        <h2 class="mt-5 text-4xl leading-[1.1] sm:text-5xl">Questions people ask first</h2>
+        <h2 class="text-4xl leading-[1.1] sm:text-5xl">Frequently Asked Questions</h2>
         <p class="mt-5 text-ink-muted">Something else? <a href="mailto:hello@paskall.com" class="text-brand underline underline-offset-4">Write to us</a>.</p>
       </div>
       <ul class="reveal flex flex-col gap-3 lg:col-span-7">
