@@ -7,6 +7,7 @@ import SiteHero from '@/components/SiteHero.vue'
 import SiteHow from '@/components/SiteHow.vue'
 import SiteNav from '@/components/SiteNav.vue'
 import SitePlans from '@/components/SitePlans.vue'
+import SitePlatforms from '@/components/SitePlatforms.vue'
 import SiteVenues from '@/components/SiteVenues.vue'
 
 useReveal()
@@ -18,6 +19,7 @@ useReveal()
     <SiteHero />
     <SiteVenues />
     <SiteFeatures />
+    <SitePlatforms />
     <SiteHow />
     <SitePlans />
     <SiteFaq />
