@@ -13,7 +13,7 @@ from sqlmodel import Session
 
 from app.config import get_settings
 from app.infra.db import session_scope
-from app.models import Device, DeviceAccess, User, UserRole
+from app.models import Account, Device, DeviceAccess, User, UserRole
 from app.services import admin as admin_service
 from app.services import devices as device_service
 from app.services.session import read_session_token
@@ -26,11 +26,44 @@ def get_db() -> Generator[Session, None, None]:
 DbSession = Annotated[Session, Depends(get_db)]
 
 
+#: What an expired account may still send besides reading. Asking a screen to check in changes
+#: nothing it shows; it only refreshes the status on the screen's page.
+EXPIRED_MAY_STILL = frozenset({("POST", "/devices/{device_id}/probe")})
+
+#: Read-only methods. An expired account keeps all of these.
+READ_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
+
+ACCOUNT_EXPIRED = (
+    "This account has expired, so changes are switched off. Your screens keep showing what "
+    "they have now. Contact Paskall to renew it."
+)
+
+
+def _refuse_if_expired(request: Request, session: Session, user: User) -> None:
+    """An expired account is read-only. Checked here, where every signed-in request passes, so
+    no route can forget it and a new route is covered the day it is written.
+
+    Read-only means: sign in, look at everything, sign out. Anything that would change what a
+    screen shows, add a screen, upload, or change who is in the account is refused. The screens
+    themselves never pass through here (they use `CurrentDevice`), so they keep playing.
+    """
+    if request.method in READ_METHODS:
+        return
+    account = session.get(Account, user.account_id)
+    if account is None or not account.is_expired():
+        return
+    route = request.scope.get("route")
+    if (request.method, getattr(route, "path", None)) in EXPIRED_MAY_STILL:
+        return
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=ACCOUNT_EXPIRED)
+
+
 def get_current_user(request: Request, session: DbSession) -> User:
     """Resolve the signed-in user from the session cookie, or 401.
 
     Role and active status are read here, per request, rather than carried in the token —
     so deactivating a subuser takes effect on their *next call*, not on their next login.
+    The same goes for an account's end date: once it passes, the next change is refused.
     """
     unauthorized = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated"
@@ -50,6 +83,7 @@ def get_current_user(request: Request, session: DbSession) -> User:
         raise unauthorized
     if not user.is_active:
         raise unauthorized
+    _refuse_if_expired(request, session, user)
     return user
 
 

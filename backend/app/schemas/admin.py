@@ -1,12 +1,20 @@
 """Shapes for /admin/* — what the monitoring app sees and sends. Never served to customers."""
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from app.models import AccountKind, UserRole
 from app.schemas.auth import USERNAME_RE
+
+
+def _aware(value: datetime | None) -> datetime | None:
+    """A time with no offset is read as UTC. The monitoring app always sends one; this only
+    keeps a hand-written request from landing hours away from what was meant, silently."""
+    if value is not None and value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value
 
 
 class StaffRead(BaseModel):
@@ -48,6 +56,10 @@ class AdminAccountRead(BaseModel):
     screens_used: int
     storage_quota_bytes: int | None
     storage_used_bytes: int
+    # When the account stops working; None means never. `is_expired` is worked out here on the
+    # server, so a staff laptop with the wrong clock cannot mislabel an account.
+    expires_at: datetime | None
+    is_expired: bool
 
 
 class AdminAccountCreate(BaseModel):
@@ -67,6 +79,13 @@ class AdminAccountCreate(BaseModel):
     # "sent as null" with `model_fields_set`.
     max_screens: int | None = Field(default=None, ge=0)
     storage_quota_bytes: int | None = Field(default=None, ge=0)
+    # None = no end date, for every kind. See models/account.py::Account.expires_at.
+    expires_at: datetime | None = None
+
+    @field_validator("expires_at")
+    @classmethod
+    def _aware_expiry(cls, value: datetime | None) -> datetime | None:
+        return _aware(value)
 
     @field_validator("username")
     @classmethod
@@ -81,8 +100,16 @@ class AdminAccountCreate(BaseModel):
 
 
 class AdminLimitsUpdate(BaseModel):
-    """Only the fields sent change. Sending a field as `null` sets it to unlimited; leaving it
-    out leaves it alone — the route tells the two apart with `model_fields_set`."""
+    """Only the fields sent change. Sending a field as `null` sets it to unlimited (or, for the
+    end date, to none); leaving it out leaves it alone — the route tells the two apart with
+    `model_fields_set`."""
 
     max_screens: int | None = Field(default=None, ge=0)
     storage_quota_bytes: int | None = Field(default=None, ge=0)
+    # `null` = no end date. A moment already past switches the account to read-only at once.
+    expires_at: datetime | None = None
+
+    @field_validator("expires_at")
+    @classmethod
+    def _aware_expiry(cls, value: datetime | None) -> datetime | None:
+        return _aware(value)

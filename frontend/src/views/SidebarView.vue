@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AccountStatusContainer from '@/containers/AccountStatusContainer.vue'
 import SidebarContainer from '@/containers/SidebarContainer.vue'
 import MobileNavBar from '@/reusables/MobileNavBar.vue'
 </script>
@@ -24,6 +25,8 @@ import MobileNavBar from '@/reusables/MobileNavBar.vue'
          content area reads as the thing you are working in. -->
     <main id="main" tabindex="-1" class="min-w-0 flex-1 overflow-y-auto bg-page">
       <div class="mx-auto max-w-5xl px-4 py-8 sm:px-8">
+        <!-- Expired, or about to: said on every page, above whatever the page is. -->
+        <AccountStatusContainer />
         <!-- Keyed by path only where a route asks for it (see router meta.keyByPath): elsewhere
              the component is reused across param changes, as it always was. Keyed by the page's
              own route (matched[1]), not the leaf: a page whose tabs are child routes (Settings)

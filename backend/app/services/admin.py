@@ -6,6 +6,9 @@ belongs to (models/account.py::AccountKind):
     owner  → issues admin and client accounts, and changes the limits of both
     admin  → issues client accounts, and changes client limits only
 
+An account's end date (`expires_at`) counts as one of its limits: the same table decides who may
+set it, so the owner account never has one and a technician cannot extend their own.
+
 Nobody issues a second owner account, and nobody sets limits on the one there is: `owner` is
 in nobody's row of the table, and that is the whole rule. Both are checked here, in the
 service, so no route can forget.
@@ -73,6 +76,8 @@ class AccountSummary:
     screens_used: int
     storage_quota_bytes: int | None
     storage_used_bytes: int
+    expires_at: datetime | None
+    is_expired: bool
 
 
 # --- Who is staff, and what they may do ----------------------------------------------------
@@ -86,9 +91,27 @@ def kind_of(session: Session, user: User) -> AccountKind:
 
 
 def is_staff(session: Session, user: User) -> bool:
-    """May this person use the monitoring app? The main user of an owner or admin account.
-    A sub account (manager) never may, whatever account it is in."""
-    return user.role == UserRole.OWNER and kind_of(session, user) in MAY_ISSUE
+    """May this person use the monitoring app? The main user of an owner or admin account
+    that has not expired. A sub account (manager) never may, whatever account it is in.
+
+    An expired admin account loses the monitoring app entirely, not just its buttons: the app
+    shows every customer, and a technician whose time is up should not keep seeing them."""
+    if user.role != UserRole.OWNER:
+        return False
+    account = session.get(Account, user.account_id)
+    return account is not None and account.kind in MAY_ISSUE and not account.is_expired()
+
+
+def is_expired_staff(session: Session, user: User) -> bool:
+    """The main user of an admin account whose end date has passed — who would be staff but
+    for that. Lets the sign-in say why, rather than "wrong password"."""
+    account = session.get(Account, user.account_id)
+    return (
+        user.role == UserRole.OWNER
+        and account is not None
+        and account.kind in MAY_ISSUE
+        and account.is_expired()
+    )
 
 
 def may_issue(session: Session, user: User) -> frozenset[AccountKind]:
@@ -157,6 +180,8 @@ def _summary(session: Session, account: Account) -> AccountSummary:
         screens_used=device_service.count_claimed(session, account_id=account.id),
         storage_quota_bytes=account.storage_quota_bytes,
         storage_used_bytes=operations.storage_used(session, account.id),
+        expires_at=account.expires_at,
+        is_expired=account.is_expired(),
     )
 
 
@@ -174,6 +199,10 @@ def _log(session: Session, *, admin: User, account: Account, action: str, detail
 
 def _limit_text(value: int | None) -> str:
     return "unlimited" if value is None else str(value)
+
+
+def _end_text(value: datetime | None) -> str:
+    return "no end date" if value is None else value.isoformat()
 
 
 def list_accounts(session: Session) -> list[AccountSummary]:
@@ -205,6 +234,7 @@ def create_account(
     email: str | None,
     max_screens: int | None,
     storage_quota_bytes: int | None,
+    expires_at: datetime | None = None,
 ) -> AccountSummary:
     """The account and its owner come from `auth.signup` — now its only caller, since there is
     no public signup — so there is exactly one way an account gets born. The kind, the limits
@@ -222,6 +252,7 @@ def create_account(
     account.kind = kind
     account.max_screens = max_screens
     account.storage_quota_bytes = storage_quota_bytes
+    account.expires_at = expires_at
     session.add(account)
     _log(
         session,
@@ -230,7 +261,7 @@ def create_account(
         action="create_account",
         detail=(
             f"{kind} account; owner {owner.username}; screens {_limit_text(max_screens)}; "
-            f"storage {_limit_text(storage_quota_bytes)} bytes"
+            f"storage {_limit_text(storage_quota_bytes)} bytes; ends {_end_text(expires_at)}"
         ),
     )
     session.commit()
@@ -239,10 +270,15 @@ def create_account(
 
 
 def set_limits(
-    session: Session, *, admin: User, account_id: uuid.UUID, changes: dict[str, int | None]
+    session: Session,
+    *,
+    admin: User,
+    account_id: uuid.UUID,
+    changes: dict[str, int | datetime | None],
 ) -> AccountSummary:
     """`changes` holds only the limits that were actually sent — a key present with value
-    None means "make it unlimited", a key absent means "leave it"."""
+    None means "make it unlimited" (or, for `expires_at`, "no end date"), a key absent means
+    "leave it". An end date in the past is allowed: it is how staff switch an account off now."""
     account = session.get(Account, account_id)
     if account is None:
         raise AccountNotFound(str(account_id))
@@ -259,6 +295,11 @@ def set_limits(
         if before != after:
             account.storage_quota_bytes = after
             described.append(f"storage_quota_bytes {_limit_text(before)} → {_limit_text(after)}")
+    if "expires_at" in changes:
+        before, after = account.expires_at, changes["expires_at"]
+        if before != after:
+            account.expires_at = after
+            described.append(f"expires_at {_end_text(before)} → {_end_text(after)}")
 
     if described:
         session.add(account)

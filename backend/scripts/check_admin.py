@@ -1,6 +1,7 @@
 """Monitoring-app checkpoint: /admin/* is reachable by staff only — the main user of an owner
 or admin account — and each kind of staff can issue and limit exactly the kinds of account the
-rules allow; nothing a customer can call changes an account's kind.
+rules allow; nothing a customer can call changes an account's kind; and an account past its end
+date is read-only, while its screens carry on.
 
 Run with:  .venv/bin/python -m scripts.check_admin
 """
@@ -242,6 +243,86 @@ def main() -> None:
     # Only against our own seeded owner account — never pair a throwaway screen onto the real one.
     if existing_owner is None:
         check("the owner account, with no limit, claims freely", claim(b, "Staff screen").status_code == 201)
+
+    print("\naccounts that expire")
+    from datetime import timedelta
+
+    past = (utcnow() - timedelta(minutes=1)).isoformat()
+    future = (utcnow() + timedelta(days=30)).isoformat()
+    lobby_id = None
+    with Session(engine) as s:
+        lobby_id = s.exec(select(Device).where(Device.account_id == cust_id, Device.name == "Lobby")).one().id
+
+    r = b.patch(f"/admin/accounts/{cust_id}", json={"expires_at": future})
+    check("the owner sets a client's end date", r.status_code == 200 and r.json()["expires_at"] is not None, r.text[:120])
+    check("...a future one is not expired", r.json()["is_expired"] is False)
+    check("...and the limits are left alone", r.json()["max_screens"] is None)
+    check("before the date, changes still work", o.patch("/account", json={"default_timezone": "UTC"}).status_code == 200)
+    check("the CMS's /me carries the date", o.get("/me").json()["account"]["expires_at"] is not None)
+
+    r = b.patch(f"/admin/accounts/{cust_id}", json={"expires_at": past})
+    check("a date already past is allowed, and expires it now", r.status_code == 200 and r.json()["is_expired"] is True,
+          r.text[:120])
+    me = o.get("/me")
+    check("an expired account still signs in to the CMS", TestClient(app).post("/auth/login", json={
+        "identifier": f"{PREFIX}-owner", "password": PASSWORD}).status_code == 200)
+    check("/me says it has expired", me.status_code == 200 and me.json()["account"]["is_expired"] is True)
+    check("it can still read: screens", o.get("/devices").status_code == 200)
+    check("it can still read: media and playlists",
+          o.get("/media").status_code == 200 and o.get("/playlists").status_code == 200)
+    check("a sub account can still read", m.get("/devices").status_code == 200)
+    r = claim(o, "After the end")
+    check("pairing a screen is refused (403)", r.status_code == 403, str(r.status_code))
+    check("...in plain words", "expired" in r.json().get("detail", ""), r.json().get("detail"))
+    check("settings are refused", o.patch("/account", json={"default_timezone": "UTC"}).status_code == 403)
+    check("a new playlist is refused", o.post("/playlists", json={"name": "Nope"}).status_code == 403)
+    check("renaming a screen is refused", o.patch(f"/devices/{lobby_id}", json={"name": "Nope"}).status_code == 403)
+    check("adding a sub account is refused", o.post("/users", json={
+        "username": f"{PREFIX}-late", "password": PASSWORD, "display_name": "Late"}).status_code == 403)
+    check("a sub account's change is refused too, not sent for review",
+          m.post("/playlists", json={"name": "Nope"}).status_code == 403)
+    probe = o.post(f"/devices/{lobby_id}/probe")
+    check("asking a screen to check in still works", probe.status_code == 200, f"{probe.status_code} {probe.text[:80]}")
+    check("signing out still works", client_for(owner_id).post("/auth/logout").status_code == 204)
+    with Session(engine) as s:
+        check("its screens are untouched", s.get(Device, lobby_id).disconnect_requested_at is None)
+
+    r = t.patch(f"/admin/accounts/{cust_id}", json={"expires_at": future})
+    check("a technician renews a client", r.status_code == 200 and r.json()["is_expired"] is False, r.text[:120])
+    check("...and changes work again at once", o.patch("/account", json={"default_timezone": "UTC"}).status_code == 200)
+    r = b.patch(f"/admin/accounts/{cust_id}", json={"expires_at": None})
+    check("null removes the end date", r.status_code == 200 and r.json()["expires_at"] is None)
+    naive = (utcnow() + timedelta(days=1)).replace(tzinfo=None).isoformat()
+    r = b.patch(f"/admin/accounts/{cust_id}", json={"expires_at": naive})
+    check("a time with no offset is read as UTC", r.status_code == 200 and r.json()["expires_at"].endswith(("Z", "+00:00")),
+          r.json().get("expires_at"))
+    b.patch(f"/admin/accounts/{cust_id}", json={"expires_at": None})
+
+    check("nobody gives the owner account an end date (403)",
+          b.patch(f"/admin/accounts/{paskall_id}", json={"expires_at": future}).status_code == 403)
+    check("a technician cannot change their own end date (403)",
+          t.patch(f"/admin/accounts/{techs_id}", json={"expires_at": None}).status_code == 403)
+    r = issue(b, "ending", expires_at=future)
+    check("an account can be issued with an end date", r.status_code == 201 and r.json()["expires_at"] is not None,
+          r.text[:120])
+    check("...and without one it has none", issue(b, "endless").json()["expires_at"] is None)
+    with Session(engine) as s:
+        log = s.exec(select(AdminAction).where(AdminAction.account_id == cust_id,
+                                               AdminAction.action == "set_limits")).all()
+        check("end date changes are logged", any("expires_at" in x.detail for x in log), str([x.detail for x in log]))
+
+    r = b.patch(f"/admin/accounts/{techs_id}", json={"expires_at": past})
+    check("the owner expires a technician", r.status_code == 200 and r.json()["is_expired"] is True)
+    check("...who loses the monitoring app (403)", t.get("/admin/accounts").status_code == 403)
+    r = TestClient(app).post("/admin/auth/login", json={"identifier": f"{PREFIX}-tech", "password": PASSWORD})
+    check("...and is told why at sign-in, not 'wrong password'", r.status_code == 403 and "expired" in r.json()["detail"],
+          f"{r.status_code} {r.text[:100]}")
+    wrong_tech = TestClient(app).post("/admin/auth/login", json={"identifier": f"{PREFIX}-tech", "password": "not-it"})
+    check("...but a wrong password is still a plain 401", wrong_tech.status_code == 401)
+    check("...and cannot issue accounts", issue(t, "after-hours").status_code == 403)
+    check("...but can still read their own CMS", t.get("/me").json()["account"]["is_expired"] is True)
+    b.patch(f"/admin/accounts/{techs_id}", json={"expires_at": None})
+    check("renewed, the technician is back in", t.get("/admin/accounts").status_code == 200)
 
     print("\nthe monitoring app's own sign-in: staff only")
     wrong = TestClient(app).post("/admin/auth/login", json={"identifier": f"{PREFIX}-tech", "password": "not-it"})

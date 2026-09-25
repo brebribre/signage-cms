@@ -78,6 +78,61 @@ account. Only the accounts that are not ordinary customers carry an **Owner** or
 The Edit limits menu appears only on accounts you are allowed to touch. A technician can see the
 owner and other admin accounts, but gets no actions on them.
 
+## Accounts that expire
+
+Any admin or client account can have an end date, shown as **Active until** in the monitoring
+app. It is set in the New account form or under **Edit limits**, and a blank field means the
+account never ends. The same rule as the limits decides who may set it. The owner sets it on
+admin and client accounts, and a technician sets it on client accounts only. The owner account
+never has one, and a technician cannot extend their own.
+
+"Active until 30 Sep" means the account works all of 30 September and stops as 1 October begins,
+in the local time of whoever picked the date. Picking a day that has already passed switches the
+account off as soon as you save. Clearing the date, or picking a later one, renews it at once.
+
+### What an expired account can still do
+
+- Sign in to the CMS, and sign out.
+- Look at everything: screens, media, playlists, campaigns, schedules, reviews, activity, limits.
+- Ask a screen to check in, which only refreshes its status.
+
+### What it cannot do
+
+Everything else. The server refuses every change with one plain message, so it covers routes
+written later too. In practice that means:
+
+- No new screens, and no renaming, moving, updating, live control or power changes on the ones
+  it has.
+- No uploads, and no deleting media.
+- No new or changed playlists, campaigns or schedules, so nothing new reaches a screen.
+- No sub accounts added, changed or removed, and no settings changed.
+- No reviews sent, approved or rejected. A sub account's change is refused outright rather than
+  queued for approval.
+
+An expired **admin** account also loses the monitoring app completely. Its main user gets a
+message saying the account has expired, not "wrong password".
+
+### What keeps working
+
+**The screens.** They keep playing exactly what they had, schedules and campaigns included,
+because they talk to the server with their own key and never pass through this check. A wrong
+date therefore never blanks a venue, and renewing needs nothing done on the screens. Stopping
+the screens themselves on expiry would be a separate, deliberate change to the player.
+
+### How people find out
+
+- **In the CMS**, an amber notice at the top of every page starts 14 days before the end. It
+  turns red once the account has expired, and says what still works. Settings, Plan & limits
+  shows the date too.
+- **In the monitoring app**, the account list has an **Active until** column. Accounts carry an
+  **Ends in N days** badge in their last 14 days and an **Expired** badge after, so staff can
+  follow up.
+
+There is no email, as with everything else here.
+
+The check lives in `_refuse_if_expired` in `backend/app/api/deps.py`. The short list of changes
+an expired account may still make, `EXPIRED_MAY_STILL`, sits beside it.
+
 ## Where the rules live
 
 One table, `MAY_ISSUE` in `backend/app/services/admin.py`, says which kinds each kind of staff
@@ -144,4 +199,5 @@ cd backend && .venv/bin/python -m scripts.check_admin
 
 That drives the real HTTP routes: who gets in, who can issue which kind, whose limits each kind
 of staff can change, that the owner account refuses limits, that no customer route can change an
-account's kind, and that the screen limit still bites when pairing.
+account's kind, that the screen limit still bites when pairing, and that an expired account is
+read-only while its screens carry on.

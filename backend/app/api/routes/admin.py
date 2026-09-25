@@ -59,6 +59,15 @@ def admin_login(body: LoginRequest, response: Response, session: DbSession) -> S
         )
     except InvalidCredentials:
         raise UNAUTHORIZED from None
+    if admin_service.is_expired_staff(session, user):
+        # The right password for a technician whose account has run out. Saying so is safe —
+        # only someone who already knows the password gets this far — and far kinder than
+        # "wrong password" to a person who knows their password is right.
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "This account has expired, so it can no longer use the monitoring app. "
+            "Ask the owner to renew it.",
+        )
     if not admin_service.is_staff(session, user):
         raise UNAUTHORIZED
     set_session_cookie(response, user.id)
@@ -116,6 +125,7 @@ def create_account(
             email=body.email,
             max_screens=max_screens,
             storage_quota_bytes=storage_quota_bytes,
+            expires_at=body.expires_at,
         )
     except NotAllowed as exc:
         raise HTTPException(status.HTTP_403_FORBIDDEN, str(exc)) from None
@@ -140,8 +150,8 @@ def get_account(
 def set_limits(
     account_id: uuid.UUID, body: AdminLimitsUpdate, staff: RequireStaff, session: DbSession
 ) -> AdminAccountRead:
-    """Change one or both limits. A field sent as `null` becomes unlimited; a field left out
-    is untouched. 403 when this member of staff may not touch this kind of account."""
+    """Change any of the limits, the end date among them. A field sent as `null` becomes
+    unlimited (for the end date: no end date); a field left out is untouched. 403 when this member of staff may not touch this kind of account."""
     changes = {k: getattr(body, k) for k in body.model_fields_set}
     try:
         summary = admin_service.set_limits(session, admin=staff, account_id=account_id, changes=changes)

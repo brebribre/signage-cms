@@ -18,4 +18,4 @@ def update_account(body: AccountUpdate, user: RequireOwner, session: DbSession) 
         account = account_service.update(session, account=account, default_timezone=body.default_timezone)
     except account_service.InvalidTimezone as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, f"Unknown timezone: {exc}") from None
-    return AccountRead.model_validate(account, from_attributes=True)
+    return AccountRead.model_validate({**account.model_dump(), "is_expired": account.is_expired()})

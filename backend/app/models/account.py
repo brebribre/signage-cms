@@ -54,4 +54,16 @@ class Account(SQLModel, table=True):
     # constraint: each screen's own timezone is still its own, and changing this moves no screen
     # already paired. UTC until an owner chooses — never a guess at their locale.
     default_timezone: str = Field(default="UTC", sa_column_kwargs={"server_default": "UTC"})
+    # The moment the account stops working. None means it never does, which is the default —
+    # like the limits above, an end that nobody chose would lock people out for no reason.
+    # Set from the monitoring app, under the same rule as the limits (services/admin.py), so the
+    # owner account never has one. What "stops working" means is `is_expired` below.
+    expires_at: datetime | None = Field(default=None, sa_column=tz_column(nullable=True))
     created_at: datetime = Field(default_factory=utcnow, sa_column=tz_column(nullable=False))
+
+    def is_expired(self, now: datetime | None = None) -> bool:
+        """Past its end date. An expired account can still sign in and look, but the CMS
+        refuses every change (api/deps.py::get_current_user) and its main user loses the
+        monitoring app (services/admin.py::is_staff). Its screens keep playing what they have.
+        See ACCOUNTS.md, "Accounts that expire"."""
+        return self.expires_at is not None and self.expires_at <= (now or utcnow())

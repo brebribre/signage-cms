@@ -48,6 +48,11 @@ export interface AdminAccountRead {
   screens_used: number
   storage_quota_bytes: number | null
   storage_used_bytes: number
+  /** The moment the account stops accepting changes; null means never. After it, the CMS is
+   *  read-only for everyone in the account, and an admin account loses this app. */
+  expires_at: string | null
+  /** Worked out by the server, so a wrong clock here cannot mislabel an account. */
+  is_expired: boolean
 }
 
 export interface AdminAccountCreateBody {
@@ -59,10 +64,13 @@ export interface AdminAccountCreateBody {
   email?: string | null
   max_screens: number | null
   storage_quota_bytes: number | null
+  expires_at?: string | null
 }
 
-/** Only the fields sent change. A field sent as null becomes unlimited. */
+/** Only the fields sent change. A field sent as null becomes unlimited, or has no end date. */
 export interface AdminLimitsUpdateBody {
   max_screens?: number | null
   storage_quota_bytes?: number | null
+  /** null = no end date. A moment already past makes the account read-only at once. */
+  expires_at?: string | null
 }

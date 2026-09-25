@@ -14,7 +14,9 @@ def _me(session, user) -> MeResponse:
     account = session.get(Account, user.account_id)
     return MeResponse(
         user=UserRead.model_validate(user, from_attributes=True),
-        account=AccountRead.model_validate(account, from_attributes=True),
+        account=AccountRead.model_validate(
+            {**account.model_dump(), "is_expired": account.is_expired()}
+        ),
         device_ids=auth_service.accessible_device_ids(session, user),
     )
 

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
+import { useAccountExpiry } from '@/hooks/useAccountExpiry'
 import { useAccountLimits } from '@/hooks/useAccountLimits'
 import { useFormat } from '@/hooks/useFormat'
 import AppAlert from '@/reusables/AppAlert.vue'
@@ -14,6 +15,7 @@ import ProgressBar from '@/reusables/ProgressBar.vue'
  */
 const { limits, isLoading, error, screensFraction, storageFraction } = useAccountLimits()
 const { bytes } = useFormat()
+const { expiresAt, isExpired, lastDay } = useAccountExpiry()
 
 /** Near the limit deserves a warning colour; at it, red. */
 function tone(fraction: number | null): string {
@@ -62,6 +64,22 @@ const rows = computed(() => {
 
     <AppAlert v-if="error" tone="danger">{{ error }}</AppAlert>
     <p v-else-if="isLoading && !limits" class="text-sm text-ink-muted">Loading…</p>
+
+    <!-- The end date, when there is one. An account with none simply goes on, so there is
+         nothing to say. -->
+    <AppCard v-if="expiresAt" class="flex flex-col gap-3">
+      <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <p class="text-sm text-ink">Active until</p>
+        <p class="text-sm tabular-nums">
+          <b :class="isExpired ? 'text-danger' : 'text-ink'">{{ lastDay }}</b>
+        </p>
+      </div>
+      <p class="text-[13px] text-ink-muted">
+        {{ isExpired
+          ? 'This account has expired. You can look at everything, but changes are switched off until it is renewed. Screens keep playing.'
+          : 'After this day the account turns read-only: you can still look, but not make changes. Screens keep playing.' }}
+      </p>
+    </AppCard>
 
     <AppCard v-for="row in rows" :key="row.key" class="flex flex-col gap-3">
       <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">

@@ -22,6 +22,11 @@ export interface AccountRead {
   kind: AccountKind
   /** IANA name newly paired screens start in (Settings → General). */
   default_timezone: string
+  /** The moment the account stops accepting changes; null means never. Set by Paskall. */
+  expires_at: string | null
+  /** Worked out by the server. Once true, the CMS is read-only: the server refuses every change,
+   *  and screens keep showing what they have. */
+  is_expired: boolean
 }
 
 export interface MeResponse {

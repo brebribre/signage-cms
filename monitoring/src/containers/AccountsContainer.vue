@@ -7,7 +7,9 @@
  * what is hidden here is hidden to keep the page honest, not to keep anyone out.
  *
  * A blank limit field means "no limit". Storage is typed in GB here and sent as bytes, since
- * nobody thinks in bytes.
+ * nobody thinks in bytes. The end date ("Active until") is a limit too, set in the same places:
+ * blank means the account never ends. Past it, the account is read-only in the CMS, and an
+ * admin account loses this app (see ACCOUNTS.md).
  */
 import { computed, ref, watch } from 'vue'
 import IconAdd from '~icons/material-symbols/add'
@@ -15,6 +17,7 @@ import IconSearch from '~icons/material-symbols/search'
 import IconTune from '~icons/material-symbols/tune'
 
 import { useAdminAccounts } from '@/hooks/useAdminAccounts'
+import { useExpiry } from '@/hooks/useExpiry'
 import { useFormat } from '@/hooks/useFormat'
 import { useStaffRights } from '@/hooks/useStaffRights'
 import AppAlert from '@/reusables/AppAlert.vue'
@@ -31,6 +34,7 @@ import type { AccountKind, AdminAccountRead, AdminAccountUserRead } from '@/type
 const { accounts, isLoading, isSaving, error, formError, create, setLimits } = useAdminAccounts()
 const { bytes, date } = useFormat()
 const { issuable, maySetLimits, label: kindLabel, defaultLimits } = useStaffRights()
+const { toExpiresAt, toDayField, lastDayText, daysLeft, endsSoon } = useExpiry()
 
 const GB = 1024 ** 3
 
@@ -55,6 +59,8 @@ const TONES = {
   brand: 'bg-brand-soft text-brand ring-brand/20',
   muted: 'bg-surface text-ink-muted ring-line',
   ink: 'bg-ink text-ink-inverse ring-ink',
+  danger: 'bg-red-50 text-danger ring-red-200',
+  amber: 'bg-amber-50 text-amber-700 ring-amber-200',
 } as const
 
 /** Only the accounts that are *not* ordinary customers carry a badge. A mark on every row
@@ -74,6 +80,17 @@ function mainUser(a: AdminAccountRead): AdminAccountUserRead | null {
 function otherUsers(a: AdminAccountRead): AdminAccountUserRead[] {
   const main = mainUser(a)
   return a.users.filter((u) => u.id !== main?.id)
+}
+
+/** An account past its end date, or close to it. Staff are the ones who renew, so the page
+ *  marks both: one to act on now, one to see coming. */
+function endBadge(a: AdminAccountRead): { label: string; tone: keyof typeof TONES } | null {
+  if (a.is_expired) return { label: 'Expired', tone: 'danger' }
+  if (a.expires_at && endsSoon(a.expires_at, a.is_expired)) {
+    const n = daysLeft(a.expires_at)
+    return { label: n <= 1 ? 'Ends today' : `Ends in ${n} days`, tone: 'amber' }
+  }
+  return null
 }
 
 function badges(u: AdminAccountUserRead): { label: string; tone: keyof typeof TONES }[] {
@@ -108,7 +125,7 @@ const adding = ref(false)
 /** Client unless this person cannot issue one — the common case first, either way. */
 const blank = () => {
   const kind: AccountKind = issuable.value.includes('client') ? 'client' : (issuable.value[0] ?? 'client')
-  return { kind, name: '', username: '', display_name: '', password: '', ...defaultLimits(kind) }
+  return { kind, name: '', username: '', display_name: '', password: '', activeUntil: '', ...defaultLimits(kind) }
 }
 const form = ref(blank())
 
@@ -132,6 +149,7 @@ async function onCreate() {
     password: form.value.password,
     max_screens: toLimit(form.value.screens),
     storage_quota_bytes: gbToBytes(form.value.storageGb),
+    expires_at: toExpiresAt(form.value.activeUntil),
   })
   if (ok) {
     adding.value = false
@@ -147,12 +165,13 @@ function openCreate() {
 // --- Edit limits ---
 
 const editing = ref<AdminAccountRead | null>(null)
-const limits = ref({ screens: '', storageGb: '' })
+const limits = ref({ screens: '', storageGb: '', activeUntil: '' })
 
 function openLimits(a: AdminAccountRead) {
   limits.value = {
     screens: a.max_screens === null ? '' : String(a.max_screens),
     storageGb: bytesToGbText(a.storage_quota_bytes),
+    activeUntil: toDayField(a.expires_at),
   }
   editing.value = a
 }
@@ -163,6 +182,7 @@ async function saveLimits() {
   const ok = await setLimits(editing.value.id, {
     max_screens: toLimit(limits.value.screens),
     storage_quota_bytes: gbToBytes(limits.value.storageGb),
+    expires_at: toExpiresAt(limits.value.activeUntil),
   })
   if (ok) editing.value = null
 }
@@ -186,6 +206,17 @@ function screensTextMobile(a: AdminAccountRead): string {
 function storageTextMobile(a: AdminAccountRead): string {
   const used = bytes(a.storage_used_bytes)
   return a.storage_quota_bytes === null ? `${used} storage, no limit` : `${used} of ${bytes(a.storage_quota_bytes)}`
+}
+function endText(a: AdminAccountRead): string {
+  return a.expires_at ? lastDayText(a.expires_at) : 'No end date'
+}
+/** What the date picked in a form will do, said before anyone presses Save. */
+function endHint(day: string): string {
+  if (!day) return 'Blank = no end date.'
+  const at = toExpiresAt(day)!
+  return new Date(at).getTime() <= Date.now()
+    ? 'That day has passed: the account turns read-only as soon as you save.'
+    : 'After this day the account turns read-only. Its screens keep playing.'
 }
 function atScreenLimit(a: AdminAccountRead): boolean {
   return a.max_screens !== null && a.screens_used >= a.max_screens
@@ -239,6 +270,7 @@ const MENU_ITEM = 'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-le
             <th class="hidden w-32 px-4 py-3 font-normal md:table-cell lg:w-40">Name</th>
             <th class="hidden w-24 px-4 py-3 font-normal sm:table-cell">Screens</th>
             <th class="hidden w-32 px-4 py-3 font-normal sm:table-cell">Storage</th>
+            <th class="hidden w-28 px-4 py-3 font-normal lg:table-cell">Active until</th>
             <th class="hidden w-24 px-4 py-3 font-normal xl:table-cell">Created</th>
             <th class="w-12 rounded-tr-2xl px-2 py-3"><span class="sr-only">Actions</span></th>
           </tr>
@@ -251,6 +283,7 @@ const MENU_ITEM = 'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-le
             <td class="hidden px-4 py-3.5 md:table-cell"><SkeletonBlock class="h-3 w-24 rounded-md" /></td>
             <td class="hidden px-4 py-3.5 sm:table-cell"><SkeletonBlock class="h-3 w-16 rounded-md" /></td>
             <td class="hidden px-4 py-3.5 sm:table-cell"><SkeletonBlock class="h-3 w-24 rounded-md" /></td>
+            <td class="hidden px-4 py-3.5 lg:table-cell"><SkeletonBlock class="h-3 w-20 rounded-md" /></td>
             <td class="hidden px-4 py-3.5 xl:table-cell"><SkeletonBlock class="h-3 w-20 rounded-md" /></td>
             <td />
           </tr>
@@ -270,6 +303,7 @@ const MENU_ITEM = 'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-le
                   <span v-if="mainUser(a) && !mainUser(a)!.is_active" :class="[BADGE, TONES.muted]">
                     Deactivated
                   </span>
+                  <span v-if="endBadge(a)" :class="[BADGE, TONES[endBadge(a)!.tone]]">{{ endBadge(a)!.label }}</span>
                 </p>
 
                 <!-- Narrow screens: no Username or Name column, so the people stack here. -->
@@ -290,6 +324,9 @@ const MENU_ITEM = 'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-le
                     <span v-for="b in badges(u)" :key="b.label" :class="[BADGE, TONES[b.tone]]">{{ b.label }}</span>
                   </p>
                   <!-- Phones: no Screens or Storage column either, so each figure names itself. -->
+                  <p v-if="a.expires_at" class="text-ink-muted lg:hidden" :class="a.is_expired && 'text-danger'">
+                    {{ a.is_expired ? 'Ended' : 'Active until' }} {{ lastDayText(a.expires_at) }}
+                  </p>
                   <p class="text-ink-muted sm:hidden">
                     <span :class="atScreenLimit(a) && 'text-danger'">{{ screensTextMobile(a) }}</span>
                     ·
@@ -312,6 +349,10 @@ const MENU_ITEM = 'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-le
               <td class="hidden px-4 py-3 align-top whitespace-nowrap tabular-nums sm:table-cell"
                   :class="atStorageLimit(a) ? 'text-danger' : 'text-ink'">
                 {{ storageText(a) }}
+              </td>
+              <td class="hidden px-4 py-3 align-top whitespace-nowrap lg:table-cell"
+                  :class="a.is_expired ? 'text-danger' : a.expires_at ? 'text-ink' : 'text-ink-muted'">
+                {{ endText(a) }}
               </td>
               <td class="hidden px-4 py-3 align-top whitespace-nowrap text-ink-muted xl:table-cell">
                 {{ date(a.created_at) }}
@@ -353,6 +394,7 @@ const MENU_ITEM = 'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-le
               </td>
               <td class="hidden sm:table-cell" />
               <td class="hidden sm:table-cell" />
+              <td class="hidden lg:table-cell" />
               <td class="hidden xl:table-cell" />
               <td />
             </tr>
@@ -360,7 +402,7 @@ const MENU_ITEM = 'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-le
 
           <tbody v-if="!rows.length" class="border-t border-line">
             <tr>
-              <td colspan="7" class="px-4 py-10 text-center text-ink-muted">
+              <td colspan="8" class="px-4 py-10 text-center text-ink-muted">
                 {{ query ? 'No accounts match your search.' : 'No accounts yet.' }}
               </td>
             </tr>
@@ -399,6 +441,8 @@ const MENU_ITEM = 'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-le
           <AppInput id="a-storage" v-model="form.storageGb" label="Storage (GB)" type="number" min="0" step="1"
                     hint="Blank = no limit" />
         </div>
+        <AppInput id="a-until" v-model="form.activeUntil" label="Active until" type="date"
+                  :hint="endHint(form.activeUntil)" />
         <ModalActions>
           <AppButton variant="secondary" size="sm" type="button" @click="adding = false">Cancel</AppButton>
           <AppButton size="sm" type="submit" :loading="isSaving" :disabled="form.password.length < 8">Create</AppButton>
@@ -413,12 +457,22 @@ const MENU_ITEM = 'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-le
           Using {{ editing.screens_used }} screen{{ editing.screens_used === 1 ? '' : 's' }} and
           {{ bytes(editing.storage_used_bytes) }} right now.
         </p>
+        <AppAlert v-if="editing.is_expired" tone="danger">
+          This account has expired. It can sign in and look, but not change anything. Pick a new
+          day, or remove the end date, to renew it.
+        </AppAlert>
         <div class="grid grid-cols-2 gap-3">
           <AppInput id="l-screens" v-model="limits.screens" label="Screens" type="number" min="0" step="1"
                     hint="Blank = no limit" />
           <AppInput id="l-storage" v-model="limits.storageGb" label="Storage (GB)" type="number" min="0" step="1"
                     hint="Blank = no limit" />
         </div>
+        <AppInput id="l-until" v-model="limits.activeUntil" label="Active until" type="date"
+                  :hint="endHint(limits.activeUntil)" />
+        <button v-if="limits.activeUntil" type="button" class="self-start text-[13px] text-brand hover:underline"
+                @click="limits.activeUntil = ''">
+          Remove end date
+        </button>
         <ModalActions>
           <AppButton variant="secondary" size="sm" type="button" @click="editing = null">Cancel</AppButton>
           <AppButton size="sm" type="submit" :loading="isSaving">Save</AppButton>

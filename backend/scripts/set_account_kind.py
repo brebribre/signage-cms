@@ -11,7 +11,8 @@ database (see DEPLOY.md for how that works on Railway).
     .venv/bin/python -m scripts.set_account_kind --username tech --kind client   # access taken away
 
 Only one account can be the owner account. To move it, make the current one admin or client
-first. The owner account has no limits, so making an account the owner clears any it had.
+first. The owner account has no limits and no end date, so making an account the owner clears
+any it had.
 """
 
 import argparse
@@ -54,9 +55,11 @@ def main() -> None:
                     f"\n  {other.name!r} is already the owner account. There can be only one —"
                     f" make it admin or client first.\n"
                 )
-            # The owner account has no limits; whatever it had as an admin or client goes.
+            # The owner account has no limits and no end date; whatever it had as an admin or
+            # client goes.
             account.max_screens = None
             account.storage_quota_bytes = None
+            account.expires_at = None
 
         was = account.kind
         account.kind = wanted
