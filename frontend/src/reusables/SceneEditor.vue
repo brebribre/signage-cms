@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, shallowReactive, watch } from 'vue'
 import IconArrowBack from '~icons/material-symbols/arrow-back'
 import IconBolt from '~icons/material-symbols/bolt'
 import IconAspectRatio from '~icons/material-symbols/aspect-ratio-outline'
@@ -16,6 +16,9 @@ import IconLayersOutline from '~icons/material-symbols/layers-outline'
 import IconAddPhotoAlternateOutline from '~icons/material-symbols/add-photo-alternate-outline'
 import IconPhotoLibraryOutline from '~icons/material-symbols/photo-library-outline'
 import IconRotateRight from '~icons/material-symbols/rotate-right'
+import IconLeftPanelClose from '~icons/material-symbols/left-panel-close-outline'
+import IconRightPanelClose from '~icons/material-symbols/right-panel-close-outline'
+import IconRightPanelOpen from '~icons/material-symbols/right-panel-open-outline'
 import IconTextFields from '~icons/material-symbols/text-fields'
 import IconFormatAlignLeft from '~icons/material-symbols/format-align-left'
 import IconFormatAlignCenter from '~icons/material-symbols/format-align-center'
@@ -163,6 +166,29 @@ const PANELS = [
 type PanelId = (typeof PANELS)[number]['id']
 const panel = ref<PanelId>('media')
 
+// --- The two side panels fold away on a wide screen, for more room around the canvas. The left
+// one like Canva's: the rail stays, and clicking the highlighted source closes its panel (any
+// other source opens it). Remembered in this browser only; a blocked storage just means both
+// start open. ---
+function readOpen(key: string): boolean {
+  try { return localStorage.getItem(key) !== '0' } catch { return true }
+}
+function writeOpen(key: string, open: boolean) {
+  try { localStorage.setItem(key, open ? '1' : '0') } catch { /* private window: not remembered */ }
+}
+const leftOpen = ref(readOpen('sceneEditor.leftOpen'))
+const rightOpen = ref(readOpen('sceneEditor.rightOpen'))
+watch(leftOpen, (v) => writeOpen('sceneEditor.leftOpen', v))
+watch(rightOpen, (v) => writeOpen('sceneEditor.rightOpen', v))
+
+function pickPanel(id: PanelId) {
+  if (panel.value === id) leftOpen.value = !leftOpen.value
+  else {
+    panel.value = id
+    leftOpen.value = true
+  }
+}
+
 /** Filters the library by filename — a signage library gets long, and hunting one logo down a
  *  scrolling list is the slowest part of building a scene. */
 const mediaQuery = ref('')
@@ -279,15 +305,16 @@ onMounted(() => {
 })
 onUnmounted(() => canvasObserver?.disconnect())
 
-// --- Floating controls on the canvas, Canva-style: a pill with Delete above the selected element
-// and a round Rotate button below it. They go on the other side when there isn't room, sit inside
-// the element when there's room on neither side, and are held on the canvas horizontally. Hidden
-// while the element is being dragged, resized or cropped, so they never get in the way. ---
+// --- Floating controls on the canvas, Canva-style: one pill above the selected element with its
+// actions side by side — Crop, Rotate, Delete, whichever apply. It goes below when there isn't
+// room above, inside the element when there's room on neither side, and is held on the canvas
+// horizontally. Hidden while the element is being dragged or resized, so it never gets in the
+// way; kept while cropping, since its Crop button is how cropping ends. ---
 
 const FLOAT_GAP = 12
 /** Height a floating control needs, plus its gap — room required on a side before it goes there. */
 const FLOAT_ROOM = 48
-const floatingHidden = computed(() => dragging.value || !!resizingCorner.value || !!resizingEdge.value || cropMode.value)
+const floatingHidden = computed(() => dragging.value || !!resizingCorner.value || !!resizingEdge.value)
 
 const floating = computed(() => {
   const el = selected.value
@@ -304,18 +331,14 @@ const floating = computed(() => {
   const above = (stack: number): Place => ({ left: `${center}px`, top: `${top}px`, transform: `translate(-50%, calc(-100% - ${FLOAT_GAP + stack}px))` })
   const below = (stack: number): Place => ({ left: `${center}px`, top: `${bottom}px`, transform: `translate(-50%, ${FLOAT_GAP + stack}px)` })
 
-  let pill: Place
-  let rotate: Place
-  if (roomAbove || roomBelow) {
-    // Both on one side when only one side has room: the rotate button nearest, the pill beyond it.
-    pill = roomAbove ? above(0) : below(FLOAT_ROOM)
-    rotate = roomBelow ? below(0) : above(FLOAT_ROOM)
-  } else {
-    // An element taller than the canvas: keep both inside it, at its visible top and bottom.
-    pill = { left: `${center}px`, top: `${Math.max(top, 0)}px`, transform: `translate(-50%, ${FLOAT_GAP}px)` }
-    rotate = { left: `${center}px`, top: `${Math.min(bottom, height)}px`, transform: `translate(-50%, calc(-100% - ${FLOAT_GAP}px))` }
-  }
-  return { pill, rotate }
+  // One pill, its buttons side by side: above the element, else below it, else just inside its
+  // visible top when it fills the canvas.
+  const pill: Place = roomAbove
+    ? above(0)
+    : roomBelow
+      ? below(0)
+      : { left: `${center}px`, top: `${Math.max(top, 0)}px`, transform: `translate(-50%, ${FLOAT_GAP}px)` }
+  return { pill }
 })
 
 function webFrameStyle(el: DraftElement) {
@@ -348,6 +371,16 @@ const dragging = ref(false)
 let dragStartPointer = { x: 0, y: 0 }
 let dragStartBox = { x: 0, y: 0, cropX: 0.5, cropY: 0.5 }
 let dragElementRect: DOMRect | null = null
+/** A picture being moved: its whole box and where the picture sits, at the start of the drag.
+ *  Null for a website or text, which have nothing to crop and so stay on the canvas. */
+let moveStart: { box: Box; media: MediaPlacement } | null = null
+/** Set on press, turned into `moveStart` on the first real movement — so a plain click to
+ *  select changes nothing about the element (not even a Fit picture into the Fill that looks
+ *  the same, which is what reading its whole picture takes). */
+let movePending = false
+/** How much of a picture must stay on the canvas while it is moved off an edge, so it can
+ *  always be grabbed again. */
+const MIN_ON_CANVAS = 0.05
 
 function elementTargetAspect(el: DraftElement): number {
   return (el.width / el.height) * canvasAspect.value
@@ -360,6 +393,8 @@ function currentCropRect(el: DraftElement, cx: number, cy: number) {
 
 function onElementPointerDown(el: DraftElement, e: PointerEvent) {
   select(el.key)
+  moveStart = null
+  movePending = !cropMode.value
   dragging.value = true
   dragStartPointer = { x: e.clientX, y: e.clientY }
   dragStartBox = { x: el.x, y: el.y, cropX: el.cropX ?? 0.5, cropY: el.cropY ?? 0.5 }
@@ -384,14 +419,38 @@ function onElementPointerMove(e: PointerEvent) {
 
   if (!canvasRef.value) return
   const box = canvasRef.value.getBoundingClientRect()
-  selected.value.x = dragStartBox.x + (e.clientX - dragStartPointer.x) / box.width
-  selected.value.y = dragStartBox.y + (e.clientY - dragStartPointer.y) / box.height
+  const dx = (e.clientX - dragStartPointer.x) / box.width
+  const dy = (e.clientY - dragStartPointer.y) / box.height
+  if (!dx && !dy) return
+  if (movePending) {
+    movePending = false
+    moveStart = fullOf(selected.value)
+  }
+
+  // A picture can be moved past the edges too, like scaling it past them: the whole picture moves,
+  // the part outside is shown faded while dragging and cropped away on release, and within this
+  // editing session dragging it back in brings that part back (see fullBoxes).
+  if (moveStart) {
+    const start = moveStart
+    const x = Math.min(Math.max(start.box.x + dx, MIN_ON_CANVAS - start.box.width), 1 - MIN_ON_CANVAS)
+    const y = Math.min(Math.max(start.box.y + dy, MIN_ON_CANVAS - start.box.height), 1 - MIN_ON_CANVAS)
+    const full = { x, y, width: start.box.width, height: start.box.height }
+    const media = { ...start.media, left: start.media.left + (x - start.box.x), top: start.media.top + (y - start.box.y) }
+    showCut(selected.value, full, media)
+    return
+  }
+
+  selected.value.x = dragStartBox.x + dx
+  selected.value.y = dragStartBox.y + dy
   clampPosition(selected.value)
 }
 
 function onElementPointerUp(e: PointerEvent) {
   dragging.value = false
   dragElementRect = null
+  moveStart = null
+  movePending = false
+  settleCut()
   releaseCapture(e)
 }
 
@@ -433,12 +492,67 @@ let resizeStartMedia: MediaPlacement | null = null
  * off the page. Only for the length of the drag: on release the part outside is gone for good,
  * cropped away (see onHandlePointerMove), and only the canvas's contents are saved.
  */
-const overflow = ref<{ key: string; box: { x: number; y: number; width: number; height: number }; media: MediaPlacement } | null>(null)
+const overflow = ref<{ key: string; box: Box; media: MediaPlacement } | null>(null)
 
-/** Where an element's outline and handles go: its full box while it is being scaled past the
- *  edge, its own box otherwise. */
-function displayBox(el: DraftElement) {
-  return overflow.value?.key === el.key ? overflow.value.box : el
+type Box = { x: number; y: number; width: number; height: number }
+
+/**
+ * Within this editing session, the whole of each picture that was cut at a canvas edge: its full
+ * box and where the picture sits — so dragging it back in, or scaling it from its real corners,
+ * works on the whole picture, as in Canva. Each entry is only trusted while the element is still
+ * exactly as that cut left it (`stamp`); any other edit — a side crop, a rotation, Fit — and the
+ * element's own box is the whole of it again. Not saved: what is saved, and what a screen shows,
+ * is only what is inside the canvas.
+ */
+const fullBoxes = shallowReactive(new Map<string, { box: Box; media: MediaPlacement; stamp: string }>())
+
+function stampOf(el: DraftElement): string {
+  return JSON.stringify([el.x, el.y, el.width, el.height, el.cropX, el.cropY, el.cropZoom, el.rotationDegrees, el.fit])
+}
+
+/** The remembered full box, if the element hasn't changed since it was cut. */
+function rememberedFull(el: DraftElement) {
+  const saved = fullBoxes.get(el.key)
+  return saved && saved.stamp === stampOf(el) ? saved : null
+}
+
+/** The whole picture to move or scale: remembered from an earlier cut, or the element as it is.
+ *  Null for a website or text. */
+function fullOf(el: DraftElement): { box: Box; media: MediaPlacement } | null {
+  const saved = rememberedFull(el)
+  if (saved) return { box: { ...saved.box }, media: { ...saved.media } }
+  const media = mediaPlacement(el)
+  return media ? { box: { x: el.x, y: el.y, width: el.width, height: el.height }, media } : null
+}
+
+/** Shows the picture at its whole box `full`: the element becomes the part inside the canvas,
+ *  cropped to match, and anything outside is kept for the faded preview. Does nothing past the
+ *  tightest crop a scene can save — the picture simply stops there. */
+function showCut(el: DraftElement, full: Box, media: MediaPlacement) {
+  const left = Math.max(0, full.x)
+  const top = Math.max(0, full.y)
+  const right = Math.min(1, full.x + full.width)
+  const bottom = Math.min(1, full.y + full.height)
+  if (!setCropWindow(el, { x: left, y: top, width: right - left, height: bottom - top }, media)) return
+  const past = full.x < 0 || full.y < 0 || full.x + full.width > 1 || full.y + full.height > 1
+  overflow.value = past ? { key: el.key, box: full, media } : null
+  if (!past) fullBoxes.delete(el.key)
+}
+
+/** On release: the faded part goes, and the whole picture is remembered for this session. */
+function settleCut() {
+  const o = overflow.value
+  overflow.value = null
+  if (!o) return
+  const el = elements.value.find((e) => e.key === o.key)
+  if (el) fullBoxes.set(o.key, { box: o.box, media: o.media, stamp: stampOf(el) })
+}
+
+/** Where an element's outline and handles go: its whole box while it runs past an edge — being
+ *  dragged, or cut earlier in this session — and its own box otherwise. */
+function displayBox(el: DraftElement): Box {
+  if (overflow.value?.key === el.key) return overflow.value.box
+  return rememberedFull(el)?.box ?? el
 }
 
 /** The faded picture outside the canvas: the enlarged box, and the picture placed in it exactly
@@ -467,12 +581,17 @@ function onHandlePointerDown(corner: Corner, e: PointerEvent) {
   if (!selected.value) return
   resizingCorner.value = corner
   resizeStartPointer = { x: e.clientX, y: e.clientY }
-  resizeStartMedia = mediaPlacement(selected.value)
-  resizeStartBox = {
-    x: selected.value.x, y: selected.value.y,
-    width: selected.value.width, height: selected.value.height,
-  }
+  // Read on the first movement, not here, so pressing a handle without dragging changes nothing.
+  resizePending = true
   ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+}
+
+let resizePending = false
+
+function startResize(el: DraftElement) {
+  const full = fullOf(el)
+  resizeStartMedia = full?.media ?? null
+  resizeStartBox = full ? { ...full.box } : { x: el.x, y: el.y, width: el.width, height: el.height }
 }
 
 /** Proportional scale about the opposite corner. Worked in a single scale factor — whichever
@@ -492,6 +611,11 @@ function onHandlePointerMove(e: PointerEvent) {
   const canvas = canvasRef.value.getBoundingClientRect()
   const dx = (e.clientX - resizeStartPointer.x) / canvas.width
   const dy = (e.clientY - resizeStartPointer.y) / canvas.height
+  if (!dx && !dy) return
+  if (resizePending) {
+    resizePending = false
+    startResize(selected.value)
+  }
   const corner = resizingCorner.value
   const sx = corner === 'ne' || corner === 'se' ? 1 : -1
   const sy = corner === 'sw' || corner === 'se' ? 1 : -1
@@ -518,15 +642,7 @@ function onHandlePointerMove(e: PointerEvent) {
       x: about(start.x, anchorX), y: about(start.y, anchorY),
       width: start.width * scale, height: start.height * scale,
     }
-    const left = Math.max(0, full.x)
-    const top = Math.max(0, full.y)
-    const right = Math.min(1, full.x + full.width)
-    const bottom = Math.min(1, full.y + full.height)
-    // Past the tightest crop a scene can save, the picture simply stops growing.
-    if (setCropWindow(selected.value, { x: left, y: top, width: right - left, height: bottom - top }, media)) {
-      const past = full.x < 0 || full.y < 0 || full.x + full.width > 1 || full.y + full.height > 1
-      overflow.value = past ? { key: selected.value.key, box: full, media } : null
-    }
+    showCut(selected.value, full, media)
     return
   }
 
@@ -547,7 +663,8 @@ function onHandlePointerMove(e: PointerEvent) {
 function onHandlePointerUp(e: PointerEvent) {
   resizingCorner.value = null
   resizeStartMedia = null
-  overflow.value = null
+  resizePending = false
+  settleCut()
   releaseCapture(e)
 }
 
@@ -790,10 +907,24 @@ function resetCrop() {
 
 function deleteSelected() {
   if (!selectedKey.value) return
+  fullBoxes.delete(selectedKey.value)
   elements.value = elements.value.filter((e) => e.key !== selectedKey.value)
   selectedKey.value = null
   if (!isWide.value) closeSheet()
 }
+
+/** Backspace or Delete removes the selected element — never while typing somewhere (a text
+ *  element's words, a website address), where those keys edit the text. */
+function onDeleteKey(e: KeyboardEvent) {
+  if (e.key !== 'Backspace' && e.key !== 'Delete') return
+  if (e.metaKey || e.ctrlKey || e.altKey || !selectedKey.value) return
+  const target = e.target as HTMLElement | null
+  if (target && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) return
+  e.preventDefault()
+  deleteSelected()
+}
+onMounted(() => window.addEventListener('keydown', onDeleteKey))
+onUnmounted(() => window.removeEventListener('keydown', onDeleteKey))
 
 // --- Add element: from the left toolbar, either a click (stacked, staggered placement) or
 // a drag onto the canvas (placed under the pointer). Both funnel through the same helper so
@@ -998,11 +1129,12 @@ function apply() {
           type="button"
           class="flex w-16 flex-col items-center gap-1 rounded-xl px-2 py-2.5 text-[12px]
                  transition-colors duration-150"
-          :class="panel === p.id
+          :class="panel === p.id && leftOpen
             ? 'bg-ink text-ink-inverse'
             : 'text-ink-muted hover:bg-surface hover:text-ink'"
-          :aria-pressed="panel === p.id"
-          @click="panel = p.id"
+          :aria-pressed="panel === p.id && leftOpen"
+          :title="panel === p.id && leftOpen ? `Hide ${p.label}` : p.label"
+          @click="pickPanel(p.id)"
         >
           <component :is="p.icon" class="size-5" />
           {{ p.label }}
@@ -1010,8 +1142,8 @@ function apply() {
       </nav>
 
       <aside
-        v-show="isWide || sheet === 'sources'"
-        class="flex flex-col overflow-y-auto transition-colors duration-200"
+        v-show="isWide ? leftOpen : sheet === 'sources'"
+        class="relative flex flex-col overflow-y-auto transition-colors duration-200"
         :class="[
           isWide
             ? 'w-64 shrink-0 border-r p-3'
@@ -1023,6 +1155,18 @@ function apply() {
         @dragleave.prevent="onPanelDragLeave"
         @drop.prevent="onPanelDrop"
       >
+        <div v-if="isWide" class="-mt-1 mb-2 flex items-center justify-between">
+          <p class="text-[13px] text-ink-subtle">{{ PANELS.find((p) => p.id === panel)?.label }}</p>
+          <button
+            type="button"
+            class="flex size-7 items-center justify-center rounded-md text-ink-subtle hover:bg-surface hover:text-ink"
+            title="Hide panel"
+            aria-label="Hide panel"
+            @click="leftOpen = false"
+          >
+            <IconLeftPanelClose class="size-4" />
+          </button>
+        </div>
         <div v-if="!isWide" class="sticky -top-2 z-10 -mx-4 mb-2 flex items-center justify-between bg-canvas px-4 pt-2 pb-1">
           <span class="mx-auto mb-1 h-1 w-10 rounded-full bg-line-strong" aria-hidden="true" />
         </div>
@@ -1303,7 +1447,7 @@ function apply() {
                      element is selected; a website's resize that side instead. -->
                 <div
                   v-for="edge in EDGES"
-                  v-show="selectedKey === el.key"
+                  v-show="selectedKey === el.key && displayBox(el) === el"
                   :key="edge"
                   :title="el.kind === 'web' ? 'Resize' : 'Crop'"
                   class="absolute -translate-x-1/2 -translate-y-1/2 touch-none rounded-full border-2 border-ink bg-canvas
@@ -1325,30 +1469,41 @@ function apply() {
                   @click.stop
                 >
                   <button
+                    v-if="selected.mediaWidth && selected.kind !== 'web' && selected.kind !== 'text'"
+                    type="button"
+                    class="flex size-9 items-center justify-center rounded-full transition-colors duration-150
+                           focus-visible:outline-2 focus-visible:outline-brand-bright disabled:opacity-35"
+                    :class="cropMode ? 'bg-ink text-ink-inverse' : 'text-ink hover:bg-surface'"
+                    :disabled="selected.fit !== 'cover'"
+                    :title="selected.fit !== 'cover' ? 'Crop applies to Fill' : cropMode ? 'Done cropping' : 'Crop'"
+                    :aria-label="cropMode ? 'Done cropping' : 'Crop'"
+                    :aria-pressed="cropMode"
+                    @click="cropMode = !cropMode"
+                  >
+                    <IconCrop class="size-5" />
+                  </button>
+                  <button
+                    v-if="selected.kind !== 'web'"
+                    type="button"
+                    class="flex size-9 items-center justify-center rounded-full text-ink transition-colors duration-150
+                           hover:bg-surface focus-visible:outline-2 focus-visible:outline-brand-bright"
+                    title="Rotate"
+                    aria-label="Rotate a quarter turn"
+                    @click="rotateSelected"
+                  >
+                    <IconRotateRight class="size-5" />
+                  </button>
+                  <button
                     type="button"
                     class="flex size-9 items-center justify-center rounded-full text-ink transition-colors duration-150
                            hover:bg-surface hover:text-danger focus-visible:outline-2 focus-visible:outline-brand-bright"
-                    title="Delete"
+                    title="Delete (Backspace)"
                     aria-label="Delete element"
                     @click="deleteSelected"
                   >
                     <IconDeleteOutline class="size-5" />
                   </button>
                 </div>
-                <button
-                  v-if="selected.kind !== 'web'"
-                  type="button"
-                  class="pointer-events-auto absolute z-[1000] flex size-9 items-center justify-center rounded-full bg-canvas
-                         text-ink ring-1 ring-line transition-colors duration-150 hover:bg-surface
-                         focus-visible:outline-2 focus-visible:outline-brand-bright"
-                  :style="floating.rotate"
-                  title="Rotate"
-                  aria-label="Rotate a quarter turn"
-                  @pointerdown.stop
-                  @click.stop="rotateSelected"
-                >
-                  <IconRotateRight class="size-5" />
-                </button>
               </template>
             </div>
 
@@ -1364,9 +1519,21 @@ function apply() {
       </div>
 
       <!-- Right panel: layers on top, details for whatever's selected below -->
+      <!-- Folded right panel: a thin strip to bring it back. -->
+      <div v-if="isWide && !rightOpen" class="flex w-11 shrink-0 flex-col items-center border-l border-line py-3">
+        <button
+          type="button"
+          class="flex size-8 items-center justify-center rounded-md text-ink-subtle hover:bg-surface hover:text-ink"
+          title="Show panel"
+          aria-label="Show layers and settings"
+          @click="rightOpen = true"
+        >
+          <IconRightPanelOpen class="size-5" />
+        </button>
+      </div>
       <aside
-        v-show="isWide || sheet === 'edit'"
-        class="flex flex-col overflow-y-auto border-line"
+        v-show="isWide ? rightOpen : sheet === 'edit'"
+        class="relative flex flex-col overflow-y-auto border-line"
         :class="isWide
           ? 'w-72 shrink-0 border-l'
           : 'fixed inset-x-0 bottom-0 z-50 max-h-[60dvh] touch-pan-y overscroll-contain rounded-t-2xl border-t bg-canvas pb-[env(safe-area-inset-bottom)]'"
@@ -1377,6 +1544,18 @@ function apply() {
             <IconClose class="size-5" />
           </button>
         </div>
+        <!-- Folds the panel away (wide screens). Top right, level with the Layers heading. -->
+        <button
+          v-if="isWide"
+          type="button"
+          class="absolute top-2.5 right-2.5 z-10 flex size-7 items-center justify-center rounded-md text-ink-subtle
+                 hover:bg-surface hover:text-ink"
+          title="Hide panel"
+          aria-label="Hide panel"
+          @click="rightOpen = false"
+        >
+          <IconRightPanelClose class="size-4" />
+        </button>
         <div v-if="elements.length" class="flex max-h-56 shrink-0 flex-col gap-0.5 overflow-y-auto border-b border-line p-3">
           <p class="mb-1 flex items-center gap-1.5 px-1 text-[13px] text-ink-subtle">
             <IconLayersOutline class="size-3.5" />
@@ -1540,31 +1719,13 @@ function apply() {
               </p>
             </div>
 
-            <div v-if="selected.kind !== 'web' && selected.kind !== 'text'" class="flex flex-col gap-2">
-              <p class="text-[13px] text-ink-subtle">Transform</p>
-              <div class="flex flex-wrap gap-2">
-                <AppButton variant="secondary" size="sm" @click="rotateSelected">
-                  <IconRotateRight class="size-4" />
-                  Rotate
-                </AppButton>
-                <AppButton
-                  :variant="cropMode ? 'primary' : 'secondary'" size="sm"
-                  :disabled="!selected.mediaWidth || selected.fit !== 'cover'"
-                  :title="selected.fit !== 'cover' ? 'Crop applies to Fill' : undefined"
-                  @click="cropMode = !cropMode"
-                >
-                  <IconCrop class="size-4" />
-                  Crop
-                </AppButton>
-                <AppButton
-                  v-if="selected.kind === 'video'"
-                  variant="secondary" size="sm"
-                  @click="selected.hasAudio = !selected.hasAudio"
-                >
-                  <component :is="selected.hasAudio ? IconVolumeUp : IconVolumeOff" class="size-4" />
-                  {{ selected.hasAudio ? 'Mute' : 'Unmute' }}
-                </AppButton>
-              </div>
+            <!-- Crop, Rotate and Delete are on the element itself, in its floating pill. -->
+            <div v-if="selected.kind === 'video'" class="flex flex-col gap-2">
+              <p class="text-[13px] text-ink-subtle">Sound</p>
+              <AppButton variant="secondary" size="sm" class="self-start" @click="selected.hasAudio = !selected.hasAudio">
+                <component :is="selected.hasAudio ? IconVolumeUp : IconVolumeOff" class="size-4" />
+                {{ selected.hasAudio ? 'Mute' : 'Unmute' }}
+              </AppButton>
             </div>
 
             <div v-if="cropMode" class="flex flex-col gap-2 rounded-xl bg-surface p-3">
@@ -1582,13 +1743,11 @@ function apply() {
                   {{ (selected.cropZoom ?? 1).toFixed(2) }}×
                 </span>
               </div>
-              <AppButton variant="ghost" size="sm" class="self-start" @click="resetCrop">Reset crop</AppButton>
+              <div class="flex gap-2">
+                <AppButton variant="ghost" size="sm" @click="resetCrop">Reset crop</AppButton>
+                <AppButton variant="secondary" size="sm" @click="cropMode = false">Done</AppButton>
+              </div>
             </div>
-
-            <AppButton variant="danger" size="sm" class="mt-auto self-start" @click="deleteSelected">
-              <IconDeleteOutline class="size-4" />
-              Delete
-            </AppButton>
           </template>
           <template v-else>
             <p class="text-[13px] text-ink-subtle">Select an item on the canvas to edit it. The background is under Background on the left.</p>
