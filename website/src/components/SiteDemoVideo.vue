@@ -13,10 +13,20 @@ import { useI18n } from '@/i18n'
 const { m } = useI18n()
 const video = ref<HTMLVideoElement>()
 const still = ref(false)
+/** Played at 1.5×, like the Demo page: it's a recording of real clicks, and at 1× the waits drag.
+ *  Set as the default rate too, so it survives the browser resetting the rate when it loads. */
+const SPEED = 1.5
+function fast() {
+  const v = video.value
+  if (!v) return
+  v.defaultPlaybackRate = SPEED
+  v.playbackRate = SPEED
+}
 
 onMounted(() => {
   const v = video.value
   if (!v) return
+  fast()
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { still.value = true; return }
   const io = new IntersectionObserver(
     ([e]) => { if (e.isIntersecting) v.play().catch(() => { still.value = true }); else v.pause() },
@@ -28,13 +38,14 @@ onMounted(() => {
 </script>
 
 <template>
-  <section id="see-demo" class="mx-auto max-w-7xl px-5 pt-20 sm:px-8 sm:pt-28">
+  <section id="see-demo" class="mx-auto max-w-7xl px-5 pb-20 pt-20 sm:px-8 sm:pb-28 sm:pt-28">
     <h2 class="reveal text-3xl leading-[1.15] sm:text-5xl sm:leading-[1.1]">{{ m.seeDemo.title }}</h2>
 
     <!-- The bezel: the signage's black frame, thin, with the picture set square in it. -->
     <div class="reveal mt-10 rounded-xl bg-gradient-to-b from-[#1b1e24] to-[#0f1115] p-1.5 shadow-[0_40px_90px_-40px_rgba(0,24,77,0.55),inset_0_1px_0_rgba(255,255,255,0.12)] ring-1 ring-black/60 sm:mt-12 sm:p-2.5">
       <video
         ref="video"
+        @loadedmetadata="fast"
         class="block aspect-video w-full bg-[#0b1a4a] shadow-[0_0_0_1px_rgba(0,24,77,0.12)]"
         src="/media/marien-demo-loop.mp4"
         poster="/media/marien-demo-loop-poster.webp"
