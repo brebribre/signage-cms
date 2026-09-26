@@ -97,7 +97,7 @@ const showPicker = computed(() => props.device.device_owner !== false && (!view.
 
 /** Where a person installs a build by hand — the docs' list of every release. Shown for a
  *  Basic screen, which can't install one itself. */
-const RELEASES_DOCS_URL = 'https://docs.paskall.co.id/player-releases/'
+const RELEASES_DOCS_URL = 'https://docs.marien.co.id/player-releases/'
 
 /** "1.3.7" > "1.3.5", numerically per part; a suffix like "-emu" is ignored. Unparseable
  *  versions (a web screen's "web-1.0.0") compare as older than nothing. */

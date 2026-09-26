@@ -149,7 +149,7 @@ ensureCount()
 
     <div class="border-t border-line" :class="collapsed ? 'p-2.5' : 'p-3'">
       <a
-        href="https://docs.paskall.co.id/"
+        href="https://docs.marien.co.id/"
         target="_blank"
         rel="noopener noreferrer"
         :class="row"

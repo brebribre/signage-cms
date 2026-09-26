@@ -13,9 +13,9 @@ import { useI18n } from '@/i18n'
 
 const { m } = useI18n()
 /** The latest APK the fleet runs (a redirect to it), the web player, and the CMS. */
-const APK = 'https://api.paskall.co.id/player/download'
-const WEB_PLAYER = 'https://player.paskall.co.id'
-const CMS = 'https://app.paskall.co.id'
+const APK = 'https://api.marien.co.id/player/download'
+const WEB_PLAYER = 'https://player.marien.co.id'
+const CMS = 'https://app.marien.co.id'
 const PRIMARY = 'inline-flex items-center justify-center gap-2 rounded-lg bg-action px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-action-hover'
 const SECONDARY = 'inline-flex items-center justify-center gap-2 rounded-lg bg-white px-5 py-3 text-sm font-medium text-ink ring-1 ring-ink/70 transition-colors hover:bg-ink hover:text-white'
 </script>

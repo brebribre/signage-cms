@@ -22,7 +22,7 @@ router = APIRouter(tags=["player"])
 # The docs site (GitHub Pages, brebribre/paskall-docs) lists releases on its own page by
 # fetching the JSON below; this backend-rendered page is the no-JavaScript fallback and the
 # place the "Download latest" button lands people who want an older build.
-DOCS_RELEASES_URL = "https://docs.paskall.co.id/player-releases/"
+DOCS_RELEASES_URL = "https://docs.marien.co.id/player-releases/"
 
 
 @router.get("/player/download")
