@@ -43,18 +43,15 @@ const id: Messages = {
       { title: 'Media Interaktif', alt: 'Pengunjung menyentuh situs direktori mal di layar sentuh Marien' },
     ],
   },
-  fleet: { lead: 'Publikasikan ke semua layar Anda', rest: 'sekaligus.', howLink: 'Lihat cara kerjanya' },
+  fleet: { lead: 'Publish konten ke semua layar', rest: 'sekaligus.', howLink: 'Lihat cara kerjanya' },
   howPage: {
     metaTitle: 'Marien. Cara kerja',
     lead: 'Cara kerjanya.',
     rest: 'Dari layar baru sampai konten tayang, dalam beberapa langkah.',
   },
   wall: {
-    account: 'Nusantara Tower',
-    screens: '10 layar online',
-    publish: 'Publikasikan ke semua layar',
-    publishing: 'Memublikasikan…',
-    live: 'Tayang di 10 layar',
+    sending: 'Mengirim ke 6 layar…',
+    live: 'Tayang di 6 layar',
     items: ['Sambutan lobi', 'Menu kafetaria', 'Promo sore', 'Town hall'],
   },
   software: {

@@ -9,11 +9,9 @@
  * while an image decodes.
  */
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import IconArrowForward from '~icons/material-symbols/arrow-forward'
 
 import BrowserFrame from './BrowserFrame.vue'
 import FeatureCard from './FeatureCard.vue'
-import { SECONDARY } from '@/data/buttons'
 import { useI18n } from '@/i18n'
 
 /** The shots and their window titles are the CMS's own, in English; the words are the page's. */
@@ -60,7 +58,7 @@ onBeforeUnmount(stop)
     <FeatureCard>
       <!-- The step's own title and line. Held to a minimum height so a shorter step does not
            shuffle the card as it comes round. -->
-      <div class="min-h-[7.5rem] sm:min-h-[8.5rem]">
+      <div class="min-h-[6.5rem] sm:min-h-[7rem]">
         <Transition name="fade" mode="out-in">
           <div :key="active">
             <h3 class="text-xl leading-[1.2] sm:text-4xl sm:leading-[1.1]">{{ TABS[active].title }}</h3>
@@ -69,7 +67,7 @@ onBeforeUnmount(stop)
         </Transition>
       </div>
 
-      <div class="mt-4 flex items-center gap-1" role="tablist" :aria-label="m.design.tablist">
+      <div class="mt-2 flex items-center gap-1" role="tablist" :aria-label="m.design.tablist">
         <button
           v-for="(t, i) in TABS" :key="t.n"
           type="button" role="tab" :aria-selected="active === i" :aria-label="t.label"
@@ -90,11 +88,6 @@ onBeforeUnmount(stop)
           </span>
         </button>
       </div>
-
-      <!-- Every feature, each on a card of its own like this one. -->
-      <a href="/features" :class="SECONDARY" class="mt-5 inline-flex items-center gap-2 px-5 py-2.5 text-sm">
-        {{ m.design.seeAll }} <IconArrowForward class="size-4" />
-      </a>
 
       <template #visual>
         <!-- Running off the card's right and bottom edges. -->

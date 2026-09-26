@@ -63,11 +63,8 @@ const en = {
   },
   /** The home page's screen wall: rows of screens, and the CMS that changes them all at once. */
   wall: {
-    account: 'Nusantara Tower',
-    screens: '10 screens online',
-    publish: 'Publish to all screens',
-    publishing: 'Publishing…',
-    live: 'Live on all 10 screens',
+    sending: 'Sending to 6 screens…',
+    live: 'Live on all 6 screens',
     items: ['Lobby welcome', 'Cafeteria menu', 'After hours promo', 'Town hall'],
   },
   /** The /software page: the three pieces of Marien, each with what it is for. */

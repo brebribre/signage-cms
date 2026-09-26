@@ -13,7 +13,7 @@
     <div class="relative p-6 sm:p-8 lg:p-10">
       <slot />
     </div>
-    <div class="@container relative mt-auto min-w-0 pl-6 sm:pl-8 lg:pl-10">
+    <div class="feature-visual @container relative mt-auto min-w-0 pl-6 sm:pl-8 lg:pl-10">
       <!-- The sweep, behind the picture. -->
       <div class="card-sweep pointer-events-none absolute -right-[30%] -left-[10%] top-[6%] h-[86%] -rotate-[22deg] rounded-[50%]" aria-hidden="true" />
       <div class="relative">
