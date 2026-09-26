@@ -140,6 +140,12 @@ const en = {
     title: 'See the Demo',
     videoLabel: 'Demo: pairing a screen in the Marien CMS and deploying to it, beside the screen itself',
   },
+  consent: {
+    label: 'Cookies',
+    text: 'We use Google Analytics cookies to see how visitors use this site. Nothing is used for ads.',
+    accept: 'Accept',
+    decline: 'Decline',
+  },
   footer: {
     /** Followed by the Marien wordmark, which stands in for the name. */
     title: 'Put your first screen on',

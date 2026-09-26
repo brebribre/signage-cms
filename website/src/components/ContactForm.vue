@@ -12,6 +12,7 @@ import { computed, reactive, ref } from 'vue'
 import IconArrowForward from '~icons/material-symbols/arrow-forward'
 import IconCheck from '~icons/material-symbols/check-circle'
 
+import { track } from '@/composables/useAnalytics'
 import { useI18n } from '@/i18n'
 
 const FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLScmhLhdLNcrqJUUcCRAkl8SGuZ29MNOgb4r7hIrhfngu4Itmg/formResponse'
@@ -56,6 +57,7 @@ async function submit() {
     // (offline, blocked) shows up here.
     await fetch(FORM_URL, { method: 'POST', mode: 'no-cors', body })
     state.value = 'sent'
+    track('generate_lead', { form: 'request_access' })
   } catch {
     state.value = 'failed'
   }

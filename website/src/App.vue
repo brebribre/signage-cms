@@ -10,6 +10,7 @@ import SiteHero from '@/components/SiteHero.vue'
 import SiteNav from '@/components/SiteNav.vue'
 import SiteResponsive from '@/components/SiteResponsive.vue'
 import SiteVenues from '@/components/SiteVenues.vue'
+import SiteConsent from '@/components/SiteConsent.vue'
 
 useReveal()
 </script>
@@ -28,4 +29,5 @@ useReveal()
     </template>
   </main>
   <SiteFooter />
+  <SiteConsent />
 </template>

@@ -6,6 +6,7 @@
  */
 import { watchEffect } from 'vue'
 
+import { track } from '@/composables/useAnalytics'
 import { useI18n } from '@/i18n'
 
 const { m } = useI18n()
@@ -28,6 +29,7 @@ watchEffect(() => { document.title = m.value.demo.metaTitle })
       <video
         class="block aspect-[9/16] w-full rounded-lg"
         src="/media/marien-demo-portrait.mp4"
+        @play.once="track('demo_video_play', { cut: 'portrait' })"
         poster="/media/marien-demo-portrait-poster.webp"
         :aria-label="m.demo.videoLabel"
         controls
@@ -39,6 +41,7 @@ watchEffect(() => { document.title = m.value.demo.metaTitle })
       <video
         class="block aspect-video w-full rounded-xl"
         src="/media/marien-demo.mp4"
+        @play.once="track('demo_video_play', { cut: 'wide' })"
         poster="/media/marien-demo-poster.webp"
         :aria-label="m.demo.videoLabel"
         controls

@@ -9,6 +9,7 @@ import IconAndroid from '~icons/material-symbols/android'
 import IconArrow from '~icons/material-symbols/arrow-outward'
 import IconTv from '~icons/material-symbols/connected-tv-outline'
 
+import { track } from '@/composables/useAnalytics'
 import { useI18n } from '@/i18n'
 
 const { m } = useI18n()
@@ -34,8 +35,8 @@ const SECONDARY = 'inline-flex items-center justify-center gap-2 rounded-lg bg-w
           <p class="display mt-4 text-xl leading-snug text-ink">{{ m.start.player.title }}</p>
           <p class="mt-1.5 text-sm leading-relaxed text-ink-muted">{{ m.start.player.text }}</p>
           <div class="mt-auto flex flex-col gap-2 pt-5 sm:flex-row sm:flex-wrap">
-            <a :href="APK" :class="PRIMARY"><IconAndroid class="size-5" aria-hidden="true" />{{ m.start.player.android }}</a>
-            <a :href="WEB_PLAYER" target="_blank" rel="noopener" :class="SECONDARY"><IconTv class="size-5" aria-hidden="true" />{{ m.start.player.web }}</a>
+            <a :href="APK" :class="PRIMARY" @click="track('download_android')"><IconAndroid class="size-5" aria-hidden="true" />{{ m.start.player.android }}</a>
+            <a :href="WEB_PLAYER" target="_blank" rel="noopener" :class="SECONDARY" @click="track('open_web_player')"><IconTv class="size-5" aria-hidden="true" />{{ m.start.player.web }}</a>
           </div>
         </li>
         <li class="flex flex-col rounded-xl bg-white/90 p-5 shadow-[0_20px_50px_-30px_rgba(0,24,77,0.5)] ring-1 ring-white sm:p-6">
@@ -43,7 +44,7 @@ const SECONDARY = 'inline-flex items-center justify-center gap-2 rounded-lg bg-w
           <p class="display mt-4 text-xl leading-snug text-ink">{{ m.start.cms.title }}</p>
           <p class="mt-1.5 text-sm leading-relaxed text-ink-muted">{{ m.start.cms.text }}</p>
           <div class="mt-auto flex flex-col gap-2 pt-5 sm:flex-row">
-            <a :href="CMS" target="_blank" rel="noopener" :class="SECONDARY">{{ m.start.cms.open }}<IconArrow class="size-5" aria-hidden="true" /></a>
+            <a :href="CMS" target="_blank" rel="noopener" :class="SECONDARY" @click="track('open_cms')">{{ m.start.cms.open }}<IconArrow class="size-5" aria-hidden="true" /></a>
           </div>
         </li>
       </ol>

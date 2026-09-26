@@ -7,6 +7,7 @@ import LocaleSwitch from './LocaleSwitch.vue'
 import wordmark from '@/assets/marien-wordmark.png'
 import { homeSection } from '@/composables/usePage'
 import { PRIMARY, SECONDARY } from '@/data/buttons'
+import { track } from '@/composables/useAnalytics'
 import { useI18n } from '@/i18n'
 
 const { m } = useI18n()
@@ -51,8 +52,8 @@ onBeforeUnmount(() => { document.documentElement.style.overflow = '' })
       </div>
       <div class="hidden items-center gap-3 lg:flex">
         <LocaleSwitch class="mr-2" />
-        <a href="https://app.marien.co.id" :class="SECONDARY" class="px-5 py-2.5 text-sm">{{ m.nav.signIn }}</a>
-        <a href="#contact" :class="PRIMARY" class="px-5 py-2.5 text-sm">{{ m.nav.requestAccess }}</a>
+        <a href="https://app.marien.co.id" :class="SECONDARY" class="px-5 py-2.5 text-sm" @click="track('sign_in_click', { location: 'nav' })">{{ m.nav.signIn }}</a>
+        <a href="#contact" :class="PRIMARY" class="px-5 py-2.5 text-sm" @click="track('request_access_click', { location: 'nav' })">{{ m.nav.requestAccess }}</a>
       </div>
       <div class="flex items-center gap-2 lg:hidden">
         <LocaleSwitch />
@@ -70,8 +71,8 @@ onBeforeUnmount(() => { document.documentElement.style.overflow = '' })
         </li>
       </ul>
       <div class="mt-auto flex flex-col gap-3">
-        <a href="#contact" :class="PRIMARY" class="block px-6 py-4 text-center text-base" @click="open = false">{{ m.nav.requestAccess }}</a>
-        <a href="https://app.marien.co.id" :class="SECONDARY" class="block px-6 py-4 text-center text-base">{{ m.nav.signIn }}</a>
+        <a href="#contact" :class="PRIMARY" class="block px-6 py-4 text-center text-base" @click="open = false; track('request_access_click', { location: 'menu' })">{{ m.nav.requestAccess }}</a>
+        <a href="https://app.marien.co.id" :class="SECONDARY" class="block px-6 py-4 text-center text-base" @click="track('sign_in_click', { location: 'menu' })">{{ m.nav.signIn }}</a>
       </div>
     </div>
   </header>

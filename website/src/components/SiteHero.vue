@@ -2,6 +2,7 @@
 import IconPlay from '~icons/material-symbols/play-circle-outline'
 
 import HeroStage from './HeroStage.vue'
+import { track } from '@/composables/useAnalytics'
 import { useI18n } from '@/i18n'
 
 const { m } = useI18n()
@@ -22,10 +23,10 @@ const { m } = useI18n()
           {{ m.hero.title }} <span class="bg-gradient-to-r from-brand-strong to-brand-bright bg-clip-text text-transparent">{{ m.hero.subtitle }}</span>
         </h1>
         <div class="reveal mt-9 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-          <a href="#contact" class="rounded-lg bg-action px-6 py-4 text-center text-base font-medium sm:py-3.5 sm:text-sm text-white transition-colors hover:bg-action-hover">
+          <a href="#contact" @click="track('request_access_click', { location: 'hero' })" class="rounded-lg bg-action px-6 py-4 text-center text-base font-medium sm:py-3.5 sm:text-sm text-white transition-colors hover:bg-action-hover">
             {{ m.hero.cta }}
           </a>
-          <a href="/demo" class="inline-flex items-center justify-center gap-2 rounded-lg bg-white/80 px-6 py-4 text-base font-medium sm:py-3.5 sm:text-sm text-ink ring-1 ring-ink/70 backdrop-blur transition-colors hover:bg-ink hover:text-white">
+          <a href="/demo" @click="track('see_demo_click', { location: 'hero' })" class="inline-flex items-center justify-center gap-2 rounded-lg bg-white/80 px-6 py-4 text-base font-medium sm:py-3.5 sm:text-sm text-ink ring-1 ring-ink/70 backdrop-blur transition-colors hover:bg-ink hover:text-white">
             <IconPlay class="size-5" />
             {{ m.hero.demo }}
           </a>

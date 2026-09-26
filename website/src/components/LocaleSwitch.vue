@@ -1,5 +1,6 @@
 <script setup lang="ts">
 /** EN | ID: the two languages side by side, the current one filled. */
+import { track } from '@/composables/useAnalytics'
 import { LOCALES, useI18n } from '@/i18n'
 
 const { locale, m, setLocale } = useI18n()
@@ -15,7 +16,7 @@ const { locale, m, setLocale } = useI18n()
       type="button" :lang="l" :aria-pressed="locale === l" :title="m.lang[l]"
       class="rounded-md px-2.5 py-1 uppercase transition-colors"
       :class="locale === l ? 'bg-brand-deep text-white' : 'text-ink-muted hover:text-ink'"
-      @click="setLocale(l)"
+      @click="setLocale(l); track('language_switch', { language: l })"
     >{{ l }}</button>
   </div>
 </template>

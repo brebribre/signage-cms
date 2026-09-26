@@ -129,6 +129,12 @@ const id: Messages = {
     title: 'Lihat Demo',
     videoLabel: 'Demo: menghubungkan layar di Marien CMS lalu menayangkan konten, di samping layarnya',
   },
+  consent: {
+    label: 'Cookie',
+    text: 'Kami memakai cookie Google Analytics untuk melihat bagaimana pengunjung memakai situs ini. Tidak dipakai untuk iklan.',
+    accept: 'Terima',
+    decline: 'Tolak',
+  },
   footer: {
     title: 'Pasang layar pertama Anda di',
     body: 'Tinggalkan kontak Anda, dan kami akan menghubungi Anda untuk menyiapkan akun.',
