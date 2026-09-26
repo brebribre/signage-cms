@@ -109,7 +109,7 @@ const id: Messages = {
     write: 'Tulis ke kami',
     items: [
       { q: 'Perangkat apa yang saya butuhkan?', a: 'Android TV box atau tablet apa pun, atau smart TV dengan browser. Kendali jarak jauh penuh memerlukan pemutar Android yang diatur sebagai Device Owner, dan kami bisa membantu mengaturnya.' },
-      { q: 'Apa yang terjadi jika internet terputus?', a: 'Tidak ada yang terlihat. File tersimpan di layar, jadi tayangan terus berputar dan menyusul begitu jaringan kembali.' },
+      { q: 'Apa yang terjadi jika wifi terputus?', a: 'Layar tetap menayangkan kontennya. Foto dan video tersimpan di layar itu sendiri, jadi tayangan terus berjalan tanpa internet. Perubahan yang Anda publikasikan selama itu akan menunggu, dan layar mengambil versi terbarunya tidak lama setelah wifi kembali.' },
       { q: 'Apakah staf bisa mengubah konten dengan aman?', a: 'Bisa. Mereka hanya mendapat layar yang Anda izinkan, dan setiap perubahan pada layar menunggu persetujuan Anda.' },
       { q: 'Seberapa besar video yang bisa diunggah?', a: 'Unggah file aslinya. Marien membuat salinan yang bisa diputar di setiap layar: 4K untuk Android box dan 1080p untuk browser TV.' },
     ],

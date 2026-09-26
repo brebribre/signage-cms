@@ -117,7 +117,7 @@ const en = {
     write: 'Write to us',
     items: [
       { q: 'What hardware do I need?', a: 'Any Android TV box or tablet, or a smart TV with a browser. Full remote control needs the Android player set up as Device Owner, which we can do for you.' },
-      { q: 'What happens when the internet drops?', a: 'Nothing visible. Files live on the screen, so the loop keeps playing and catches up when the network returns.' },
+      { q: 'What happens when the wifi drops?', a: 'The screen keeps playing. Its pictures and videos are saved on the screen itself, so what is on air carries on without the internet. Changes you publish in the meantime wait, and the screen picks up the latest version shortly after the wifi comes back.' },
       { q: 'Can staff change content safely?', a: 'Yes. They get the screens you grant, and anything that would change a screen waits for your approval.' },
       { q: 'How big can a video be?', a: 'Upload the original. Marien makes a copy every screen can play, 4K for Android boxes and 1080p for TV browsers.' },
     ],
