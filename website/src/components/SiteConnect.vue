@@ -12,7 +12,7 @@ const SCREENS = computed(() => m.value.connect.screens.map((s, i) => ({ ...s, sr
 
 <template>
   <section id="connect">
-    <FeatureCard>
+    <FeatureCard pattern="bloom">
       <template #visual>
         <!-- A photo of a screen in its place, running off the card's corner, with the stat and
              the fleet laid over it. -->

@@ -19,7 +19,7 @@ const PLATFORMS = computed(() => LOOKS.map((l, i) => ({ ...l, ...m.value.platfor
 
 <template>
   <section id="platforms">
-    <FeatureCard>
+    <FeatureCard pattern="twin">
       <h3 class="text-3xl leading-[1.1] sm:text-4xl">{{ m.platforms.lead }}</h3>
       <p class="mt-3 max-w-md leading-relaxed text-ink-muted">{{ m.platforms.rest }}</p>
 

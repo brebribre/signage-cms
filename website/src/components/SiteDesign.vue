@@ -57,7 +57,7 @@ onBeforeUnmount(stop)
 
 <template>
   <section id="design" ref="root">
-    <FeatureCard>
+    <FeatureCard pattern="sweep">
       <!-- The step's own title and line. Held to a minimum height so a shorter step does not
            shuffle the card as it comes round. -->
       <div class="min-h-[7.5rem] sm:min-h-[8.5rem]">

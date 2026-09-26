@@ -9,7 +9,7 @@ const { m } = useI18n()
 
 <template>
   <section id="publish">
-    <FeatureCard>
+    <FeatureCard pattern="rise">
       <template #visual>
         <PublishScene class="-ml-6 sm:-ml-8 lg:-ml-10" />
       </template>

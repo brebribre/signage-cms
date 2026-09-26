@@ -83,6 +83,11 @@ h1, h2, h3, .display { font-family: var(--font-display); font-weight: 400; lette
   background: linear-gradient(90deg, rgba(127, 231, 255, 0) 0%, #7fe7ff 16%, #00b4f0 32%, #0076dd 50%, #1f55c4 66%, #7fb6ff 84%, rgba(127, 182, 255, 0) 100%);
   filter: blur(1.5cqw);
 }
+/* The same blues as a soft round glow, for the cards whose pattern is a bloom rather than a band. */
+.card-bloom {
+  background: radial-gradient(closest-side, #00b4f0 0%, #0076dd 35%, rgba(31, 85, 196, 0.55) 60%, rgba(127, 182, 255, 0) 100%);
+  filter: blur(1cqw);
+}
 
 /*
   The hero's wave: one wide diagonal band of the brand blues across the top right of a white
