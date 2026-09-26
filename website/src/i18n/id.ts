@@ -37,13 +37,13 @@ const id: Messages = {
     rest: 'Hubungkan layar, rancang tayangannya, dan publikasikan ke semua layar sekaligus.',
   },
   uses: {
-    label: 'Untuk apa Marien dipakai',
     items: [
-      { tag: 'Iklan', title: 'Promosi yang bikin orang berhenti.', body: 'Tayangkan iklan di layar tempat orang ramai, dan ganti dari HP dalam hitungan detik.', alt: 'Totem signage Marien di mal yang ramai, menayangkan promo kafe' },
-      { tag: 'Berbagi informasi', title: 'Informasi, tepat di tempat orang melihat.', body: 'Jadwal, pengumuman, dan petunjuk arah di setiap layar, selalu terbaru.', alt: 'Layar Marien di atas aula stasiun yang ramai, menampilkan jadwal keberangkatan' },
-      { tag: 'Media interaktif', title: 'Layar yang bisa disentuh.', body: 'Tayangkan situs web di layar sentuh, dan biarkan pengunjung mencari sendiri.', alt: 'Pengunjung menyentuh situs direktori mal di layar sentuh Marien' },
+      { title: 'Advertising', alt: 'Totem signage Marien di mal yang ramai, menayangkan promo kafe' },
+      { title: 'Berbagi Informasi', alt: 'Layar Marien di atas aula stasiun yang ramai, menampilkan jadwal keberangkatan' },
+      { title: 'Media Interaktif', alt: 'Pengunjung menyentuh situs direktori mal di layar sentuh Marien' },
     ],
   },
+  how: { title: 'Cara kerjanya' },
   connect: {
     title: 'Hubungkan layar Anda',
     body: 'Ketik kode enam huruf dari pemutar, dan layar langsung bergabung.',
