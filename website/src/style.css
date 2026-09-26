@@ -85,17 +85,22 @@ h1, h2, h3, .display { font-family: var(--font-display); font-weight: 400; lette
 }
 
 /*
-  The hero's wave: one wide diagonal band of the brand blues across the top right of a white
-  page, lightest where it crosses the headline and deepest in the far corner, so ink stays
-  readable over it. The colours flow along the band, a fine grain of diagonal lines runs
-  through it, and its lower edge slowly swings, so the whole thing moves like a wave rather
-  than sitting still.
+  The hero's wave: one wide band of the brand blues across the top right of a white page,
+  lightest where it crosses the headline and deepest in the far corner, so ink stays readable
+  over it. Its lower edge is a long S-curve rather than a straight line, so it reads as a ribbon
+  that swells and settles. The colours flow along the band, a fine grain of diagonal lines runs
+  through it, and the curve slowly breathes, anchored at the top right.
+
+  The shape is an SVG mask stretched over the section (preserveAspectRatio none), so the curve
+  keeps its proportions at every width; phones get their own curve, entering from further left.
 */
 .hero-wave {
   position: absolute; inset: 0;
   background: linear-gradient(120deg, #dbe6fd 0%, #9cc3ff 16%, #5fd9ff 30%, #7fb6ff 44%, #2f7fe6 58%, #0076dd 70%, #1f55c4 82%, #002f96 100%);
   background-size: 170% 170%;
-  clip-path: polygon(42% 0, 100% 0, 100% 78%);
+  --wave-shape: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath d='M40 0 C47 10 50 20 58 28 C66 36 72 34 79 44 C86 54 90 70 100 82 L100 0 Z'/%3E%3C/svg%3E");
+  -webkit-mask: var(--wave-shape) right top / 100% 100% no-repeat;
+  mask: var(--wave-shape) right top / 100% 100% no-repeat;
   animation: wave-flow 16s ease-in-out infinite alternate, wave-edge 11s ease-in-out infinite alternate;
 }
 /* The grain: hairline diagonals, as the reference has. */
@@ -105,17 +110,15 @@ h1, h2, h3, .display { font-family: var(--font-display); font-weight: 400; lette
   mix-blend-mode: soft-light;
 }
 @keyframes wave-flow { 0% { background-position: 0% 30%; } 100% { background-position: 100% 70%; } }
+/* The curve swells down and out, then settles, from its anchor in the top right corner. */
 @keyframes wave-edge {
-  0% { clip-path: polygon(42% 0, 100% 0, 100% 78%); }
-  50% { clip-path: polygon(36% 0, 100% 0, 100% 86%); }
-  100% { clip-path: polygon(46% 0, 100% 0, 100% 72%); }
+  0% { -webkit-mask-size: 100% 100%; mask-size: 100% 100%; }
+  50% { -webkit-mask-size: 108% 110%; mask-size: 108% 110%; }
+  100% { -webkit-mask-size: 96% 94%; mask-size: 96% 94%; }
 }
-/* On a phone the band enters from further left, as the reference's does. */
 @media (max-width: 639px) {
-  .hero-wave { clip-path: polygon(0 0, 100% 0, 100% 62%); animation: wave-flow 16s ease-in-out infinite alternate, wave-edge-sm 11s ease-in-out infinite alternate; }
-  @keyframes wave-edge-sm {
-    0% { clip-path: polygon(0 0, 100% 0, 100% 62%); }
-    100% { clip-path: polygon(0 4%, 100% 0, 100% 70%); }
+  .hero-wave {
+    --wave-shape: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath d='M0 0 C18 6 30 16 44 24 C58 32 66 30 78 40 C88 48 94 56 100 64 L100 0 Z'/%3E%3C/svg%3E");
   }
 }
 
