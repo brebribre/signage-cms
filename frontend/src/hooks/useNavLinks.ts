@@ -36,9 +36,6 @@ export function useNavLinks() {
       icon: null,
       links: [
         { name: 'now', label: 'Overview', icon: IconMonitoring },
-        // Drive a screen by hand: put any scene of its playlist on it right now, for a demo or
-        // a walk-through, and let the programme resume afterwards.
-        { name: 'live', label: 'Live Control', icon: IconLiveTv },
       ],
     },
     // What the account owns — the files and the hardware. Both are inventory you add to once
@@ -51,14 +48,17 @@ export function useNavLinks() {
         { name: 'devices', label: 'Screens', icon: IconTv },
       ],
     },
-    // What actually plays: a playlist is the sequence, a campaign puts it on screens on a
-    // schedule. The two are almost always edited together.
+    // What actually plays, and every way of changing it: a playlist is the sequence, a campaign
+    // puts it on screens on a schedule, and Live Control overrides both by hand for a moment.
     {
-      title: 'Programming',
+      title: 'Content Management',
       icon: IconPlayCircle,
       links: [
         { name: 'playlists', label: 'Playlists', icon: IconPlaylistPlay },
         { name: 'campaigns', label: 'Campaigns', icon: IconCampaign },
+        // Drive a screen by hand: put any scene of its playlist on it right now, for a demo or
+        // a walk-through, and let the programme resume afterwards.
+        { name: 'live', label: 'Live Control', icon: IconLiveTv },
         // A manager's screen-changing saves wait here for the owner; the manager sees their own.
         { name: 'reviews', label: 'Reviews', icon: IconFactCheck },
       ],

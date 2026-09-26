@@ -68,7 +68,8 @@ function menuPosition(index: number): string {
   return 'left-1/2 -translate-x-1/2'
 }
 
-const TAB = 'flex w-full flex-1 flex-col items-center gap-0.5 px-1 py-2 text-[11px] transition-colors duration-150'
+// Centred and allowed two lines: "Content Management" is wider than a quarter of a phone.
+const TAB = 'flex w-full flex-1 flex-col items-center gap-0.5 px-1 py-2 text-center text-[11px] leading-tight transition-colors duration-150'
 
 const { pendingCount, ensureCount } = useReviewBadge()
 ensureCount()

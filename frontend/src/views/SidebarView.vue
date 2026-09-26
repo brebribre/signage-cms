@@ -15,7 +15,8 @@ import MobileNavBar from '@/reusables/MobileNavBar.vue'
     >
       Skip to content
     </a>
-    <SidebarContainer class="hidden w-60 shrink-0 lg:flex" />
+    <!-- Its own width: 240px open, a strip of icons folded (useSidebarCollapsed). -->
+    <SidebarContainer class="hidden shrink-0 lg:flex" />
 
     <!-- Below lg there is no top bar: the page gets the whole height. Navigation is
          MobileNavBar, below the content, and Log out is in Settings → General. -->
