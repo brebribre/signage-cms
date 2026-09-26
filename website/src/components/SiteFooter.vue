@@ -13,7 +13,6 @@ const LINKS = computed(() => [
   { href: homeSection('design'), label: m.value.nav.links.content },
   { href: homeSection('publish'), label: m.value.nav.links.publish },
   { href: homeSection('platforms'), label: m.value.nav.links.platforms },
-  { href: homeSection('faq'), label: m.value.nav.links.faq },
 ])
 </script>
 

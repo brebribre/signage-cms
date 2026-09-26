@@ -10,7 +10,7 @@ const id: Messages = {
   nav: {
     label: 'Situs',
     menu: 'Menu',
-    links: { screens: 'Layar', content: 'Konten', publish: 'Publikasi', platforms: 'Platform', faq: 'FAQ', home: 'Beranda', features: 'Fitur', demo: 'Demo' },
+    links: { screens: 'Layar', content: 'Konten', publish: 'Publikasi', platforms: 'Platform', home: 'Beranda', features: 'Fitur', demo: 'Demo' },
     signIn: 'Masuk',
     requestAccess: 'Request Akses',
   },
@@ -43,9 +43,12 @@ const id: Messages = {
       { title: 'Media Interaktif', alt: 'Pengunjung menyentuh situs direktori mal di layar sentuh Marien' },
     ],
   },
-  how: { title: 'Cara kerjanya' },
+  how: {
+    lead: 'Siapkan perangkat Anda',
+    rest: 'dan tayangkan konten pertama dalam kurang dari 5 menit.',
+  },
   start: {
-    title: 'Mulai sekarang',
+    title: 'Siapkan perangkat Anda',
     body: 'Cukup dua hal, dan layar Anda siap tayang.',
     player: {
       title: 'Pasang Marien Player di layar',
@@ -125,17 +128,6 @@ const id: Messages = {
   seeDemo: {
     title: 'Lihat Demo',
     videoLabel: 'Demo: menghubungkan layar di Marien CMS lalu menayangkan konten, di samping layarnya',
-  },
-  faq: {
-    title: 'Pertanyaan yang Sering Diajukan',
-    more: 'Ada pertanyaan lain?',
-    write: 'Tulis ke kami',
-    items: [
-      { q: 'Perangkat apa yang saya butuhkan?', a: 'Android TV box atau tablet apa pun, atau smart TV dengan browser. Kendali jarak jauh penuh memerlukan pemutar Android yang diatur sebagai Device Owner, dan kami bisa membantu mengaturnya.' },
-      { q: 'Apa yang terjadi jika wifi terputus?', a: 'Layar tetap menayangkan kontennya. Foto dan video tersimpan di layar itu sendiri, jadi tayangan terus berjalan tanpa internet. Perubahan yang Anda publikasikan selama itu akan menunggu, dan layar mengambil versi terbarunya tidak lama setelah wifi kembali.' },
-      { q: 'Apakah staf bisa mengubah konten dengan aman?', a: 'Bisa. Mereka hanya mendapat layar yang Anda izinkan, dan setiap perubahan pada layar menunggu persetujuan Anda.' },
-      { q: 'Seberapa besar video yang bisa diunggah?', a: 'Unggah file aslinya. Marien membuat salinan yang bisa diputar di setiap layar: 4K untuk Android box dan 1080p untuk browser TV.' },
-    ],
   },
   footer: {
     title: 'Pasang layar pertama Anda di',

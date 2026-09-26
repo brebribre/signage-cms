@@ -16,7 +16,7 @@ const en = {
   nav: {
     label: 'Site',
     menu: 'Menu',
-    links: { screens: 'Screens', content: 'Content', publish: 'Publish', platforms: 'Platforms', faq: 'FAQ', home: 'Home', features: 'Features', demo: 'Demo' },
+    links: { screens: 'Screens', content: 'Content', publish: 'Publish', platforms: 'Platforms', home: 'Home', features: 'Features', demo: 'Demo' },
     signIn: 'Sign in',
     requestAccess: 'Request access',
   },
@@ -52,11 +52,14 @@ const en = {
       { title: 'Interactive Media', alt: 'A shopper tapping a mall directory website on a Marien touch screen' },
     ],
   },
-  /** The title over the feature cards. */
-  how: { title: 'How it works' },
-  /** The first card under How it works: the two things to set up before anything else. */
+  /** The statement over the feature cards: the lead in ink, the rest in the brand gradient. */
+  how: {
+    lead: 'Set up your device',
+    rest: 'and display your first content in less than 5 minutes.',
+  },
+  /** The first of the feature cards: the two things to set up before anything else. */
   start: {
-    title: 'Get started',
+    title: 'Set up your device',
     body: 'Two things, and your screen is ready to go.',
     player: {
       title: 'Put Marien Player on the screen',
@@ -136,17 +139,6 @@ const en = {
   seeDemo: {
     title: 'See the Demo',
     videoLabel: 'Demo: pairing a screen in the Marien CMS and deploying to it, beside the screen itself',
-  },
-  faq: {
-    title: 'Frequently Asked Questions',
-    more: 'Something else?',
-    write: 'Write to us',
-    items: [
-      { q: 'What hardware do I need?', a: 'Any Android TV box or tablet, or a smart TV with a browser. Full remote control needs the Android player set up as Device Owner, which we can do for you.' },
-      { q: 'What happens when the wifi drops?', a: 'The screen keeps playing. Its pictures and videos are saved on the screen itself, so what is on air carries on without the internet. Changes you publish in the meantime wait, and the screen picks up the latest version shortly after the wifi comes back.' },
-      { q: 'Can staff change content safely?', a: 'Yes. They get the screens you grant, and anything that would change a screen waits for your approval.' },
-      { q: 'How big can a video be?', a: 'Upload the original. Marien makes a copy every screen can play, 4K for Android boxes and 1080p for TV browsers.' },
-    ],
   },
   footer: {
     /** Followed by the Marien wordmark, which stands in for the name. */

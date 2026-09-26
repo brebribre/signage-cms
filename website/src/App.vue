@@ -4,7 +4,6 @@ import { page } from '@/composables/usePage'
 import DemoPage from '@/components/DemoPage.vue'
 import FeaturesPage from '@/components/FeaturesPage.vue'
 import SiteDemoVideo from '@/components/SiteDemoVideo.vue'
-import SiteFaq from '@/components/SiteFaq.vue'
 import SiteFeatures from '@/components/SiteFeatures.vue'
 import SiteFooter from '@/components/SiteFooter.vue'
 import SiteHero from '@/components/SiteHero.vue'
@@ -26,7 +25,6 @@ useReveal()
       <SiteFeatures />
       <SiteResponsive />
       <SiteDemoVideo />
-      <SiteFaq />
     </template>
   </main>
   <SiteFooter />

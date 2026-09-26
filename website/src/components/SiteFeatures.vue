@@ -23,8 +23,10 @@ const CELL = 'reveal'
     </h2>
     <!-- What it is for, before how it works. -->
     <SiteUses />
-    <!-- The feature cards, under their own title. -->
-    <h2 class="reveal mt-20 text-3xl leading-[1.15] sm:mt-28 sm:text-5xl sm:leading-[1.1]">{{ m.how.title }}</h2>
+    <!-- The feature cards, under a statement set like the one above. -->
+    <h2 class="reveal mt-20 max-w-3xl text-2xl leading-[1.2] sm:mt-28 sm:text-4xl sm:leading-[1.15]">
+      {{ m.how.lead }} <span class="bg-gradient-to-r from-brand-strong to-brand-bright bg-clip-text text-transparent">{{ m.how.rest }}</span>
+    </h2>
     <div class="mt-10 grid grid-cols-1 gap-4 sm:mt-14 sm:gap-6 lg:grid-cols-3">
       <!-- In the order a customer meets them: get started, connect, design, publish, and what it
            runs on. -->

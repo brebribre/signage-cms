@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Getting started, as the first of the feature cards: the player on the screen (the Android app,
+ * Setting up the device, as the first of the feature cards: the player on the screen (the Android app,
  * or the web player in a smart TV's browser) and the CMS to run it from, two numbered steps in
  * one card, each with the link that does it. Full width on a wide page, the words beside the
  * steps; stacked on a phone.
