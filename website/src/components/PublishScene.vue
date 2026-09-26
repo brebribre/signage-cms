@@ -24,6 +24,9 @@ import SlideArt from './SlideArt.vue'
 import { SLIDE_COUNT, useSlides } from '@/data/slides'
 import { useI18n } from '@/i18n'
 
+/** In the hero, from tablet width up, the totem stands flush with the headline's left edge and the CMS
+ *  window runs on past the scene, off the page's right edge. Elsewhere it keeps inside the scene. */
+const props = defineProps<{ hero?: boolean }>()
 const { m } = useI18n()
 const slides = useSlides()
 /** The one screen the picture publishes to. */
@@ -71,14 +74,18 @@ onBeforeUnmount(stop)
 </script>
 
 <template>
-  <div ref="root" class="@container relative aspect-[1/0.9] overflow-hidden" aria-hidden="true">
+  <div ref="root" class="@container relative aspect-[1/0.9] overflow-hidden" :class="props.hero && 'sm:overflow-visible'" aria-hidden="true">
     <!-- The CMS window, beside the totem with a clear gap between them, running off the right
-         edge. -->
-    <div class="absolute bottom-[-6%] left-[50%] top-[16%] w-[64%] overflow-hidden rounded-tl-[3cqw] bg-white shadow-[0_30px_80px_-30px_rgba(0,24,77,0.55)] ring-1 ring-line">
+         edge. In the hero, from tablet width up, the window runs on off the page while what's in it
+         keeps its usual width. -->
+    <div
+      class="absolute bottom-[-6%] left-[50%] top-[16%] w-[64%] overflow-hidden rounded-tl-[3cqw] bg-white shadow-[0_30px_80px_-30px_rgba(0,24,77,0.55)] ring-1 ring-line"
+      :class="props.hero && 'sm:left-[46%] sm:w-[170%]'"
+    >
       <div class="flex items-center gap-[1.2cqw] border-b border-line bg-surface px-[3cqw] py-[2cqw]">
         <span class="size-[1.8cqw] rounded-full bg-line-strong" /><span class="size-[1.8cqw] rounded-full bg-line-strong" /><span class="size-[1.8cqw] rounded-full bg-line-strong" />
       </div>
-      <div class="py-[4cqw] pl-[8cqw] pr-[4cqw]">
+      <div class="py-[4cqw] pl-[8cqw] pr-[4cqw]" :class="props.hero && 'sm:max-w-[92cqw]'">
         <div class="flex items-center gap-[2cqw]">
           <img :src="mark" alt="" class="h-[4cqw] w-auto" />
           <span class="display truncate text-[3.6cqw] text-ink">{{ m.hero.campaign }}</span>
@@ -124,10 +131,11 @@ onBeforeUnmount(stop)
       </div>
     </div>
 
-    <!-- The totem, in front: a screen in a thin pale frame, on a pale base. -->
-    <div class="absolute left-[5%] top-[10%] w-[38%]">
-      <div class="rounded-[6cqw] bg-white p-[0.9cqw] shadow-[0_40px_60px_-30px_rgba(0,24,77,0.6)] ring-1 ring-line">
-        <div class="relative aspect-[9/15] overflow-hidden rounded-[5.2cqw] bg-brand-deep">
+    <!-- The totem, in front: a screen in a frosted light bezel with softly squared corners, the
+         way a real display panel is, on a rectangular base. -->
+    <div class="absolute left-[5%] top-[10%] w-[38%]" :class="props.hero && 'sm:left-0'">
+      <div class="rounded-t-[1.8cqw] bg-gradient-to-b from-[#fbfcfd] via-[#eef1f5] to-[#e2e6ed] p-[1.6cqw] shadow-[0_40px_60px_-30px_rgba(0,24,77,0.6),inset_0_1px_0_rgba(255,255,255,0.95),inset_0_-1px_0_rgba(0,24,77,0.08)] ring-1 ring-[#d6dbe3]">
+        <div class="relative aspect-[9/15] overflow-hidden bg-brand-deep shadow-[0_0_0_1px_rgba(0,24,77,0.12)]">
           <Transition name="swap">
             <div :key="live" class="absolute inset-0">
               <SlideArt :slide="slides[live]" />
@@ -146,8 +154,11 @@ onBeforeUnmount(stop)
           </div>
         </div>
       </div>
-      <div class="mx-auto h-[4cqw] w-[26%] bg-gradient-to-b from-[#c9d4ea] to-[#e6ecf7]" />
-      <div class="mx-auto h-[3cqw] w-[88%] rounded-t-[1.5cqw] rounded-b-[4cqw] bg-gradient-to-b from-white to-[#dfe6f5] shadow-[0_20px_30px_-18px_rgba(0,24,77,0.6)] ring-1 ring-white" />
+      <!-- The base: a tall rectangular block under the screen, as wide as the bezel, so screen
+           and base read as one floor-standing totem, in the bezel's own finish. It runs on past
+           the foot of the scene (and of the hero), as the CMS window does, so the totem is cut
+           by the edge rather than ending just short of it. -->
+      <div class="h-[40cqw] w-full bg-gradient-to-b from-[#e2e6ed] via-[#eef1f5] to-[#dde2ea] shadow-[0_24px_34px_-20px_rgba(0,24,77,0.6),inset_0_1px_0_rgba(0,24,77,0.10)] ring-1 ring-[#d6dbe3]" />
     </div>
   </div>
 </template>

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
- * One demo slide, drawn in the site's own look rather than a stock photo: a light, sky or deep
- * blue ground, the diagonal wave of the brand blues across its top right, an icon tile, and the
+ * One demo slide, drawn in the site's own look rather than a stock photo: a white, sky or
+ * periwinkle ground, always light, the diagonal wave of the brand blues across its top right, an icon tile, and the
  * words set large at the foot.
  *
  * It measures itself in container units of its shorter side (cqmin), so the same slide lays
@@ -22,7 +22,7 @@ const ICONS = { clock: IconClock, dish: IconDish, work: IconWork, wave: IconWave
 const LOOK = {
   light: { ground: 'bg-white', wave: 'slide-wave', badge: 'bg-brand-deep text-white', title: 'text-ink', sub: 'text-ink-muted' },
   sky: { ground: 'bg-sky', wave: 'slide-wave', badge: 'bg-brand-bright text-white', title: 'text-brand-deep', sub: 'text-brand-deep/70' },
-  deep: { ground: 'bg-brand-deep', wave: 'slide-wave slide-wave-bright', badge: 'bg-white text-brand-deep', title: 'text-white', sub: 'text-white/70' },
+  tint: { ground: 'bg-tint', wave: 'slide-wave', badge: 'bg-brand text-white', title: 'text-brand-deep', sub: 'text-brand-deep/70' },
 }
 const look = computed(() => LOOK[props.slide.tone])
 </script>

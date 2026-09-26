@@ -25,19 +25,7 @@ const en = {
     subtitle: 'Pictures, videos and websites, on any display.',
     cta: 'Request access',
     demo: 'See demo',
-    screens: [
-      { name: 'Lobby TV', kind: 'Android box' },
-      { name: 'Entrance totem', kind: 'Smart TV' },
-      { name: 'Reception', kind: 'Android box' },
-      { name: 'Cafe screen', kind: 'Browser' },
-    ],
     campaign: 'Store campaign',
-    hint: 'Pick a playlist. Every screen changes.',
-    picker: 'What the screens play',
-    /** The cards floating round the CMS on a wide page. */
-    press: { value: '1 press', label: 'To update every screen' },
-    any: { value: 'Any screen', label: 'Android, smart TVs and browsers' },
-    pair: 'Pair a screen with a six-letter code',
   },
   /** What the demo screens play, and what the demo CMS calls each playlist. */
   slides: [

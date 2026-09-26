@@ -6,7 +6,7 @@ import { computed } from 'vue'
 import { useI18n } from '@/i18n'
 
 /** A slide's look: which of the three backgrounds, and its icon. */
-export type SlideTone = 'light' | 'sky' | 'deep'
+export type SlideTone = 'light' | 'sky' | 'tint'
 export type SlideIcon = 'clock' | 'dish' | 'work' | 'wave'
 
 export interface Slide {
@@ -22,7 +22,7 @@ export interface Slide {
 const LOOKS: Pick<Slide, 'tone' | 'icon'>[] = [
   { tone: 'light', icon: 'clock' },
   { tone: 'sky', icon: 'dish' },
-  { tone: 'deep', icon: 'work' },
+  { tone: 'tint', icon: 'work' },
   { tone: 'light', icon: 'wave' },
 ]
 export const SLIDE_COUNT = LOOKS.length
