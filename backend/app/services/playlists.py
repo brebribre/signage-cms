@@ -441,6 +441,17 @@ def screens_reached(session: Session, playlist_id: uuid.UUID) -> list[str]:
     return names
 
 
+def device_ids_reached(session: Session, playlist_id: uuid.UUID) -> list[uuid.UUID]:
+    """The same screens as `screens_reached`, by id — for a review to save what they look like."""
+    from app.models import Schedule
+
+    direct = session.exec(select(Device.id).where(Device.playlist_id == playlist_id)).all()
+    scheduled = session.exec(
+        select(Schedule.device_id).where(Schedule.playlist_id == playlist_id).distinct()
+    ).all()
+    return list(dict.fromkeys([*direct, *scheduled]))
+
+
 def remove(session: Session, *, user: User, playlist_id: uuid.UUID) -> None:
     """Refuse while a screen is pointed at it."""
     playlist = _owned(session, user, playlist_id)

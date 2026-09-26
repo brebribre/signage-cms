@@ -13,6 +13,7 @@ import IconArrowBack from '~icons/material-symbols/arrow-back'
 import IconCheck from '~icons/material-symbols/check'
 import IconClose from '~icons/material-symbols/close'
 import IconLanguage from '~icons/material-symbols/language'
+import IconText from '~icons/material-symbols/text-fields'
 import IconPlaylistPlay from '~icons/material-symbols/playlist-play'
 import IconTv from '~icons/material-symbols/tv-outline'
 
@@ -35,6 +36,7 @@ import ReviewPreviewPanel from '@/reusables/ReviewPreviewPanel.vue'
 import SkeletonBlock from '@/reusables/SkeletonBlock.vue'
 import type { DraftItem } from '@/hooks/usePlaylistEditor'
 import { REVIEW_KIND_LABEL as KIND_LABEL, REVIEW_STATUS as STATUS } from '@/utils/reviewLabels'
+import { reviewScreens } from '@/utils/reviewScreens'
 
 const route = useRoute()
 const router = useRouter()
@@ -47,6 +49,10 @@ const { items: devices } = useDevices()
 const { items: playlists } = usePlaylists()
 const { review, proposed, current, campaignBefore, campaignAfter, rulePlaylists, isLoading, error, isActing, actionError, approve, reject, withdraw } =
   useReviewDetail(id, () => library.value)
+
+/** The screens the change reaches, at the shape they had when it was sent — the only ones the
+ *  preview offers. */
+const previewScreens = computed(() => (review.value ? reviewScreens(review.value, devices.value) : []))
 
 // --- Playlist changes: Before (the saved playlist) and After (the change), one preview.
 // After is what needs judging, so it opens first; Before is one tab away. ---
@@ -150,9 +156,17 @@ async function confirmReject() {
               :class="[!row.isEnabled && 'opacity-50', preview.current.value?.key === row.key && 'bg-raised ring-2 ring-ink']"
               @click="preview.select(row)"
             >
-              <div class="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-raised">
+              <div
+                class="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-raised"
+                :style="!row.elements[0]?.thumbnailUrl && row.background === 'color' && row.backgroundColor ? { background: row.backgroundColor } : undefined"
+              >
                 <img v-if="row.elements[0]?.thumbnailUrl" :src="row.elements[0].thumbnailUrl" :alt="sceneLabel(row)" class="size-full object-cover" />
                 <IconLanguage v-else-if="row.elements[0]?.kind === 'web'" class="size-5 text-ink-muted" />
+                <IconText
+                  v-else-if="row.elements[0]?.kind === 'text'"
+                  class="size-5"
+                  :class="row.background === 'color' && row.backgroundColor ? 'text-white/85' : 'text-ink-muted'"
+                />
               </div>
               <div class="min-w-0 flex-1">
                 <p class="truncate text-sm text-ink">{{ sceneLabel(row) }}</p>
@@ -166,7 +180,7 @@ async function confirmReject() {
             </li>
           </ul>
 
-          <ReviewPreviewPanel :preview="preview" :devices="devices" />
+          <ReviewPreviewPanel :preview="preview" :screens="previewScreens" />
         </div>
       </template>
 
@@ -179,6 +193,7 @@ async function confirmReject() {
         :after="campaignAfter"
         :playlists="rulePlaylists"
         :devices="devices"
+        :screens="previewScreens"
       />
 
       <div v-else-if="review.kind === 'playlist_shuffle'" class="rounded-xl bg-surface p-3 text-sm text-ink">

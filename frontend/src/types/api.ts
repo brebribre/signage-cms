@@ -487,6 +487,16 @@ export type ReviewStatus = 'pending' | 'approved' | 'rejected' | 'withdrawn'
 
 /** A manager's screen-changing save, waiting for the owner (or decided). The owner sees the
  *  account's queue; a manager sees their own. */
+/** One screen a review reaches, as it was when the review was sent. */
+export interface ReviewScreenRead {
+  id: string
+  name: string
+  /** The canvas content is laid out on; null when the screen had not reported a resolution. */
+  width: number | null
+  height: number | null
+  orientation: DeviceOrientation
+}
+
 export interface ReviewRead {
   id: string
   kind: ReviewKind
@@ -499,6 +509,9 @@ export interface ReviewRead {
   summary: string
   /** Screen names the change reaches, as they were when it was sent. */
   screens: string[]
+  /** The same screens with their size and orientation, saved when it was sent — so the preview
+   *  keeps the right shape after a screen is turned or deleted. Empty on older reviews. */
+  screen_specs?: ReviewScreenRead[]
   /** Playlist names the change touches, as they were when it was sent. */
   playlists: string[]
   /** The change as sent — read for detail, never edited here. */

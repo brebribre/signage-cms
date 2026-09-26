@@ -23,6 +23,7 @@ import WeekTimeline from '@/reusables/WeekTimeline.vue'
 import type { CampaignRuleWrite, DeviceRead, ReviewKind } from '@/types/api'
 import { timelineTone } from '@/utils/scheduleMath'
 import type { TimelineSlot } from '@/utils/scheduleMath'
+import type { PreviewScreen } from '@/utils/reviewScreens'
 
 const props = defineProps<{
   kind: ReviewKind
@@ -30,6 +31,9 @@ const props = defineProps<{
   after: CampaignSide | null
   playlists: Map<string, RulePlaylist>
   devices: DeviceRead[]
+  /** The screens the change reaches, as saved on the review: what the preview offers, and the
+   *  names of screens deleted since. */
+  screens: PreviewScreen[]
 }>()
 
 // --- Which side ---
@@ -108,8 +112,9 @@ const slots = computed<TimelineSlot[]>(() =>
 
 // --- Screens it reaches, and on a change, which it gains or loses ---
 
-const deviceName = (id: string) => props.devices.find((d) => d.id === id)?.name ?? 'A screen you can’t see'
-const screens = computed(() => (shown.value?.device_ids ?? []).map(deviceName))
+const deviceName = (id: string) =>
+  props.devices.find((d) => d.id === id)?.name ?? props.screens.find((s) => s.id === id)?.name ?? 'A screen you can’t see'
+const screenNames = computed(() => (shown.value?.device_ids ?? []).map(deviceName))
 const gained = computed(() =>
   isChange.value ? props.after!.device_ids.filter((id) => !props.before!.device_ids.includes(id)).map(deviceName) : [],
 )
@@ -159,7 +164,7 @@ function sceneThumb(item: DraftItem): string | null {
           <h3 id="campaign-week" class="text-sm text-ink">When it plays</h3>
           <p class="flex items-center gap-1.5 text-[12px] text-ink-muted">
             <IconTv class="size-3.5" aria-hidden="true" />
-            {{ screens.length }} screen{{ screens.length === 1 ? '' : 's' }}<template v-if="screens.length">: {{ screens.slice(0, 3).join(', ') }}<template v-if="screens.length > 3"> +{{ screens.length - 3 }}</template></template>
+            {{ screenNames.length }} screen{{ screenNames.length === 1 ? '' : 's' }}<template v-if="screenNames.length">: {{ screenNames.slice(0, 3).join(', ') }}<template v-if="screenNames.length > 3"> +{{ screenNames.length - 3 }}</template></template>
           </p>
         </div>
         <WeekTimeline :slots="slots" />
@@ -196,7 +201,7 @@ function sceneThumb(item: DraftItem): string | null {
           <p v-if="!shown.rules.length" class="text-[13px] text-ink-muted">No playlists.</p>
         </div>
 
-        <ReviewPreviewPanel :preview="preview" :devices="devices">
+        <ReviewPreviewPanel :preview="preview" :screens="screens">
           <p v-if="rule && !playlists.get(rule.playlist_id)?.scenes" class="text-[13px] text-ink-muted">
             This playlist couldn’t be loaded — it may have been deleted since the change was sent.
           </p>

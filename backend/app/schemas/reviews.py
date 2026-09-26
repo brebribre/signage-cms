@@ -7,6 +7,17 @@ from pydantic import BaseModel, Field
 from app.models import ReviewKind, ReviewStatus
 
 
+class ReviewScreenRead(BaseModel):
+    """One screen a review reaches, as it was when the review was sent."""
+
+    id: uuid.UUID
+    name: str
+    # The canvas content is laid out on — None when the screen had not reported a resolution.
+    width: int | None
+    height: int | None
+    orientation: str
+
+
 class ReviewRead(BaseModel):
     id: uuid.UUID
     kind: ReviewKind
@@ -17,6 +28,8 @@ class ReviewRead(BaseModel):
     target_name: str
     summary: str
     screens: list[str]
+    #: The same screens with their size and orientation, for the preview. Empty on old reviews.
+    screen_specs: list[ReviewScreenRead] = []
     #: Playlist names the change touches, as they were when it was sent.
     playlists: list[str] = []
     # The change as sent — the Reviews page shows the parts worth reading (scene count,

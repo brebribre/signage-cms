@@ -7,17 +7,18 @@ routes/reviews.py), which is why the payload is the request body exactly as vali
 """
 
 import uuid
+from collections.abc import Iterable
 from typing import Any
 
 from fastapi.responses import JSONResponse
 from sqlmodel import Session, select
 
-from app.models import Device, Playlist, ReviewKind, User
+from app.models import Device, DeviceOrientation, Playlist, ReviewKind, User
 from app.schemas.reviews import PendingReview, ReviewRead
 from app.services import reviews as review_service
 from app.services.reviews import needs_review  # re-exported for routes
 
-__all__ = ["needs_review", "park", "read", "device_names", "playlist_names"]
+__all__ = ["needs_review", "park", "read", "device_names", "playlist_names", "screen_specs"]
 
 
 def read(review) -> ReviewRead:
@@ -35,10 +36,14 @@ def park(
     screens: list[str],
     payload: dict[str, Any],
     playlists: list[str] | None = None,
+    screen_ids: Iterable[uuid.UUID] = (),
 ) -> JSONResponse:
+    """`screen_ids` are the screens the change reaches — the same ones `screens` names — saved
+    with their size and orientation so the review can preview them later (screen_specs)."""
     review = review_service.submit(
         session, user=user, kind=kind, target_id=target_id, target_name=target_name,
         summary=summary, screens=screens, payload=payload, playlists=playlists,
+        screen_specs=screen_specs(session, account_id=user.account_id, device_ids=screen_ids),
     )
     body = PendingReview(pending_review=read(review))
     return JSONResponse(status_code=202, content=body.model_dump(mode="json"))
@@ -70,3 +75,32 @@ def playlist_names(session: Session, *, account_id: uuid.UUID, playlist_ids: lis
         ).all()
     }
     return [found[i] for i in wanted if i in found]
+
+
+PORTRAIT = {DeviceOrientation.DEG_90, DeviceOrientation.DEG_270}
+
+
+def screen_specs(session: Session, *, account_id: uuid.UUID, device_ids: Iterable[uuid.UUID]) -> list[dict[str, Any]]:
+    """The screens a change reaches, as the review's preview needs them, in name order.
+
+    The size is the canvas content is laid out on: the panel's reported resolution turned to its
+    orientation — a panel stood on its side reports landscape pixels, but the player turns content
+    to portrait. Mirrors the CMS's useScreenPresets.ts::orientedSize, so a review previews the
+    same shape the screen's own page does. None until the screen has reported a resolution."""
+    ids = list(dict.fromkeys(device_ids))
+    if not ids:
+        return []
+    rows = session.exec(
+        select(Device).where(Device.id.in_(ids), Device.account_id == account_id).order_by(Device.name)
+    ).all()
+    out = []
+    for d in rows:
+        width = height = None
+        if d.screen_width and d.screen_height:
+            long, short = max(d.screen_width, d.screen_height), min(d.screen_width, d.screen_height)
+            width, height = (short, long) if d.orientation in PORTRAIT else (long, short)
+        out.append({
+            "id": str(d.id), "name": d.name or "Unnamed screen",
+            "width": width, "height": height, "orientation": d.orientation.value,
+        })
+    return out

@@ -61,6 +61,14 @@ class ContentReview(SQLModel, table=True):
     summary: str
     # Screen names the change would reach, as they were when it was sent.
     screens: list[str] = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
+    # The same screens with what the preview needs to draw them: id, name, the size content is
+    # laid out at (the panel's reported resolution, turned to its orientation; None until the
+    # screen has reported one) and the orientation — saved when the review is sent, so the
+    # preview keeps the right shape after a screen is renamed, turned or deleted. Empty on
+    # reviews sent before this was kept.
+    screen_specs: list[dict[str, Any]] = Field(
+        default_factory=list, sa_column=Column(JSON, nullable=False, server_default="[]")
+    )
     # Playlist names the change touches — the one being edited, or the ones a campaign or
     # schedule puts on screens — as they were when it was sent. The list page shows both.
     playlists: list[str] = Field(default_factory=list, sa_column=Column(JSON, nullable=False, server_default="[]"))

@@ -39,7 +39,7 @@ def create_schedule(
         return park(
             session, user=user, kind=ReviewKind.SCHEDULE_CREATE, target_id=device.id,
             target_name=device.name, summary=f"New schedule on screen “{device.name}”",
-            screens=[device.name],
+            screens=[device.name], screen_ids=[device.id],
             playlists=playlist_names(session, account_id=user.account_id, playlist_ids=[body.playlist_id]),
             payload=body.model_dump(mode="json"),
         )
@@ -88,7 +88,7 @@ def update_schedule(
             return park(
                 session, user=user, kind=ReviewKind.SCHEDULE_UPDATE, target_id=schedule_id,
                 target_name=schedule.name or name, summary=f"Schedule change on screen “{name}”",
-                screens=[name],
+                screens=[name], screen_ids=[schedule.device_id],
                 playlists=playlist_names(session, account_id=user.account_id, playlist_ids=[body.playlist_id or schedule.playlist_id]),
                 payload=body.model_dump(mode="json", exclude_none=True),
             )
@@ -117,7 +117,7 @@ def delete_schedule(schedule_id: uuid.UUID, user: CurrentUser, session: DbSessio
         return park(
             session, user=user, kind=ReviewKind.SCHEDULE_DELETE, target_id=schedule_id,
             target_name=schedule.name or name, summary=f"Remove a schedule from screen “{name}”",
-            screens=[name],
+            screens=[name], screen_ids=[schedule.device_id],
             playlists=playlist_names(session, account_id=user.account_id, playlist_ids=[schedule.playlist_id]),
             payload={},
         )

@@ -94,6 +94,7 @@ def create_campaign(body: CampaignWrite, user: CurrentUser, session: DbSession):
             session, user=user, kind=ReviewKind.CAMPAIGN_CREATE, target_id=None,
             target_name=body.name.strip(), summary="New " + summary[0].lower() + summary[1:],
             screens=screens,
+            screen_ids=campaign_service.reachable_device_ids(session, user=user, device_ids=body.device_ids),
             playlists=playlist_names(session, account_id=user.account_id, playlist_ids=[r.playlist_id for r in body.rules]),
             payload=body.model_dump(mode="json"),
         )
@@ -135,6 +136,10 @@ def update_campaign(
                 session, user=user, kind=ReviewKind.CAMPAIGN_UPDATE, target_id=campaign_id,
                 target_name=campaign.name, summary=summary,
                 screens=list(dict.fromkeys(screens + leaving)),
+                screen_ids=[
+                    *campaign_service.reachable_device_ids(session, user=user, device_ids=body.device_ids),
+                    *campaign_service.device_ids_for(session, campaign_id=campaign_id),
+                ],
                 playlists=playlist_names(
                     session, account_id=user.account_id,
                     playlist_ids=[r.playlist_id for r in body.rules]
@@ -168,6 +173,7 @@ def delete_campaign(campaign_id: uuid.UUID, user: CurrentUser, session: DbSessio
             session, user=user, kind=ReviewKind.CAMPAIGN_DELETE, target_id=campaign_id,
             target_name=campaign.name, summary=f"Delete campaign “{campaign.name}”",
             screens=screens,
+            screen_ids=campaign_service.device_ids_for(session, campaign_id=campaign_id),
             playlists=playlist_names(
                 session, account_id=user.account_id,
                 playlist_ids=[r.playlist_id for r in campaign_service.rules_for(session, campaign_id=campaign_id)],

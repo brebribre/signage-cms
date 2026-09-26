@@ -182,7 +182,7 @@ def update_device(
         )
         return park(
             session, user=user, kind=ReviewKind.DEVICE_PLAYLIST, target_id=device.id,
-            target_name=device.name, summary=summary, screens=[device.name],
+            target_name=device.name, summary=summary, screens=[device.name], screen_ids=[device.id],
             playlists=[playlist.name] if playlist else [],
             payload={"playlist_id": str(body.playlist_id) if body.playlist_id else None,
                      "clear_playlist": body.clear_playlist},
