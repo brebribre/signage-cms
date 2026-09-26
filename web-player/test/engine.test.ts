@@ -192,7 +192,47 @@ describe('sync', () => {
     const s = engine.state.value as Extract<typeof engine.state.value, { kind: 'playing' }>
     expect(s.slots.map((x) => x.id)).toEqual(['s1', 's2'])
     expect(s.sources.a).toBe('https://r2/a')
+    // Not given up on yet: the next polls try it again, and only then does the version count
+    // as done, streamed, with its ETag saved.
+    expect(store.etag()).toBeNull()
+    await tick(POLL_SECONDS * 1000 * 2)
+    expect(cache.log.filter((l) => l === 'download a')).toHaveLength(3)
     expect(cache.log).toContain('evict except ')
+    expect(store.etag()).toBe('"v1"')
+  })
+
+  it('a download cut off mid-update keeps the old content on air, and finishes once the wifi is back', async () => {
+    api.manifest = manifest()
+    start()
+    await tick(0)
+    const before = engine.state.value
+    expect(store.etag()).toBe('"v1"')
+
+    // The CMS publishes v2 with a new picture; the wifi goes while it downloads.
+    const v2 = manifest({ version: 'v2' })
+    v2.slots![0].elements[0] = { ...v2.slots![0].elements[0], url: 'https://r2/c', checksum: 'c' }
+    api.manifest = v2
+    cache.failing.add('c')
+    const seen: string[] = []
+    engine.state.subscribe((s) => seen.push(s.kind))
+    await tick(POLL_SECONDS * 1000)
+    expect(engine.state.value).toBe(before)
+    expect(store.etag()).toBe('"v1"')
+    expect(cache.files.has('a')).toBe(true)
+
+    // A second try, still failing: no progress screen over the content on air this time.
+    seen.length = 0
+    await tick(POLL_SECONDS * 1000)
+    expect(seen).not.toContain('preparing')
+    expect(engine.state.value).toBe(before)
+
+    // The wifi is back.
+    cache.failing.delete('c')
+    await tick(POLL_SECONDS * 1000)
+    const s = engine.state.value as Extract<typeof engine.state.value, { kind: 'playing' }>
+    expect(s.sources.c).toBe('blob:c')
+    expect(store.etag()).toBe('"v2"')
+    expect(cache.files.has('a')).toBe(false)
   })
 
   it('a video with a streaming copy stores the copy, not the original, and plays it through MediaSource', async () => {

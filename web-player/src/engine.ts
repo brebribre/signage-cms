@@ -145,6 +145,9 @@ export class PlayerEngine {
    *  are presigned and expire, so past [STREAM_URL_REFRESH_MILLIS] the next poll asks for a
    *  full manifest instead of a 304. Null when everything plays from the cache. */
   private streamingSince: number | null = null
+  /** A version whose files did not all download, and how many polls have tried it. Its ETag is
+   *  not saved, so each poll fetches it again and retries; see applyManifest. */
+  private incomplete: { version: string; attempts: number } | null = null
   private pendingPlays: PlayReport[] = []
   private pendingErrors: string[] = []
   /** Bytes per second over the last media download big and slow enough to say something. */
@@ -350,9 +353,16 @@ export class PlayerEngine {
       this.debug.update((d) => ({ ...d, lastPollAt: this.clock() }))
 
       if (manifest) {
-        await this.applyManifest(manifest)
-        this.store.saveEtag(`"${manifest.version}"`)
-        this.store.saveManifestJson(JSON.stringify(manifest))
+        const attempts = this.incomplete?.version === manifest.version ? this.incomplete.attempts + 1 : 1
+        // Only a version whose files all arrived (or that has given up and streams them) counts
+        // as done: saving the ETag of one that has not would make every later poll a 304.
+        if (await this.applyManifest(manifest, attempts)) {
+          this.incomplete = null
+          this.store.saveEtag(`"${manifest.version}"`)
+          this.store.saveManifestJson(JSON.stringify(manifest))
+        } else {
+          this.incomplete = { version: manifest.version, attempts }
+        }
       }
 
       try {
@@ -372,7 +382,9 @@ export class PlayerEngine {
           // A browser never says which decoder it used; the count is what the CMS can act on.
           playback: { dropped_frames: dropped, decoder: null, download_bytes_per_second: this.lastDownloadBps },
         })
-        if (etag !== null && `"${res.version}"` !== etag) {
+        // An unfinished download also leaves the versions apart; that one waits for the normal
+        // poll to retry rather than hammering a network that just failed.
+        if (etag !== null && `"${res.version}"` !== etag && res.version !== this.incomplete?.version) {
           // Version moved under us — loop again soon, but never with zero delay.
           await this.sleep(MIN_POLL_MILLIS)
           continue
@@ -573,7 +585,20 @@ export class PlayerEngine {
     return unstored.size > 0 || slots.some((s) => s.elements.some((el) => el.kind === 'video' && !this.stored(el)))
   }
 
-  private async applyManifest(manifest: Manifest) {
+  /**
+   * Download a manifest's files and switch to it. Returns whether the version is done: every
+   * file stored, or given up on after [MAX_DOWNLOAD_ATTEMPTS] polls and streamed instead.
+   *
+   * A download that fails while something is already playing — the wifi dropping mid-update —
+   * changes nothing on screen and deletes nothing: the old content stays on air, with its files,
+   * and the next poll tries again, quietly, without the progress screen. A file that keeps
+   * failing while the network is up (storage the browser refuses) streams after a few polls,
+   * as before.
+   */
+  private async applyManifest(manifest: Manifest, attempts = 1): Promise<boolean> {
+    const before = this.state.value.kind === 'playing' ? this.state.value : null
+    const quiet = attempts > 1 && before !== null
+    const lastTry = attempts >= MAX_DOWNLOAD_ATTEMPTS
     this.validUntilMillis = parseInstantMillis(manifest.valid_until)
     this.adoptSettings(manifest)
 
@@ -592,7 +617,7 @@ export class PlayerEngine {
       this.streamingSince = null
       await this.cache.evictExcept([])
       await this.refreshCachedBytes()
-      return
+      return true
     }
 
     // Download everything missing BEFORE switching over, so the screen never shows a gap while a
@@ -622,6 +647,7 @@ export class PlayerEngine {
     let completedBytes = 0
     let lastShownAt = 0
     const showPreparing = (current: StoredFile | null, inFlight: number, force = false) => {
+      if (quiet) return
       const now = this.clock()
       if (!force && now - lastShownAt < PREPARING_REFRESH_MILLIS) return
       lastShownAt = now
@@ -633,6 +659,7 @@ export class PlayerEngine {
       })
     }
     if (missing.length) showPreparing(null, 0, true)
+    const failed = new Set<string>()
     for (const file of missing) {
       showPreparing(file, 0, true)
       try {
@@ -651,10 +678,19 @@ export class PlayerEngine {
         console.error(TAG, `download failed for ${file.checksum}; streaming it instead`, e)
         this.setError(`download: ${(e as Error).message} — streaming instead`)
         streamed.add(file.checksum)
+        failed.add(file.checksum)
       }
       completedBytes += Math.max(0, file.bytes)
       speed.record(completedBytes, this.clock())
       showPreparing(file, 0, true)
+    }
+    if (failed.size && before && !lastTry) {
+      // Keep what is on air. Streaming the rest would fail just the same if the wifi is gone,
+      // and evicting would delete the old files the screen can still play.
+      console.warn(TAG, `version ${manifest.version} incomplete (try ${attempts}); keeping the current content`)
+      this.state.set(before)
+      await this.refreshCachedBytes()
+      return false
     }
     this.streamingSince = this.streamsAnything(slots, streamed) ? this.clock() : null
 
@@ -666,7 +702,7 @@ export class PlayerEngine {
     for (const el of all) {
       if (el.kind !== 'image' || seen.has(el.checksum)) continue
       seen.add(el.checksum)
-      if (missing.length) {
+      if (missing.length && !quiet) {
         this.state.set({ kind: 'preparing', deviceName, doneBytes: totalBytes, totalBytes, currentFile: `getting ${el.kind} ready`, bytesPerSecond: null })
       }
       try {
@@ -678,9 +714,13 @@ export class PlayerEngine {
 
     this.state.set({ kind: 'playing', slots, shuffle: manifest.playlist?.shuffle ?? false, sources, liveSlotId: manifest.live_slot_id ?? null })
 
-    // Evict only after the new set is safely stored.
-    await this.cache.evictExcept(files.filter((f) => !streamed.has(f.checksum)).map((f) => f.checksum))
+    // Evict only after the new set is safely stored — all of it. With nothing else to show, a
+    // screen plays what it has and streams the rest, but keeps its older files until the
+    // version is done, in case it reloads before then.
+    const done = !failed.size || lastTry
+    if (done) await this.cache.evictExcept(files.filter((f) => !streamed.has(f.checksum)).map((f) => f.checksum))
     await this.refreshCachedBytes()
+    return done
   }
 
   private async refreshCachedBytes() {
@@ -805,5 +845,8 @@ export const UNAUTHORIZED_BEFORE_REPAIR = 3
 export const UNAUTHORIZED_RETRY_SECONDS = 5
 /** Presigned media URLs live 6 hours; refresh well inside that when anything streams. */
 export const STREAM_URL_REFRESH_MILLIS = 4 * 60 * 60 * 1000
+/** Polls that retry a failed download before the player gives up and streams the file. Only a
+ *  poll that reached the server counts, so hours offline never use them up. */
+export const MAX_DOWNLOAD_ATTEMPTS = 3
 export const MAX_PENDING_PLAYS = 50
 export const MAX_PENDING_ERRORS = 20
