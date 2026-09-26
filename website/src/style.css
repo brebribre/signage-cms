@@ -120,6 +120,36 @@ h1, h2, h3, .display { font-family: var(--font-display); font-weight: 400; lette
   }
 }
 
+/* The hero's second wave: the same ribbon rising from the bottom right corner, drawn over the
+   picture so it covers the right end of the CMS window, which then reads as passing behind the
+   ribbon rather than running off the page. Tablet width up only: on a phone the window just
+   runs off the screen's edge. */
+.hero-wave-low {
+  position: absolute; inset: 0;
+  background: linear-gradient(120deg, #dbe6fd 0%, #9cc3ff 16%, #5fd9ff 30%, #7fb6ff 44%, #2f7fe6 58%, #0076dd 70%, #1f55c4 82%, #002f96 100%);
+  background-size: 170% 170%;
+  --wave-low-shape: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath d='M100 40 C95 46 91 50 88 57 C85 64 83 68 79 74 C75 80 74 88 70 100 L100 100 Z'/%3E%3C/svg%3E");
+  -webkit-mask: var(--wave-low-shape) right bottom / 100% 100% no-repeat;
+  mask: var(--wave-low-shape) right bottom / 100% 100% no-repeat;
+  animation: wave-flow 16s ease-in-out infinite alternate-reverse, wave-low-edge 13s ease-in-out infinite alternate;
+}
+.hero-wave-low::after {
+  content: ""; position: absolute; inset: 0;
+  background: repeating-linear-gradient(112deg, rgba(255, 255, 255, 0.16) 0 1px, transparent 1px 7px);
+  mix-blend-mode: soft-light;
+}
+/* On a tablet the window's contents reach further across, so the wave keeps to the far edge. */
+@media (max-width: 1023px) {
+  .hero-wave-low {
+    --wave-low-shape: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath d='M100 52 C98 58 96 62 94 68 C92 74 91 80 89 86 C88 91 88 96 87 100 L100 100 Z'/%3E%3C/svg%3E");
+  }
+}
+@keyframes wave-low-edge {
+  0% { -webkit-mask-size: 100% 100%; mask-size: 100% 100%; }
+  50% { -webkit-mask-size: 106% 104%; mask-size: 106% 104%; }
+  100% { -webkit-mask-size: 97% 98%; mask-size: 97% 98%; }
+}
+
 /* Sections reveal as they arrive: a small, meaningful motion, not a show. */
 .reveal { opacity: 0; transform: translateY(18px); transition: opacity 0.7s cubic-bezier(0.2, 0.7, 0.2, 1), transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1); }
 .reveal.is-in { opacity: 1; transform: none; }
@@ -147,6 +177,6 @@ h1, h2, h3, .display { font-family: var(--font-display); font-weight: 400; lette
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 
 @media (prefers-reduced-motion: reduce) {
-  .float, .marquee, .tab-progress, .hero-wave { animation: none; }
+  .float, .marquee, .tab-progress, .hero-wave, .hero-wave-low { animation: none; }
   .swap-enter-active, .swap-leave-active, .fade-enter-active, .fade-leave-active { transition: none; }
 }

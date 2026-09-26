@@ -36,5 +36,8 @@ const { m } = useI18n()
         <HeroStage />
       </div>
     </div>
+
+    <!-- The second wave, over the picture, covering the right end of the CMS window. -->
+    <div class="hero-wave-low pointer-events-none hidden sm:block" aria-hidden="true" />
   </section>
 </template>

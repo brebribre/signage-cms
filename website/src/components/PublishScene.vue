@@ -76,8 +76,8 @@ onBeforeUnmount(stop)
 <template>
   <div ref="root" class="@container relative aspect-[1/0.9] overflow-hidden" :class="props.hero && 'sm:overflow-visible'" aria-hidden="true">
     <!-- The CMS window, beside the totem with a clear gap between them, running off the right
-         edge. In the hero, from tablet width up, the window runs on off the page while what's in it
-         keeps its usual width. -->
+         edge. In the hero, from tablet width up, the window runs on under the hero's second wave
+         while what's in it keeps its usual width. -->
     <div
       class="absolute bottom-[-6%] left-[50%] top-[16%] w-[64%] overflow-hidden rounded-tl-[3cqw] bg-white shadow-[0_30px_80px_-30px_rgba(0,24,77,0.55)] ring-1 ring-line"
       :class="props.hero && 'sm:left-[46%] sm:w-[170%]'"
@@ -85,7 +85,7 @@ onBeforeUnmount(stop)
       <div class="flex items-center gap-[1.2cqw] border-b border-line bg-surface px-[3cqw] py-[2cqw]">
         <span class="size-[1.8cqw] rounded-full bg-line-strong" /><span class="size-[1.8cqw] rounded-full bg-line-strong" /><span class="size-[1.8cqw] rounded-full bg-line-strong" />
       </div>
-      <div class="py-[4cqw] pl-[8cqw] pr-[4cqw]" :class="props.hero && 'sm:max-w-[92cqw]'">
+      <div class="py-[4cqw] pl-[8cqw] pr-[4cqw]" :class="props.hero && 'sm:max-w-[64cqw]'">
         <div class="flex items-center gap-[2cqw]">
           <img :src="mark" alt="" class="h-[4cqw] w-auto" />
           <span class="display truncate text-[3.6cqw] text-ink">{{ m.hero.campaign }}</span>
