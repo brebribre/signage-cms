@@ -10,7 +10,6 @@ import IconBack from '~icons/material-symbols/arrow-back'
 
 import SiteConnect from './SiteConnect.vue'
 import SiteDesign from './SiteDesign.vue'
-import SitePlatforms from './SitePlatforms.vue'
 import SitePublish from './SitePublish.vue'
 import SiteUses from './SiteUses.vue'
 import SiteWall from './SiteWall.vue'
@@ -53,7 +52,6 @@ const CARD = 'reveal w-[85vw] shrink-0 snap-start sm:w-[26rem]'
       <SiteConnect :class="CARD" />
       <SiteDesign :class="CARD" class="sm:w-[40rem]" />
       <SitePublish :class="CARD" />
-      <SitePlatforms :class="CARD" class="sm:w-[34rem]" />
     </div>
     <a href="/how-it-works" class="reveal mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-brand transition-colors hover:text-brand-strong">
       {{ m.fleet.howLink }}<IconArrow class="size-4" aria-hidden="true" />
