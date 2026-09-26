@@ -26,7 +26,7 @@ const SECONDARY = 'inline-flex items-center justify-center gap-2 rounded-lg bg-w
   <section id="start">
     <article class="relative grid gap-8 overflow-hidden rounded-2xl bg-brand-soft p-6 ring-1 ring-tint-strong/60 sm:p-8 lg:grid-cols-[0.8fr_1.6fr] lg:gap-10 lg:p-10">
       <div>
-        <h3 class="text-3xl leading-[1.1] sm:text-4xl">{{ m.start.title }}</h3>
+        <h3 class="text-xl leading-[1.2] sm:text-4xl sm:leading-[1.1]">{{ m.start.title }}</h3>
         <p class="mt-3 max-w-sm leading-relaxed text-ink-muted">{{ m.start.body }}</p>
       </div>
 

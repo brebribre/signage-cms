@@ -14,7 +14,7 @@ const { m } = useI18n()
         <PublishScene class="-ml-6 sm:-ml-8 lg:-ml-10" />
       </template>
 
-      <h3 class="text-3xl leading-[1.1] sm:text-4xl">{{ m.publish.title }}</h3>
+      <h3 class="text-xl leading-[1.2] sm:text-4xl sm:leading-[1.1]">{{ m.publish.title }}</h3>
       <p class="mt-3 max-w-md leading-relaxed text-ink-muted">{{ m.publish.body }}</p>
     </FeatureCard>
   </section>

@@ -20,7 +20,7 @@ const PLATFORMS = computed(() => LOOKS.map((l, i) => ({ ...l, ...m.value.platfor
 <template>
   <section id="platforms">
     <FeatureCard>
-      <h3 class="text-3xl leading-[1.1] sm:text-4xl">{{ m.platforms.lead }}</h3>
+      <h3 class="text-xl leading-[1.2] sm:text-4xl sm:leading-[1.1]">{{ m.platforms.lead }}</h3>
       <p class="mt-3 max-w-md leading-relaxed text-ink-muted">{{ m.platforms.rest }}</p>
 
       <template #visual>

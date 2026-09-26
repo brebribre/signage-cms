@@ -63,7 +63,7 @@ onBeforeUnmount(stop)
       <div class="min-h-[7.5rem] sm:min-h-[8.5rem]">
         <Transition name="fade" mode="out-in">
           <div :key="active">
-            <h3 class="text-3xl leading-[1.1] sm:text-4xl">{{ TABS[active].title }}</h3>
+            <h3 class="text-xl leading-[1.2] sm:text-4xl sm:leading-[1.1]">{{ TABS[active].title }}</h3>
             <p class="mt-3 max-w-md leading-relaxed text-ink-muted">{{ TABS[active].text }}</p>
           </div>
         </Transition>
