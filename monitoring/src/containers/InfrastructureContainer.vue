@@ -143,18 +143,18 @@ const onlinePct = computed(() => (screens.value?.paired ? (screens.value.online 
     <AppAlert v-if="error" tone="danger">{{ error }}</AppAlert>
 
     <!-- First load: the same shapes the numbers will fill, so nothing jumps when they arrive. -->
-    <div v-if="!data && isLoading" class="grid gap-4 lg:grid-cols-3" aria-busy="true" aria-label="Loading">
-      <div :class="[CARD, 'lg:col-span-2']"><SkeletonBlock class="h-72 w-full rounded-xl" /></div>
-      <div class="flex flex-col gap-4">
+    <div v-if="!data && isLoading" class="grid gap-4 xl:grid-cols-3" aria-busy="true" aria-label="Loading">
+      <div :class="[CARD, 'xl:col-span-2']"><SkeletonBlock class="h-72 w-full rounded-xl" /></div>
+      <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
         <div :class="CARD"><SkeletonBlock class="h-32 w-full rounded-xl" /></div>
         <div :class="CARD"><SkeletonBlock class="h-32 w-full rounded-xl" /></div>
       </div>
     </div>
 
     <template v-else-if="data && storage && users && screens">
-      <div class="grid gap-4 lg:grid-cols-3">
+      <div class="grid gap-4 xl:grid-cols-3">
         <!-- ============ Storage: the reading that decides whether to act ============ -->
-        <section :class="[CARD, 'lg:col-span-2']" aria-labelledby="storage-title">
+        <section :class="[CARD, 'xl:col-span-2']" aria-labelledby="storage-title">
           <header class="flex flex-wrap items-center justify-between gap-2">
             <h2 id="storage-title" class="flex items-center gap-2 text-lg">
               <span class="grid size-8 place-items-center rounded-lg bg-brand-soft text-brand">
@@ -202,19 +202,19 @@ const onlinePct = computed(() => (screens.value?.paired ? (screens.value.online 
             <dl class="grid w-full grid-cols-2 gap-x-6 gap-y-5">
               <div>
                 <dt :class="LABEL">Used</dt>
-                <dd class="mt-1 font-display text-3xl text-ink tabular-nums">{{ bytes(storage.used_bytes) }}</dd>
+                <dd class="mt-1 font-display text-3xl whitespace-nowrap text-ink tabular-nums">{{ bytes(storage.used_bytes) }}</dd>
               </div>
               <div>
                 <dt :class="LABEL">Space left</dt>
-                <dd class="mt-1 font-display text-3xl text-ink tabular-nums">{{ bytes(leftBytes) }}</dd>
+                <dd class="mt-1 font-display text-3xl whitespace-nowrap text-ink tabular-nums">{{ bytes(leftBytes) }}</dd>
               </div>
               <div>
                 <dt :class="LABEL">Upgrade line</dt>
-                <dd class="mt-1 font-display text-3xl text-ink tabular-nums">{{ bytes(storage.limit_bytes) }}</dd>
+                <dd class="mt-1 font-display text-3xl whitespace-nowrap text-ink tabular-nums">{{ bytes(storage.limit_bytes) }}</dd>
               </div>
               <div>
                 <dt :class="LABEL">Files</dt>
-                <dd class="mt-1 font-display text-3xl text-ink tabular-nums">
+                <dd class="mt-1 font-display text-3xl whitespace-nowrap text-ink tabular-nums">
                   {{ storage.object_count === null ? '—' : storage.object_count.toLocaleString() }}
                 </dd>
               </div>
@@ -265,8 +265,9 @@ const onlinePct = computed(() => (screens.value?.paired ? (screens.value.online 
           </div>
         </section>
 
-        <!-- ============ Screens and people ============ -->
-        <div class="flex flex-col gap-4">
+        <!-- ============ Screens and people: side by side under the storage card until there
+             is room for a third column, then stacked beside it. ============ -->
+        <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-1 xl:content-start">
           <!-- Screens: the brand gradient, as the CMS uses on its hero cards. -->
           <section
             class="relative overflow-hidden rounded-2xl bg-linear-to-br from-brand-strong to-brand-bright p-5 text-white sm:p-6"
@@ -348,9 +349,9 @@ const onlinePct = computed(() => (screens.value?.paired ? (screens.value.online 
         </div>
       </div>
 
-      <div class="grid gap-4 lg:grid-cols-3">
+      <div class="grid gap-4 xl:grid-cols-3">
         <!-- ============ Growth ============ -->
-        <section :class="[CARD, 'lg:col-span-2']" aria-labelledby="growth-title">
+        <section :class="[CARD, 'xl:col-span-2']" aria-labelledby="growth-title">
           <header class="flex flex-wrap items-baseline justify-between gap-2">
             <h2 id="growth-title" class="text-lg">Uploads by month</h2>
             <span class="text-[12px] text-ink-muted">Files and their copies still stored, by the month they arrived</span>

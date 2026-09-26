@@ -1,6 +1,8 @@
 <script setup lang="ts">
 /**
- * Every account, what each is allowed, how much it is using, and who is in it.
+ * Every account, what each is allowed and how much it is using. One line per account — its sub
+ * accounts are a count here, and listed by name in the side panel a click on the row opens
+ * (AccountDetailsContainer), so a busy account doesn't push the rest of the list down.
  * Two actions — make an account, change its limits — and which of them a row offers depends
  * on the kind of account you are signed in as (useStaffRights): the owner reaches admin and
  * client accounts, a technician reaches clients only. The server refuses the rest regardless;
@@ -16,13 +18,16 @@ import IconAdd from '~icons/material-symbols/add'
 import IconSearch from '~icons/material-symbols/search'
 import IconTune from '~icons/material-symbols/tune'
 import IconKey from '~icons/material-symbols/key-outline'
+import IconGroup from '~icons/material-symbols/group-outline'
 
+import { BADGE, KIND_TONE, TONES, initials, mainUser, otherUsers, useAccountMarks } from '@/hooks/useAccountMarks'
 import { useAdminAccounts } from '@/hooks/useAdminAccounts'
 import { useExpiry } from '@/hooks/useExpiry'
 import { useFormat } from '@/hooks/useFormat'
 import { useStaffRights } from '@/hooks/useStaffRights'
 import AppAlert from '@/reusables/AppAlert.vue'
 import AppButton from '@/reusables/AppButton.vue'
+import AppDrawer from '@/reusables/AppDrawer.vue'
 import AppInput from '@/reusables/AppInput.vue'
 import AppModal from '@/reusables/AppModal.vue'
 import AppSelect from '@/reusables/AppSelect.vue'
@@ -30,12 +35,15 @@ import ModalActions from '@/reusables/ModalActions.vue'
 import OverflowMenu from '@/reusables/OverflowMenu.vue'
 import PageTitle from '@/reusables/PageTitle.vue'
 import SkeletonBlock from '@/reusables/SkeletonBlock.vue'
-import type { AccountKind, AdminAccountRead, AdminAccountUserRead } from '@/types/api'
+import type { AccountKind, AdminAccountRead } from '@/types/api'
+
+import AccountDetailsContainer from './AccountDetailsContainer.vue'
 
 const { accounts, isLoading, isSaving, error, formError, create, setLimits, resetPassword } = useAdminAccounts()
-const { bytes, date } = useFormat()
+const { bytes } = useFormat()
 const { issuable, maySetLimits, label: kindLabel, defaultLimits } = useStaffRights()
-const { toExpiresAt, toDayField, lastDayText, daysLeft, endsSoon } = useExpiry()
+const { toExpiresAt, toDayField, lastDayText } = useExpiry()
+const { endBadge } = useAccountMarks()
 
 const GB = 1024 ** 3
 
@@ -52,55 +60,12 @@ const rows = computed(() => {
   )
 })
 
-// --- Marks: what kind of account this is, and who is in it ---
+// --- The side panel: one account in full, opened by clicking its row ---
 
-const BADGE = 'inline-flex items-center rounded-full px-2 py-0.5 text-[11px] leading-4 whitespace-nowrap ring-1 ring-inset'
-const TONES = {
-  green: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
-  brand: 'bg-brand-soft text-brand ring-brand/20',
-  muted: 'bg-surface text-ink-muted ring-line',
-  ink: 'bg-ink text-ink-inverse ring-ink',
-  danger: 'bg-red-50 text-danger ring-red-200',
-  amber: 'bg-amber-50 text-amber-700 ring-amber-200',
-} as const
-
-/** Only the accounts that are *not* ordinary customers carry a badge. A mark on every row
- *  marks nothing; a mark on the two that can sign in here is worth reading. This is the only
- *  badge on the page allowed to say "Owner", and it means the account kind — Paskall itself. */
-const KIND_TONE: Partial<Record<AccountKind, keyof typeof TONES>> = { owner: 'ink', admin: 'brand' }
-
-/** The account's own row carries its main user, because they are the same thing: the person the
- *  account was issued to. So that person needs no badge saying "main user" — being on the
- *  account's line says it. Only the people underneath are marked, and only the kind badge on the
- *  account name is left using the word "Owner". */
-function mainUser(a: AdminAccountRead): AdminAccountUserRead | null {
-  return a.users.find((u) => u.role === 'owner') ?? null
-}
-/** Everyone else in the account, in the order the server sent them. Sub accounts, and any second
- *  owner an account picked up along the way. */
-function otherUsers(a: AdminAccountRead): AdminAccountUserRead[] {
-  const main = mainUser(a)
-  return a.users.filter((u) => u.id !== main?.id)
-}
-
-/** An account past its end date, or close to it. Staff are the ones who renew, so the page
- *  marks both: one to act on now, one to see coming. */
-function endBadge(a: AdminAccountRead): { label: string; tone: keyof typeof TONES } | null {
-  if (a.is_expired) return { label: 'Expired', tone: 'danger' }
-  if (a.expires_at && endsSoon(a.expires_at, a.is_expired)) {
-    const n = daysLeft(a.expires_at)
-    return { label: n <= 1 ? 'Ends today' : `Ends in ${n} days`, tone: 'amber' }
-  }
-  return null
-}
-
-function badges(u: AdminAccountUserRead): { label: string; tone: keyof typeof TONES }[] {
-  const out: { label: string; tone: keyof typeof TONES }[] = [
-    u.role === 'owner' ? { label: 'Main user', tone: 'green' } : { label: 'Sub account', tone: 'brand' },
-  ]
-  if (!u.is_active) out.push({ label: 'Deactivated', tone: 'muted' })
-  return out
-}
+/** By id, not the row itself: after a save the list is fetched again, and the panel should show
+ *  the fresh account, not the one it was opened with. */
+const selectedId = ref<string | null>(null)
+const selected = computed(() => accounts.value.find((a) => a.id === selectedId.value) ?? null)
 
 // --- Limits as the form holds them: blank = no limit ---
 
@@ -247,6 +212,11 @@ function endHint(day: string): string {
     ? 'That day has passed: the account turns read-only as soon as you save.'
     : 'After this day the account turns read-only. Its screens keep playing.'
 }
+/** How much of a limit is used, for the thin bar under a figure. Null when there is no limit. */
+function share(used: number, limit: number | null): number | null {
+  if (limit === null) return null
+  return limit === 0 ? 100 : Math.min(100, (used / limit) * 100)
+}
 function atScreenLimit(a: AdminAccountRead): boolean {
   return a.max_screens !== null && a.screens_used >= a.max_screens
 }
@@ -273,8 +243,8 @@ const MENU_ITEM = 'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-le
       <input
         v-model="query"
         type="search"
-        placeholder="Search by account, type or person"
-        aria-label="Search accounts and their people"
+        placeholder="Search by organization, type or person"
+        aria-label="Search organizations and their people"
         class="h-9 w-full rounded-lg border border-line-strong bg-canvas pr-3 pl-9 text-sm text-ink
                placeholder:text-ink-subtle focus:border-ink focus:outline-none"
       />
@@ -283,170 +253,165 @@ const MENU_ITEM = 'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-le
     <AppAlert v-if="error" tone="danger">{{ error }}</AppAlert>
     <AppAlert v-if="formError" tone="danger">{{ formError }}</AppAlert>
 
-    <!-- No horizontal scroll container: it would clip the ⋮ menus. Columns drop out on narrow
-         screens instead, and below `md` the three name columns cannot fit at all — three fixed
-         columns in 375px squeeze the account name to one letter a line — so there they fold back
-         into the Account cell as stacked lines. One <tbody> per account either way, so an account
-         and its people are one group with a rule between groups, not between every row. -->
-    <div class="rounded-2xl bg-canvas">
+    <!-- One line per account. A click anywhere on the line opens the account in the side panel;
+         the name is also a real button, so the keyboard gets there too. No horizontal scroll
+         container: it would clip the ⋮ menus. Columns drop out on narrow screens instead, and
+         what they held stacks under the name. -->
+    <div class="overflow-hidden rounded-2xl bg-canvas">
       <table class="w-full table-fixed text-left text-sm">
         <thead class="text-[12px] text-ink-muted">
           <tr class="bg-surface">
-            <!-- Account takes whatever the rest leave: the names are the long, variable thing
-                 here, and the figures beside them are all about the same width. -->
-            <th class="rounded-tl-2xl px-4 py-3 font-normal">Account</th>
-            <th class="hidden w-40 px-4 py-3 font-normal md:table-cell lg:w-44">Username</th>
-            <th class="hidden w-32 px-4 py-3 font-normal md:table-cell lg:w-40">Name</th>
-            <th class="hidden w-24 px-4 py-3 font-normal sm:table-cell">Screens</th>
-            <th class="hidden w-32 px-4 py-3 font-normal sm:table-cell">Storage</th>
+            <th class="px-4 py-3 font-normal">Organization</th>
+            <th class="hidden w-28 px-4 py-3 font-normal md:table-cell">Sub accounts</th>
+            <th class="hidden w-32 px-4 py-3 font-normal sm:table-cell">Screens</th>
+            <th class="hidden w-36 px-4 py-3 font-normal sm:table-cell lg:w-40">Storage</th>
             <th class="hidden w-28 px-4 py-3 font-normal lg:table-cell">Active until</th>
-            <th class="hidden w-24 px-4 py-3 font-normal xl:table-cell">Created</th>
-            <th class="w-12 rounded-tr-2xl px-2 py-3"><span class="sr-only">Actions</span></th>
+            <th class="w-12 px-2 py-3"><span class="sr-only">Actions</span></th>
           </tr>
         </thead>
 
         <tbody v-if="isLoading && !accounts.length" class="divide-y divide-line" aria-busy="true">
-          <tr v-for="i in 3" :key="i">
-            <td class="px-4 py-3.5"><SkeletonBlock class="h-3.5 w-40 max-w-full rounded-md" /></td>
-            <td class="hidden px-4 py-3.5 md:table-cell"><SkeletonBlock class="h-3 w-24 rounded-md" /></td>
-            <td class="hidden px-4 py-3.5 md:table-cell"><SkeletonBlock class="h-3 w-24 rounded-md" /></td>
+          <tr v-for="i in 4" :key="i">
+            <td class="px-4 py-3.5">
+              <span class="flex items-center gap-3">
+                <SkeletonBlock class="size-9 shrink-0 rounded-full" />
+                <span class="flex flex-col gap-1.5"><SkeletonBlock class="h-3.5 w-40 max-w-full rounded-md" /><SkeletonBlock class="h-3 w-24 rounded-md" /></span>
+              </span>
+            </td>
+            <td class="hidden px-4 py-3.5 md:table-cell"><SkeletonBlock class="h-3 w-8 rounded-md" /></td>
             <td class="hidden px-4 py-3.5 sm:table-cell"><SkeletonBlock class="h-3 w-16 rounded-md" /></td>
             <td class="hidden px-4 py-3.5 sm:table-cell"><SkeletonBlock class="h-3 w-24 rounded-md" /></td>
             <td class="hidden px-4 py-3.5 lg:table-cell"><SkeletonBlock class="h-3 w-20 rounded-md" /></td>
-            <td class="hidden px-4 py-3.5 xl:table-cell"><SkeletonBlock class="h-3 w-20 rounded-md" /></td>
             <td />
           </tr>
         </tbody>
 
-        <template v-else>
-          <tbody v-for="a in rows" :key="a.id" class="border-t border-line">
-            <!-- The account and its main user are one line: the account was issued to them, so
-                 they need no badge saying so. -->
-            <tr :class="mainUser(a) && !mainUser(a)!.is_active && 'opacity-60'">
-              <td class="px-4 py-3 align-top">
-                <p class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                  <span class="truncate font-medium text-ink">{{ a.name }}</span>
-                  <span v-if="KIND_TONE[a.kind]" :class="[BADGE, TONES[KIND_TONE[a.kind]!]]">
-                    {{ kindLabel(a.kind) }}
-                  </span>
-                  <span v-if="mainUser(a) && !mainUser(a)!.is_active" :class="[BADGE, TONES.muted]">
-                    Deactivated
-                  </span>
-                  <!-- Still on the password staff handed over: they haven't signed in to choose their own. -->
-                  <span v-if="mainUser(a)?.must_change_password" :class="[BADGE, TONES.muted]"
-                        title="They haven't signed in yet to choose their own password">
-                    Temporary password
-                  </span>
-                  <span v-if="endBadge(a)" :class="[BADGE, TONES[endBadge(a)!.tone]]">{{ endBadge(a)!.label }}</span>
-                </p>
+        <tbody v-else class="divide-y divide-line border-t border-line">
+          <tr
+            v-for="a in rows"
+            :key="a.id"
+            class="cursor-pointer transition-colors duration-150"
+            :class="[
+              selectedId === a.id ? 'bg-brand-soft' : 'hover:bg-surface',
+              mainUser(a) && !mainUser(a)!.is_active && 'opacity-60',
+            ]"
+            @click="selectedId = a.id"
+          >
+            <td class="px-4 py-3">
+              <div class="flex min-w-0 items-start gap-3">
+                <span
+                  class="mt-0.5 grid size-9 shrink-0 place-items-center rounded-full font-display text-[13px] font-medium"
+                  :class="a.kind === 'client' ? 'bg-brand-soft text-brand' : 'bg-linear-to-br from-brand-strong to-brand-bright text-white'"
+                  aria-hidden="true"
+                >
+                  {{ initials(a.name) }}
+                </span>
+                <div class="min-w-0 flex-1">
+                  <p class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                    <button
+                      type="button"
+                      class="truncate text-left font-medium text-ink focus-visible:rounded-sm focus-visible:outline-2
+                             focus-visible:outline-offset-2 focus-visible:outline-brand-bright"
+                      @click.stop="selectedId = a.id"
+                    >
+                      {{ a.name }}
+                    </button>
+                    <span v-if="KIND_TONE[a.kind]" :class="[BADGE, TONES[KIND_TONE[a.kind]!]]">{{ kindLabel(a.kind) }}</span>
+                    <span v-if="mainUser(a) && !mainUser(a)!.is_active" :class="[BADGE, TONES.muted]">Deactivated</span>
+                    <span v-if="mainUser(a)?.must_change_password" :class="[BADGE, TONES.muted]"
+                          title="They haven't signed in yet to choose their own password">
+                      Temporary password
+                    </span>
+                    <span v-if="endBadge(a)" :class="[BADGE, TONES[endBadge(a)!.tone]]">{{ endBadge(a)!.label }}</span>
+                  </p>
+                  <p v-if="mainUser(a)" class="truncate text-[13px] text-ink-muted">
+                    {{ mainUser(a)!.display_name }} · @{{ mainUser(a)!.username }}
+                  </p>
+                  <p v-else class="text-[13px] text-danger">no users</p>
 
-                <!-- Narrow screens: no Username or Name column, so the people stack here. -->
-                <div class="mt-1 flex flex-col gap-1 text-[13px] md:hidden">
-                  <p v-if="mainUser(a)" class="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
-                    <span class="truncate text-ink">{{ mainUser(a)!.display_name }}</span>
-                    <span class="truncate text-ink-muted">@{{ mainUser(a)!.username }}</span>
+                  <!-- Narrow screens: the columns that dropped out, as lines that name themselves. -->
+                  <p v-if="otherUsers(a).length" class="text-[13px] text-ink-muted md:hidden">
+                    {{ otherUsers(a).length }} sub account{{ otherUsers(a).length === 1 ? '' : 's' }}
                   </p>
-                  <p v-else class="text-danger">no users</p>
-                  <p
-                    v-for="u in otherUsers(a)"
-                    :key="u.id"
-                    class="ml-2 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 border-l-2 border-line pl-2"
-                    :class="!u.is_active && 'opacity-60'"
-                  >
-                    <span class="truncate text-ink">{{ u.display_name }}</span>
-                    <span class="truncate text-ink-muted">@{{ u.username }}</span>
-                    <span v-for="b in badges(u)" :key="b.label" :class="[BADGE, TONES[b.tone]]">{{ b.label }}</span>
-                  </p>
-                  <!-- Phones: no Screens or Storage column either, so each figure names itself. -->
-                  <p v-if="a.expires_at" class="text-ink-muted lg:hidden" :class="a.is_expired && 'text-danger'">
+                  <p v-if="a.expires_at" class="text-[13px] text-ink-muted lg:hidden" :class="a.is_expired && '!text-danger'">
                     {{ a.is_expired ? 'Ended' : 'Active until' }} {{ lastDayText(a.expires_at) }}
                   </p>
-                  <p class="text-ink-muted sm:hidden">
+                  <p class="text-[13px] text-ink-muted sm:hidden">
                     <span :class="atScreenLimit(a) && 'text-danger'">{{ screensTextMobile(a) }}</span>
                     ·
                     <span :class="atStorageLimit(a) && 'text-danger'">{{ storageTextMobile(a) }}</span>
                   </p>
                 </div>
-              </td>
+              </div>
+            </td>
 
-              <td class="hidden truncate px-4 py-3 align-top text-ink-muted md:table-cell">
-                <span v-if="mainUser(a)">@{{ mainUser(a)!.username }}</span>
-                <span v-else class="text-danger">no users</span>
-              </td>
-              <td class="hidden truncate px-4 py-3 align-top text-ink md:table-cell">
-                {{ mainUser(a)?.display_name ?? '—' }}
-              </td>
-              <td class="hidden px-4 py-3 align-top whitespace-nowrap tabular-nums sm:table-cell"
-                  :class="atScreenLimit(a) ? 'text-danger' : 'text-ink'">
-                {{ screensText(a) }}
-              </td>
-              <td class="hidden px-4 py-3 align-top whitespace-nowrap tabular-nums sm:table-cell"
-                  :class="atStorageLimit(a) ? 'text-danger' : 'text-ink'">
-                {{ storageText(a) }}
-              </td>
-              <td class="hidden px-4 py-3 align-top whitespace-nowrap lg:table-cell"
-                  :class="a.is_expired ? 'text-danger' : a.expires_at ? 'text-ink' : 'text-ink-muted'">
-                {{ endText(a) }}
-              </td>
-              <td class="hidden px-4 py-3 align-top whitespace-nowrap text-ink-muted xl:table-cell">
-                {{ date(a.created_at) }}
-              </td>
-              <td class="px-2 py-3 align-top">
-                <!-- No menu at all on an account this person may not act on, rather than a menu
-                     whose only item answers 403. -->
-                <OverflowMenu
-                  v-if="maySetLimits(a)"
-                  v-slot="{ close }"
-                  class="ml-auto w-fit"
-                  :label="`Actions for ${a.name}`"
-                >
-                  <button type="button" role="menuitem" :class="[MENU_ITEM, 'text-ink']" @click="close(); openLimits(a)">
-                    <IconTune class="size-4 shrink-0 text-ink-muted" aria-hidden="true" />Edit limits
-                  </button>
-                  <button type="button" role="menuitem" :class="[MENU_ITEM, 'text-ink']" @click="close(); openReset(a)">
-                    <IconKey class="size-4 shrink-0 text-ink-muted" aria-hidden="true" />Reset password
-                  </button>
-                </OverflowMenu>
-              </td>
-            </tr>
+            <td class="hidden px-4 py-3 md:table-cell">
+              <span v-if="otherUsers(a).length" class="inline-flex items-center gap-1.5 text-ink tabular-nums">
+                <IconGroup class="size-4 text-ink-subtle" aria-hidden="true" />{{ otherUsers(a).length }}
+              </span>
+              <span v-else class="text-ink-subtle">None</span>
+            </td>
+            <td class="hidden px-4 py-3 sm:table-cell">
+              <p class="whitespace-nowrap tabular-nums" :class="atScreenLimit(a) ? 'text-danger' : 'text-ink'">{{ screensText(a) }}</p>
+              <div v-if="share(a.screens_used, a.max_screens) !== null" class="mt-1.5 h-1 w-24 overflow-hidden rounded-full bg-raised" aria-hidden="true">
+                <div class="h-full rounded-full" :class="atScreenLimit(a) ? 'bg-danger' : 'bg-brand'"
+                     :style="{ width: `${Math.max(share(a.screens_used, a.max_screens)!, 3)}%` }" />
+              </div>
+            </td>
+            <td class="hidden px-4 py-3 sm:table-cell">
+              <p class="whitespace-nowrap tabular-nums" :class="atStorageLimit(a) ? 'text-danger' : 'text-ink'">{{ storageText(a) }}</p>
+              <div v-if="share(a.storage_used_bytes, a.storage_quota_bytes) !== null" class="mt-1.5 h-1 w-28 overflow-hidden rounded-full bg-raised" aria-hidden="true">
+                <div class="h-full rounded-full" :class="atStorageLimit(a) ? 'bg-danger' : 'bg-brand'"
+                     :style="{ width: `${Math.max(share(a.storage_used_bytes, a.storage_quota_bytes)!, 3)}%` }" />
+              </div>
+            </td>
+            <td class="hidden px-4 py-3 whitespace-nowrap lg:table-cell"
+                :class="a.is_expired ? 'text-danger' : a.expires_at ? 'text-ink' : 'text-ink-muted'">
+              {{ endText(a) }}
+            </td>
+            <td class="px-2 py-3" @click.stop>
+              <!-- No menu at all on an account this person may not act on, rather than a menu
+                   whose only item answers 403. -->
+              <OverflowMenu
+                v-if="maySetLimits(a)"
+                v-slot="{ close }"
+                class="ml-auto w-fit"
+                :label="`Actions for ${a.name}`"
+              >
+                <button type="button" role="menuitem" :class="[MENU_ITEM, 'text-ink']" @click="close(); openLimits(a)">
+                  <IconTune class="size-4 shrink-0 text-ink-muted" aria-hidden="true" />Edit limits
+                </button>
+                <button type="button" role="menuitem" :class="[MENU_ITEM, 'text-ink']" @click="close(); openReset(a)">
+                  <IconKey class="size-4 shrink-0 text-ink-muted" aria-hidden="true" />Reset password
+                </button>
+              </OverflowMenu>
+            </td>
+          </tr>
 
-            <!-- The people the account made, a row each, under it. Only where the name columns
-                 exist; below `md` they are in the cell above instead. The account's own columns
-                 stay empty: its screens and storage are counted once, on its own row. -->
-            <tr
-              v-for="u in otherUsers(a)"
-              :key="u.id"
-              class="hidden md:table-row"
-              :class="!u.is_active && 'opacity-60'"
-            >
-              <td class="px-4 pb-3" />
-              <td class="truncate px-4 pb-3 text-[13px] text-ink-muted">
-                <span class="border-l-2 border-line pl-2">@{{ u.username }}</span>
-              </td>
-              <td class="px-4 pb-3 text-[13px]">
-                <span class="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
-                  <span class="truncate text-ink">{{ u.display_name }}</span>
-                  <span v-for="b in badges(u)" :key="b.label" :class="[BADGE, TONES[b.tone]]">{{ b.label }}</span>
-                </span>
-              </td>
-              <td class="hidden sm:table-cell" />
-              <td class="hidden sm:table-cell" />
-              <td class="hidden lg:table-cell" />
-              <td class="hidden xl:table-cell" />
-              <td />
-            </tr>
-          </tbody>
-
-          <tbody v-if="!rows.length" class="border-t border-line">
-            <tr>
-              <td colspan="8" class="px-4 py-10 text-center text-ink-muted">
-                {{ query ? 'No accounts match your search.' : 'No accounts yet.' }}
-              </td>
-            </tr>
-          </tbody>
-        </template>
+          <tr v-if="!rows.length">
+            <td colspan="6" class="px-4 py-10 text-center text-ink-muted">
+              {{ query ? 'No accounts match your search.' : 'No accounts yet.' }}
+            </td>
+          </tr>
+        </tbody>
       </table>
     </div>
+
+    <!-- One account in full. Held open while a dialog from it is up, so Escape closes the dialog
+         first and leaves the panel where it was. -->
+    <AppDrawer
+      v-if="selected"
+      :label="`Organization ${selected.name}`"
+      :dismissible="!editing && !resetting && !adding"
+      @close="selectedId = null"
+    >
+      <AccountDetailsContainer
+        :account="selected"
+        :can-act="maySetLimits(selected)"
+        @edit-limits="openLimits(selected)"
+        @reset-password="openReset(selected)"
+      />
+    </AppDrawer>
 
     <!-- Create -->
     <AppModal v-if="adding" title="New account" @close="adding = false">
@@ -464,11 +429,13 @@ const MENU_ITEM = 'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-le
           A client account: a customer, with access to the CMS only.
         </p>
 
-        <AppInput id="a-name" v-model="form.name" label="Account name" required placeholder="Kopi Kenangan Jakarta" />
+        <AppInput id="a-name" v-model="form.name" label="Organization" required placeholder="Kopi Kenangan Jakarta"
+                  hint="The company or shop this account is for." />
         <p class="pt-1 text-[12px] font-medium tracking-wider text-ink-subtle uppercase">Main user</p>
         <AppInput id="a-username" v-model="form.username" label="Username" required
                   hint="They sign in with this. Letters, digits, dot, underscore, hyphen." />
-        <AppInput id="a-display" v-model="form.display_name" label="Name" required />
+        <AppInput id="a-display" v-model="form.display_name" label="Full name" required placeholder="Budi Santoso"
+                  hint="The person who signs in, not the organization." />
         <AppInput id="a-password" v-model="form.password" label="Password" type="password" required
                   hint="Temporary: they choose their own when they first sign in, so you never know it. At least 8 characters." />
         <p class="pt-1 text-[12px] font-medium tracking-wider text-ink-subtle uppercase">Limits</p>
