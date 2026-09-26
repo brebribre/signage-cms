@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import IconAdd from '~icons/material-symbols/add'
 import IconArrowBack from '~icons/material-symbols/arrow-back'
+import IconSearch from '~icons/material-symbols/search'
 
 import { useFormat } from '@/hooks/useFormat'
 import { usePlaylists } from '@/hooks/usePlaylists'
@@ -32,6 +33,13 @@ const adding = ref(route.query.new === '1')
 const newName = ref('')
 // Opened once; a reload shouldn't keep reopening the dialog.
 if (route.query.new) router.replace({ query: { ...route.query, new: undefined } })
+
+/** Search by name — as you type, newest-changed first as before. */
+const query = ref('')
+const visible = computed(() => {
+  const q = query.value.trim().toLowerCase()
+  return q ? items.value.filter((p) => p.name.toLowerCase().includes(q)) : items.value
+})
 
 async function onCreate() {
   const id = await create(newName.value)
@@ -81,9 +89,32 @@ async function onCreate() {
       </template>
     </EmptyState>
 
+    <template v-else>
+    <label class="relative block sm:w-72">
+      <IconSearch class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-subtle" aria-hidden="true" />
+      <input
+        v-model="query"
+        type="search"
+        placeholder="Search playlists"
+        aria-label="Search playlists by name"
+        class="w-full rounded-lg border border-line-strong bg-canvas py-2 pr-3 pl-9 text-sm text-ink
+               focus:border-brand focus:outline-none"
+      />
+    </label>
+
+    <EmptyState
+      v-if="!visible.length"
+      title="No playlists match"
+      :description="`Nothing is called “${query.trim()}”.`"
+    >
+      <template #actions>
+        <AppButton variant="secondary" size="sm" @click="query = ''">Show all playlists</AppButton>
+      </template>
+    </EmptyState>
+
     <div v-else class="flex flex-col gap-2">
       <AppCard
-        v-for="p in items"
+        v-for="p in visible"
         :key="p.id"
         interactive
         @click="router.push({ name: 'playlist-detail', params: { id: p.id } })"
@@ -113,6 +144,7 @@ async function onCreate() {
         </div>
       </AppCard>
     </div>
+    </template>
 
     <AppModal v-if="adding" title="New playlist" @close="adding = false">
       <form @submit.prevent="onCreate">

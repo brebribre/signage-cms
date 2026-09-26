@@ -47,6 +47,8 @@ class CampaignSummary(BaseModel):
     rule_count: int
     # Distinct playlists across the rules — a schedule can use one playlist in several windows.
     playlist_count: int
+    # Which ones, in rule order — so the list can name them and search by them.
+    playlist_ids: list[uuid.UUID] = []
     created_at: datetime
     updated_at: datetime
 

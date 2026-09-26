@@ -456,6 +456,8 @@ export interface CampaignSummary {
   rule_count: number
   /** Distinct playlists across the rules. */
   playlist_count: number
+  /** Which ones, in rule order. */
+  playlist_ids: string[]
   created_at: string
   updated_at: string
 }

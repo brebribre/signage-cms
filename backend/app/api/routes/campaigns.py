@@ -59,6 +59,7 @@ def _summarize(session: DbSession, campaign) -> CampaignSummary:
         device_count=len(device_ids),
         rule_count=len(rules),
         playlist_count=len({r.playlist_id for r in rules}),
+        playlist_ids=list(dict.fromkeys(r.playlist_id for r in rules)),
         created_at=campaign.created_at,
         updated_at=campaign.updated_at,
     )
