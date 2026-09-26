@@ -41,8 +41,17 @@ const en = {
   },
   /** A statement: the lead in ink, the rest in grey at the same size. */
   features: {
-    lead: 'Marien is a CMS for Digital Signage.',
+    lead: 'Marien is a Content Management System for Digital Signage.',
     rest: 'Connect a screen, design what it plays, and publish everywhere at once.',
+  },
+  /** What people run Marien for, each shown on a real-looking screen. */
+  uses: {
+    label: 'What Marien is for',
+    items: [
+      { tag: 'Advertising', title: 'Promotions that stop people walking.', body: 'Run ads on the screens where the crowds are, and change them from your phone in seconds.', alt: 'A Marien signage totem in a busy mall, playing a café promotion' },
+      { tag: 'Information sharing', title: 'Information, right where people look.', body: 'Timetables, notices and directions on every screen, always up to date.', alt: 'A Marien screen above a crowded station hall, showing the next departures' },
+      { tag: 'Interactive media', title: 'Screens people can touch.', body: 'Put a website on a touch screen, and let visitors find their own way.', alt: 'A shopper tapping a mall directory website on a Marien touch screen' },
+    ],
   },
   connect: {
     title: 'Connect your screens',

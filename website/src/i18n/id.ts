@@ -33,8 +33,16 @@ const id: Messages = {
     items: ['Kafe', 'LOBI', 'klinik', 'Ritel', 'KAMPUS', 'Restoran', 'Hotel', 'SHOWROOM'],
   },
   features: {
-    lead: 'Marien adalah CMS untuk Digital Signage.',
+    lead: 'Marien adalah Sistem Manajemen Konten untuk Digital Signage.',
     rest: 'Hubungkan layar, rancang tayangannya, dan publikasikan ke semua layar sekaligus.',
+  },
+  uses: {
+    label: 'Untuk apa Marien dipakai',
+    items: [
+      { tag: 'Iklan', title: 'Promosi yang bikin orang berhenti.', body: 'Tayangkan iklan di layar tempat orang ramai, dan ganti dari HP dalam hitungan detik.', alt: 'Totem signage Marien di mal yang ramai, menayangkan promo kafe' },
+      { tag: 'Berbagi informasi', title: 'Informasi, tepat di tempat orang melihat.', body: 'Jadwal, pengumuman, dan petunjuk arah di setiap layar, selalu terbaru.', alt: 'Layar Marien di atas aula stasiun yang ramai, menampilkan jadwal keberangkatan' },
+      { tag: 'Media interaktif', title: 'Layar yang bisa disentuh.', body: 'Tayangkan situs web di layar sentuh, dan biarkan pengunjung mencari sendiri.', alt: 'Pengunjung menyentuh situs direktori mal di layar sentuh Marien' },
+    ],
   },
   connect: {
     title: 'Hubungkan layar Anda',
