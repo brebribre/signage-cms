@@ -9,9 +9,11 @@
  * while an image decodes.
  */
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import IconArrowForward from '~icons/material-symbols/arrow-forward'
 
 import BrowserFrame from './BrowserFrame.vue'
 import FeatureCard from './FeatureCard.vue'
+import { SECONDARY } from '@/data/buttons'
 import { useI18n } from '@/i18n'
 
 /** The shots and their window titles are the CMS's own, in English; the words are the page's. */
@@ -88,6 +90,11 @@ onBeforeUnmount(stop)
           </span>
         </button>
       </div>
+
+      <!-- Every feature, each on a card of its own like this one. -->
+      <a href="/features" :class="SECONDARY" class="mt-5 inline-flex items-center gap-2 px-5 py-2.5 text-sm">
+        {{ m.design.seeAll }} <IconArrowForward class="size-4" />
+      </a>
 
       <template #visual>
         <!-- Running off the card's right and bottom edges. -->

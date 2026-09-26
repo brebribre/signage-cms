@@ -16,7 +16,7 @@ const en = {
   nav: {
     label: 'Site',
     menu: 'Menu',
-    links: { screens: 'Screens', content: 'Content', publish: 'Publish', platforms: 'Platforms', faq: 'FAQ', home: 'Home', demo: 'Demo' },
+    links: { screens: 'Screens', content: 'Content', publish: 'Publish', platforms: 'Platforms', faq: 'FAQ', home: 'Home', features: 'Features', demo: 'Demo' },
     signIn: 'Sign in',
     requestAccess: 'Request access',
   },
@@ -73,6 +73,7 @@ const en = {
   design: {
     tablist: 'The editor',
     inPaskall: 'in Paskall',
+    seeAll: 'See all features',
     tabs: [
       { label: 'Design', title: 'Design your content.', text: 'Photos, video, websites and text, at the screen’s real shape.' },
       { label: 'Playlist', title: 'Play them in order.', text: 'Set the order, and how long each one plays.' },
@@ -107,6 +108,15 @@ const en = {
     lead: 'Observe from anywhere.',
     rest: 'Paskall CMS works on your phone, tablet and monitor.',
     monitorAlt: 'The Paskall dashboard on a monitor',
+  },
+  featuresPage: {
+    metaTitle: 'Paskall. Features',
+    lead: 'Everything in Paskall.',
+    rest: 'From the first design to the team that runs your screens.',
+    more: [
+      { label: 'Users', title: 'Delegate tasks.', text: 'Give each teammate their own sign-in, limited to the screens you choose.' },
+      { label: 'Reviews', title: 'Review before it airs.', text: 'Changes from your team wait for your approval before they reach a screen.' },
+    ],
   },
   demo: {
     metaTitle: 'Paskall. Demo',

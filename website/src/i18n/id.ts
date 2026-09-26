@@ -10,7 +10,7 @@ const id: Messages = {
   nav: {
     label: 'Situs',
     menu: 'Menu',
-    links: { screens: 'Layar', content: 'Konten', publish: 'Publikasi', platforms: 'Platform', faq: 'FAQ', home: 'Beranda', demo: 'Demo' },
+    links: { screens: 'Layar', content: 'Konten', publish: 'Publikasi', platforms: 'Platform', faq: 'FAQ', home: 'Beranda', features: 'Fitur', demo: 'Demo' },
     signIn: 'Masuk',
     requestAccess: 'Request Akses',
   },
@@ -64,6 +64,7 @@ const id: Messages = {
   design: {
     tablist: 'Editor',
     inPaskall: 'di Paskall',
+    seeAll: 'Lihat semua fitur',
     tabs: [
       { label: 'Desain', title: 'Desain konten Anda.', text: 'Foto, video, situs web, dan teks, sesuai bentuk asli layar.' },
       { label: 'Playlist', title: 'Putar secara berurutan.', text: 'Atur urutan dan lama tayang masing-masing.' },
@@ -98,6 +99,15 @@ const id: Messages = {
     lead: 'Pantau dari mana saja.',
     rest: 'Paskall CMS bisa dipakai di ponsel, tablet, dan monitor.',
     monitorAlt: 'Dasbor Paskall di monitor',
+  },
+  featuresPage: {
+    metaTitle: 'Paskall. Fitur',
+    lead: 'Semua fitur Paskall.',
+    rest: 'Dari desain pertama hingga tim yang mengelola layar Anda.',
+    more: [
+      { label: 'Pengguna', title: 'Bagikan tugas.', text: 'Beri setiap anggota tim akun sendiri, hanya untuk layar yang Anda pilih.' },
+      { label: 'Tinjauan', title: 'Tinjau sebelum tayang.', text: 'Perubahan dari tim Anda menunggu persetujuan Anda sebelum sampai ke layar.' },
+    ],
   },
   demo: {
     metaTitle: 'Paskall. Demo',

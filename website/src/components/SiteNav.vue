@@ -6,17 +6,16 @@ import IconMenu from '~icons/material-symbols/menu'
 import LocaleSwitch from './LocaleSwitch.vue'
 import wordmark from '@/assets/paskall-wordmark.png'
 import { homeSection } from '@/composables/usePage'
+import { PRIMARY, SECONDARY } from '@/data/buttons'
 import { useI18n } from '@/i18n'
 
 const { m } = useI18n()
-/** The site's two pages. Sign in and Request access are buttons, beside them. */
+/** The site's pages. Sign in and Request access are buttons, beside them. */
 const LINKS = computed(() => [
   { href: homeSection('top'), label: m.value.nav.links.home },
+  { href: '/features', label: m.value.nav.links.features },
   { href: '/demo', label: m.value.nav.links.demo },
 ])
-/** The hero's two button looks, so every button on the site is the same shape. */
-const PRIMARY = 'rounded-lg bg-action font-medium text-white transition-colors hover:bg-action-hover'
-const SECONDARY = 'rounded-lg bg-white/80 font-medium text-ink ring-1 ring-ink/70 backdrop-blur transition-colors hover:bg-ink hover:text-white'
 const open = ref(false)
 /** Clear over the hero at the top; white, with a hairline and a little blur, once the page
  *  moves under it. */
