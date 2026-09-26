@@ -95,7 +95,7 @@ const en = {
     failed: 'Couldn’t load the list right now.',
   },
   how: {
-    lead: 'Turn your screens into a billboard',
+    lead: 'Turn your screen into a billboard',
     rest: 'in less than 5 minutes.',
   },
   /** The first of the feature cards: the two things to set up before anything else. */

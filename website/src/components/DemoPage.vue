@@ -10,6 +10,14 @@ import { track } from '@/composables/useAnalytics'
 import { useI18n } from '@/i18n'
 
 const { m } = useI18n()
+/** The demo plays at 1.5×: it is a recording of real clicks, and at 1× the waits drag. Set as
+ *  the default rate too, so it survives the browser resetting the rate when the video loads. */
+const SPEED = 1.5
+function fast(e: Event) {
+  const v = e.target as HTMLVideoElement
+  v.defaultPlaybackRate = SPEED
+  v.playbackRate = SPEED
+}
 // Runs after the i18n module's own title effect, so this page's title wins, in either language.
 watchEffect(() => { document.title = m.value.demo.metaTitle })
 </script>
@@ -30,6 +38,7 @@ watchEffect(() => { document.title = m.value.demo.metaTitle })
         class="block aspect-[9/16] w-full rounded-lg"
         src="/media/marien-demo-portrait.mp4"
         @play.once="track('demo_video_play', { cut: 'portrait' })"
+        @loadedmetadata="fast"
         poster="/media/marien-demo-portrait-poster.webp"
         :aria-label="m.demo.videoLabel"
         controls
@@ -42,6 +51,7 @@ watchEffect(() => { document.title = m.value.demo.metaTitle })
         class="block aspect-video w-full rounded-xl"
         src="/media/marien-demo.mp4"
         @play.once="track('demo_video_play', { cut: 'wide' })"
+        @loadedmetadata="fast"
         poster="/media/marien-demo-poster.webp"
         :aria-label="m.demo.videoLabel"
         controls
