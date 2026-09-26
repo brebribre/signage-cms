@@ -25,6 +25,12 @@ router = APIRouter(tags=["player"])
 DOCS_RELEASES_URL = "https://docs.marien.co.id/player-releases/"
 
 
+def _apk_name(version: str) -> str:
+    """What a downloaded build is saved as. The files in R2 keep their original
+    `fortu-player-<version>.apk` keys, which screens' self-updates also use."""
+    return f"marien-player-{version}.apk"
+
+
 @router.get("/player/download")
 def download_latest_apk(session: DbSession) -> RedirectResponse:
     """Redirects to a fresh presigned URL for whichever build is currently active — see
@@ -38,7 +44,9 @@ def download_latest_apk(session: DbSession) -> RedirectResponse:
     if rollout is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "No player build has been published yet")
     settings = get_settings()
-    url = storage.presign_get(rollout.apk_key, settings.device_presign_ttl_seconds)
+    url = storage.presign_get(
+        rollout.apk_key, settings.device_presign_ttl_seconds, download_name=_apk_name(rollout.version)
+    )
     return RedirectResponse(url, status_code=status.HTTP_302_FOUND)
 
 
@@ -50,7 +58,9 @@ def download_apk_version(version: str) -> RedirectResponse:
     if release is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"No build published for version {version}")
     settings = get_settings()
-    url = storage.presign_get(release.key, settings.device_presign_ttl_seconds)
+    url = storage.presign_get(
+        release.key, settings.device_presign_ttl_seconds, download_name=_apk_name(release.version)
+    )
     return RedirectResponse(url, status_code=status.HTTP_302_FOUND)
 
 

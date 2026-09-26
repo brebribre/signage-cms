@@ -59,12 +59,19 @@ def presign_put(key: str, content_type: str, ttl: int | None = None) -> str:
     )
 
 
-def presign_get(key: str, ttl: int | None = None) -> str:
-    """A short-lived read URL. The bucket is private; there are no public URLs anywhere."""
+def presign_get(key: str, ttl: int | None = None, download_name: str | None = None) -> str:
+    """A short-lived read URL. The bucket is private; there are no public URLs anywhere.
+
+    `download_name` makes a browser save the file under that name rather than the last part of
+    the key — the key is the storage name, which need not be the one a person should see.
+    """
     settings = get_settings()
+    params = {"Bucket": settings.r2_bucket, "Key": key}
+    if download_name:
+        params["ResponseContentDisposition"] = f'attachment; filename="{download_name}"'
     return _client().generate_presigned_url(
         "get_object",
-        Params={"Bucket": settings.r2_bucket, "Key": key},
+        Params=params,
         ExpiresIn=ttl or settings.presign_get_ttl_seconds,
     )
 
