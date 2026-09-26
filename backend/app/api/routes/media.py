@@ -36,6 +36,12 @@ def _read(media: Media, used_in: list[str] | None = None) -> MediaRead:
     )
 
 
+
+def _mb(n: int) -> str:
+    """A size as people say it: "32 MB", "1.2 GB"."""
+    mb = n / 1_048_576
+    return f"{mb / 1024:.1f} GB" if mb >= 1024 else f"{mb:.0f} MB" if mb >= 10 else f"{mb:.1f} MB"
+
 @router.post("/media/uploads", response_model=UploadResponse, status_code=status.HTTP_201_CREATED)
 def start_upload(body: UploadRequest, user: CurrentUser, session: DbSession) -> UploadResponse:
     """Reserve a media row and return presigned URLs to PUT the file to."""
@@ -54,9 +60,11 @@ def start_upload(body: UploadRequest, user: CurrentUser, session: DbSession) -> 
             "Video must be h.264 in MP4 — it is the only codec every signage screen decodes "
             "in hardware.",
         ) from None
-    except FileTooLarge:
+    except FileTooLarge as exc:
+        noun = "Videos" if exc.kind == MediaKind.VIDEO else "Pictures"
         raise HTTPException(
-            status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "That file is too large"
+            status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            f"{body.filename} is {_mb(exc.size_bytes)}. {noun} can be up to {_mb(exc.limit_bytes)}.",
         ) from None
     except QuotaExceeded as exc:
         # 507 rather than 413: the file itself is fine, the account is full. The distinction

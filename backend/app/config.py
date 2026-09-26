@@ -37,7 +37,14 @@ class Settings(BaseSettings):
     # allowance. So this is our own line, not Cloudflare's: raise it on the plan you move to.
     r2_storage_limit_gb: float = 10.0
 
-    media_max_bytes: int = 500 * 1024 * 1024
+    # The biggest single file an upload may be, by kind. Pictures: a full-size phone photo is
+    # 5–15 MB, so 25 MB covers anything real while refusing the 200 MB TIFF that would strain the
+    # converter and every cheap TV box showing it. Videos: 500 MB is ~10 minutes of Full HD or 3–4
+    # of 4K, far past a signage loop, and the server keeps two more copies of each. (Other CMSs:
+    # OptiSigns 1 GB, NoviSign 100 MB; Yodeck and ScreenCloud 5 GB on far bigger transcoders.)
+    # The CMS reads these from GET /limits, so changing one here changes both sides.
+    media_max_image_bytes: int = 25 * 1024 * 1024
+    media_max_video_bytes: int = 500 * 1024 * 1024
     presign_put_ttl_seconds: int = 3600
     presign_get_ttl_seconds: int = 3600
     # Longer than the CMS's: a screen may be pulling a large file over bad wifi.

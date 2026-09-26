@@ -4,6 +4,7 @@ import { computed, reactive, ref } from 'vue'
 import { ApiError } from '@/api/request'
 import { useMediaApi } from '@/api/useMediaApi'
 import type { MediaRead } from '@/types/api'
+import { useUploadLimits } from '@/hooks/useUploadLimits'
 
 export interface UploadJob {
   id: string
@@ -287,8 +288,12 @@ export function useMediaUpload(onUploaded?: (media: MediaRead) => void) {
     }
   }
 
+  const { tooLarge } = useUploadLimits()
+
   function add(files: File[] | FileList) {
     for (const file of Array.from(files)) {
+      // Too big is said here, on the file's own row, before a byte moves — the rest still go.
+      const refused = tooLarge(file, mediaContentType(file))
       // `reactive`, not a plain object. Pushing a raw object into `jobs` and then mutating
       // that same raw reference from `runOne` writes straight past the reactive proxy, so
       // nothing is notified: the computed `isUploading` stays cached at true and the row
@@ -297,12 +302,12 @@ export function useMediaUpload(onUploaded?: (media: MediaRead) => void) {
         id: crypto.randomUUID(),
         file,
         name: file.name,
-        status: 'queued',
+        status: refused ? 'failed' : 'queued',
         progress: 0,
-        error: null,
+        error: refused,
       })
       jobs.value.push(job)
-      queue.push(job)
+      if (!refused) queue.push(job)
     }
     pump()
   }

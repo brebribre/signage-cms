@@ -21,6 +21,9 @@ class LimitsRead(BaseModel):
     storage_used_bytes: int
     storage_quota_bytes: int | None
     file_count: int
+    # The biggest single file an upload may be, by kind — the same for every account.
+    max_image_bytes: int
+    max_video_bytes: int
 
 
 class DeviceHealthRead(BaseModel):

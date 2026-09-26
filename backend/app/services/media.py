@@ -49,7 +49,18 @@ class UnsupportedMediaType(DomainError):
 
 
 class FileTooLarge(DomainError):
-    pass
+    """Past the per-file limit for its kind. Carries the kind and the limit, so the refusal can
+    say exactly what the rule is."""
+
+    def __init__(self, kind: "MediaKind", size_bytes: int, limit_bytes: int):
+        self.kind, self.size_bytes, self.limit_bytes = kind, size_bytes, limit_bytes
+        super().__init__(f"{kind} {size_bytes} > {limit_bytes}")
+
+
+def max_bytes(kind: "MediaKind") -> int:
+    """The biggest single file of this kind an upload may be (config: media_max_*_bytes)."""
+    settings = get_settings()
+    return settings.media_max_video_bytes if kind == MediaKind.VIDEO else settings.media_max_image_bytes
 
 
 class UploadNotFound(DomainError):
@@ -90,13 +101,11 @@ def start_upload(
     confirms the object exists. That is what makes an abandoned upload harmless rather than a
     broken tile in the library.
     """
-    settings = get_settings()
-
     kind = ALLOWED_MIME.get(content_type)
     if kind is None:
         raise UnsupportedMediaType(content_type)
-    if size_bytes <= 0 or size_bytes > settings.media_max_bytes:
-        raise FileTooLarge(str(size_bytes))
+    if size_bytes > max_bytes(kind):
+        raise FileTooLarge(kind, size_bytes, max_bytes(kind))
 
     # Refused here, before a presigned URL exists — the only point where saying no is still
     # clean. Once the browser is PUTting to R2 the bytes are already being paid for, and

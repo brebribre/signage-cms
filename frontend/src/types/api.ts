@@ -554,6 +554,9 @@ export interface LimitsRead {
   storage_used_bytes: number
   storage_quota_bytes: number | null
   file_count: number
+  /** The biggest single file an upload may be, by kind — the same for every account. */
+  max_image_bytes: number
+  max_video_bytes: number
 }
 
 export interface DeviceHealthRead {

@@ -3,6 +3,7 @@ import { computed } from 'vue'
 
 import { useAccountExpiry } from '@/hooks/useAccountExpiry'
 import { useAccountLimits } from '@/hooks/useAccountLimits'
+import { sizeLabel } from '@/hooks/useUploadLimits'
 import { useFormat } from '@/hooks/useFormat'
 import AppAlert from '@/reusables/AppAlert.vue'
 import AppCard from '@/reusables/AppCard.vue'
@@ -51,6 +52,13 @@ const rows = computed(() => {
         + (l.storage_quota_bytes !== null && l.storage_used_bytes >= l.storage_quota_bytes
           ? ' The quota is full: delete files you no longer use, or ask for more space.'
           : ''),
+    },    {
+      key: 'file-size',
+      label: 'Largest file',
+      used: `Pictures ${sizeLabel(l.max_image_bytes)}`,
+      limit: `· videos ${sizeLabel(l.max_video_bytes)}`,
+      fraction: null,
+      note: 'The biggest single file an upload can be. The same for every account.',
     },
   ]
 })

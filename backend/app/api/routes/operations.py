@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.api.deps import CurrentUser, DbSession, DeviceForUser
+from app.config import get_settings
 from app.models import Account, Media, MediaStatus
 from app.schemas.operations import (
     FleetEventRead,
@@ -52,6 +53,8 @@ def limits(user: CurrentUser, session: DbSession) -> LimitsRead:
         storage_used_bytes=operations.storage_used(session, user.account_id),
         storage_quota_bytes=account.storage_quota_bytes if account else None,
         file_count=int(count),
+        max_image_bytes=get_settings().media_max_image_bytes,
+        max_video_bytes=get_settings().media_max_video_bytes,
     )
 
 

@@ -18,6 +18,7 @@ import ProgressBar from '@/reusables/ProgressBar.vue'
 import SkeletonBlock from '@/reusables/SkeletonBlock.vue'
 import SkeletonList from '@/reusables/SkeletonList.vue'
 import { ACCEPTED_MEDIA, SUPPORTED_FILE_TYPES } from '@/utils/mediaTypes'
+import { useUploadLimits } from '@/hooks/useUploadLimits'
 
 const router = useRouter()
 const { items, visible, counts, filter, isLoading, error, prepend, removeMany, refresh } = useMedia()
@@ -115,6 +116,9 @@ const STATUS_LABEL: Record<string, string> = {
   done: 'Done',
   failed: 'Failed',
 }
+
+/** Pictures up to 25 MB, videos up to 500 MB — from the server's own settings. */
+const { sizeHint } = useUploadLimits()
 </script>
 
 <template>
@@ -124,7 +128,7 @@ const STATUS_LABEL: Record<string, string> = {
     <DropZone
       :accept="ACCEPTED_MEDIA"
       label="Drop images or videos here"
-      :hint="SUPPORTED_FILE_TYPES"
+      :hint="[...SUPPORTED_FILE_TYPES, sizeHint]"
       @files="add"
     />
 
