@@ -50,13 +50,7 @@ const en = {
     statUnder: 'Under',
     statValue: '1 min',
     statCaption: 'To connect a new screen',
-    live: 'Live',
-    photoAlt: 'A cafe screen run by Paskall',
-    screens: [
-      { name: 'Lobby TV', kind: 'Android box' },
-      { name: 'Entrance totem', kind: 'Smart TV' },
-      { name: 'Cafe screen', kind: 'Browser' },
-    ],
+    photoAlt: 'The pairing code on a new Paskall screen',
   },
   design: {
     tablist: 'The editor',

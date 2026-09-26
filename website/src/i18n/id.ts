@@ -42,13 +42,7 @@ const id: Messages = {
     statUnder: 'Kurang dari',
     statValue: '1 menit',
     statCaption: 'Untuk menghubungkan layar baru',
-    live: 'Aktif',
-    photoAlt: 'Layar kafe yang dijalankan Paskall',
-    screens: [
-      { name: 'TV Lobi', kind: 'Android box' },
-      { name: 'Totem pintu masuk', kind: 'Smart TV' },
-      { name: 'Layar kafe', kind: 'Browser' },
-    ],
+    photoAlt: 'Kode pemasangan di layar Paskall yang baru',
   },
   design: {
     tablist: 'Editor',
