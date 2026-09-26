@@ -26,7 +26,9 @@ function nudge(dir: 1 | -1) {
   if (el) el.scrollBy({ left: dir * Math.min(el.clientWidth * 0.8, 480), behavior: 'smooth' })
 }
 const ARROW = 'flex size-11 items-center justify-center rounded-full bg-white text-ink ring-1 ring-line-strong transition-colors hover:bg-ink hover:text-white'
-const CARD = 'reveal w-[85vw] shrink-0 snap-start sm:w-[26rem]'
+/** No reveal on each card: a card peeking in from the side counts as off screen, so it would stay
+ *  hidden until scrolled to. The row fades in as one instead. */
+const CARD = 'w-[85vw] shrink-0 snap-start sm:w-[26rem]'
 
 </script>
 
@@ -54,7 +56,7 @@ const CARD = 'reveal w-[85vw] shrink-0 snap-start sm:w-[26rem]'
          card lined up with the heading; the arrows beside the heading move it. -->
     <div
       ref="row"
-      class="card-row relative left-1/2 mt-8 flex w-screen -translate-x-1/2 snap-x snap-mandatory gap-4 overflow-x-auto pb-4 [scrollbar-width:none] sm:mt-10 sm:gap-6 [&::-webkit-scrollbar]:hidden"
+      class="card-row reveal relative left-1/2 mt-8 flex w-screen -translate-x-1/2 snap-x snap-mandatory gap-4 overflow-x-auto pb-4 [scrollbar-width:none] sm:mt-10 sm:gap-6 [&::-webkit-scrollbar]:hidden"
     >
       <SiteConnect :class="CARD" />
       <SiteDesign :class="CARD" class="sm:w-[40rem]" />
