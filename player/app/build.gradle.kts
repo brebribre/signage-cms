@@ -27,10 +27,11 @@ android {
         // The API base URL is compiled in, not configured on the device — a screen with no
         // keyboard cannot be asked to type one. Override per build:
         //   ./gradlew assembleRelease -PapiBaseUrl=https://your-api.example.com
-        // The API's own domain since 1.3.8 (2026-09-22). Builds before that carry the old
-        // Railway address, which stays reachable for them.
+        // The API's own domain: api.marien.co.id since 1.4.4 (2026-09-26). 1.3.8 to 1.4.3 carry
+        // api.paskall.co.id, and builds before those the old Railway address; each stays
+        // reachable until no screen runs such a build.
         val apiBaseUrl = (project.findProperty("apiBaseUrl") as String?)
-            ?: "https://api.paskall.co.id"
+            ?: "https://api.marien.co.id"
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
         // Plain HTTP is only ever allowed for a build that was explicitly pointed at a plain-HTTP
         // backend (a developer's own machine). The production address is HTTPS, so a production
