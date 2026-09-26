@@ -1,5 +1,9 @@
 # Security review — 26 September 2026
 
+> **C1 and H1 are fixed** (26 September). The rollout control plane is now Paskall-only, and a
+> malformed web address answers 400 instead of killing the site. Both fixes are verified below,
+> in place. Everything else in this document is still open.
+
 A review of whether one customer can reach another customer's screens, and whether the platform
 can be broken into. Written as a punch list to work through before real customers are onboarded,
 not as a list of incidents. Production currently holds two staff accounts and no paying
@@ -36,8 +40,8 @@ if you want the 43 attacks re-run on every change.
 
 | # | Finding | Severity | How confirmed |
 |---|---|---|---|
-| C1 | Any customer can push an app build to every screen on the platform | **Critical** | Live, twice |
-| H1 | One malformed web address kills any of the four sites | **High** | Live, locally |
+| C1 | ~~Any customer can push an app build to every screen on the platform~~ **FIXED** | **Critical** | Live, twice |
+| H1 | ~~One malformed web address kills any of the four sites~~ **FIXED** | **High** | Live, locally |
 | H2 | Nothing slows down password guessing on either sign-in | **High** | Live, production |
 | H3 | The sign-in form is also a cheap way to exhaust server memory | **High** | Reasoned |
 | H4 | Signing out does not end the session | **High** | Live |
@@ -63,7 +67,7 @@ if you want the 43 attacks re-run on every change.
 
 ## Critical
 
-### C1. Any customer can push an app build to every screen on the platform
+### C1. Any customer can push an app build to every screen on the platform — FIXED
 
 **Where:** [`backend/app/api/routes/player_rollouts.py`](backend/app/api/routes/player_rollouts.py), lines 34, 46, 56 and 71.
 
@@ -111,11 +115,27 @@ real path is a command-line script. So changing the guard costs nothing in the i
 - Decide separately whether customers should keep seeing the build list, which the per-screen
   version picker does use. See M12.
 
+**What was done.** A new `RequirePlatformOwner` guard, narrower than `RequireStaff`: the main user
+of the one owner account and nobody else. A technician services their own clients and has no
+business deciding what every other customer's screens run, so they are refused too. It now guards
+the rollout timeline, scheduling and cancelling. The build list stays on `RequireOwner` because the
+CMS version picker reads it, which leaves the reads half of M12 open on purpose. Verified after the
+change:
+
+| Caller | List builds | Timeline | Schedule | Cancel |
+|---|---|---|---|---|
+| Customer | 200 | 403 | 403 | 403 |
+| Technician | 200 | 403 | 403 | 403 |
+| Paskall | 200 | 200 | 201 | 204 |
+
+There is nothing to scope a rollout id against, because the table is platform-wide by design, so
+that guard is deliberately the whole defence and the code now says so.
+
 ---
 
 ## High
 
-### H1. One malformed web address kills any of the four sites
+### H1. One malformed web address kills any of the four sites — FIXED
 
 **Where:** line 50 of [`frontend/server.mjs`](frontend/server.mjs), and the same line in the monitoring, web player and
 website servers.
@@ -135,8 +155,18 @@ One request, no account needed, and the process is dead. Railway restarts it, so
 sustained outage. All four sites share the code, including the web player origin that every
 browser-based screen loads from.
 
-**Fix:** wrap the decode in a try/catch and answer 400, and add a top-level handler so an
-unexpected throw cannot take the process down. Four near-identical files.
+**What was done.** All four servers now decode through a helper that returns null instead of
+throwing, and answer 400 to a malformed address. Each also has a process-level handler, so a throw
+anywhere else cannot take the site down either. Verified after the change:
+
+```
+GET /%                      -> 400        GET /%zz         -> 400
+GET /%E0%A4%A               -> 400        GET /app%        -> 400
+GET /                       -> 200        still serving
+```
+
+Directory traversal was already blocked and still is: `/..%2f..%2fetc%2fpasswd` returns the app's
+own page, and the same path with a file extension returns 404.
 
 ### H2. Nothing slows down password guessing on either sign-in
 

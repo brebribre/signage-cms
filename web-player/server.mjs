@@ -49,8 +49,26 @@ function serveVersion(res) {
   res.end(JSON.stringify({ version: `web-${version}`, build: BUILD, apiHost: backend.host }))
 }
 
+// A browser will not send one, but anyone can: `GET /%` is not valid percent-encoding, and
+// decodeURIComponent throws URIError on it. Thrown from inside a request handler that is the
+// whole process — Node has no default catch there, so one unauthenticated request used to end
+// the server, and Railway would restart it into the next one. See SECURITY_REVIEW.md, H1.
+function decodePath(rawUrl) {
+  const path = (rawUrl ?? '/').split('?')[0]
+  try {
+    return decodeURIComponent(path)
+  } catch {
+    return null
+  }
+}
+
 function serveStatic(req, res) {
-  const urlPath = decodeURIComponent(req.url.split('?')[0])
+  const urlPath = decodePath(req.url)
+  if (urlPath === null) {
+    res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' })
+    res.end('Bad request')
+    return
+  }
   let filePath = join(DIST, urlPath)
   const missing = !filePath.startsWith(DIST) || !existsSync(filePath) || statSync(filePath).isDirectory()
 
@@ -111,4 +129,14 @@ createServer((req, res) => {
   else serveStatic(req, res)
 }).listen(PORT, () => {
   console.log(`Fortu web player (web-${version}, build ${BUILD}) on :${PORT}, proxying /api/* to ${BACKEND_URL}`)
+})
+
+// Last line of defence. Everything above is meant to answer rather than throw, but a handler
+// that throws must not be able to take the site down with it — the failure mode is an outage
+// for every screen and every customer, from one bad request.
+process.on('uncaughtException', (err) => {
+  console.error('uncaught exception, staying up:', err)
+})
+process.on('unhandledRejection', (err) => {
+  console.error('unhandled rejection, staying up:', err)
 })

@@ -13,7 +13,7 @@ from sqlmodel import Session
 
 from app.config import get_settings
 from app.infra.db import session_scope
-from app.models import Account, Device, DeviceAccess, User, UserRole
+from app.models import Account, AccountKind, Device, DeviceAccess, User, UserRole
 from app.services import admin as admin_service
 from app.services import devices as device_service
 from app.services.session import read_session_token
@@ -144,6 +144,26 @@ def require_staff(user: CurrentUser, session: DbSession) -> User:
 
 
 RequireStaff = Annotated[User, Depends(require_staff)]
+
+
+def require_platform_owner(user: CurrentUser, session: DbSession) -> User:
+    """Paskall itself — the main user of the one owner account, and nobody else.
+
+    Narrower than `RequireStaff` on purpose. Staff includes technicians, whose reach is meant to
+    stop at their own client accounts; this guards the handful of actions that are not scoped to
+    an account at all and land on **every screen on the platform at once**, which is a decision
+    only Paskall should be able to make. Today that is player rollouts (api/routes/
+    player_rollouts.py), where the table has no account column by design and so this guard is the
+    entire defence — see SECURITY_REVIEW.md, C1.
+    """
+    if not admin_service.is_staff(session, user) or admin_service.kind_of(session, user) != AccountKind.OWNER:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Paskall owner access required"
+        )
+    return user
+
+
+RequirePlatformOwner = Annotated[User, Depends(require_platform_owner)]
 
 
 def device_for_user(device_id: uuid.UUID, user: CurrentUser, session: DbSession) -> Device:
