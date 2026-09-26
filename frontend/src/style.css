@@ -51,6 +51,16 @@
   /* A tint of --color-brand for the surface under a selected row. */
   --color-brand-soft: #eef2fd;
 
+  /* --- The one thing to press ---
+     The website's button colour, brought across so a button looks the same on the page that
+     sold it and the app it opens: an electric cobalt, the logo blue made brighter, so the
+     control stands out from the navy the rest of the brand sits in. White on it passes AA
+     (5.5:1); hover settles onto the logo blue itself rather than going darker still. Kept
+     separate from --color-brand, which stays the identity colour for nav rows, badges and
+     charts — the site draws the same distinction. */
+  --color-action: #0057ff;
+  --color-action-hover: #003399;
+
   /* --- Ink --- */
   --color-ink: #101111;
   --color-ink-muted: #7d7d7d;

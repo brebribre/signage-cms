@@ -1,10 +1,13 @@
 <script setup lang="ts">
 /**
- * Every variant is the same pill silhouette carrying a 1px border, as on fortu.co.id.
- * That is what lets a solid and an outline button sit side by side without one appearing
- * to shift — the border is present in both, only its colour changes.
+ * Every variant is the same silhouette carrying a 1px border, so a solid and an outline button
+ * sit side by side without one appearing to shift — the border is present in both, only its
+ * colour changes.
  *
- * Primary is the brand blue; secondary and ghost stay ink, so one blue button leads per view.
+ * The shape and the blue are the marketing site's: `rounded-lg`, not a pill, and the cobalt
+ * --color-action rather than the darker --color-brand. A button is the one thing on a page you
+ * are meant to press, and it should look the same in the app as it does on the page that sold
+ * it. Secondary and ghost stay ink, so one cobalt button leads per view.
  */
 withDefaults(
   defineProps<{
@@ -19,9 +22,9 @@ withDefaults(
 )
 
 const VARIANTS = {
-  // Hover lightens toward the logo's bright end: a darker shade of #003399 is too close to
-  // tell apart, where this reads as a change at a glance — as secondary's grey fill does.
-  primary: 'border-brand bg-brand text-ink-inverse hover:bg-brand-hover hover:border-brand-hover',
+  // Hover settles onto the logo blue, a clear step down from the cobalt rather than a darker
+  // shade of it, which at this lightness would be hard to tell apart at a glance.
+  primary: 'border-action bg-action text-white hover:bg-action-hover hover:border-action-hover',
   secondary: 'border-ink bg-transparent text-ink hover:bg-raised',
   ghost: 'border-transparent bg-transparent text-ink-muted hover:text-ink hover:bg-raised',
   danger: 'border-danger bg-transparent text-danger hover:bg-danger hover:text-ink-inverse',
@@ -37,7 +40,7 @@ const SIZES = {
   <button
     :type="type"
     :disabled="disabled || loading"
-    class="inline-flex items-center justify-center gap-2 rounded-full border font-normal
+    class="inline-flex items-center justify-center gap-2 rounded-lg border font-normal
            transition-colors duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]
            focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-bright
            disabled:opacity-40 disabled:pointer-events-none"
