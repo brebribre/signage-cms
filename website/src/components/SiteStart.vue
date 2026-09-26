@@ -14,7 +14,8 @@ import { useI18n } from '@/i18n'
 
 const { m } = useI18n()
 /** The latest APK the fleet runs (a redirect to it), the web player, and the CMS. */
-const APK = 'https://api.marien.co.id/player/download'
+/** The Android player's download page, with every version. */
+const APK = '/android'
 const WEB_PLAYER = 'https://player.marien.co.id'
 const CMS = 'https://app.marien.co.id'
 const PRIMARY = 'inline-flex items-center justify-center gap-2 rounded-lg bg-action px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-action-hover'
@@ -35,7 +36,7 @@ const SECONDARY = 'inline-flex items-center justify-center gap-2 rounded-lg bg-w
           <p class="display mt-4 text-xl leading-snug text-ink">{{ m.start.player.title }}</p>
           <p class="mt-1.5 text-sm leading-relaxed text-ink-muted">{{ m.start.player.text }}</p>
           <div class="mt-auto flex flex-col gap-2 pt-5 sm:flex-row sm:flex-wrap">
-            <a :href="APK" :class="PRIMARY" @click="track('download_android')"><IconAndroid class="size-5" aria-hidden="true" />{{ m.start.player.android }}</a>
+            <a :href="APK" :class="PRIMARY" @click="track('android_page_click', { location: 'start' })"><IconAndroid class="size-5" aria-hidden="true" />{{ m.start.player.android }}</a>
             <a :href="WEB_PLAYER" target="_blank" rel="noopener" :class="SECONDARY" @click="track('open_web_player')"><IconTv class="size-5" aria-hidden="true" />{{ m.start.player.web }}</a>
           </div>
         </li>

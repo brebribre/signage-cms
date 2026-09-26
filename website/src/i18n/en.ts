@@ -64,9 +64,39 @@ const en = {
       { name: 'Marien Web Player', text: 'The same player for screens that aren’t Android, like smart TVs. It runs in the browser and connects to the CMS the same way.', link: 'Open the web player', alt: 'Marien Web Player in a browser, showing a lobby welcome' },
     ],
   },
+  /** The /android page: the Android player's download page. */
+  android: {
+    metaTitle: 'Marien. Android Player',
+    eyebrow: 'Marien Android Player',
+    lead: 'Download Marien Player',
+    rest: 'for Android.',
+    sub: 'For Android TV boxes, sticks and signage displays. Install it on the screen, connect it with a code, and run it from Marien CMS.',
+    download: 'Download',
+    downloadLatest: 'Download the latest version',
+    guide: 'Setup guide',
+    facts: [
+      { title: 'Android 7.0 or newer', text: 'TV boxes, sticks, tablets and signage displays.' },
+      { title: 'Plays offline', text: 'Content is saved on the screen and keeps playing without internet.' },
+      { title: 'Run from Marien CMS', text: 'Connect it with a six-letter code, then publish from anywhere.' },
+    ],
+    stepsTitle: 'Install in three steps',
+    steps: [
+      'On the device, open the Play Store → profile → Play Protect → gear, and turn off Scan apps.',
+      'Download the file on the device, open it, and allow installing from this source.',
+      'Open Marien Player and connect it with the code it shows.',
+    ],
+    connectGuide: 'How to connect a screen',
+    versionsTitle: 'All versions',
+    version: 'Version',
+    released: 'Released',
+    size: 'Size',
+    latest: 'Latest',
+    loading: 'Loading versions…',
+    failed: 'Couldn’t load the list right now.',
+  },
   how: {
-    lead: 'Set up your device',
-    rest: 'and display your first content in less than 5 minutes.',
+    lead: 'Turn your screens into a billboard',
+    rest: 'in less than 5 minutes.',
   },
   /** The first of the feature cards: the two things to set up before anything else. */
   start: {

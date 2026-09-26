@@ -21,7 +21,7 @@ const GROUPS = computed(() => {
     ] },
     { title: m.value.footer.groups.resources, links: [
       { href: 'https://docs.marien.co.id', label: l.docs },
-      { href: 'https://api.marien.co.id/player/download', label: l.android },
+      { href: '/android', label: l.android },
       { href: 'https://player.marien.co.id', label: l.web },
     ] },
     { title: m.value.footer.groups.account, links: [

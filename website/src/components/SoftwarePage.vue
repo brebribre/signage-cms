@@ -21,7 +21,8 @@ watchEffect(() => { document.title = m.value.software.metaTitle })
 const cms = computed(() => m.value.software.items[0])
 const android = computed(() => m.value.software.items[1])
 const web = computed(() => m.value.software.items[2])
-const STATEMENT = 'reveal max-w-4xl text-[2.125rem] leading-[1.1] sm:text-5xl lg:text-6xl lg:leading-[1.05]'
+/** Set like the home page's statements under the hero. */
+const STATEMENT = 'reveal max-w-3xl text-2xl leading-[1.2] sm:text-4xl sm:leading-[1.15]'
 const GRADIENT = 'bg-gradient-to-r from-brand-strong to-brand-bright bg-clip-text text-transparent'
 const LINK = 'mt-auto inline-flex items-center gap-1.5 self-start pt-5 text-sm font-medium text-brand transition-colors hover:text-brand-strong'
 const CARD = 'flex flex-col overflow-hidden rounded-2xl bg-brand-soft ring-1 ring-tint-strong/60'
@@ -79,7 +80,7 @@ const CARD = 'flex flex-col overflow-hidden rounded-2xl bg-brand-soft ring-1 rin
           <div class="flex flex-1 flex-col bg-white/70 p-6 sm:p-7">
             <h3 class="text-2xl leading-[1.15]">{{ android.name }}</h3>
             <p class="mt-2 leading-relaxed text-ink-muted">{{ android.text }}</p>
-            <a href="https://api.marien.co.id/player/download" :class="LINK" @click="track('download_android', { location: 'software' })">
+            <a href="/android" :class="LINK" @click="track('android_page_click', { location: 'software' })">
               {{ android.link }}<IconArrow class="size-4" aria-hidden="true" />
             </a>
           </div>

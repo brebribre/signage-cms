@@ -4,6 +4,7 @@ import { page } from '@/composables/usePage'
 import DemoPage from '@/components/DemoPage.vue'
 import FeaturesPage from '@/components/FeaturesPage.vue'
 import SoftwarePage from '@/components/SoftwarePage.vue'
+import AndroidPage from '@/components/AndroidPage.vue'
 import SiteDemoVideo from '@/components/SiteDemoVideo.vue'
 import SiteFeatures from '@/components/SiteFeatures.vue'
 import SiteFooter from '@/components/SiteFooter.vue'
@@ -22,6 +23,7 @@ useReveal()
     <DemoPage v-if="page === 'demo'" />
     <FeaturesPage v-else-if="page === 'features'" />
     <SoftwarePage v-else-if="page === 'software'" />
+    <AndroidPage v-else-if="page === 'android'" />
     <template v-else>
       <SiteHero />
       <SiteVenues />
