@@ -24,7 +24,13 @@ const LINKS = computed(() => [
     <div class="reveal relative overflow-hidden rounded-xl bg-sky px-6 py-16 text-center sm:rounded-2xl sm:py-24">
       <div class="hero-ring pointer-events-none absolute -bottom-48 left-1/2 h-96 w-[48rem] -translate-x-1/2 rounded-full" aria-hidden="true" />
       <div class="hero-ring pointer-events-none absolute -bottom-72 left-1/2 h-[36rem] w-[64rem] -translate-x-1/2 rounded-full" aria-hidden="true" />
-      <h2 class="relative mx-auto max-w-2xl text-4xl leading-[1.1] sm:text-6xl">{{ m.footer.title }}</h2>
+      <!-- The name as the logo itself, set on the line like a word: the wordmark's letters are
+           about as tall as the heading's capitals, and sit a sixth of the image above its foot,
+           so it drops by that much to put them on the text's baseline. -->
+      <h2 class="relative mx-auto max-w-2xl text-4xl leading-[1.1] sm:text-6xl">
+        {{ m.footer.title }}
+        <img :src="wordmark" alt="Marien" class="ml-[0.1em] inline-block h-[0.95em] w-auto translate-y-[0.16em] align-baseline" />
+      </h2>
       <p class="relative mx-auto mt-5 max-w-xl text-lg text-ink-muted">
         {{ m.footer.body }}
       </p>

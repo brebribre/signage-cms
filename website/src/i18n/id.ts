@@ -123,7 +123,7 @@ const id: Messages = {
     ],
   },
   footer: {
-    title: 'Pasang layar pertama Anda di Marien',
+    title: 'Pasang layar pertama Anda di',
     body: 'Tinggalkan kontak Anda, dan kami akan menghubungi Anda untuk menyiapkan akun.',
     cta: 'Request Akses',
     signIn: 'Masuk',

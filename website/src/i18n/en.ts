@@ -133,7 +133,8 @@ const en = {
     ],
   },
   footer: {
-    title: 'Put your first screen on Marien',
+    /** Followed by the Marien wordmark, which stands in for the name. */
+    title: 'Put your first screen on',
     body: 'Leave your details and we’ll get in touch to set up your account.',
     cta: 'Request access',
     signIn: 'Sign in',
