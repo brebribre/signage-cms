@@ -9,8 +9,8 @@
  */
 const en = {
   meta: {
-    title: 'Paskall. Digital signage that runs itself',
-    description: 'Paskall puts pictures, videos and live websites on every screen you own: digital signage, smart TVs and Android boxes.',
+    title: 'Marien. Digital signage that runs itself',
+    description: 'Marien puts pictures, videos and live websites on every screen you own: digital signage, smart TVs and Android boxes.',
   },
   lang: { label: 'Language', en: 'English', id: 'Bahasa Indonesia' },
   nav: {
@@ -36,12 +36,12 @@ const en = {
   ],
   online: 'Online',
   venues: {
-    label: 'Where Paskall runs',
+    label: 'Where Marien runs',
     items: ['Cafés', 'LOBBIES', 'clinics', 'Retail', 'CAMPUSES', 'Restaurants', 'Hotels', 'SHOWROOMS'],
   },
   /** A statement: the lead in ink, the rest in grey at the same size. */
   features: {
-    lead: 'Paskall is a CMS for Digital Signage.',
+    lead: 'Marien is a CMS for Digital Signage.',
     rest: 'Connect a screen, design what it plays, and publish everywhere at once.',
   },
   connect: {
@@ -50,11 +50,11 @@ const en = {
     statUnder: 'Under',
     statValue: '1 min',
     statCaption: 'To connect a new screen',
-    photoAlt: 'The pairing code on a new Paskall screen',
+    photoAlt: 'The pairing code on a new Marien screen',
   },
   design: {
     tablist: 'The editor',
-    inPaskall: 'in Paskall',
+    inMarien: 'in Marien',
     seeAll: 'See all features',
     tabs: [
       { label: 'Design', title: 'Design your content.', text: 'Photos, video, websites and text, at the screen’s real shape.' },
@@ -88,12 +88,12 @@ const en = {
   },
   responsive: {
     lead: 'Observe from anywhere.',
-    rest: 'Paskall CMS works on your phone, tablet and monitor.',
-    monitorAlt: 'The Paskall dashboard on a monitor',
+    rest: 'Marien CMS works on your phone, tablet and monitor.',
+    monitorAlt: 'The Marien dashboard on a monitor',
   },
   featuresPage: {
-    metaTitle: 'Paskall. Features',
-    lead: 'Everything in Paskall.',
+    metaTitle: 'Marien. Features',
+    lead: 'Everything in Marien.',
     rest: 'From the first design to the team that runs your screens.',
     more: [
       { label: 'Users', title: 'Delegate tasks.', text: 'Give each teammate their own sign-in, limited to the screens you choose.' },
@@ -101,15 +101,15 @@ const en = {
     ],
   },
   demo: {
-    metaTitle: 'Paskall. Demo',
+    metaTitle: 'Marien. Demo',
     title: 'Connecting a Screen to Publishing Content',
-    videoLabel: 'Demo: the Paskall CMS on a laptop beside a TV that changes as each step is done',
-    left: 'Paskall CMS',
+    videoLabel: 'Demo: the Marien CMS on a laptop beside a TV that changes as each step is done',
+    left: 'Marien CMS',
     right: 'The real screen',
   },
   seeDemo: {
     title: 'See the Demo',
-    videoLabel: 'Demo: pairing a screen in the Paskall CMS and deploying to it, beside the screen itself',
+    videoLabel: 'Demo: pairing a screen in the Marien CMS and deploying to it, beside the screen itself',
   },
   faq: {
     title: 'Frequently Asked Questions',
@@ -119,11 +119,11 @@ const en = {
       { q: 'What hardware do I need?', a: 'Any Android TV box or tablet, or a smart TV with a browser. Full remote control needs the Android player set up as Device Owner, which we can do for you.' },
       { q: 'What happens when the internet drops?', a: 'Nothing visible. Files live on the screen, so the loop keeps playing and catches up when the network returns.' },
       { q: 'Can staff change content safely?', a: 'Yes. They get the screens you grant, and anything that would change a screen waits for your approval.' },
-      { q: 'How big can a video be?', a: 'Upload the original. Paskall makes a copy every screen can play, 4K for Android boxes and 1080p for TV browsers.' },
+      { q: 'How big can a video be?', a: 'Upload the original. Marien makes a copy every screen can play, 4K for Android boxes and 1080p for TV browsers.' },
     ],
   },
   footer: {
-    title: 'Put your first screen on Paskall',
+    title: 'Put your first screen on Marien',
     body: 'Leave your details and we’ll get in touch to set up your account.',
     cta: 'Request access',
     signIn: 'Sign in',

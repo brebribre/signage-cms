@@ -4,7 +4,7 @@ import IconClose from '~icons/material-symbols/close'
 import IconMenu from '~icons/material-symbols/menu'
 
 import LocaleSwitch from './LocaleSwitch.vue'
-import wordmark from '@/assets/paskall-wordmark.png'
+import wordmark from '@/assets/marien-wordmark.png'
 import { homeSection } from '@/composables/usePage'
 import { PRIMARY, SECONDARY } from '@/data/buttons'
 import { useI18n } from '@/i18n'
@@ -41,7 +41,7 @@ onBeforeUnmount(() => { document.documentElement.style.overflow = '' })
     <nav class="mx-auto flex w-full max-w-7xl items-center justify-between px-5 py-4 sm:px-8" :aria-label="m.nav.label">
       <div class="flex items-center gap-10">
         <a :href="homeSection('top')" class="flex items-center">
-          <img :src="wordmark" alt="Paskall" class="h-6 w-auto transition-all duration-300"  />
+          <img :src="wordmark" alt="Marien" class="h-6 w-auto transition-all duration-300"  />
         </a>
         <ul class="hidden items-center gap-8 lg:flex">
           <li v-for="l in LINKS" :key="l.href">

@@ -58,7 +58,7 @@ createServer((req, res) => {
   }
   res.writeHead(200, { ...headers, 'Content-Length': size })
   createReadStream(filePath).pipe(res)
-}).listen(PORT, () => console.log(`Paskall website listening on :${PORT}`))
+}).listen(PORT, () => console.log(`Marien website listening on :${PORT}`))
 
 // Last line of defence. Everything above is meant to answer rather than throw, but a handler
 // that throws must not be able to take the site down with it — the failure mode is an outage

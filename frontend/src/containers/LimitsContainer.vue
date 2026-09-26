@@ -10,7 +10,7 @@ import ProgressBar from '@/reusables/ProgressBar.vue'
 
 /**
  * Settings → Plan & limits: how many screens and how much storage the account may use, and how
- * much of each is used. Read-only on purpose — the numbers are set by Paskall when the account
+ * much of each is used. Read-only on purpose — the numbers are set by Marien when the account
  * is issued, and changing them is a conversation, not a button.
  */
 const { limits, isLoading, error, screensFraction, storageFraction } = useAccountLimits()
@@ -59,7 +59,7 @@ const rows = computed(() => {
 <template>
   <div class="flex flex-col gap-4">
     <p class="text-sm text-ink-muted">
-      What this account may use. To change a limit, contact Paskall.
+      What this account may use. To change a limit, contact Marien.
     </p>
 
     <AppAlert v-if="error" tone="danger">{{ error }}</AppAlert>

@@ -67,7 +67,7 @@ const gaugeStroke = computed(() =>
 /** Fixed colour per part — follows the part, never its size or order on screen. Checked for
  *  colour-blind separation; the lighter two always sit beside a written label and figure. */
 const PART_COLOR: Record<StoragePart['key'], string> = {
-  media: '#1f55c4',
+  media: '#2b63ff',
   copies: '#5aa9f5',
   thumbnails: '#13a386',
   builds: '#e0a100',
@@ -126,7 +126,7 @@ const onlinePct = computed(() => (screens.value?.paired ? (screens.value.online 
 
 <template>
   <div class="flex flex-col gap-6">
-    <PageTitle title="Infrastructure" subtitle="How full the storage is, and how many people and screens use Paskall.">
+    <PageTitle title="Infrastructure" subtitle="How full the storage is, and how many people and screens use Marien.">
       <template #actions>
         <div class="flex items-center gap-3">
           <span v-if="data" class="hidden text-[13px] text-ink-subtle sm:inline">
@@ -175,8 +175,8 @@ const onlinePct = computed(() => (screens.value?.paired ? (screens.value.online 
               <svg viewBox="0 0 200 200" class="size-full" role="img" :aria-label="`${pctText}% of the storage line used`">
                 <defs>
                   <linearGradient id="gauge-blue" x1="0" y1="1" x2="1" y2="0">
-                    <stop offset="0%" stop-color="#002f96" />
-                    <stop offset="100%" stop-color="#0076dd" />
+                    <stop offset="0%" stop-color="#0014d6" />
+                    <stop offset="100%" stop-color="#0083f7" />
                   </linearGradient>
                 </defs>
                 <g transform="rotate(135 100 100)">
@@ -379,7 +379,7 @@ const onlinePct = computed(() => (screens.value?.paired ? (screens.value.online 
               <div class="flex w-full max-w-14 flex-1 items-end">
                 <div
                   class="w-full rounded-t-[4px] transition-[height,background-color] duration-500"
-                  :class="i === monthly.length - 1 ? 'bg-brand' : hoveredMonth === i ? 'bg-brand-hover' : 'bg-[#c9d6f2]'"
+                  :class="i === monthly.length - 1 ? 'bg-brand' : hoveredMonth === i ? 'bg-brand-hover' : 'bg-[#c7d3ff]'"
                   :style="{ height: m.bytes ? `${Math.max(3, (m.bytes / monthMax) * 100)}%` : '2px' }"
                 />
               </div>

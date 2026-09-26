@@ -25,7 +25,7 @@ class AccountRead(BaseModel):
     # monitoring app's routes check it again on every call.
     kind: AccountKind
     default_timezone: str
-    # When the account stops accepting changes; None means never. Set by Paskall, never here.
+    # When the account stops accepting changes; None means never. Set by Marien, never here.
     expires_at: datetime | None = None
     # Worked out on the server, so a wrong clock on the customer's computer cannot hide or
     # invent the "expired" notice. See models/account.py::Account.is_expired.

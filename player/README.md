@@ -68,7 +68,7 @@ cd player
 
 ### Signing
 
-Since 1.3.7 every build that goes to screens is signed with Paskall's own release key, kept
+Since 1.3.7 every build that goes to screens is signed with Marien's own release key, kept
 outside the repo in `~/.paskall/release.keystore` with its passwords in
 `~/.paskall/keystore.properties`. `app/build.gradle.kts` uses it whenever that file exists;
 without it, or with `-PuseDebugKey`, the build is signed with the debug key and Gradle warns.

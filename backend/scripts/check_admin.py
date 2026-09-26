@@ -69,11 +69,11 @@ def main() -> None:
     with Session(engine) as s:
         existing_owner = s.exec(select(Account).where(Account.kind == AccountKind.OWNER)).first()
         if existing_owner is None:
-            paskall = Account(name=f"{PREFIX} paskall", kind=AccountKind.OWNER); s.add(paskall); s.flush()
-            boss = user(paskall, "boss", UserRole.OWNER); s.add(boss)
+            marien = Account(name=f"{PREFIX} marien", kind=AccountKind.OWNER); s.add(marien); s.flush()
+            boss = user(marien, "boss", UserRole.OWNER); s.add(boss)
         else:
-            paskall = existing_owner
-            boss = s.exec(select(User).where(User.account_id == paskall.id, User.role == UserRole.OWNER)).first()
+            marien = existing_owner
+            boss = s.exec(select(User).where(User.account_id == marien.id, User.role == UserRole.OWNER)).first()
 
         techs = Account(name=f"{PREFIX} techs", kind=AccountKind.ADMIN, max_screens=15); s.add(techs); s.flush()
         tech = user(techs, "tech", UserRole.OWNER); s.add(tech)
@@ -87,10 +87,10 @@ def main() -> None:
         # Told to disconnect but not yet gone — must not take up a seat.
         s.add(Device(account_id=cust.id, name="Dead", disconnect_requested_at=utcnow()))
         s.commit()
-        for x in (boss, tech, tech_sub, owner, manager, paskall, techs, cust):
+        for x in (boss, tech, tech_sub, owner, manager, marien, techs, cust):
             s.refresh(x)
         boss_id, tech_id, tech_sub_id, owner_id, manager_id = boss.id, tech.id, tech_sub.id, owner.id, manager.id
-        paskall_id, techs_id, cust_id = paskall.id, techs.id, cust.id
+        marien_id, techs_id, cust_id = marien.id, techs.id, cust.id
 
     b, t, ts, o, m = client_for(boss_id), client_for(tech_id), client_for(tech_sub_id), client_for(owner_id), client_for(manager_id)
 
@@ -113,8 +113,8 @@ def main() -> None:
 
     print("\nthe list shows every account, its kind, and usage against limits")
     rows = {x["id"]: x for x in r.json()}
-    check("an admin sees the owner account too", str(paskall_id) in rows)
-    check("kinds come through", rows[str(paskall_id)]["kind"] == "owner" and rows[str(techs_id)]["kind"] == "admin"
+    check("an admin sees the owner account too", str(marien_id) in rows)
+    check("kinds come through", rows[str(marien_id)]["kind"] == "owner" and rows[str(techs_id)]["kind"] == "admin"
           and rows[str(cust_id)]["kind"] == "client")
     row = rows[str(cust_id)]
     check("owner_username is the first owner", row["owner_username"] == f"{PREFIX}-owner", str(row["owner_username"]))
@@ -182,7 +182,7 @@ def main() -> None:
     check("sending null makes storage unlimited", body["storage_quota_bytes"] is None)
     body = b.patch(f"/admin/accounts/{techs_id}", json={"max_screens": 20}).json()
     check("the owner changes an admin account's limits", body.get("max_screens") == 20, str(body))
-    r = b.patch(f"/admin/accounts/{paskall_id}", json={"max_screens": 1})
+    r = b.patch(f"/admin/accounts/{marien_id}", json={"max_screens": 1})
     check("nobody puts limits on the owner account (403)", r.status_code == 403, str(r.status_code))
     check("...and it says why", "owner account has no limits" in r.json().get("detail", ""), r.json().get("detail"))
     r = t.patch(f"/admin/accounts/{shop_id}", json={"max_screens": 12})
@@ -190,7 +190,7 @@ def main() -> None:
     r = t.patch(f"/admin/accounts/{techs_id}", json={"max_screens": 99})
     check("an admin cannot change an admin account's limits, even their own (403)", r.status_code == 403, str(r.status_code))
     check("an admin cannot change the owner account's limits (403)",
-          t.patch(f"/admin/accounts/{paskall_id}", json={"max_screens": 99}).status_code == 403)
+          t.patch(f"/admin/accounts/{marien_id}", json={"max_screens": 99}).status_code == 403)
     b.patch(f"/admin/accounts/{shop_id}", json={"max_screens": 12})  # a no-op: must not be logged
     with Session(engine) as s:
         log = s.exec(select(AdminAction).where(AdminAction.account_id == shop_id,
@@ -305,7 +305,7 @@ def main() -> None:
     b.patch(f"/admin/accounts/{cust_id}", json={"expires_at": None})
 
     check("nobody gives the owner account an end date (403)",
-          b.patch(f"/admin/accounts/{paskall_id}", json={"expires_at": future}).status_code == 403)
+          b.patch(f"/admin/accounts/{marien_id}", json={"expires_at": future}).status_code == 403)
     check("a technician cannot change their own end date (403)",
           t.patch(f"/admin/accounts/{techs_id}", json={"expires_at": None}).status_code == 403)
     r = issue(b, "ending", expires_at=future)

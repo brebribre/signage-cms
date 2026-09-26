@@ -30,7 +30,7 @@ async function onSubmit() {
   <form class="flex flex-col gap-4" @submit.prevent="onSubmit">
     <div>
       <h1 class="text-2xl">Sign in</h1>
-      <p class="mt-1 text-sm text-ink-muted">Monitoring — Paskall staff only.</p>
+      <p class="mt-1 text-sm text-ink-muted">Monitoring — Marien staff only.</p>
     </div>
 
     <AppInput

@@ -9,7 +9,7 @@
  */
 import IconMenu from '~icons/material-symbols/menu'
 
-import mark from '@/assets/paskall-mark.png'
+import mark from '@/assets/marien-mark.png'
 import SlideArt from './SlideArt.vue'
 import { useSlides } from '@/data/slides'
 

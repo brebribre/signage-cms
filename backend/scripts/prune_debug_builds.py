@@ -2,7 +2,7 @@
 signed with the real release key.
 
 Why: Android only installs an update signed with the same key as the app already on the screen.
-Since 1.3.7 (2026-09-22) every build is signed with Paskall's own key, so a debug-signed build
+Since 1.3.7 (2026-09-22) every build is signed with Marien's own key, so a debug-signed build
 can never be installed over a current screen, and rolling one out by mistake — a rollback typed
 one version too far — would fail on every screen at once. Kept around they are only a trap.
 

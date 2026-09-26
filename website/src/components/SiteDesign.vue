@@ -18,9 +18,9 @@ import { useI18n } from '@/i18n'
 
 /** The shots and their window titles are the CMS's own, in English; the words are the page's. */
 const SHOTS = [
-  { n: '1', chrome: 'paskall · Scene', src: '/shots/scene.webp' },
-  { n: '2', chrome: 'paskall · Playlist', src: '/shots/playlist.webp' },
-  { n: '3', chrome: 'paskall · Campaign', src: '/shots/campaign.webp' },
+  { n: '1', chrome: 'marien · Scene', src: '/shots/scene.webp' },
+  { n: '2', chrome: 'marien · Playlist', src: '/shots/playlist.webp' },
+  { n: '3', chrome: 'marien · Campaign', src: '/shots/campaign.webp' },
 ]
 const { m } = useI18n()
 const TABS = computed(() => SHOTS.map((s, i) => ({ ...s, ...m.value.design.tabs[i] })))
@@ -102,7 +102,7 @@ onBeforeUnmount(stop)
           <div class="relative aspect-[16/9] w-full bg-page">
             <img
               v-for="(t, i) in TABS" :key="t.n"
-              :src="t.src" :alt="`${t.label} ${m.design.inPaskall}`"
+              :src="t.src" :alt="`${t.label} ${m.design.inMarien}`"
               class="absolute inset-0 size-full object-cover object-left-top transition-opacity duration-500"
               :class="active === i ? 'opacity-100' : 'opacity-0'"
               loading="lazy" decoding="async"

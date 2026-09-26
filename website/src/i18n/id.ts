@@ -3,8 +3,8 @@ import type { Messages } from './en'
 
 const id: Messages = {
   meta: {
-    title: 'Paskall. Digital signage yang berjalan sendiri',
-    description: 'Paskall menayangkan gambar, video, dan situs web langsung di setiap layar Anda: digital signage, smart TV, dan Android box.',
+    title: 'Marien. Digital signage yang berjalan sendiri',
+    description: 'Marien menayangkan gambar, video, dan situs web langsung di setiap layar Anda: digital signage, smart TV, dan Android box.',
   },
   lang: { label: 'Bahasa', en: 'English', id: 'Bahasa Indonesia' },
   nav: {
@@ -29,11 +29,11 @@ const id: Messages = {
   ],
   online: 'Daring',
   venues: {
-    label: 'Tempat Paskall digunakan',
+    label: 'Tempat Marien digunakan',
     items: ['Kafe', 'LOBI', 'klinik', 'Ritel', 'KAMPUS', 'Restoran', 'Hotel', 'SHOWROOM'],
   },
   features: {
-    lead: 'Paskall adalah CMS untuk Digital Signage.',
+    lead: 'Marien adalah CMS untuk Digital Signage.',
     rest: 'Hubungkan layar, rancang tayangannya, dan publikasikan ke semua layar sekaligus.',
   },
   connect: {
@@ -42,11 +42,11 @@ const id: Messages = {
     statUnder: 'Kurang dari',
     statValue: '1 menit',
     statCaption: 'Untuk menghubungkan layar baru',
-    photoAlt: 'Kode pemasangan di layar Paskall yang baru',
+    photoAlt: 'Kode pemasangan di layar Marien yang baru',
   },
   design: {
     tablist: 'Editor',
-    inPaskall: 'di Paskall',
+    inMarien: 'di Marien',
     seeAll: 'Lihat semua fitur',
     tabs: [
       { label: 'Desain', title: 'Desain konten Anda.', text: 'Foto, video, situs web, dan teks, sesuai bentuk asli layar.' },
@@ -80,12 +80,12 @@ const id: Messages = {
   },
   responsive: {
     lead: 'Pantau dari mana saja.',
-    rest: 'Paskall CMS bisa dipakai di ponsel, tablet, dan monitor.',
-    monitorAlt: 'Dasbor Paskall di monitor',
+    rest: 'Marien CMS bisa dipakai di ponsel, tablet, dan monitor.',
+    monitorAlt: 'Dasbor Marien di monitor',
   },
   featuresPage: {
-    metaTitle: 'Paskall. Fitur',
-    lead: 'Semua fitur Paskall.',
+    metaTitle: 'Marien. Fitur',
+    lead: 'Semua fitur Marien.',
     rest: 'Dari desain pertama hingga tim yang mengelola layar Anda.',
     more: [
       { label: 'Pengguna', title: 'Bagikan tugas.', text: 'Beri setiap anggota tim akun sendiri, hanya untuk layar yang Anda pilih.' },
@@ -93,15 +93,15 @@ const id: Messages = {
     ],
   },
   demo: {
-    metaTitle: 'Paskall. Demo',
+    metaTitle: 'Marien. Demo',
     title: 'Menghubungkan Layar hingga Menayangkan Konten',
-    videoLabel: 'Demo: Paskall CMS di laptop di samping TV yang berubah di setiap langkah',
-    left: 'Paskall CMS',
+    videoLabel: 'Demo: Marien CMS di laptop di samping TV yang berubah di setiap langkah',
+    left: 'Marien CMS',
     right: 'Layar sungguhan',
   },
   seeDemo: {
     title: 'Lihat Demo',
-    videoLabel: 'Demo: menghubungkan layar di Paskall CMS lalu menayangkan konten, di samping layarnya',
+    videoLabel: 'Demo: menghubungkan layar di Marien CMS lalu menayangkan konten, di samping layarnya',
   },
   faq: {
     title: 'Pertanyaan yang Sering Diajukan',
@@ -111,11 +111,11 @@ const id: Messages = {
       { q: 'Perangkat apa yang saya butuhkan?', a: 'Android TV box atau tablet apa pun, atau smart TV dengan browser. Kendali jarak jauh penuh memerlukan pemutar Android yang diatur sebagai Device Owner, dan kami bisa membantu mengaturnya.' },
       { q: 'Apa yang terjadi jika internet terputus?', a: 'Tidak ada yang terlihat. File tersimpan di layar, jadi tayangan terus berputar dan menyusul begitu jaringan kembali.' },
       { q: 'Apakah staf bisa mengubah konten dengan aman?', a: 'Bisa. Mereka hanya mendapat layar yang Anda izinkan, dan setiap perubahan pada layar menunggu persetujuan Anda.' },
-      { q: 'Seberapa besar video yang bisa diunggah?', a: 'Unggah file aslinya. Paskall membuat salinan yang bisa diputar di setiap layar: 4K untuk Android box dan 1080p untuk browser TV.' },
+      { q: 'Seberapa besar video yang bisa diunggah?', a: 'Unggah file aslinya. Marien membuat salinan yang bisa diputar di setiap layar: 4K untuk Android box dan 1080p untuk browser TV.' },
     ],
   },
   footer: {
-    title: 'Pasang layar pertama Anda di Paskall',
+    title: 'Pasang layar pertama Anda di Marien',
     body: 'Tinggalkan kontak Anda, dan kami akan menghubungi Anda untuk menyiapkan akun.',
     cta: 'Request Akses',
     signIn: 'Masuk',

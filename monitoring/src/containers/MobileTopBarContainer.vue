@@ -58,7 +58,7 @@ const ROW_ACTIVE =
 <template>
   <header class="relative z-30 border-b border-line bg-canvas">
     <div class="flex h-14 items-center gap-3 px-4">
-      <router-link :to="{ name: 'accounts' }" class="shrink-0" aria-label="Paskall Monitoring, home">
+      <router-link :to="{ name: 'accounts' }" class="shrink-0" aria-label="Marien Monitoring, home">
         <AppLogo size="sm" />
       </router-link>
       <span v-if="current" class="flex min-w-0 items-center gap-1.5 border-l border-line pl-3 text-sm text-ink-muted">

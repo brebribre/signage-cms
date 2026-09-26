@@ -12,7 +12,7 @@ class AccountKind(StrEnum):
     """What sort of account this is — which decides who can use the monitoring app and what
     they may do there. See services/admin.py for the rules in one table.
 
-    - OWNER: Paskall itself. Exactly one. No limits, ever. Issues admin and client accounts.
+    - OWNER: Marien itself. Exactly one. No limits, ever. Issues admin and client accounts.
     - ADMIN: a technician's own account. Signs in to the monitoring app too, but may only issue
       client accounts and change client limits.
     - CLIENT: a customer. The CMS only — never the monitoring app.

@@ -10,7 +10,7 @@ const DAY_MS = 24 * 60 * 60 * 1000
 /**
  * The account's end date, as the CMS tells people about it.
  *
- * Paskall sets it from the monitoring app. The server stores the moment the account stops,
+ * Marien sets it from the monitoring app. The server stores the moment the account stops,
  * which is midnight at the end of the last working day, so the day to show is a millisecond
  * before it. After that moment the server refuses every change; this only explains why.
  */

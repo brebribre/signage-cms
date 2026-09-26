@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * The strip under the hero, where a product page usually lists its customers. These are the
- * kinds of places Paskall is made for, set in a mix of type the way a logo wall is, so the
+ * kinds of places Marien is made for, set in a mix of type the way a logo wall is, so the
  * rhythm is there without claiming names we have no right to.
  */
 import { computed } from 'vue'

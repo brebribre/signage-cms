@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import ContactForm from './ContactForm.vue'
 import LocaleSwitch from './LocaleSwitch.vue'
-import wordmark from '@/assets/paskall-wordmark.png'
+import wordmark from '@/assets/marien-wordmark.png'
 import { homeSection } from '@/composables/usePage'
 import { useI18n } from '@/i18n'
 
@@ -33,13 +33,13 @@ const LINKS = computed(() => [
   </section>
   <footer class="border-t border-line">
     <div class="mx-auto flex max-w-7xl flex-col gap-6 px-5 py-10 text-sm sm:px-8 md:flex-row md:items-center md:justify-between">
-      <img :src="wordmark" alt="Paskall" class="h-5 w-auto self-start md:self-auto" />
+      <img :src="wordmark" alt="Marien" class="h-5 w-auto self-start md:self-auto" />
       <ul class="flex flex-wrap gap-x-6 gap-y-2 text-ink-muted">
         <li v-for="l in LINKS" :key="l.href"><a :href="l.href" class="transition-colors hover:text-ink">{{ l.label }}</a></li>
       </ul>
       <div class="flex items-center gap-4">
         <LocaleSwitch />
-        <p class="text-ink-subtle">© {{ year }} Paskall</p>
+        <p class="text-ink-subtle">© {{ year }} Marien</p>
       </div>
     </div>
   </footer>

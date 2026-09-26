@@ -57,7 +57,7 @@ def main() -> None:
     with Session(engine) as s:
         owner_acc = s.exec(select(Account).where(Account.kind == AccountKind.OWNER)).first()
         if owner_acc is None:
-            owner_acc = Account(name=f"{PREFIX} paskall", kind=AccountKind.OWNER); s.add(owner_acc); s.flush()
+            owner_acc = Account(name=f"{PREFIX} marien", kind=AccountKind.OWNER); s.add(owner_acc); s.flush()
             boss = User(account_id=owner_acc.id, username=f"{PREFIX}-boss", password_hash=hash_password(PASSWORD),
                         display_name="Boss", role=UserRole.OWNER); s.add(boss)
         else:

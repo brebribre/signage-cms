@@ -28,7 +28,7 @@ const { isExpired, endsSoon, lastDay, daysLeft } = useAccountExpiry()
       <p class="text-[13px] text-ink">
         You can still look at everything, but you can't make changes: no uploads, no editing or
         publishing, and no new screens. Your screens keep showing what they have now. Contact
-        Paskall to renew.
+        Marien to renew.
       </p>
     </div>
   </div>
@@ -45,7 +45,7 @@ const { isExpired, endsSoon, lastDay, daysLeft } = useAccountExpiry()
       </p>
       <p class="text-[13px] text-ink">
         After that you can still look at everything, but you won't be able to make changes. Your
-        screens will keep playing. Contact Paskall to renew.
+        screens will keep playing. Contact Marien to renew.
       </p>
     </div>
   </div>

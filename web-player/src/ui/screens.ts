@@ -1,4 +1,4 @@
-import logoUrl from '../assets/paskall-wordmark.png'
+import logoUrl from '../assets/marien-wordmark.png'
 import type { PlayerState } from '../engine'
 
 /**
@@ -15,13 +15,13 @@ type StatusState = Exclude<PlayerState, { kind: 'playing' }>
 export function statusScreenHtml(s: StatusState): string {
   switch (s.kind) {
     case 'starting':
-      return `<div class="screen screen-brand"><img class="logo" src="${logoUrl}" alt="Paskall"></div>`
+      return `<div class="screen screen-brand"><img class="logo" src="${logoUrl}" alt="Marien"></div>`
 
-    // In Paskall's own look — the first thing anyone setting up a screen sees. No server address
+    // In Marien's own look — the first thing anyone setting up a screen sees. No server address
     // and no poll count: the code and "waiting" are all a person in front of it needs.
     case 'pairing':
       return `<div class="screen screen-brand"><div class="col">
-        <img class="logo" src="${logoUrl}" alt="Paskall">
+        <img class="logo" src="${logoUrl}" alt="Marien">
         <div class="pair-card">
           <div class="pair-label">Enter this code in the CMS</div>
           <div class="code">${esc(s.code)}</div>
@@ -37,7 +37,7 @@ export function statusScreenHtml(s: StatusState): string {
     // moment rather than a cut to black.
     case 'claimed':
       return `<div class="screen screen-brand"><div class="col">
-        <img class="logo" src="${logoUrl}" alt="Paskall">
+        <img class="logo" src="${logoUrl}" alt="Marien">
         <div class="pair-card">
           <div class="pair-label">This screen is now</div>
           <div class="idle-name">${esc(s.deviceName)}</div>
@@ -57,7 +57,7 @@ export function statusScreenHtml(s: StatusState): string {
       const amount = `${mb(s.doneBytes)} of ${mb(s.totalBytes)} MB`
       const speed = s.bytesPerSecond ? ` · ${mb(s.bytesPerSecond)} MB/s` : ''
       return `<div class="screen screen-brand"><div class="col">
-        <img class="logo" src="${logoUrl}" alt="Paskall">
+        <img class="logo" src="${logoUrl}" alt="Marien">
         <div class="pair-card prep-card">
           <div class="pair-label">Preparing content</div>
           <div class="progress progress-brand${s.totalBytes > 0 ? '' : ' indeterminate'}"><div style="width:${pct}%"></div></div>
@@ -75,7 +75,7 @@ export function statusScreenHtml(s: StatusState): string {
     // look: the screen's name on the card where the code was, the same pulse to say it's alive.
     case 'idle':
       return `<div class="screen screen-brand"><div class="col">
-        <img class="logo" src="${logoUrl}" alt="Paskall">
+        <img class="logo" src="${logoUrl}" alt="Marien">
         <div class="pair-card">
           <div class="pair-label">No content assigned</div>
           <div class="idle-name">${esc(s.deviceName)}</div>
@@ -90,7 +90,7 @@ export function statusScreenHtml(s: StatusState): string {
     // and the details someone at the screen needs (the server, the error) stay on it.
     case 'trouble':
       return `<div class="screen screen-brand"><div class="col">
-        <img class="logo" src="${logoUrl}" alt="Paskall">
+        <img class="logo" src="${logoUrl}" alt="Marien">
         <div class="pair-card prep-card">
           <div class="pair-label">${esc(s.deviceName ?? 'This screen')}</div>
           <div class="trouble-title">Cannot reach the server</div>

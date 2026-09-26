@@ -3,7 +3,7 @@
  * One figure on the Overview, as a card: a label, the number, and a line of context under it.
  *
  * `tone="brand"` is the one card per row that carries the brand gradient — the logo's own
- * #002f96 → #0076dd — so the page has a single anchor of colour rather than four competing
+ * #0014d6 → #0083f7 — so the page has a single anchor of colour rather than four competing
  * ones. Everything else is a white card.
  *
  * `openable` adds a round button in the corner that emits `open` — for a figure you can go and

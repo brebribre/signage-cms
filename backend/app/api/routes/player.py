@@ -90,7 +90,7 @@ def _render_versions_page(releases: list[player_releases.PlayerRelease]) -> str:
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Paskall Player releases</title>
+  <title>Marien Player releases</title>
   <style>
     body {{ margin: 0; background: #f1f3f7; color: #101111; font: 15px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif; }}
     .page {{ max-width: 820px; margin: 0 auto; padding: 40px 20px 60px; }}
@@ -106,8 +106,8 @@ def _render_versions_page(releases: list[player_releases.PlayerRelease]) -> str:
 </head>
 <body>
   <div class="page">
-    <a href="{DOCS_RELEASES_URL}" style="font-size:13px;text-decoration:none;">&larr; Paskall Docs</a>
-    <h1>Paskall Player releases</h1>
+    <a href="{DOCS_RELEASES_URL}" style="font-size:13px;text-decoration:none;">&larr; Marien Docs</a>
+    <h1>Marien Player releases</h1>
     <p class="muted">Every build ever published, newest first. "current" is the one every screen is being given right now.</p>
     {table}
     <footer>Install the APK on the screen, open it, and connect it with the code it shows.</footer>

@@ -19,7 +19,7 @@ export interface Mark {
 
 /** Only the accounts that are *not* ordinary customers carry a kind badge. A mark on every row
  *  marks nothing; a mark on the two that can sign in here is worth reading. This is the only
- *  badge allowed to say "Owner", and it means the account kind — Paskall itself. */
+ *  badge allowed to say "Owner", and it means the account kind — Marien itself. */
 export const KIND_TONE: Partial<Record<AccountKind, Tone>> = { owner: 'ink', admin: 'brand' }
 
 /** The person the account was issued to. */

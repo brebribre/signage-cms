@@ -7,7 +7,7 @@ playlists and campaigns belong to it, never to a person. Two things decide what 
 - **Their role inside it** — the main user, or a sub account.
 
 There is no separate "staff" flag on a person any more. It was removed on 2026-09-22 because it
-could not tell Paskall apart from a technician.
+could not tell Marien apart from a technician.
 
 ## The three kinds of account
 
@@ -17,7 +17,7 @@ could not tell Paskall apart from a technician.
 | **Admin** | CMS and Monitoring | client accounts only | client accounts only | 15 screens, 5 GB by default |
 | **Client** | CMS only | sub accounts, from the CMS | nobody | Whatever staff set |
 
-**Owner** is Paskall itself. There is exactly one, and nothing can make a second. Its limits can
+**Owner** is Marien itself. There is exactly one, and nothing can make a second. Its limits can
 never be set, so it is always unlimited.
 
 **Admin** is one of our technicians. They get the monitoring app so they can set up and look
@@ -27,7 +27,7 @@ Both of those stay with the owner.
 **Client** is a customer. They never see the monitoring app.
 
 A note on the word **owner**, which the system uses for two different things. An *owner
-account* is Paskall itself, the kind in the table above. An *owner role* is the main user of any
+account* is Marien itself, the kind in the table above. An *owner role* is the main user of any
 account, as opposed to a sub account. They are unrelated. The monitoring app writes the role as
 **Main user** for exactly that reason, so an Admin account does not appear to have an owner
 sitting inside it. The CMS still says Owner to customers, where there is no account kind on

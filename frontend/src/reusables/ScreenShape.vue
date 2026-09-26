@@ -5,7 +5,7 @@
  *  only what's drawn inside changes, letterboxed to fit. */
 import { computed } from 'vue'
 
-import wordmarkUrl from '@/assets/paskall-wordmark.png'
+import wordmarkUrl from '@/assets/marien-wordmark.png'
 import type { DeviceRead } from '@/types/api'
 import { isPortrait } from '@/utils/orientation'
 
@@ -42,7 +42,7 @@ const bezel = computed(() => (props.size >= 72 ? 5 : 3))
       }"
     >
       <!-- The logo in its own colours: a screen that belongs to this CMS. -->
-      <img :src="wordmarkUrl" alt="Paskall logo" draggable="false" class="block h-full w-full select-none object-contain" />
+      <img :src="wordmarkUrl" alt="Marien logo" draggable="false" class="block h-full w-full select-none object-contain" />
     </div>
   </div>
 </template>

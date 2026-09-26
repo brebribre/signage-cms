@@ -35,7 +35,7 @@ READ_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 
 ACCOUNT_EXPIRED = (
     "This account has expired, so changes are switched off. Your screens keep showing what "
-    "they have now. Contact Paskall to renew it."
+    "they have now. Contact Marien to renew it."
 )
 
 
@@ -130,7 +130,7 @@ RequireOwner = Annotated[User, Depends(require_owner)]
 
 
 def require_staff(user: CurrentUser, session: DbSession) -> User:
-    """Paskall staff only — the /admin/* routes, which reach across every account.
+    """Marien staff only — the /admin/* routes, which reach across every account.
 
     Staff means the main user of an owner or admin account (services/admin.py::is_staff). This
     is the one place the "you only ever see your own account" rule is set aside, so it is its
@@ -147,18 +147,18 @@ RequireStaff = Annotated[User, Depends(require_staff)]
 
 
 def require_platform_owner(user: CurrentUser, session: DbSession) -> User:
-    """Paskall itself — the main user of the one owner account, and nobody else.
+    """Marien itself — the main user of the one owner account, and nobody else.
 
     Narrower than `RequireStaff` on purpose. Staff includes technicians, whose reach is meant to
     stop at their own client accounts; this guards the handful of actions that are not scoped to
     an account at all and land on **every screen on the platform at once**, which is a decision
-    only Paskall should be able to make. Today that is player rollouts (api/routes/
+    only Marien should be able to make. Today that is player rollouts (api/routes/
     player_rollouts.py), where the table has no account column by design and so this guard is the
     entire defence — see SECURITY_REVIEW.md, C1.
     """
     if not admin_service.is_staff(session, user) or admin_service.kind_of(session, user) != AccountKind.OWNER:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Paskall owner access required"
+            status_code=status.HTTP_403_FORBIDDEN, detail="Marien owner access required"
         )
     return user
 

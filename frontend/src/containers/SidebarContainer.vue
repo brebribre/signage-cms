@@ -27,7 +27,7 @@ import IconLogout from '~icons/material-symbols/logout'
 import IconMenuBook from '~icons/material-symbols/menu-book-outline'
 import IconOpenInNew from '~icons/material-symbols/open-in-new'
 
-import markUrl from '@/assets/paskall-mark.png'
+import markUrl from '@/assets/marien-mark.png'
 import { useAuth } from '@/hooks/useAuth'
 import { useNavLinks } from '@/hooks/useNavLinks'
 import { useReviewBadge } from '@/hooks/useReviews'
@@ -85,7 +85,7 @@ ensureCount()
   >
     <!-- Brand, and the fold: beside the wordmark when open, under the mark when folded. -->
     <div class="flex items-center pt-6 pb-5" :class="collapsed ? 'flex-col gap-3 px-2' : 'justify-between gap-2 px-5'">
-      <img v-if="collapsed" :src="markUrl" alt="Paskall" draggable="false" class="size-8 select-none" />
+      <img v-if="collapsed" :src="markUrl" alt="Marien" draggable="false" class="size-8 select-none" />
       <AppLogo v-else />
       <button
         type="button"

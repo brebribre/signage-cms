@@ -19,7 +19,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import IconCheck from '~icons/material-symbols/check-circle'
 import IconUpload from '~icons/material-symbols/upload'
 
-import mark from '@/assets/paskall-mark.png'
+import mark from '@/assets/marien-mark.png'
 import SlideArt from './SlideArt.vue'
 import { SLIDE_COUNT, useSlides } from '@/data/slides'
 import { useI18n } from '@/i18n'

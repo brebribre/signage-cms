@@ -1,7 +1,7 @@
 # Security review — 26 September 2026
 
 > **C1 and H1 are fixed and live in production** (26 September, commit `76045e9`). The rollout
-> control plane is now Paskall-only, and a malformed web address answers 400 instead of killing
+> control plane is now Marien-only, and a malformed web address answers 400 instead of killing
 > the site. Both were verified against the live services after deploying, not just locally — see
 > the notes under each. Everything else in this document is still open.
 
@@ -26,7 +26,7 @@ confirmed by hand before it was written down:
 - **43 live cross-tenant attacks** against a real instance, with one customer account attacking
   another, plus a sub account attacking its own account's screens.
 - **Live proof of the rollout finding**, including another customer's screen being handed a build
-  chosen by the attacker, and a customer deleting a rollout Paskall had scheduled.
+  chosen by the attacker, and a customer deleting a rollout Marien had scheduled.
 - **A live crash test** of the web server on a throwaway port, not production.
 - **Live checks against production** for rate limiting, security headers, the API doc surface,
   CORS, and the deployed configuration.
@@ -73,7 +73,7 @@ if you want the 43 attacks re-run on every change.
 **Where:** [`backend/app/api/routes/player_rollouts.py`](backend/app/api/routes/player_rollouts.py), lines 34, 46, 56 and 71.
 
 All four rollout endpoints are guarded by `RequireOwner`. That is the wrong "owner". As
-[ACCOUNTS.md](ACCOUNTS.md) says in its own note on the word, an *owner account* is Paskall
+[ACCOUNTS.md](ACCOUNTS.md) says in its own note on the word, an *owner account* is Marien
 itself, but the *owner role* is the main user of **every** account, including every ordinary
 customer. The guard these endpoints want is `RequireStaff`.
 
@@ -89,10 +89,10 @@ Three things line up to make this reach other customers:
 | Request | Result |
 |---|---|
 | List every published build | 200, five builds with versions and sizes |
-| Read Paskall's rollout timeline | 200 |
+| Read Marien's rollout timeline | 200 |
 | Schedule a build platform-wide | 201 Created |
 | Another customer's screen then checks in | Told to install that build, with a working download link |
-| Delete a rollout Paskall scheduled for tomorrow | 204, the row was gone |
+| Delete a rollout Marien scheduled for tomorrow | 204, the row was gone |
 
 The fourth row is the one that matters. A screen belonging to a completely different customer was
 handed a version chosen by the attacker, with a signed download link.
@@ -130,7 +130,7 @@ change:
 |---|---|---|---|---|
 | Customer | 200 | 403 | 403 | 403 |
 | Technician | 200 | 403 | 403 | 403 |
-| Paskall | 200 | 200 | 201 | 204 |
+| Marien | 200 | 200 | 201 | 204 |
 
 There is nothing to scope a rollout id against, because the table is platform-wide by design, so
 that guard is deliberately the whole defence and the code now says so.

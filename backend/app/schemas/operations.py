@@ -14,7 +14,7 @@ class StorageRead(BaseModel):
 
 class LimitsRead(BaseModel):
     """What the account may use, and how much of it is used — for the customer's own eyes.
-    The limits themselves are set by Paskall staff in the monitoring app; None is unlimited."""
+    The limits themselves are set by Marien staff in the monitoring app; None is unlimited."""
 
     screens_used: int
     max_screens: int | None

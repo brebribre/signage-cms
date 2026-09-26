@@ -5,7 +5,7 @@ import { useOperationsApi } from '@/api/useOperationsApi'
 import type { LimitsRead } from '@/types/api'
 
 /** The account's plan as figures: screens used against the limit, storage used against the
- *  quota. Read-only — the limits are set by Paskall, not here. `null` for a limit means
+ *  quota. Read-only — the limits are set by Marien, not here. `null` for a limit means
  *  unlimited. */
 export function useAccountLimits() {
   const api = useOperationsApi()

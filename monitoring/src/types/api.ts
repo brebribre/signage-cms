@@ -3,7 +3,7 @@
 export type UserRole = 'owner' | 'manager'
 
 /** What sort of account this is — which decides who may use this app and what they may do.
- *  - `owner`: Paskall itself. One only, no limits. Issues admin and client accounts.
+ *  - `owner`: Marien itself. One only, no limits. Issues admin and client accounts.
  *  - `admin`: a technician. Uses this app too, but issues client accounts only.
  *  - `client`: a customer. The CMS only, never this app. */
 export type AccountKind = 'owner' | 'admin' | 'client'

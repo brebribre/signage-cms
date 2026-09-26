@@ -127,7 +127,7 @@ createServer((req, res) => {
     serveStatic(req, res)
   }
 }).listen(PORT, () => {
-  console.log(`Paskall monitoring listening on :${PORT}, proxying /api/* to ${BACKEND_URL}`)
+  console.log(`Marien monitoring listening on :${PORT}, proxying /api/* to ${BACKEND_URL}`)
 })
 
 // Last line of defence. Everything above is meant to answer rather than throw, but a handler

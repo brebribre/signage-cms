@@ -43,7 +43,7 @@ sealed interface PlayerState {
      *  because a screen showing a pairing code is diagnosable from across the room.
      *
      * `apiHost` matters when pairing "does not work": almost always the screen and the CMS are
-     * talking to different servers. The pairing screen no longer shows it (it is Paskall's
+     * talking to different servers. The pairing screen no longer shows it (it is Marien's
      * front door, not a diagnostic page); the debug overlay does. */
     data class Pairing(
         val code: String,

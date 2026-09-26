@@ -13,11 +13,11 @@ import { useI18n } from '@/i18n'
 
 /** The shots and their window titles are the CMS's own, in English; the words are the page's. */
 const SHOTS = [
-  { chrome: 'paskall · Scene', src: '/shots/scene.webp' },
-  { chrome: 'paskall · Playlist', src: '/shots/playlist.webp' },
-  { chrome: 'paskall · Campaign', src: '/shots/campaign.webp' },
-  { chrome: 'paskall · User management', src: '/shots/users.webp' },
-  { chrome: 'paskall · Reviews', src: '/shots/reviews.webp' },
+  { chrome: 'marien · Scene', src: '/shots/scene.webp' },
+  { chrome: 'marien · Playlist', src: '/shots/playlist.webp' },
+  { chrome: 'marien · Campaign', src: '/shots/campaign.webp' },
+  { chrome: 'marien · User management', src: '/shots/users.webp' },
+  { chrome: 'marien · Reviews', src: '/shots/reviews.webp' },
 ]
 const { m } = useI18n()
 const CARDS = computed(() =>
@@ -43,7 +43,7 @@ watchEffect(() => { document.title = m.value.featuresPage.metaTitle })
           <BrowserFrame :label="c.chrome" class="rounded-tl-xl border-r-0 border-b-0">
             <div class="relative w-full bg-page" :class="i === 0 ? 'aspect-[16/7]' : 'aspect-[16/10]'">
               <img
-                :src="c.src" :alt="`${c.label} ${m.design.inPaskall}`"
+                :src="c.src" :alt="`${c.label} ${m.design.inMarien}`"
                 class="absolute inset-0 size-full object-cover object-left-top"
                 loading="lazy" decoding="async"
               />

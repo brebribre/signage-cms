@@ -1,4 +1,4 @@
-"""CMS-side scheduling of player rollouts — Paskall only, session-cookie authenticated.
+"""CMS-side scheduling of player rollouts — Marien only, session-cookie authenticated.
 
 **A rollout is not scoped to an account.** There is one rollout timeline for the whole platform
 and every screen, in every account, resolves against the same active row (services/
@@ -8,7 +8,7 @@ between one caller and the software running on every screen we have.
 That guard is `RequirePlatformOwner`, not `RequireOwner`. The two read almost the same and mean
 very different things: `RequireOwner` is the main user of *any* account, every customer included,
 which is what this file used to require. See SECURITY_REVIEW.md, C1 — with that guard an ordinary
-customer could schedule a fleet-wide downgrade and cancel a rollout Paskall had scheduled. It is
+customer could schedule a fleet-wide downgrade and cancel a rollout Marien had scheduled. It is
 also narrower than `RequireStaff`: a technician services their own clients and has no business
 changing what every other customer's screens run.
 

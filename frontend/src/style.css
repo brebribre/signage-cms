@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /*
-  Paskall CMS design tokens.
+  Marien CMS design tokens.
 
   Pill buttons carrying a 1px border, headings at weight 500, and no shadows anywhere. Light
   mode only — there is no dark palette and no runtime theming, so
@@ -10,16 +10,17 @@
   Ink and surfaces stay monochrome — body text, cards and hairlines. What is *active or
   primary* carries the brand blue instead: a selected nav row, a primary button, a chosen
   filter. Both halves are needed. Colour everywhere would fight the content; colour nowhere
-  left the Paskall logo looking pasted onto someone else's app.
+  left the Marien logo looking pasted onto someone else's app.
 
-  The blues are sampled from the logo itself (src/assets/paskall-logo.png): its gradient runs
-  #002f96 → #0076dd, and the mark's flat mass is #003399.
+  The blues are sampled from the Marien mark (src/assets/marien-logo.png): its gradient runs
+  #0014d6 → #0083f7 around a core of #003df5. The identity blue is a touch deeper, #0036e8, so
+  text and small marks in it stay solid on white.
 */
 
 @theme {
   /* --- Type ---
      Two faces, each doing the job it is good at. Outfit is round and geometric with a
-     single-storey "a" — the same build as the Paskall wordmark — so page titles and the big
+     single-storey "a" — the same build as the Marien wordmark — so page titles and the big
      figures on a dashboard sit beside the logo as one thing. Geometric faces lose legibility
      small, though, so everything at reading size is Inter, which is drawn for exactly that and
      keeps up with Outfit's proportions. Both are bundled (see main.ts). */
@@ -39,27 +40,26 @@
 
   /* --- Brand. Straight off the logo: see the note above. --- */
   /* The default: solid fills, active nav rows, primary buttons. */
-  --color-brand: #003399;
+  --color-brand: #0036e8;
   /* The gradient's dark end — the deep side of the brand gradient on hero cards. */
-  --color-brand-strong: #002f96;
+  --color-brand-strong: #0014d6;
   /* A primary button under the pointer: part-way from the core blue to the bright end, so the
      change is plain to see (the dark end sits too close to the core to notice). */
-  --color-brand-hover: #1f55c4;
+  --color-brand-hover: #2b63ff;
   /* The gradient's bright end. Small accents and focus rings, never large fills: it is too
      light against white for text at body size. */
-  --color-brand-bright: #0076dd;
+  --color-brand-bright: #0083f7;
   /* A tint of --color-brand for the surface under a selected row. */
-  --color-brand-soft: #eef2fd;
+  --color-brand-soft: #edf1ff;
 
   /* --- The one thing to press ---
      The website's button colour, brought across so a button looks the same on the page that
-     sold it and the app it opens: an electric cobalt, the logo blue made brighter, so the
-     control stands out from the navy the rest of the brand sits in. White on it passes AA
-     (5.5:1); hover settles onto the logo blue itself rather than going darker still. Kept
+     sold it and the app it opens: the logo's own core blue, the brightest solid in the palette.
+     White on it passes AA with room to spare (about 6.5:1); hover goes a clear step deeper. Kept
      separate from --color-brand, which stays the identity colour for nav rows, badges and
      charts — the site draws the same distinction. */
-  --color-action: #0057ff;
-  --color-action-hover: #003399;
+  --color-action: #003df5;
+  --color-action-hover: #0029c2;
 
   /* --- Ink --- */
   --color-ink: #101111;
@@ -154,7 +154,7 @@ input, textarea, select, button {
    rather than shared — the two apps ship separately and a "fix" in one must not silently
    restyle the other. Needs `relative` on the element: the grain is an overlay. */
 .auth-hero {
-  background: linear-gradient(to bottom right, #002f96, #0076dd);
+  background: linear-gradient(to bottom right, #0014d6, #0083f7);
 }
 .auth-hero::after {
   content: "";

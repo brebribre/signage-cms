@@ -2,7 +2,7 @@
 
 export type UserRole = 'owner' | 'manager'
 
-/** What sort of account this is. `owner` is Paskall itself and `admin` a technician — both
+/** What sort of account this is. `owner` is Marien itself and `admin` a technician — both
  *  also reach the monitoring app; `client` is a customer, the CMS only. */
 export type AccountKind = 'owner' | 'admin' | 'client'
 
@@ -25,7 +25,7 @@ export interface AccountRead {
   kind: AccountKind
   /** IANA name newly paired screens start in (Settings → General). */
   default_timezone: string
-  /** The moment the account stops accepting changes; null means never. Set by Paskall. */
+  /** The moment the account stops accepting changes; null means never. Set by Marien. */
   expires_at: string | null
   /** Worked out by the server. Once true, the CMS is read-only: the server refuses every change,
    *  and screens keep showing what they have. */

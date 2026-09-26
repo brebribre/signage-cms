@@ -63,14 +63,14 @@ import com.fortu.player.UpdatePhase
 import com.fortu.player.UpdateProgress
 import com.fortu.player.R
 
-// Paskall's palette — the same tokens as the CMS (frontend/src/style.css) and the web player.
+// Marien's palette — the same tokens as the CMS (frontend/src/style.css) and the web player.
 private val Ink = Color(0xFF101111)
 private val InkInverse = Color(0xFFF9F9F9)
 private val InkMuted = Color(0xFF7D7D7D)
 private val InkSubtle = Color(0xFF4A4A4A)
-private val BrandStrong = Color(0xFF002F96)
-private val Brand = Color(0xFF003399)
-private val BrandBright = Color(0xFF0076DD)
+private val BrandStrong = Color(0xFF0014D6)
+private val Brand = Color(0xFF0036E8)
+private val BrandBright = Color(0xFF0083F7)
 /** Secondary text on the brand gradient. */
 private val OnBrandMuted = Color.White.copy(alpha = 0.78f)
 
@@ -83,7 +83,7 @@ private val BrandGradient = Brush.linearGradient(
     end = Offset.Infinite,
 )
 
-// Paskall's typefaces, as in the CMS: Outfit for display, Inter for everything else. Bundled as
+// Marien's typefaces, as in the CMS: Outfit for display, Inter for everything else. Bundled as
 // fixed weights cut from the CMS's own variable fonts (SIL Open Font License), so they work
 // offline and on every Android version.
 private val Outfit = FontFamily(Font(R.font.outfit_medium, FontWeight.Medium))
@@ -93,7 +93,7 @@ private val Inter = FontFamily(
 )
 
 /**
- * The pairing screen, in Paskall's own look — the first thing anyone setting up a screen sees:
+ * The pairing screen, in Marien's own look — the first thing anyone setting up a screen sees:
  * the brand gradient, the logo in white, and the code on a translucent card. Deliberately the
  * app's error state too — a screen showing a code can be diagnosed from across a room, a black
  * one cannot. The server address is in the debug overlay, not here.
@@ -105,7 +105,7 @@ fun PairingScreen(code: String, error: String?) {
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            PaskallLogo(height = 44.dp)
+            MarienLogo(height = 44.dp)
 
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -163,12 +163,12 @@ fun PairingScreen(code: String, error: String?) {
     }
 }
 
-/** The Paskall wordmark, in white for the brand gradient. */
+/** The Marien wordmark, in white for the brand gradient. */
 @Composable
-private fun PaskallLogo(height: Dp) {
+private fun MarienLogo(height: Dp) {
     Image(
-        painter = painterResource(R.drawable.paskall_wordmark),
-        contentDescription = "Paskall",
+        painter = painterResource(R.drawable.marien_wordmark),
+        contentDescription = "Marien",
         colorFilter = ColorFilter.tint(Color.White),
         modifier = Modifier.height(height),
     )
@@ -203,7 +203,7 @@ private fun PulsingDot() {
 fun ClaimedScreen(deviceName: String) {
     Box(Modifier.fillMaxSize().background(BrandGradient), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            PaskallLogo(height = 44.dp)
+            MarienLogo(height = 44.dp)
 
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -256,7 +256,7 @@ fun PreparingScreen(
 ) {
     Box(Modifier.fillMaxSize().background(BrandGradient), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            PaskallLogo(height = 44.dp)
+            MarienLogo(height = 44.dp)
 
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -343,7 +343,7 @@ fun IdleScreen(deviceName: String) {
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            PaskallLogo(height = 44.dp)
+            MarienLogo(height = 44.dp)
 
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -401,7 +401,7 @@ fun TroubleScreen(deviceName: String?, message: String, apiHost: String, attempt
     // — and the details someone at the screen needs (the server, the error) stay on it.
     Box(Modifier.fillMaxSize().background(BrandGradient), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            PaskallLogo(height = 44.dp)
+            MarienLogo(height = 44.dp)
 
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -462,7 +462,7 @@ fun TroubleScreen(deviceName: String?, message: String, apiHost: String, attempt
 @Composable
 fun StartingScreen() {
     Box(Modifier.fillMaxSize().background(BrandGradient), contentAlignment = Alignment.Center) {
-        PaskallLogo(height = 44.dp)
+        MarienLogo(height = 44.dp)
     }
 }
 

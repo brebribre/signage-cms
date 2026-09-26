@@ -1,4 +1,4 @@
-/* Paskall's palette and type — the same tokens as the CMS (frontend/src/style.css) and the
+/* Marien's palette and type — the same tokens as the CMS (frontend/src/style.css) and the
    Android player's ui/Screens.kt. Sizes are in vmin so a screen reads the same on a 720p panel
    and a 4K one, from across a room. */
 :root {
@@ -6,9 +6,9 @@
   --ink-inverse: #f9f9f9;
   --ink-muted: #7d7d7d;
   --ink-subtle: #4a4a4a;
-  --brand-strong: #002f96;
-  --brand: #003399;
-  --brand-bright: #0076dd;
+  --brand-strong: #0014d6;
+  --brand: #0036e8;
+  --brand-bright: #0083f7;
   --font-sans: 'Inter Variable', 'Helvetica Neue', Arial, sans-serif;
   --font-display: 'Outfit Variable', 'Inter Variable', 'Helvetica Neue', Arial, sans-serif;
 }

@@ -6,7 +6,7 @@
  * can do is let someone who knows their current password — often the temporary one they were
  * given — replace it in one step, without signing in first: it signs in with it, then changes it
  * (the same two calls the sign-in page and Choose your own password make). For a password that's
- * really forgotten, it says who can reset it: Paskall for an account's main user, the main user
+ * really forgotten, it says who can reset it: Marien for an account's main user, the main user
  * for a sub account (see ACCOUNTS.md, "Passwords").
  */
 import { computed, ref } from 'vue'
@@ -70,7 +70,7 @@ async function onSubmit() {
     <div class="rounded-lg bg-surface px-3 py-3 text-[13px] text-ink-muted">
       <p class="text-ink">Forgotten your password?</p>
       <p class="mt-1">
-        Ask whoever gave you your account to reset it: Paskall for an account's main user, or your
+        Ask whoever gave you your account to reset it: Marien for an account's main user, or your
         account's main user for a sub account. You'll get a temporary password, and choose your own
         when you sign in.
       </p>
