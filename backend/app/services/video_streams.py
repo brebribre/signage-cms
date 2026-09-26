@@ -49,6 +49,7 @@ from dataclasses import dataclass
 from fractions import Fraction
 from pathlib import Path
 
+from PIL import Image, ImageStat
 from sqlmodel import Session, select
 
 from app.infra import storage
@@ -470,6 +471,8 @@ def process(media_id: uuid.UUID, replace_original: bool = False) -> None:
             storage.delete_object(original_key)
         if media.thumbnail_key is None:
             _video_thumbnail(session, media_id)
+        elif thumbnail_is_dark(media.thumbnail_key):
+            _video_thumbnail(session, media_id, replace=True)
         logger.info(
             "media %s ready: playback %d bytes%s", media_id, play_size,
             f", stream {stream_result[1]} bytes" if stream_result else f", no stream copy ({stream_error})",
@@ -577,23 +580,67 @@ def _process_picture(session: Session, media: Media, replace_original: bool) -> 
     logger.info("picture %s: %s", media_id, f"converted to {result.mime}" if new_key else "already fine")
 
 
-def _video_thumbnail(session: Session, media_id: uuid.UUID) -> None:
-    """A library preview for a video whose browser couldn't make one at upload — typically an
-    iPhone .mov in H.265, which Chrome can't open. A frame a second in, from the playback copy.
-    Best effort: without one the library shows a placeholder, as before."""
+#: A preview whose average brightness (0–255) is below this reads as a black tile. Low on
+#: purpose: a genuinely dark video still clears it, a blank or fade-in frame does not.
+DARK_MEAN = 8
+
+
+def _is_dark(path: Path) -> bool:
+    with Image.open(path) as im:
+        return ImageStat.Stat(im.convert("L")).mean[0] < DARK_MEAN
+
+
+def thumbnail_is_dark(key: str) -> bool:
+    """Whether a stored preview is (nearly) black. A browser that draws a video frame before it
+    has decoded one — iPhone Safari often does — uploads a black JPEG, and a black preview looks
+    exactly like a broken video in the library. Unreadable counts as dark: replace it."""
+    try:
+        with tempfile.TemporaryDirectory(prefix="fortu-thumbcheck-") as tmp:
+            path = Path(tmp) / "thumb.jpg"
+            storage.download_file(key, str(path))
+            return _is_dark(path)
+    except Exception:  # noqa: BLE001
+        return True
+
+
+def _seek_points(duration: float | None) -> list[str]:
+    """Where to look for a preview frame, in order: a second in (the first frame is often black
+    or a fade), then a quarter and half way through, for a video that opens dark."""
+    d = duration or 0
+    if d <= 1.5:
+        return ["0"]
+    return [f"{t:.2f}" for t in dict.fromkeys([1.0, d * 0.25, d * 0.5])]
+
+
+def _video_thumbnail(session: Session, media_id: uuid.UUID, replace: bool = False) -> None:
+    """A library preview made here, from the playback copy: for a video whose browser couldn't
+    make one at upload — typically an iPhone .mov in H.265, which Chrome can't open — or, with
+    `replace`, one whose browser made a black one. The first frame that isn't dark wins; if all
+    are, the brightest. Best effort: without one the library shows a placeholder, as before."""
     media = session.get(Media, media_id)
-    if media is None or media.playback_key is None or media.thumbnail_key is not None:
+    if media is None or media.playback_key is None or (media.thumbnail_key is not None and not replace):
         return
     thumb_key = f"media/{media.account_id}/{media.id}/thumb.jpg"
     try:
         with tempfile.TemporaryDirectory(prefix="fortu-thumb-") as tmp:
             playback = Path(tmp) / "playback.mp4"
-            frame = Path(tmp) / "frame.jpg"
             thumb = Path(tmp) / "thumb.jpg"
             storage.download_file(media.playback_key, str(playback))
-            seek = "1" if (media.duration_seconds or 0) > 1.5 else "0"
-            _run(["ffmpeg", "-v", "error", "-y", "-ss", seek, "-i", str(playback), "-frames:v", "1", str(frame)])
-            pictures.thumbnail(frame, thumb)
+            best: tuple[float, Path] | None = None
+            for i, seek in enumerate(_seek_points(media.duration_seconds)):
+                frame = Path(tmp) / f"frame{i}.jpg"
+                _run(["ffmpeg", "-v", "error", "-y", "-ss", seek, "-i", str(playback), "-frames:v", "1", str(frame)])
+                if not frame.exists():
+                    continue
+                with Image.open(frame) as im:
+                    brightness = ImageStat.Stat(im.convert("L")).mean[0]
+                if best is None or brightness > best[0]:
+                    best = (brightness, frame)
+                if brightness >= DARK_MEAN:
+                    break
+            if best is None:
+                raise ConversionError("no frame could be read")
+            pictures.thumbnail(best[1], thumb)
             storage.upload_file(str(thumb), thumb_key, "image/jpeg")
     except Exception:  # noqa: BLE001 — a missing preview is not worth failing anything over
         logger.warning("no preview frame for video %s", media_id, exc_info=True)
@@ -603,6 +650,7 @@ def _video_thumbnail(session: Session, media_id: uuid.UUID) -> None:
         media.thumbnail_key = thumb_key
         session.add(media)
         session.commit()
+    logger.info("media %s: preview frame made here%s", media_id, " (the uploaded one was black)" if replace else "")
 
 
 _queue: "queue.Queue[tuple[uuid.UUID, bool]]" = queue.Queue()

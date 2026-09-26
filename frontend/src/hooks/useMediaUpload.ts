@@ -23,9 +23,15 @@ const DONE_LINGER_MS = 1200
  *  one of them slow, so the queue is the feature, not a limitation. */
 const CONCURRENCY = 2
 
-/** Where a video's poster frame is grabbed from. Not 0 — the first frame of a video is
- *  very often black or a fade-in, which makes for a useless thumbnail. */
+/** Where a video's poster frame is grabbed from, tried in turn until one isn't black: a
+ *  second in (the first frame is very often black or a fade-in), then a quarter and half way
+ *  through, for a video that opens dark. Fractions are of the duration. */
 const POSTER_SECONDS = 1
+const POSTER_FRACTIONS = [0.25, 0.5]
+
+/** A frame whose average brightness (0–255) is below this is treated as black. Matches the
+ *  server's check (services/video_streams.py::DARK_MEAN). */
+const DARK_MEAN = 8
 
 const THUMB_MAX = 480
 
@@ -36,15 +42,74 @@ interface Probe {
   thumbnail: Blob | null
 }
 
-function drawToJpeg(source: CanvasImageSource, w: number, h: number): Promise<Blob | null> {
+function drawToCanvas(source: CanvasImageSource, w: number, h: number): HTMLCanvasElement | null {
   const scale = Math.min(1, THUMB_MAX / Math.max(w, h))
   const canvas = document.createElement('canvas')
-  canvas.width = Math.round(w * scale)
-  canvas.height = Math.round(h * scale)
+  canvas.width = Math.max(1, Math.round(w * scale))
+  canvas.height = Math.max(1, Math.round(h * scale))
   const ctx = canvas.getContext('2d')
-  if (!ctx) return Promise.resolve(null)
+  if (!ctx) return null
   ctx.drawImage(source, 0, 0, canvas.width, canvas.height)
-  return new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.8))
+  return canvas
+}
+
+function toJpeg(canvas: HTMLCanvasElement | null): Promise<Blob | null> {
+  return canvas ? new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.8)) : Promise.resolve(null)
+}
+
+function drawToJpeg(source: CanvasImageSource, w: number, h: number): Promise<Blob | null> {
+  return toJpeg(drawToCanvas(source, w, h))
+}
+
+/** Average brightness of what was drawn, from a sparse sample of pixels — enough to tell a real
+ *  frame from the black one a browser draws when it hasn't decoded anything yet. */
+function isDark(canvas: HTMLCanvasElement): boolean {
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return true
+  let data: Uint8ClampedArray
+  try {
+    data = ctx.getImageData(0, 0, canvas.width, canvas.height).data
+  } catch {
+    return false // unreadable (shouldn't happen for a local file): don't throw a frame away over it
+  }
+  let sum = 0
+  let n = 0
+  for (let i = 0; i < data.length; i += 4 * 16) {
+    sum += 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]
+    n++
+  }
+  return n === 0 || sum / n < DARK_MEAN
+}
+
+/** Move to a time and wait until a frame there is actually decoded — not just "seeked", which
+ *  Safari reports before the picture is ready (drawing then gives a black frame). False when
+ *  the video never got there. */
+async function seekTo(video: HTMLVideoElement, seconds: number): Promise<boolean> {
+  const arrived = await new Promise<boolean>((res) => {
+    const timer = setTimeout(() => res(false), 3000) // never hang the queue on a file that will not seek
+    video.onseeked = () => {
+      clearTimeout(timer)
+      res(true)
+    }
+    video.currentTime = seconds
+  })
+  if (!arrived) return false
+  // Wait for the frame itself: requestVideoFrameCallback where there is one, else until the
+  // element says it holds current data, then one more paint for good measure.
+  const rvfc = (video as HTMLVideoElement & { requestVideoFrameCallback?: (cb: () => void) => number })
+    .requestVideoFrameCallback
+  await new Promise<void>((res) => {
+    const timer = setTimeout(res, 500)
+    const done = () => {
+      clearTimeout(timer)
+      res()
+    }
+    if (rvfc) rvfc.call(video, done)
+    else if (video.readyState >= 2) done()
+    else video.onloadeddata = done
+  })
+  await new Promise((res) => requestAnimationFrame(() => res(null)))
+  return video.readyState >= 2
 }
 
 /**
@@ -74,26 +139,34 @@ async function probe(file: File): Promise<Probe> {
 
     const video = document.createElement('video')
     video.muted = true
-    video.preload = 'metadata'
+    // iPhone Safari decodes nothing for a video that isn't allowed to play inline, and with only
+    // metadata loaded — so every frame it draws is black. Inline, and allowed to load data.
+    video.playsInline = true
+    video.setAttribute('playsinline', '')
+    video.preload = 'auto'
     await new Promise((res, rej) => {
       video.onloadedmetadata = res
       video.onerror = rej
       video.src = url
     })
     const duration = Number.isFinite(video.duration) ? video.duration : null
-    // Seek before drawing: without this the canvas is blank, because no frame is decoded
-    // at metadata time.
-    await new Promise((res) => {
-      video.onseeked = res
-      video.currentTime = Math.min(POSTER_SECONDS, (duration ?? 1) / 2)
-      setTimeout(res, 3000) // never hang the queue on a file that will not seek
-    })
-    return {
-      width: video.videoWidth || null,
-      height: video.videoHeight || null,
-      duration,
-      thumbnail: await drawToJpeg(video, video.videoWidth, video.videoHeight),
+    const w = video.videoWidth
+    const h = video.videoHeight
+
+    // A few points in, until one draws as a real picture. None does — the browser can't decode
+    // this file (an H.265 .mov in Chrome), or the video is dark there — and no thumbnail is
+    // sent: the server makes one from the playback copy, which it can always read.
+    let thumbnail: Blob | null = null
+    const points = [Math.min(POSTER_SECONDS, (duration ?? 1) / 2), ...POSTER_FRACTIONS.map((f) => (duration ?? 0) * f)]
+    for (const t of [...new Set(points.map((p) => Math.round(p * 100) / 100))]) {
+      if (!w || !h || !(await seekTo(video, t))) break
+      const canvas = drawToCanvas(video, w, h)
+      if (canvas && !isDark(canvas)) {
+        thumbnail = await toJpeg(canvas)
+        break
+      }
     }
+    return { width: w || null, height: h || null, duration, thumbnail }
   } catch {
     return { width: null, height: null, duration: null, thumbnail: null }
   } finally {
