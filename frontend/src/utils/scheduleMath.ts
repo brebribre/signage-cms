@@ -15,6 +15,12 @@ export interface TimeWindow {
   days_of_week: number
 }
 
+/** The colours WeekTimeline draws slots in, by `TimelineSlot.tone` — exported so a list beside
+ *  the timeline can mark each entry with the same swatch. The brand blues, all readable against
+ *  the light grey "asleep" ground. */
+export const TIMELINE_TONES = ['#003399', '#0076dd', '#1f55c4', '#7fa1e6'] as const
+export const timelineTone = (tone: number) => TIMELINE_TONES[tone % TIMELINE_TONES.length]
+
 /** A window as `WeekTimeline.vue` draws it. */
 export interface TimelineSlot extends TimeWindow {
   key: string

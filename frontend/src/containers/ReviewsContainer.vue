@@ -4,30 +4,95 @@
  *
  * The owner sees the account's queue and decides; a manager sees what they sent and how it
  * went. One page for both, because the question is the same from either side — "what is
- * waiting, and what happened to it". A card is a way in, not a place to decide: approving
- * without having looked at the change is the one thing this page must not make easy, so
- * Approve, Reject and Withdraw live on the review's own page.
+ * waiting, and what happened to it".
+ *
+ * Tabs by status, with counts, and the list under them grouped by the day each change was sent,
+ * newest first — an approvals inbox. It opens on Waiting whenever anything is waiting, since that
+ * is the part asking for someone. A line is a way in, not a place to decide: Approve, Reject and
+ * Withdraw live on the review's own page, after the change has been seen (ReviewRow).
  */
-import { onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onMounted, ref, watch } from 'vue'
 
 import { useAuth } from '@/hooks/useAuth'
 import { useReviews } from '@/hooks/useReviews'
 import AppAlert from '@/reusables/AppAlert.vue'
+import AppTabs from '@/reusables/AppTabs.vue'
 import EmptyState from '@/reusables/EmptyState.vue'
 import ListRowSkeleton from '@/reusables/ListRowSkeleton.vue'
 import PageTitle from '@/reusables/PageTitle.vue'
-import ReviewCard from '@/reusables/ReviewCard.vue'
+import ReviewRow from '@/reusables/ReviewRow.vue'
 import SkeletonList from '@/reusables/SkeletonList.vue'
-import type { ReviewRead } from '@/types/api'
+import type { ReviewRead, ReviewStatus } from '@/types/api'
 
-const router = useRouter()
 const { isOwner } = useAuth()
-const { pending, decided, isLoading, error, refresh } = useReviews()
+const { items, pending, isLoading, error, refresh } = useReviews()
 
-function open(r: ReviewRead) {
-  router.push({ name: 'review-detail', params: { id: r.id } })
+// --- Which status ---
+
+type Filter = ReviewStatus | 'all'
+const filter = ref<Filter>('pending')
+const count = (s: ReviewStatus) => items.value.filter((r) => r.status === s).length
+const tabs = computed(() => [
+  { value: 'pending', label: 'Waiting', badge: pending.value.length },
+  { value: 'approved', label: 'Approved', badge: count('approved') },
+  { value: 'rejected', label: 'Rejected', badge: count('rejected') },
+  { value: 'withdrawn', label: 'Withdrawn', badge: count('withdrawn') },
+  { value: 'all', label: 'All', badge: items.value.length },
+])
+
+/** Once, after the first load: nothing waiting means there is nothing to land on under Waiting,
+ *  so the page opens on everything instead. */
+const settled = ref(false)
+watch(isLoading, (loading) => {
+  if (loading || settled.value) return
+  settled.value = true
+  if (!pending.value.length && items.value.length) filter.value = 'all'
+})
+
+// --- Grouped by the day each was sent ---
+
+function dayKey(iso: string): string {
+  const d = new Date(iso)
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
 }
+function dayLabel(iso: string): string {
+  const today = new Date()
+  const yesterday = new Date(Date.now() - 86_400_000)
+  if (dayKey(iso) === dayKey(today.toISOString())) return 'Today'
+  if (dayKey(iso) === dayKey(yesterday.toISOString())) return 'Yesterday'
+  return new Date(iso).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'short' })
+    + (new Date(iso).getFullYear() === today.getFullYear() ? '' : ` ${new Date(iso).getFullYear()}`)
+}
+
+const groups = computed(() => {
+  const shown = items.value
+    .filter((r) => filter.value === 'all' || r.status === filter.value)
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))
+  const out: { key: string; label: string; reviews: ReviewRead[] }[] = []
+  for (const r of shown) {
+    const key = dayKey(r.created_at)
+    const last = out[out.length - 1]
+    if (last?.key === key) last.reviews.push(r)
+    else out.push({ key, label: dayLabel(r.created_at), reviews: [r] })
+  }
+  return out
+})
+
+/** What an empty tab says — each status has its own reason to be empty. */
+const emptyText = computed(() => {
+  switch (filter.value) {
+    case 'pending':
+      return isOwner.value ? 'Nothing is waiting for you.' : 'Nothing of yours is waiting.'
+    case 'approved':
+      return 'Nothing approved yet.'
+    case 'rejected':
+      return 'Nothing rejected.'
+    case 'withdrawn':
+      return 'Nothing withdrawn.'
+    default:
+      return 'No reviews yet.'
+  }
+})
 
 onMounted(refresh)
 </script>
@@ -43,12 +108,12 @@ onMounted(refresh)
 
     <AppAlert v-if="error" tone="danger">{{ error }}</AppAlert>
 
-    <SkeletonList v-if="isLoading && !pending.length && !decided.length" label="Loading reviews">
+    <SkeletonList v-if="isLoading && !items.length" label="Loading reviews">
       <ListRowSkeleton />
     </SkeletonList>
 
     <EmptyState
-      v-else-if="!pending.length && !decided.length"
+      v-else-if="!items.length"
       title="Nothing to review"
       :description="isOwner
         ? 'When a manager saves something that would change a screen — a playlist that is playing, a campaign, a schedule — it waits here for you.'
@@ -56,14 +121,20 @@ onMounted(refresh)
     />
 
     <template v-else>
-      <section v-if="pending.length" class="flex flex-col gap-2">
-        <h2 class="text-sm text-ink-muted">Waiting</h2>
-        <ReviewCard v-for="r in pending" :key="r.id" :review="r" @open="open(r)" />
-      </section>
+      <AppTabs :items="tabs" :model-value="filter" @update:model-value="filter = $event as Filter" />
 
-      <section v-if="decided.length" class="flex flex-col gap-2">
-        <h2 class="text-sm text-ink-muted">Decided</h2>
-        <ReviewCard v-for="r in decided" :key="r.id" :review="r" @open="open(r)" />
+      <p v-if="!groups.length" class="rounded-2xl bg-canvas px-4 py-10 text-center text-sm text-ink-muted">
+        {{ emptyText }}
+      </p>
+
+      <section v-for="g in groups" :key="g.key" class="flex flex-col gap-2" :aria-label="g.label">
+        <h2 class="flex items-center gap-2 px-1 text-[12px] font-medium tracking-wider text-ink-subtle uppercase">
+          {{ g.label }}
+          <span class="font-normal tabular-nums normal-case tracking-normal">· {{ g.reviews.length }}</span>
+        </h2>
+        <ul class="divide-y divide-line overflow-hidden rounded-2xl bg-canvas">
+          <li v-for="r in g.reviews" :key="r.id"><ReviewRow :review="r" :show-status="filter === 'all'" /></li>
+        </ul>
       </section>
     </template>
   </div>

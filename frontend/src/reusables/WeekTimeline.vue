@@ -6,16 +6,13 @@
 import IconBedtime from '~icons/material-symbols/bedtime-outline'
 
 import { DAY_BITS } from '@/types/api'
-import { DAY_MINUTES, segmentsOnDay } from '@/utils/scheduleMath'
+import { DAY_MINUTES, segmentsOnDay, timelineTone } from '@/utils/scheduleMath'
 import type { TimelineSlot } from '@/utils/scheduleMath'
 
 const props = defineProps<{ slots: TimelineSlot[] }>()
 
-// What plays is the active thing on this page, so it carries the brand blues (the tokens in
-// style.css: brand, brand-bright, brand-hover, then a lighter tint of brand), all readable
-// against the light grey "asleep" ground the bars sit on.
-const TONES = ['#003399', '#0076dd', '#1f55c4', '#7fa1e6'] as const
-const toneOf = (i: number) => TONES[i % TONES.length]
+// What plays carries the brand blues — see TIMELINE_TONES.
+const toneOf = timelineTone
 
 const pct = (minutes: number) => `${(minutes / DAY_MINUTES) * 100}%`
 

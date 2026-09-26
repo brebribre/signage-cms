@@ -26,7 +26,7 @@ import ListRowSkeleton from '@/reusables/ListRowSkeleton.vue'
 import OnboardingCard from '@/reusables/OnboardingCard.vue'
 import PageTitle from '@/reusables/PageTitle.vue'
 import PairScreenForm from '@/reusables/PairScreenForm.vue'
-import ReviewCard from '@/reusables/ReviewCard.vue'
+import ReviewRow from '@/reusables/ReviewRow.vue'
 import StatCard from '@/reusables/StatCard.vue'
 import SkeletonList from '@/reusables/SkeletonList.vue'
 import type { ClaimBody, DeviceOrientation } from '@/types/api'
@@ -207,7 +207,7 @@ function quotaPercent(used: number, quota: number | null): number | null {
       </div>
     </template>
 
-    <!-- Pending review: the same cards as the Reviews page, waiting ones only. -->
+    <!-- Pending review: the same rows as the Reviews page, waiting ones only. -->
     <template v-else-if="tab === 'reviews'">
       <AppAlert v-if="reviewsError" tone="danger">{{ reviewsError }}</AppAlert>
       <SkeletonList v-else-if="reviewsLoading && !pendingReviews.length" label="Loading reviews">
@@ -223,10 +223,9 @@ function quotaPercent(used: number, quota: number | null): number | null {
         </template>
       </EmptyState>
       <div v-else class="flex flex-col gap-2">
-        <ReviewCard
-          v-for="r in pendingReviews" :key="r.id" :review="r"
-          @open="router.push({ name: 'review-detail', params: { id: r.id } })"
-        />
+        <ul class="divide-y divide-line overflow-hidden rounded-2xl bg-canvas">
+          <li v-for="r in pendingReviews" :key="r.id"><ReviewRow :review="r" :show-status="false" /></li>
+        </ul>
         <AppButton variant="ghost" size="sm" class="self-start" @click="router.push({ name: 'reviews' })">
           All reviews, including decided ones ›
         </AppButton>

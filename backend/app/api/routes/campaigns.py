@@ -74,10 +74,12 @@ def _campaign_summary(body: CampaignWrite, session: DbSession, user) -> tuple[st
         session, account_id=user.account_id,
         device_ids=campaign_service.reachable_device_ids(session, user=user, device_ids=body.device_ids),
     )
-    rules = len(body.rules)
+    # Each rule is a playlist in a time slot, and that is what the Reviews page calls them — a
+    # "rule" is our word, not the owner's.
+    slots = len(body.rules)
     return (
         f"Campaign “{body.name.strip()}”: {len(screens)} screen{'' if len(screens) == 1 else 's'}, "
-        f"{rules} rule{'' if rules == 1 else 's'}",
+        f"{slots} playlist{'' if slots == 1 else 's'}",
         screens,
     )
 

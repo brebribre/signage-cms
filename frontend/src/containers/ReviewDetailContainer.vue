@@ -1,7 +1,9 @@
 <script setup lang="ts">
 /**
  * One review, opened: the change shown the way the playlist page shows a playlist — the scene
- * list and the screen preview — with the saved playlist a click away for comparison. Read-only:
+ * list and the screen preview — with the saved playlist a click away for comparison. A campaign
+ * change gets the same treatment (ReviewCampaignContainer): its week, and each rule's playlist
+ * on a screen. Read-only:
  * the only things anyone can do here are approve, reject or withdraw. A manager sees exactly
  * this page for their own reviews, minus the owner's buttons.
  */
@@ -11,9 +13,7 @@ import IconArrowBack from '~icons/material-symbols/arrow-back'
 import IconCheck from '~icons/material-symbols/check'
 import IconClose from '~icons/material-symbols/close'
 import IconLanguage from '~icons/material-symbols/language'
-import IconPause from '~icons/material-symbols/pause'
 import IconPlaylistPlay from '~icons/material-symbols/playlist-play'
-import IconPlayArrow from '~icons/material-symbols/play-arrow'
 import IconTv from '~icons/material-symbols/tv-outline'
 
 import { useAuth } from '@/hooks/useAuth'
@@ -23,18 +23,17 @@ import { useMedia } from '@/hooks/useMedia'
 import { usePlaylistPreview } from '@/hooks/usePlaylistPreview'
 import { usePlaylists } from '@/hooks/usePlaylists'
 import { useReviewDetail } from '@/hooks/useReviewDetail'
-import { SCREEN_PRESETS, useScreenPresets } from '@/hooks/useScreenPresets'
 import AppAlert from '@/reusables/AppAlert.vue'
 import AppButton from '@/reusables/AppButton.vue'
 import AppModal from '@/reusables/AppModal.vue'
 import AppTabs from '@/reusables/AppTabs.vue'
+import ReviewCampaignContainer from '@/containers/ReviewCampaignContainer.vue'
 import ModalActions from '@/reusables/ModalActions.vue'
 import NamePills from '@/reusables/NamePills.vue'
 import PageTitle from '@/reusables/PageTitle.vue'
-import ScreenPreview from '@/reusables/ScreenPreview.vue'
+import ReviewPreviewPanel from '@/reusables/ReviewPreviewPanel.vue'
 import SkeletonBlock from '@/reusables/SkeletonBlock.vue'
 import type { DraftItem } from '@/hooks/usePlaylistEditor'
-import type { CampaignRuleWrite } from '@/types/api'
 import { REVIEW_KIND_LABEL as KIND_LABEL, REVIEW_STATUS as STATUS } from '@/utils/reviewLabels'
 
 const route = useRoute()
@@ -46,9 +45,8 @@ const { relativeTime, duration } = useFormat()
 const { items: library } = useMedia()
 const { items: devices } = useDevices()
 const { items: playlists } = usePlaylists()
-const { review, proposed, current, isLoading, error, isActing, actionError, approve, reject, withdraw } =
+const { review, proposed, current, campaignBefore, campaignAfter, rulePlaylists, isLoading, error, isActing, actionError, approve, reject, withdraw } =
   useReviewDetail(id, () => library.value)
-const { presetId, isCustom, customWidth, customHeight, screen, deviceOptions } = useScreenPresets(devices)
 
 // --- Playlist changes: Before (the saved playlist) and After (the change), one preview.
 // After is what needs judging, so it opens first; Before is one tab away. ---
@@ -67,7 +65,7 @@ function sceneLabel(item: DraftItem): string {
   return item.elements.length > 1 ? `${first} + ${item.elements.length - 1}` : first
 }
 
-// --- Campaign changes: the rules, readable ---
+// --- Schedule changes: the window, readable ---
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 function daysLabel(mask: number | undefined): string {
   const m = mask ?? 0b1111111
@@ -80,7 +78,6 @@ const hhmm = (t: string | undefined | null) => (t ? t.slice(0, 5) : '')
 function playlistName(playlistId: string): string {
   return playlists.value.find((p) => p.id === playlistId)?.name ?? 'A playlist that is no longer here'
 }
-const rules = computed(() => ((review.value?.payload.rules as CampaignRuleWrite[] | undefined) ?? []))
 const devicePayload = computed(() => review.value?.payload as { playlist_id?: string | null; clear_playlist?: boolean })
 
 // --- Deciding ---
@@ -169,62 +166,20 @@ async function confirmReject() {
             </li>
           </ul>
 
-          <div class="flex flex-col gap-3 rounded-xl bg-surface p-4">
-            <div class="flex flex-wrap items-center justify-between gap-3">
-              <div class="flex flex-wrap items-center gap-2">
-                <select
-                  v-model="presetId" :disabled="isCustom"
-                  class="rounded-md border border-line-strong bg-canvas px-2 py-1 text-[13px] text-ink focus:border-ink focus:outline-none disabled:opacity-40"
-                >
-                  <optgroup v-if="deviceOptions.length" label="Your screens">
-                    <option v-for="d in deviceOptions" :key="d.id" :value="d.id">{{ d.label }}</option>
-                  </optgroup>
-                  <optgroup label="Presets">
-                    <option v-for="p in SCREEN_PRESETS" :key="p.id" :value="p.id">{{ p.label }}</option>
-                  </optgroup>
-                </select>
-                <label class="flex items-center gap-1.5 text-[13px] text-ink-muted">
-                  <input v-model="isCustom" type="checkbox" class="size-3.5 accent-ink" />
-                  Custom
-                </label>
-                <template v-if="isCustom">
-                  <input v-model.number="customWidth" type="number" min="1" class="w-20 rounded-md border border-line-strong bg-canvas px-2 py-1 text-[13px] focus:border-ink focus:outline-none" />
-                  <span class="text-[13px] text-ink-subtle">×</span>
-                  <input v-model.number="customHeight" type="number" min="1" class="w-20 rounded-md border border-line-strong bg-canvas px-2 py-1 text-[13px] focus:border-ink focus:outline-none" />
-                </template>
-              </div>
-              <AppButton variant="secondary" size="sm" :disabled="!shown.length" @click="preview.toggle()">
-                <component :is="preview.isPlaying.value ? IconPause : IconPlayArrow" class="size-4" aria-hidden="true" />
-                {{ preview.isPlaying.value ? 'Pause' : 'Play' }}
-              </AppButton>
-            </div>
-            <ScreenPreview
-              :screen-width="screen.width"
-              :screen-height="screen.height"
-              :elements="preview.current.value?.elements ?? []"
-              :background="preview.current.value?.background ?? 'black'"
-              :background-color="preview.current.value?.backgroundColor ?? null"
-            />
-          </div>
+          <ReviewPreviewPanel :preview="preview" :devices="devices" />
         </div>
       </template>
 
-      <!-- A campaign: its rules, readable. -->
-      <div v-else-if="review.kind === 'campaign_create' || review.kind === 'campaign_update'" class="flex flex-col gap-2">
-        <p class="text-sm text-ink-muted">Rules, in priority order</p>
-        <div v-for="(r, i) in rules" :key="i" class="rounded-xl bg-surface p-3">
-          <p class="text-sm text-ink">{{ playlistName(r.playlist_id) }}<span v-if="r.name" class="text-ink-muted"> · {{ r.name }}</span></p>
-          <p class="mt-0.5 text-[13px] text-ink-muted">
-            {{ daysLabel(r.days_of_week) }} · {{ hhmm(r.starts_at) }}–{{ hhmm(r.ends_at) }}<template v-if="r.priority"> · priority {{ r.priority }}</template>
-            <template v-if="r.start_date || r.end_date"> · {{ r.start_date ?? '…' }} to {{ r.end_date ?? '…' }}</template>
-          </p>
-        </div>
-        <p v-if="!rules.length" class="text-[13px] text-ink-muted">No rules.</p>
-      </div>
-
-      <div v-else-if="review.kind === 'campaign_delete'" class="rounded-xl bg-surface p-3 text-sm text-ink">
-        Removes campaign “{{ review.target_name }}” from every screen it is on. Those screens fall back to whatever else is scheduled, or their default playlist.
-      </div>
+      <!-- A campaign: when it plays, where, and each rule's playlist on a screen — Before and
+           After, as a playlist change has. -->
+      <ReviewCampaignContainer
+        v-else-if="review.kind === 'campaign_create' || review.kind === 'campaign_update' || review.kind === 'campaign_delete'"
+        :kind="review.kind"
+        :before="campaignBefore"
+        :after="campaignAfter"
+        :playlists="rulePlaylists"
+        :devices="devices"
+      />
 
       <div v-else-if="review.kind === 'playlist_shuffle'" class="rounded-xl bg-surface p-3 text-sm text-ink">
         Shuffle {{ review.payload.shuffle ? 'on' : 'off' }} for “{{ review.target_name }}”. The scenes stay the same; only their order on screen changes.

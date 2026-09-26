@@ -1,12 +1,29 @@
 import { computed, onMounted, ref } from 'vue'
 
 import { ApiError } from '@/api/request'
+import { useCampaignApi } from '@/api/useCampaignApi'
 import { usePlaylistApi } from '@/api/usePlaylistApi'
 import { useReviewApi } from '@/api/useReviewApi'
 import { useReviewBadge } from '@/hooks/useReviews'
 import { mediaToDraftElement, readToDraft, textToDraftElement, websiteToDraftElement } from '@/hooks/usePlaylistEditor'
 import type { DraftItem } from '@/hooks/usePlaylistEditor'
-import type { ElementWrite, ItemWrite, MediaRead, ReviewRead } from '@/types/api'
+import type { CampaignRuleWrite, ElementWrite, ItemWrite, MediaRead, ReviewRead } from '@/types/api'
+
+/** A campaign as a review shows it — the saved one (Before) or the one sent (After). */
+export interface CampaignSide {
+  name: string
+  device_ids: string[]
+  rules: CampaignRuleWrite[]
+}
+
+/** A playlist a campaign's rules put on screens, loaded so its scenes can be previewed. Null
+ *  scenes: it could not be loaded — most likely deleted since the review was sent. */
+export interface RulePlaylist {
+  name: string | null
+  scenes: DraftItem[] | null
+}
+
+const CAMPAIGN_KINDS = new Set(['campaign_create', 'campaign_update', 'campaign_delete'])
 
 /**
  * One review, opened: what was sent, shown the way the playlist page shows a playlist, and
@@ -16,11 +33,16 @@ import type { ElementWrite, ItemWrite, MediaRead, ReviewRead } from '@/types/api
 export function useReviewDetail(id: string, library: () => MediaRead[]) {
   const api = useReviewApi()
   const playlists = usePlaylistApi()
+  const campaigns = useCampaignApi()
   const { refreshCount } = useReviewBadge()
 
   const review = ref<ReviewRead | null>(null)
   const current = ref<DraftItem[] | null>(null)
   const currentName = ref<string | null>(null)
+  /** A campaign change: the campaign as saved now. Null for a new one, or one deleted since. */
+  const campaignBefore = ref<CampaignSide | null>(null)
+  /** Every playlist either side of a campaign change plays, by id. */
+  const rulePlaylists = ref<Map<string, RulePlaylist>>(new Map())
   const isLoading = ref(true)
   const error = ref<string | null>(null)
   const isActing = ref(false)
@@ -42,11 +64,49 @@ export function useReviewDetail(id: string, library: () => MediaRead[]) {
           current.value = null
         }
       }
+      if (CAMPAIGN_KINDS.has(review.value.kind)) await loadCampaign(review.value)
     } catch (e) {
       error.value = e instanceof ApiError ? e.message : 'Could not load this review'
     } finally {
       isLoading.value = false
     }
+  }
+
+  /** A campaign change as sent. Null for a removal, which sends nothing but the campaign's id. */
+  const campaignAfter = computed<CampaignSide | null>(() => {
+    const r = review.value
+    if (!r || (r.kind !== 'campaign_create' && r.kind !== 'campaign_update')) return null
+    const p = r.payload as Partial<CampaignSide>
+    return { name: p.name ?? r.target_name, device_ids: p.device_ids ?? [], rules: p.rules ?? [] }
+  })
+
+  /** The saved campaign, and the scenes of every playlist on either side, fetched together so
+   *  the preview can switch rules without a wait. A playlist that fails to load is kept as a
+   *  gap the page names, not a failure of the whole review. */
+  async function loadCampaign(r: ReviewRead) {
+    if (r.kind !== 'campaign_create' && r.target_id) {
+      try {
+        const saved = await campaigns.get(r.target_id)
+        campaignBefore.value = { name: saved.name, device_ids: saved.device_ids, rules: saved.rules }
+      } catch {
+        campaignBefore.value = null
+      }
+    }
+    const ids = new Set([
+      ...(campaignBefore.value?.rules ?? []).map((x) => x.playlist_id),
+      ...(campaignAfter.value?.rules ?? []).map((x) => x.playlist_id),
+    ])
+    const loaded = await Promise.all(
+      [...ids].map(async (pid): Promise<[string, RulePlaylist]> => {
+        try {
+          const detail = await playlists.get(pid)
+          return [pid, { name: detail.name, scenes: detail.items.map(readToDraft) }]
+        } catch {
+          return [pid, { name: null, scenes: null }]
+        }
+      }),
+    )
+    rulePlaylists.value = new Map(loaded)
   }
 
   /** The proposed scenes as DraftItems, built from the stored request plus the media library —
@@ -105,5 +165,5 @@ export function useReviewDetail(id: string, library: () => MediaRead[]) {
 
   onMounted(refresh)
 
-  return { review, proposed, current, currentName, isLoading, error, isActing, actionError, refresh, approve, reject, withdraw }
+  return { review, proposed, current, currentName, campaignBefore, campaignAfter, rulePlaylists, isLoading, error, isActing, actionError, refresh, approve, reject, withdraw }
 }
