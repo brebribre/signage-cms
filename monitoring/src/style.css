@@ -76,6 +76,11 @@
      and use ink if you would rather the system be strictly monochrome. */
   --color-danger: #9b2c2c;
 
+  /* --- Status, for the Infrastructure page's readings only: a screen online, a bucket
+     filling up. Always beside a word that says the same, never colour alone. --- */
+  --color-good: #1a7f37;
+  --color-warn: #b7791f;
+
   /* --- Radii. 4-16, plus the pill that every button uses. --- */
   --radius-sm: 4px;
   --radius-md: 6px;

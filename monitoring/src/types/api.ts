@@ -77,3 +77,50 @@ export interface AdminLimitsUpdateBody {
   /** null = no end date. A moment already past makes the account read-only at once. */
   expires_at?: string | null
 }
+
+/** One part of the R2 bucket, told apart by its key. `objects` is null when the bucket could
+ *  not be read and the figure came from the database instead. */
+export interface StoragePart {
+  key: 'media' | 'copies' | 'thumbnails' | 'builds' | 'other'
+  label: string
+  bytes: number
+  objects: number | null
+}
+
+/** The platform in numbers — GET /admin/infrastructure. */
+export interface InfrastructureRead {
+  storage: {
+    /** Our own upgrade line (the backend's R2_STORAGE_LIMIT_GB), not a ceiling R2 enforces. */
+    limit_bytes: number
+    used_bytes: number
+    /** `bucket`: R2 itself was measured. `database`: it could not be, so this is what the
+     *  media table knows about — no thumbnails, builds or orphans. */
+    source: 'bucket' | 'database'
+    object_count: number | null
+    measured_at: string
+    parts: StoragePart[]
+    /** Media (with its copies) added in the last 30 days and still here. */
+    added_30d_bytes: number
+    /** Oldest month first; "2026-09". */
+    monthly: { month: string; bytes: number }[]
+    top_accounts: { id: string; name: string; bytes: number }[]
+    bucket_error: string | null
+  }
+  users: {
+    total: number
+    active: number
+    main_users: number
+    sub_accounts: number
+    new_30d: number
+    accounts: number
+    client_accounts: number
+  }
+  screens: {
+    paired: number
+    online: number
+    android: number
+    web: number
+    new_30d: number
+  }
+  generated_at: string
+}

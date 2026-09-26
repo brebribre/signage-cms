@@ -1,12 +1,13 @@
 <script setup lang="ts">
 /**
  * The console's frame: one bar across the top with the logo, the pages, who you are, and the
- * way out. A bar rather than the CMS's sidebar because there is one page today and the
+ * way out. A bar rather than the CMS's sidebar because there are only a few pages and the
  * people here are staff, not customers — when monitoring grows (fleet health, crash reports
  * across every account), the pages just line up along the bar.
  */
 import { useRouter } from 'vue-router'
 import IconCorporate from '~icons/material-symbols/corporate-fare'
+import IconDns from '~icons/material-symbols/dns-outline'
 import IconLogout from '~icons/material-symbols/logout'
 
 import { useAuth } from '@/hooks/useAuth'
@@ -15,7 +16,10 @@ import AppLogo from '@/reusables/AppLogo.vue'
 const router = useRouter()
 const { user, logout } = useAuth()
 
-const links = [{ name: 'accounts', label: 'Accounts', icon: IconCorporate }]
+const links = [
+  { name: 'accounts', label: 'Accounts', icon: IconCorporate },
+  { name: 'infrastructure', label: 'Infrastructure', icon: IconDns },
+]
 
 async function onLogout() {
   await logout()
@@ -40,10 +44,11 @@ const LINK_ACTIVE = '!border-brand !text-brand font-medium [&_svg]:text-brand'
     </a>
 
     <header class="shrink-0 border-b border-line bg-canvas">
-      <div class="mx-auto flex max-w-5xl items-center gap-6 px-4 sm:px-8">
+      <div class="mx-auto flex max-w-5xl items-center gap-4 px-4 sm:gap-6 sm:px-8">
         <div class="flex items-center gap-2.5 py-3">
           <AppLogo size="sm" />
-          <span class="text-[11px] font-medium tracking-wider text-ink-subtle uppercase">Monitoring</span>
+          <!-- Dropped on phones: with two pages the bar has no room for it beside the links. -->
+          <span class="hidden text-[11px] font-medium tracking-wider text-ink-subtle uppercase sm:inline">Monitoring</span>
         </div>
 
         <nav class="flex items-center gap-4" aria-label="Main">

@@ -1,4 +1,5 @@
-"""The monitoring app's routes: its sign-in, and issuing accounts and their limits.
+"""The monitoring app's routes: its sign-in, issuing accounts and their limits, and the
+platform's totals.
 
 Every route here takes `RequireStaff` (or, for sign-in itself, refuses anyone who isn't staff)
 and nothing else for authorization; what a given member of staff may do to a given account is
@@ -21,11 +22,13 @@ from app.schemas.admin import (
     AdminAccountUserRead,
     AdminLimitsUpdate,
     AdminPasswordReset,
+    InfrastructureRead,
     StaffRead,
 )
 from app.schemas.auth import LoginRequest
 from app.services import admin as admin_service
 from app.services import auth as auth_service
+from app.services import infrastructure as infrastructure_service
 from app.services.admin import AccountNotFound, NotAllowed
 from app.services.errors import EmailTaken, InvalidCredentials, UsernameTaken
 
@@ -186,3 +189,16 @@ def reset_password(
     except NotAllowed as exc:
         raise HTTPException(status.HTTP_403_FORBIDDEN, str(exc)) from None
     return _read(summary)
+
+
+# --- Infrastructure -------------------------------------------------------------------------
+
+
+@router.get("/infrastructure", response_model=InfrastructureRead)
+def infrastructure(staff: RequireStaff, session: DbSession) -> InfrastructureRead:
+    """The platform in numbers: how full the R2 bucket is against our upgrade line, how many
+    people can sign in, and how many screens are paired and online. Read-only; the bucket is
+    measured at most every few minutes (services/infrastructure.py)."""
+    return InfrastructureRead.model_validate(
+        infrastructure_service.report(session), from_attributes=True
+    )

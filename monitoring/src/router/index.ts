@@ -21,6 +21,11 @@ const router = createRouter({
           name: 'accounts',
           component: () => import('@/containers/AccountsContainer.vue'),
         },
+        {
+          path: 'infrastructure',
+          name: 'infrastructure',
+          component: () => import('@/containers/InfrastructureContainer.vue'),
+        },
       ],
     },
     { path: '/:pathMatch(.*)*', redirect: { name: 'accounts' } },

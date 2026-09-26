@@ -3,6 +3,7 @@ import type {
   AdminAccountCreateBody,
   AdminAccountRead,
   AdminLimitsUpdateBody,
+  InfrastructureRead,
   LoginBody,
   StaffRead,
 } from '@/types/api'
@@ -26,5 +27,8 @@ export function useAdminApi() {
       request<AdminAccountRead>('POST', `/admin/accounts/${id}/password`, { password }),
     setLimits: (id: string, body: AdminLimitsUpdateBody) =>
       request<AdminAccountRead>('PATCH', `/admin/accounts/${id}`, body),
+
+    // The platform in numbers: bucket size, people, screens. Read-only.
+    infrastructure: () => request<InfrastructureRead>('GET', '/admin/infrastructure'),
   }
 }

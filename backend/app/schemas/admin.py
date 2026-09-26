@@ -122,3 +122,66 @@ class AdminLimitsUpdate(BaseModel):
     @classmethod
     def _aware_expiry(cls, value: datetime | None) -> datetime | None:
         return _aware(value)
+
+
+# --- Infrastructure -------------------------------------------------------------------------
+
+
+class StoragePartRead(BaseModel):
+    key: str
+    label: str
+    bytes: int
+    # None when the bucket could not be walked and the figure came from the database.
+    objects: int | None
+
+
+class AccountStorageRead(BaseModel):
+    id: uuid.UUID
+    name: str
+    bytes: int
+
+
+class MonthStorageRead(BaseModel):
+    month: str  # "2026-09"
+    bytes: int
+
+
+class StorageReportRead(BaseModel):
+    """How full the R2 bucket is. `limit_bytes` is our own upgrade line (settings
+    `r2_storage_limit_gb`), not a ceiling R2 enforces."""
+
+    limit_bytes: int
+    used_bytes: int
+    source: str  # "bucket" | "database"
+    object_count: int | None
+    measured_at: datetime
+    parts: list[StoragePartRead]
+    added_30d_bytes: int
+    monthly: list[MonthStorageRead]
+    top_accounts: list[AccountStorageRead]
+    bucket_error: str | None = None
+
+
+class UserReportRead(BaseModel):
+    total: int
+    active: int
+    main_users: int
+    sub_accounts: int
+    new_30d: int
+    accounts: int
+    client_accounts: int
+
+
+class ScreenReportRead(BaseModel):
+    paired: int
+    online: int
+    android: int
+    web: int
+    new_30d: int
+
+
+class InfrastructureRead(BaseModel):
+    storage: StorageReportRead
+    users: UserReportRead
+    screens: ScreenReportRead
+    generated_at: datetime

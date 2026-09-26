@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     r2_access_key_id: str = ""
     r2_secret_access_key: str = ""
 
+    # How much the bucket may hold before it is time to upgrade — shown on the monitoring
+    # app's Infrastructure page. R2 itself has no ceiling; it bills past its 10 GB free
+    # allowance. So this is our own line, not Cloudflare's: raise it on the plan you move to.
+    r2_storage_limit_gb: float = 10.0
+
     media_max_bytes: int = 500 * 1024 * 1024
     presign_put_ttl_seconds: int = 3600
     presign_get_ttl_seconds: int = 3600

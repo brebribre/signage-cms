@@ -80,6 +80,14 @@ def list_objects(prefix: str) -> list[dict]:
     return out
 
 
+def iter_objects(prefix: str = ""):
+    """Every object under a prefix, one at a time — for walking the whole bucket without
+    holding every listing in memory. Each page of 1,000 is one billed List call."""
+    paginator = _client().get_paginator("list_objects_v2")
+    for page in paginator.paginate(Bucket=get_settings().r2_bucket, Prefix=prefix):
+        yield from page.get("Contents", [])
+
+
 def head_object(key: str) -> dict | None:
     """Object metadata, or None if it is not there. Used to confirm an upload really landed."""
     try:
