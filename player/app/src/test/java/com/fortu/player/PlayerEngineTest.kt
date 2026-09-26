@@ -577,6 +577,73 @@ class PlayerEngineTest {
         job.cancelAndJoin()
     }
 
+    // --- the wifi dropping mid-update -----------------------------------------------------------
+
+    @Test
+    fun `a download cut off mid-update keeps the old content on air and retries the rest`() = runTest {
+        // This is what left real screens blank until someone edited the playlist again: the
+        // ETag was saved although a file had not arrived, so every later poll got a 304, and
+        // the old files were evicted, so the screen had nothing left to show.
+        val store = FakeStore(storedToken = "t")
+        val cache = FakeCache()
+        val api = FakeApi().apply { honourEtag = true; manifest = manifest(version = "v1", items = listOf(item("a"))) }
+        val e = engine(api = api, store = store, cache = cache)
+        val job = launch { e.run() }
+        advanceTimeBy(1_000)
+        assertEquals("\"v1\"", store.storedEtag)
+
+        // The CMS publishes v2; the wifi goes as "c" is downloading.
+        api.manifest = manifest(version = "v2", items = listOf(item("b"), item("c")))
+        api.heartbeatResponse = com.fortu.player.api.HeartbeatResponse(version = "v2")
+        cache.downloadThrowsFor = "c"
+        advanceTimeBy(31_000)
+
+        val state = e.state.value
+        assertTrue("the old content stays on air, got $state", state is PlayerState.Playing)
+        assertEquals(listOf("a"), (state as PlayerState.Playing).elements.map { it.checksum })
+        assertEquals("the unfinished version is not marked done", "\"v1\"", store.storedEtag)
+        assertEquals("nothing is evicted until the new set is complete", setOf("a"), cache.lastEvictKeep?.toSet())
+
+        // The wifi is back: the next poll fetches v2 again and finishes it.
+        cache.downloadThrowsFor = null
+        advanceTimeBy(31_000)
+
+        val after = e.state.value
+        assertTrue(after is PlayerState.Playing)
+        assertEquals(listOf("b", "c"), (after as PlayerState.Playing).elements.map { it.checksum })
+        assertEquals("\"v2\"", store.storedEtag)
+        assertEquals(setOf("b", "c"), cache.lastEvictKeep?.toSet())
+        job.cancelAndJoin()
+    }
+
+    @Test
+    fun `retrying an unfinished update neither flashes the progress screen nor hammers the CMS`() = runTest {
+        val store = FakeStore(storedToken = "t")
+        val cache = FakeCache()
+        val api = FakeApi().apply { honourEtag = true; manifest = manifest(version = "v1", items = listOf(item("a"))) }
+        val e = engine(api = api, store = store, cache = cache)
+        val job = launch { e.run() }
+        advanceTimeBy(1_000)
+
+        api.manifest = manifest(version = "v2", items = listOf(item("b")))
+        api.heartbeatResponse = com.fortu.player.api.HeartbeatResponse(version = "v2")
+        cache.downloadThrowsFor = "b"
+        advanceTimeBy(31_000) // the first attempt fails
+
+        val seen = mutableListOf<PlayerState>()
+        val watch = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { e.state.collect { seen += it } }
+        val callsBefore = api.manifestCalls
+        advanceTimeBy(61_000) // two more polls, both failing again
+
+        assertTrue("no progress screen over the content on air, saw $seen", seen.none { it is PlayerState.Preparing })
+        assertTrue(
+            "retries wait for the normal poll, not every 2 s: ${api.manifestCalls - callsBefore} calls",
+            api.manifestCalls - callsBefore <= 3,
+        )
+        watch.cancel()
+        job.cancelAndJoin()
+    }
+
     // --- proof of play ------------------------------------------------------------------------
 
     @Test

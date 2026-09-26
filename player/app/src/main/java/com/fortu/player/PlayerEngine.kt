@@ -308,6 +308,11 @@ class PlayerEngine(
      *  shortened to land on it. */
     private var validUntilMillis: Long? = null
 
+    /** A version whose files did not all download (the wifi dropped mid-way, say). Its ETag is
+     *  not saved, so every poll fetches it again and retries what is missing; the screen keeps
+     *  playing what it had, without a progress screen, until the whole set is on disk. */
+    private var incompleteVersion: String? = null
+
     /** Plays observed since the last heartbeat, drained when one is sent.
      *  Bounded so a screen that cannot reach the server for hours accumulates a report
      *  instead of unbounded memory — the oldest entries are the ones worth dropping. */
@@ -498,10 +503,18 @@ class PlayerEngine(
             _debug.update { it.copy(lastPoll = "just now", lastError = null) }
 
             if (manifest != null) {
-                applyManifest(manifest)
-                store.saveEtag("\"${manifest.version}\"")
-                runCatching { store.saveManifestJson(json.encodeToString(Manifest.serializer(), manifest)) }
-                    .onFailure { Log.w(TAG, "could not persist manifest", it) }
+                val complete = applyManifest(manifest, retry = manifest.version == incompleteVersion)
+                // Only a version whose every file is on disk counts as done. Saving the ETag of
+                // one that is not would make every later poll answer 304, and the missing files
+                // would never be fetched again.
+                if (complete) {
+                    incompleteVersion = null
+                    store.saveEtag("\"${manifest.version}\"")
+                    runCatching { store.saveManifestJson(json.encodeToString(Manifest.serializer(), manifest)) }
+                        .onFailure { Log.w(TAG, "could not persist manifest", it) }
+                } else {
+                    incompleteVersion = manifest.version
+                }
             }
 
             // Heartbeat carries liveness and reported resolution. Its response includes the
@@ -538,7 +551,9 @@ class PlayerEngine(
                 res.update?.let { maybeSelfUpdate(token, it) }
                 restartIfStalled()
 
-                if (etag != null && "\"${res.version}\"" != etag) {
+                // An incomplete download also leaves the versions apart; that one waits for the
+                // normal poll to retry, rather than hammering a network that just failed.
+                if (etag != null && "\"${res.version}\"" != etag && res.version != incompleteVersion) {
                     // Version moved under us — loop again soon rather than waiting a full
                     // poll. Never with zero delay, though: a version that keeps disagreeing
                     // on every single heartbeat (a stuck race, a server bug) must not turn
@@ -736,7 +751,17 @@ class PlayerEngine(
         adoptSettings(manifest)
     }
 
-    private suspend fun applyManifest(manifest: Manifest) = withContext(io) {
+    /**
+     * Download a manifest's files and switch to it. Returns whether every file is now on disk.
+     *
+     * When some fail and the screen was already playing, nothing changes on screen and nothing
+     * is deleted: the old content stays on air, and its files stay on disk, until the new set
+     * is complete. [retry] is a later attempt at the same version, done without the progress
+     * screen, so a screen retrying every poll never flashes it over the content it plays.
+     */
+    private suspend fun applyManifest(manifest: Manifest, retry: Boolean = false): Boolean = withContext(io) {
+        val before = _state.value as? PlayerState.Playing
+        val quiet = retry && before != null
         validUntilMillis = parseInstantMillis(manifest.validUntil)
         adoptSettings(manifest)
 
@@ -754,7 +779,7 @@ class PlayerEngine(
             _state.value = PlayerState.Idle(manifest.device.name)
             cache.evictExcept(emptyList())
             _debug.update { it.copy(cachedBytes = cache.cachedBytes()) }
-            return@withContext
+            return@withContext true
         }
 
         // Download everything missing BEFORE switching the playlist, so a screen never shows
@@ -771,6 +796,7 @@ class PlayerEngine(
         fun showPreparing(current: ManifestElement?, inFlight: Long, force: Boolean = false) {
             val now = clock()
             // Progress arrives per 64 KB chunk; the screen doesn't need every one of them.
+            if (quiet) return
             if (!force && now - lastShownAt < PREPARING_REFRESH_MILLIS) return
             lastShownAt = now
             _state.value = PlayerState.Preparing(
@@ -808,6 +834,16 @@ class PlayerEngine(
             }
         }
 
+        val complete = allElements.all { cache.isCached(it) }
+        if (!complete && before != null) {
+            // Keep what was on air. Switching to the part that did arrive would drop the rest,
+            // and evicting would delete the old files the screen can still play.
+            Log.w(TAG, "version ${manifest.version} incomplete; keeping the current content")
+            _state.value = before
+            _debug.update { it.copy(cachedBytes = cache.cachedBytes()) }
+            return@withContext false
+        }
+
         val playable = slots.filter { cache.isFullyCached(it) }
 
         // Warm everything that is actually about to go on screen before switching the
@@ -820,7 +856,7 @@ class PlayerEngine(
         // A website has no file to warm — it loads live when its slot comes up.
         val toWarm = playable.flatMap { it.elements }.filter { it.kind != KIND_WEB && it.kind != KIND_TEXT }.distinctBy { it.checksum }
         for (element in toWarm) {
-            if (missing.isNotEmpty()) {
+            if (missing.isNotEmpty() && !quiet) {
                 _state.value = PlayerState.Preparing(
                     manifest.device.name, totalBytes, totalBytes,
                     "getting ${element.kind} ready", null,
@@ -842,9 +878,14 @@ class PlayerEngine(
             )
         }
 
-        // Evict only after the new set is safely on disk.
-        cache.evictExcept(allElements.filter { it.kind != KIND_WEB && it.kind != KIND_TEXT }.map { it.checksum })
+        // Evict only after the new set is safely on disk, all of it: with nothing else to
+        // show, a screen plays whatever part arrived, but it keeps every older file until the
+        // rest does, in case it restarts before then.
+        if (complete) {
+            cache.evictExcept(allElements.filter { it.kind != KIND_WEB && it.kind != KIND_TEXT }.map { it.checksum })
+        }
         _debug.update { it.copy(cachedBytes = cache.cachedBytes()) }
+        complete
     }
 
     /**
