@@ -54,6 +54,22 @@ const en = {
   },
   /** The title over the feature cards. */
   how: { title: 'How it works' },
+  /** The first card under How it works: the two things to set up before anything else. */
+  start: {
+    title: 'Get started',
+    body: 'Two things, and your screen is ready to go.',
+    player: {
+      title: 'Put Marien Player on the screen',
+      text: 'On an Android TV box, install the app. On a smart TV, open the web player in its browser.',
+      android: 'Download for Android',
+      web: 'Open the web player',
+    },
+    cms: {
+      title: 'Open Marien CMS',
+      text: 'Sign in from your phone, tablet or laptop, and connect the screen with its code.',
+      open: 'Open Marien CMS',
+    },
+  },
   connect: {
     title: 'Connect your screens',
     body: 'Type the six-letter code from the player, and the screen joins your fleet.',

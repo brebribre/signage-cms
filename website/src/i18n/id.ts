@@ -44,6 +44,21 @@ const id: Messages = {
     ],
   },
   how: { title: 'Cara kerjanya' },
+  start: {
+    title: 'Mulai sekarang',
+    body: 'Cukup dua hal, dan layar Anda siap tayang.',
+    player: {
+      title: 'Pasang Marien Player di layar',
+      text: 'Di Android TV box, instal aplikasinya. Di smart TV, buka web player lewat browser-nya.',
+      android: 'Unduh untuk Android',
+      web: 'Buka web player',
+    },
+    cms: {
+      title: 'Buka Marien CMS',
+      text: 'Masuk dari HP, tablet, atau laptop, lalu hubungkan layar dengan kodenya.',
+      open: 'Buka Marien CMS',
+    },
+  },
   connect: {
     title: 'Hubungkan layar Anda',
     body: 'Ketik kode enam huruf dari pemutar, dan layar langsung bergabung.',

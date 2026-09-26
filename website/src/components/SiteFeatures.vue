@@ -7,6 +7,7 @@ import SiteConnect from './SiteConnect.vue'
 import SiteDesign from './SiteDesign.vue'
 import SitePlatforms from './SitePlatforms.vue'
 import SitePublish from './SitePublish.vue'
+import SiteStart from './SiteStart.vue'
 import SiteUses from './SiteUses.vue'
 import { useI18n } from '@/i18n'
 
@@ -25,7 +26,9 @@ const CELL = 'reveal'
     <!-- The feature cards, under their own title. -->
     <h2 class="reveal mt-20 text-3xl leading-[1.15] sm:mt-28 sm:text-5xl sm:leading-[1.1]">{{ m.how.title }}</h2>
     <div class="mt-10 grid grid-cols-1 gap-4 sm:mt-14 sm:gap-6 lg:grid-cols-3">
-      <!-- In the order a customer meets them: connect, design, publish, and what it runs on. -->
+      <!-- In the order a customer meets them: get started, connect, design, publish, and what it
+           runs on. -->
+      <SiteStart :class="[CELL, 'lg:col-span-3']" />
       <SiteConnect :class="CELL" />
       <SiteDesign :class="[CELL, 'lg:col-span-2']" />
       <SitePublish :class="CELL" />
