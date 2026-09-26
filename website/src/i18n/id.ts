@@ -10,7 +10,7 @@ const id: Messages = {
   nav: {
     label: 'Situs',
     menu: 'Menu',
-    links: { screens: 'Layar', content: 'Konten', publish: 'Publikasi', platforms: 'Platform', home: 'Beranda', features: 'Fitur', software: 'Software', demo: 'Demo' },
+    links: { screens: 'Layar', content: 'Konten', publish: 'Publikasi', platforms: 'Platform', home: 'Beranda', how: 'Cara kerja', features: 'Fitur', software: 'Software', demo: 'Demo' },
     signIn: 'Masuk',
     requestAccess: 'Request Akses',
   },
@@ -42,6 +42,20 @@ const id: Messages = {
       { title: 'Berbagi Informasi', alt: 'Layar Marien di atas aula stasiun yang ramai, menampilkan jadwal keberangkatan' },
       { title: 'Media Interaktif', alt: 'Pengunjung menyentuh situs direktori mal di layar sentuh Marien' },
     ],
+  },
+  fleet: { lead: 'Publikasikan ke semua layar Anda', rest: 'sekaligus.', howLink: 'Lihat cara kerjanya' },
+  howPage: {
+    metaTitle: 'Marien. Cara kerja',
+    lead: 'Cara kerjanya.',
+    rest: 'Dari layar baru sampai konten tayang, dalam beberapa langkah.',
+  },
+  wall: {
+    account: 'Nusantara Tower',
+    screens: '10 layar online',
+    publish: 'Publikasikan ke semua layar',
+    publishing: 'Memublikasikan…',
+    live: 'Tayang di 10 layar',
+    items: ['Sambutan lobi', 'Menu kafetaria', 'Promo sore', 'Town hall'],
   },
   software: {
     metaTitle: 'Marien. Software',
@@ -182,7 +196,7 @@ const id: Messages = {
     tagline: 'Digital signage yang berjalan sendiri.',
     groups: { product: 'Produk', resources: 'Sumber daya', account: 'Akun' },
     links: {
-      features: 'Fitur', software: 'Software', demo: 'Demo', uses: 'Kegunaan',
+      how: 'Cara kerja', features: 'Fitur', software: 'Software', demo: 'Demo', uses: 'Kegunaan',
       docs: 'Dokumentasi', android: 'Android player', web: 'Web player',
       signIn: 'Masuk', requestAccess: 'Request Akses',
     },

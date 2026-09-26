@@ -165,6 +165,23 @@ h1, h2, h3, .display { font-family: var(--font-display); font-weight: 400; lette
 /* The venue strip scrolls on its own; the list is doubled so the loop has no seam. */
 @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 .marquee { animation: marquee 32s linear infinite; }
+/* A card row that scrolls sideways, full width: its padding lines the first and last card up with
+   the page's column (max-w-7xl with its gutter), and snapping stops there too. */
+.card-row { padding-inline: max(1.25rem, calc((100vw - 80rem) / 2 + 1.25rem)); scroll-padding-inline: max(1.25rem, calc((100vw - 80rem) / 2 + 1.25rem)); }
+@media (min-width: 40rem) { .card-row { padding-inline: max(2rem, calc((100vw - 80rem) / 2 + 2rem)); scroll-padding-inline: max(2rem, calc((100vw - 80rem) / 2 + 2rem)); } }
+
+/* The screen wall: ten screens around a cylinder that turns slowly. Each screen is turned to its
+   place (36° apart) and pushed out by the radius; the ring is pulled back by the same radius so
+   the front screen sits at its own size. The far half faces away and is hidden. The radius is
+   what puts ten screens of that width edge to edge with a small gap: w / (2·tan 18°) + gap. */
+.ring3d-stage { perspective: 1800px; perspective-origin: 50% 35%; }
+.ring3d { --w: 13rem; --r: 21.5rem; position: relative; height: calc(var(--w) * 0.62); transform-style: preserve-3d; animation: ring3d-turn 80s linear infinite; }
+@media (min-width: 40rem) { .ring3d { --w: 17rem; --r: 28rem; } }
+@media (min-width: 64rem) { .ring3d { --w: 24rem; --r: 39.5rem; } }
+.ring3d-paused { animation-play-state: paused; }
+.ring3d-item { position: absolute; left: 50%; top: 0; width: var(--w); margin-left: calc(var(--w) / -2); backface-visibility: hidden; transform: rotateY(calc(var(--i) * 36deg)) translateZ(var(--r)); }
+@keyframes ring3d-turn { from { transform: translateZ(calc(var(--r) * -1)) rotateY(0deg); } to { transform: translateZ(calc(var(--r) * -1)) rotateY(-360deg); } }
+@media (prefers-reduced-motion: reduce) { .ring3d { animation: none; transform: translateZ(calc(var(--r) * -1)); } }
 
 /* The tab tour's countdown: how long the tab showing has left. */
 @keyframes tab-progress { from { transform: scaleX(0); } to { transform: scaleX(1); } }

@@ -14,6 +14,7 @@ const GROUPS = computed(() => {
   const l = m.value.footer.links
   return [
     { title: m.value.footer.groups.product, links: [
+      { href: '/how-it-works', label: l.how },
       { href: '/features', label: l.features },
       { href: '/software', label: l.software },
       { href: '/demo', label: l.demo },

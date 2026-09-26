@@ -14,6 +14,7 @@ const { m } = useI18n()
 /** The site's pages. Sign in and Request access are buttons, beside them. */
 const LINKS = computed(() => [
   { href: homeSection('top'), label: m.value.nav.links.home },
+  { href: '/how-it-works', label: m.value.nav.links.how },
   { href: '/features', label: m.value.nav.links.features },
   { href: '/software', label: m.value.nav.links.software },
   { href: '/demo', label: m.value.nav.links.demo },

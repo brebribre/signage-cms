@@ -3,6 +3,7 @@ import { useReveal } from '@/composables/useReveal'
 import { page } from '@/composables/usePage'
 import DemoPage from '@/components/DemoPage.vue'
 import FeaturesPage from '@/components/FeaturesPage.vue'
+import HowItWorksPage from '@/components/HowItWorksPage.vue'
 import SoftwarePage from '@/components/SoftwarePage.vue'
 import AndroidPage from '@/components/AndroidPage.vue'
 import SiteDemoVideo from '@/components/SiteDemoVideo.vue'
@@ -19,8 +20,9 @@ useReveal()
 
 <template>
   <SiteNav />
-  <main>
+  <main class="overflow-x-clip">
     <DemoPage v-if="page === 'demo'" />
+    <HowItWorksPage v-else-if="page === 'how'" />
     <FeaturesPage v-else-if="page === 'features'" />
     <SoftwarePage v-else-if="page === 'software'" />
     <AndroidPage v-else-if="page === 'android'" />

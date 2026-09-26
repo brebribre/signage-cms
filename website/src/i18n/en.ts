@@ -16,7 +16,7 @@ const en = {
   nav: {
     label: 'Site',
     menu: 'Menu',
-    links: { screens: 'Screens', content: 'Content', publish: 'Publish', platforms: 'Platforms', home: 'Home', features: 'Features', software: 'Software', demo: 'Demo' },
+    links: { screens: 'Screens', content: 'Content', publish: 'Publish', platforms: 'Platforms', home: 'Home', how: 'How it works', features: 'Features', software: 'Software', demo: 'Demo' },
     signIn: 'Sign in',
     requestAccess: 'Request access',
   },
@@ -52,7 +52,24 @@ const en = {
       { title: 'Interactive Media', alt: 'A shopper tapping a mall directory website on a Marien touch screen' },
     ],
   },
-  /** The statement over the feature cards: the lead in ink, the rest in the brand gradient. */
+  /** The statement over the home page's two feature cards: the lead in ink, the rest in the brand gradient. */
+  /** The statement over the screen wall. */
+  fleet: { lead: 'Publish to your entire fleet', rest: 'at once.', howLink: 'See how it works' },
+  /** The /how-it-works page, with the feature cards. */
+  howPage: {
+    metaTitle: 'Marien. How it works',
+    lead: 'How it works.',
+    rest: 'From a new screen to content on air, in a few steps.',
+  },
+  /** The home page's screen wall: rows of screens, and the CMS that changes them all at once. */
+  wall: {
+    account: 'Nusantara Tower',
+    screens: '10 screens online',
+    publish: 'Publish to all screens',
+    publishing: 'Publishing…',
+    live: 'Live on all 10 screens',
+    items: ['Lobby welcome', 'Cafeteria menu', 'After hours promo', 'Town hall'],
+  },
   /** The /software page: the three pieces of Marien, each with what it is for. */
   software: {
     metaTitle: 'Marien. Software',
@@ -197,7 +214,7 @@ const en = {
     tagline: 'Digital signage that runs itself.',
     groups: { product: 'Product', resources: 'Resources', account: 'Account' },
     links: {
-      features: 'Features', software: 'Software', demo: 'Demo', uses: 'Use cases',
+      how: 'How it works', features: 'Features', software: 'Software', demo: 'Demo', uses: 'Use cases',
       docs: 'Documentation', android: 'Android player', web: 'Web player',
       signIn: 'Sign in', requestAccess: 'Request access',
     },

@@ -1,40 +1,66 @@
 <script setup lang="ts">
 /**
- * The features, as a bento: cards of different widths sharing rows on a wide page, the way a
- * product page packs a lot into little height. On a phone they simply stack.
+ * Under the hero: what Marien is and what it's for; then how quickly a screen gets going, the How
+ * it works cards in a row that scrolls sideways, and a link to the page; then publishing to every
+ * screen at once, over the screen wall.
  */
+import { ref } from 'vue'
+import IconArrow from '~icons/material-symbols/arrow-forward'
+import IconBack from '~icons/material-symbols/arrow-back'
+
 import SiteConnect from './SiteConnect.vue'
 import SiteDesign from './SiteDesign.vue'
 import SitePlatforms from './SitePlatforms.vue'
 import SitePublish from './SitePublish.vue'
-import SiteStart from './SiteStart.vue'
 import SiteUses from './SiteUses.vue'
+import SiteWall from './SiteWall.vue'
 import { useI18n } from '@/i18n'
 
 const { m } = useI18n()
-const CELL = 'reveal'
+const STATEMENT = 'reveal max-w-3xl text-2xl leading-[1.2] sm:text-4xl sm:leading-[1.15]'
+const GRADIENT = 'bg-gradient-to-r from-brand-strong to-brand-bright bg-clip-text text-transparent'
+
+/** The card row, and the arrows beside the heading that move it by about a card. */
+const row = ref<HTMLElement>()
+function nudge(dir: 1 | -1) {
+  const el = row.value
+  if (el) el.scrollBy({ left: dir * Math.min(el.clientWidth * 0.8, 480), behavior: 'smooth' })
+}
+const ARROW = 'flex size-11 items-center justify-center rounded-full bg-white text-ink ring-1 ring-line-strong transition-colors hover:bg-ink hover:text-white'
+const CARD = 'reveal w-[85vw] shrink-0 snap-start sm:w-[26rem]'
 </script>
 
 <template>
   <div class="mx-auto max-w-7xl px-5 pt-20 pb-10 sm:px-8 sm:pt-28">
     <!-- One statement, lead in ink and the rest in the hero's blue gradient. -->
-    <h2 class="reveal max-w-3xl text-2xl leading-[1.2] sm:text-4xl sm:leading-[1.15]">
-      {{ m.features.lead }} <span class="bg-gradient-to-r from-brand-strong to-brand-bright bg-clip-text text-transparent">{{ m.features.rest }}</span>
-    </h2>
-    <!-- What it is for, before how it works. -->
+    <h2 :class="STATEMENT">{{ m.features.lead }} <span :class="GRADIENT">{{ m.features.rest }}</span></h2>
+    <!-- What it is for. -->
     <SiteUses />
-    <!-- The feature cards, under a statement set like the one above. -->
-    <h2 class="reveal mt-20 max-w-3xl text-2xl leading-[1.2] sm:mt-28 sm:text-4xl sm:leading-[1.15]">
-      {{ m.how.lead }} <span class="bg-gradient-to-r from-brand-strong to-brand-bright bg-clip-text text-transparent">{{ m.how.rest }}</span>
-    </h2>
-    <div class="mt-10 grid grid-cols-1 gap-4 sm:mt-14 sm:gap-6 lg:grid-cols-3">
-      <!-- In the order a customer meets them: get started, connect, design, publish, and what it
-           runs on. -->
-      <SiteStart :class="[CELL, 'lg:col-span-3']" />
-      <SiteConnect :class="CELL" />
-      <SiteDesign :class="[CELL, 'lg:col-span-2']" />
-      <SitePublish :class="CELL" />
-      <SitePlatforms :class="[CELL, 'lg:col-span-2']" />
+
+    <!-- How quickly: the How it works cards in a row that scrolls sideways, out to the window's
+         edges, its first card lined up with the heading. -->
+    <div class="mt-20 flex items-end justify-between gap-6 sm:mt-28">
+      <h2 :class="STATEMENT">{{ m.how.lead }} <span :class="GRADIENT">{{ m.how.rest }}</span></h2>
+      <div class="hidden shrink-0 gap-2 sm:flex">
+        <button type="button" :class="ARROW" aria-label="Previous" @click="nudge(-1)"><IconBack class="size-5" /></button>
+        <button type="button" :class="ARROW" aria-label="Next" @click="nudge(1)"><IconArrow class="size-5" /></button>
+      </div>
     </div>
+    <div
+      ref="row"
+      class="card-row relative left-1/2 mt-10 flex w-screen -translate-x-1/2 snap-x snap-mandatory gap-4 overflow-x-auto pb-4 [scrollbar-width:none] sm:mt-14 sm:gap-6 [&::-webkit-scrollbar]:hidden"
+    >
+      <SiteConnect :class="CARD" />
+      <SiteDesign :class="CARD" class="sm:w-[40rem]" />
+      <SitePublish :class="CARD" />
+      <SitePlatforms :class="CARD" class="sm:w-[34rem]" />
+    </div>
+    <a href="/how-it-works" class="reveal mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-brand transition-colors hover:text-brand-strong">
+      {{ m.fleet.howLink }}<IconArrow class="size-4" aria-hidden="true" />
+    </a>
+
+    <!-- Everywhere at once: a wall of screens, all changed from the CMS. -->
+    <h2 :class="STATEMENT" class="mt-20 sm:mt-28">{{ m.fleet.lead }} <span :class="GRADIENT">{{ m.fleet.rest }}</span></h2>
+    <SiteWall class="reveal" />
   </div>
 </template>
