@@ -1,8 +1,9 @@
 # Security review — 26 September 2026
 
-> **C1 and H1 are fixed** (26 September). The rollout control plane is now Paskall-only, and a
-> malformed web address answers 400 instead of killing the site. Both fixes are verified below,
-> in place. Everything else in this document is still open.
+> **C1 and H1 are fixed and live in production** (26 September, commit `76045e9`). The rollout
+> control plane is now Paskall-only, and a malformed web address answers 400 instead of killing
+> the site. Both were verified against the live services after deploying, not just locally — see
+> the notes under each. Everything else in this document is still open.
 
 A review of whether one customer can reach another customer's screens, and whether the platform
 can be broken into. Written as a punch list to work through before real customers are onboarded,
@@ -115,6 +116,9 @@ real path is a command-line script. So changing the guard costs nothing in the i
 - Decide separately whether customers should keep seeing the build list, which the per-screen
   version picker does use. See M12.
 
+**Live in production.** The deployed container carries the new guard, and the endpoints answer
+401 to an unauthenticated caller.
+
 **What was done.** A new `RequirePlatformOwner` guard, narrower than `RequireStaff`: the main user
 of the one owner account and nobody else. A technician services their own clients and has no
 business deciding what every other customer's screens run, so they are refused too. It now guards
@@ -140,10 +144,10 @@ that guard is deliberately the whole defence and the code now says so.
 **Where:** line 50 of [`frontend/server.mjs`](frontend/server.mjs), and the same line in the monitoring, web player and
 website servers.
 
-Each server decodes the address of every incoming request. Decoding a stray percent sign throws,
-the throw is not caught anywhere in the file, and Node exits when a request handler throws.
+Each server decoded the address of every incoming request. Decoding invalid input throws, the
+throw was not caught anywhere in the file, and Node exits when a request handler throws.
 
-**Confirmed on a local copy, not production:**
+**Confirmed on a local copy before the fix:**
 
 ```
 GET /    -> 200      server healthy
@@ -151,22 +155,42 @@ GET /%   -> 000      connection died mid-request
 GET /    -> 000      process gone
 ```
 
-One request, no account needed, and the process is dead. Railway restarts it, so a loop is a
-sustained outage. All four sites share the code, including the web player origin that every
-browser-based screen loads from.
+One request, no account needed, and the process was dead. All four sites shared the code.
+
+**A correction worth recording, because the first production check was misleading.** After
+deploying, `GET /%` against the live sites returned 502 rather than the expected 400, with
+`server: railway-hikari` in the response. That is Railway's own edge proxy refusing the request
+before it ever reaches the container, which raised a fair question: was production ever actually
+exposed, or was the edge always absorbing this?
+
+The answer is that production **was** exposed, and the first probe simply picked the one shape the
+edge filters. `%` on its own is malformed percent-encoding and the edge rejects it. But
+`%ED%A0%80` is perfectly well-formed percent-encoding that happens to decode to invalid UTF-8 (a
+lone surrogate), so the edge passes it straight through — and `decodeURIComponent` throws on it
+just the same. That request reached the app.
+
+**Verified against the live sites after the fix**, using the input that does get through:
+
+| Site | `/%ED%A0%80` | then `/` |
+|---|---|---|
+| app.paskall.co.id | 400 | 200 |
+| monitoring.paskall.co.id | 400 | 200 |
+| player.paskall.co.id | 400 | 200 |
+| paskall.co.id | 400 | 200 |
+
+Eight in a row against the web player all returned 400 and the site kept serving. The 400 is the
+new handler answering, which is also the proof that these requests do reach the app rather than
+being stopped upstream.
 
 **What was done.** All four servers now decode through a helper that returns null instead of
 throwing, and answer 400 to a malformed address. Each also has a process-level handler, so a throw
-anywhere else cannot take the site down either. Verified after the change:
+anywhere else cannot take the site down either. Directory traversal was already blocked and still
+is: `/..%2f..%2fetc%2fpasswd` returns the app's own page, and the same path with a file extension
+returns 404.
 
-```
-GET /%                      -> 400        GET /%zz         -> 400
-GET /%E0%A4%A               -> 400        GET /app%        -> 400
-GET /                       -> 200        still serving
-```
-
-Directory traversal was already blocked and still is: `/..%2f..%2fetc%2fpasswd` returns the app's
-own page, and the same path with a file extension returns 404.
+**The lesson for the rest of this document:** an edge proxy sitting in front of the app absorbs
+some malformed input, so a probe that comes back clean through the public hostname does not by
+itself prove the app behind it is sound.
 
 ### H2. Nothing slows down password guessing on either sign-in
 

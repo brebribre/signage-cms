@@ -46,7 +46,9 @@ onBeforeUnmount(() => { if (timer) clearInterval(timer) })
 </script>
 
 <template>
-  <div class="relative mx-auto max-w-6xl lg:min-h-[34rem]">
+  <!-- As wide as the headline's column, so the cards at its corners line up with the words on
+       the left and the nav's buttons on the right. -->
+  <div class="relative lg:min-h-[34rem]">
     <!-- The dome and its rings, anchored to the floor the CMS stands on. -->
     <div class="pointer-events-none absolute inset-x-0 bottom-0 hidden justify-center overflow-hidden lg:flex" aria-hidden="true">
       <div class="relative h-[21rem] w-[44rem] lg:h-[24rem] lg:w-[50rem]">
