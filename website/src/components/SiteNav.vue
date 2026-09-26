@@ -15,6 +15,7 @@ const { m } = useI18n()
 const LINKS = computed(() => [
   { href: homeSection('top'), label: m.value.nav.links.home },
   { href: '/features', label: m.value.nav.links.features },
+  { href: '/software', label: m.value.nav.links.software },
   { href: '/demo', label: m.value.nav.links.demo },
 ])
 const open = ref(false)

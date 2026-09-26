@@ -10,7 +10,7 @@ const id: Messages = {
   nav: {
     label: 'Situs',
     menu: 'Menu',
-    links: { screens: 'Layar', content: 'Konten', publish: 'Publikasi', platforms: 'Platform', home: 'Beranda', features: 'Fitur', demo: 'Demo' },
+    links: { screens: 'Layar', content: 'Konten', publish: 'Publikasi', platforms: 'Platform', home: 'Beranda', features: 'Fitur', software: 'Software', demo: 'Demo' },
     signIn: 'Masuk',
     requestAccess: 'Request Akses',
   },
@@ -41,6 +41,16 @@ const id: Messages = {
       { title: 'Advertising', alt: 'Totem signage Marien di mal yang ramai, menayangkan promo kafe' },
       { title: 'Berbagi Informasi', alt: 'Layar Marien di atas aula stasiun yang ramai, menampilkan jadwal keberangkatan' },
       { title: 'Media Interaktif', alt: 'Pengunjung menyentuh situs direktori mal di layar sentuh Marien' },
+    ],
+  },
+  software: {
+    metaTitle: 'Marien. Software',
+    lead: 'Software.',
+    rest: 'CMS untuk mengendalikan semuanya, dan player di setiap layar.',
+    items: [
+      { name: 'Marien CMS', text: 'Pusat kendali. Kelola setiap layar yang terhubung dan publikasikan konten ke sana, dari HP, tablet, atau laptop.', link: 'Buka Marien CMS', alt: 'Marien CMS di laptop, menampilkan ringkasan semua layar' },
+      { name: 'Marien Android Player', text: 'Aplikasi untuk perangkat Android: TV box, stik TV, dan layar signage. Menghubungkan layar ke CMS dan menayangkan konten yang Anda publikasikan.', link: 'Unduh untuk Android', alt: 'Layar dengan Marien Android Player, menampilkan menu kafetaria' },
+      { name: 'Marien Web Player', text: 'Player yang sama untuk layar non-Android, seperti smart TV. Berjalan di browser dan terhubung ke CMS dengan cara yang sama.', link: 'Buka web player', alt: 'Marien Web Player di browser, menampilkan sambutan lobi' },
     ],
   },
   how: {
@@ -140,13 +150,19 @@ const id: Messages = {
     body: 'Tinggalkan kontak Anda, dan kami akan menghubungi Anda untuk menyiapkan akun.',
     cta: 'Request Akses',
     signIn: 'Masuk',
+    tagline: 'Digital signage yang berjalan sendiri.',
+    groups: { product: 'Produk', resources: 'Sumber daya', account: 'Akun' },
+    links: {
+      features: 'Fitur', software: 'Software', demo: 'Demo', uses: 'Kegunaan',
+      docs: 'Dokumentasi', android: 'Android player', web: 'Web player',
+      signIn: 'Masuk', requestAccess: 'Request Akses',
+    },
     form: {
       name: 'Nama',
       company: 'Perusahaan',
       optional: '(opsional)',
       email: 'Email',
       phone: 'Nomor telepon',
-      eitherHint: 'Email atau nomor telepon, mana saja yang Anda suka. Minimal salah satu.',
       sending: 'Mengirim…',
       sentTitle: 'Terima kasih!',
       sentBody: 'Permintaan Anda sudah kami terima, dan kami akan segera menghubungi Anda.',

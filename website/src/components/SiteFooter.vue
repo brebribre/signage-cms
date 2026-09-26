@@ -8,12 +8,28 @@ import { useI18n } from '@/i18n'
 
 const year = new Date().getFullYear()
 const { m } = useI18n()
-const LINKS = computed(() => [
-  { href: homeSection('connect'), label: m.value.nav.links.screens },
-  { href: homeSection('design'), label: m.value.nav.links.content },
-  { href: homeSection('publish'), label: m.value.nav.links.publish },
-  { href: homeSection('platforms'), label: m.value.nav.links.platforms },
-])
+/** Three short columns: the site, the things a customer opens once they have an account, and the
+ *  account itself. Links off the site open where they are, like the header's Sign in. */
+const GROUPS = computed(() => {
+  const l = m.value.footer.links
+  return [
+    { title: m.value.footer.groups.product, links: [
+      { href: '/features', label: l.features },
+      { href: '/software', label: l.software },
+      { href: '/demo', label: l.demo },
+      { href: homeSection('uses'), label: l.uses },
+    ] },
+    { title: m.value.footer.groups.resources, links: [
+      { href: 'https://docs.marien.co.id', label: l.docs },
+      { href: 'https://api.marien.co.id/player/download', label: l.android },
+      { href: 'https://player.marien.co.id', label: l.web },
+    ] },
+    { title: m.value.footer.groups.account, links: [
+      { href: 'https://app.marien.co.id', label: l.signIn },
+      { href: homeSection('contact'), label: l.requestAccess },
+    ] },
+  ]
+})
 </script>
 
 <template>
@@ -37,14 +53,24 @@ const LINKS = computed(() => [
     </div>
   </section>
   <footer class="border-t border-line">
-    <div class="mx-auto flex max-w-7xl flex-col gap-6 px-5 py-10 text-sm sm:px-8 md:flex-row md:items-center md:justify-between">
-      <img :src="wordmark" alt="Marien" class="h-5 w-auto self-start md:self-auto" />
-      <ul class="flex flex-wrap gap-x-6 gap-y-2 text-ink-muted">
-        <li v-for="l in LINKS" :key="l.href"><a :href="l.href" class="transition-colors hover:text-ink">{{ l.label }}</a></li>
-      </ul>
-      <div class="flex items-center gap-4">
-        <LocaleSwitch />
-        <p class="text-ink-subtle">© {{ year }} Marien</p>
+    <div class="mx-auto max-w-7xl px-5 pt-12 pb-8 sm:px-8">
+      <div class="grid grid-cols-3 gap-x-6 gap-y-10 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
+        <div class="col-span-3 md:col-span-1">
+          <img :src="wordmark" alt="Marien" class="h-6 w-auto" />
+          <p class="mt-4 max-w-xs text-sm leading-relaxed text-ink-muted">{{ m.footer.tagline }}</p>
+        </div>
+        <div v-for="g in GROUPS" :key="g.title">
+          <p class="text-xs font-semibold uppercase tracking-wider text-ink-subtle">{{ g.title }}</p>
+          <ul class="mt-4 space-y-2.5 text-sm">
+            <li v-for="l in g.links" :key="l.href">
+              <a :href="l.href" class="text-ink-muted transition-colors hover:text-ink">{{ l.label }}</a>
+            </li>
+          </ul>
+        </div>
+      </div>
+      <div class="mt-12 flex flex-col-reverse gap-4 border-t border-line pt-6 text-sm sm:flex-row sm:items-center sm:justify-between">
+        <p class="text-ink-subtle">© {{ year }} Marien · marien.co.id</p>
+        <LocaleSwitch class="self-start sm:self-auto" />
       </div>
     </div>
   </footer>

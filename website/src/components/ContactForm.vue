@@ -96,9 +96,8 @@ const field = 'mt-1.5 block w-full rounded-lg bg-white px-4 py-3 text-base text-
           <span v-if="tried && errors.phone" class="mt-1 block text-sm text-red-600">{{ errors.phone }}</span>
         </label>
       </div>
-      <p class="mt-3 text-sm" :class="tried && errors.contact ? 'text-red-600' : 'text-ink-muted'">
-        {{ tried && errors.contact ? errors.contact : f.eitherHint }}
-      </p>
+      <!-- Only when neither was given: the form needs one way to reach the person. -->
+      <p v-if="tried && errors.contact" class="mt-3 text-sm text-red-600" role="alert">{{ errors.contact }}</p>
 
       <!-- Off screen and out of the tab order: only a bot fills it. -->
       <input v-model="trap" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" class="absolute -left-[9999px] h-px w-px opacity-0" />

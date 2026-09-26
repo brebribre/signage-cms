@@ -16,7 +16,7 @@ const en = {
   nav: {
     label: 'Site',
     menu: 'Menu',
-    links: { screens: 'Screens', content: 'Content', publish: 'Publish', platforms: 'Platforms', home: 'Home', features: 'Features', demo: 'Demo' },
+    links: { screens: 'Screens', content: 'Content', publish: 'Publish', platforms: 'Platforms', home: 'Home', features: 'Features', software: 'Software', demo: 'Demo' },
     signIn: 'Sign in',
     requestAccess: 'Request access',
   },
@@ -53,6 +53,17 @@ const en = {
     ],
   },
   /** The statement over the feature cards: the lead in ink, the rest in the brand gradient. */
+  /** The /software page: the three pieces of Marien, each with what it is for. */
+  software: {
+    metaTitle: 'Marien. Software',
+    lead: 'Software.',
+    rest: 'The CMS you run everything from, and a player on every screen.',
+    items: [
+      { name: 'Marien CMS', text: 'The control room. Manage every connected screen and publish content to it, from your phone, tablet or laptop.', link: 'Open Marien CMS', alt: 'Marien CMS on a laptop, showing the overview of every screen' },
+      { name: 'Marien Android Player', text: 'An app for Android devices: TV boxes, sticks and signage displays. It connects the screen to the CMS and plays what you publish.', link: 'Download for Android', alt: 'A screen running Marien Android Player, showing a cafeteria menu' },
+      { name: 'Marien Web Player', text: 'The same player for screens that aren’t Android, like smart TVs. It runs in the browser and connects to the CMS the same way.', link: 'Open the web player', alt: 'Marien Web Player in a browser, showing a lobby welcome' },
+    ],
+  },
   how: {
     lead: 'Set up your device',
     rest: 'and display your first content in less than 5 minutes.',
@@ -152,13 +163,20 @@ const en = {
     body: 'Leave your details and we’ll get in touch to set up your account.',
     cta: 'Request access',
     signIn: 'Sign in',
+    /** The page footer, under the closing card. */
+    tagline: 'Digital signage that runs itself.',
+    groups: { product: 'Product', resources: 'Resources', account: 'Account' },
+    links: {
+      features: 'Features', software: 'Software', demo: 'Demo', uses: 'Use cases',
+      docs: 'Documentation', android: 'Android player', web: 'Web player',
+      signIn: 'Sign in', requestAccess: 'Request access',
+    },
     form: {
       name: 'Name',
       company: 'Company',
       optional: '(optional)',
       email: 'Email',
       phone: 'Phone number',
-      eitherHint: 'An email or a phone number, whichever you prefer. At least one.',
       sending: 'Sending…',
       sentTitle: 'Thank you!',
       sentBody: 'We’ve got your request and will be in touch soon.',
