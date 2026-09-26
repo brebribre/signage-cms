@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
- * The home page's demo: a short silent recording of the CMS beside a real screen, from pairing
- * to deploying, in the same thin frosted bezel as the signage in the hero. It loops on its own
+ * The home page's demo: a short silent recording of the CMS beside a screen running the web
+ * player, from pairing to deploying, in the same thin frosted bezel as the signage in the hero. It loops on its own
  * like a moving picture, muted, and only while it's on screen; nothing is downloaded until a
  * visitor scrolls near it. A visitor who asked for less motion gets the still and the controls
  * instead, and plays it themselves.
@@ -36,8 +36,8 @@ onMounted(() => {
       <video
         ref="video"
         class="block aspect-video w-full bg-[#0b1a4a] shadow-[0_0_0_1px_rgba(0,24,77,0.12)]"
-        src="/media/demo-neat.mp4"
-        poster="/media/demo-neat-poster.webp"
+        src="/media/marien-demo-loop.mp4"
+        poster="/media/marien-demo-loop-poster.webp"
         :aria-label="m.seeDemo.videoLabel"
         :controls="still"
         muted

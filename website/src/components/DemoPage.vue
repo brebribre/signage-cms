@@ -1,9 +1,8 @@
 <script setup lang="ts">
 /**
- * The /demo page, reached from the hero's See demo button. The real thing, filmed: the CMS on a
- * laptop beside a TV on a desk, recorded at the same time, so every click on the left is seen
- * landing on the screen on the right. The video's own dark frame is the card's colour, so its
- * edges disappear into it.
+ * The /demo page, reached from the hero's See demo button. The real thing, recorded: the CMS
+ * beside a screen running the web player, captured together, so every click on the left is seen
+ * landing on the screen on the right — from a screen showing its code to it playing a playlist.
  */
 import { watchEffect } from 'vue'
 
@@ -28,8 +27,8 @@ watchEffect(() => { document.title = m.value.demo.metaTitle })
     <div class="reveal mx-auto mt-10 max-w-md overflow-hidden rounded-xl bg-[#111317] p-2 shadow-[0_40px_100px_-40px_rgba(0,24,77,0.45)] sm:hidden">
       <video
         class="block aspect-[9/16] w-full rounded-lg"
-        src="/media/paskall-demo-portrait.mp4"
-        poster="/media/paskall-demo-portrait-poster.webp"
+        src="/media/marien-demo-portrait.mp4"
+        poster="/media/marien-demo-portrait-poster.webp"
         :aria-label="m.demo.videoLabel"
         controls
         playsinline
@@ -38,9 +37,9 @@ watchEffect(() => { document.title = m.value.demo.metaTitle })
     </div>
     <div class="reveal mt-12 hidden overflow-hidden rounded-2xl bg-[#111317] p-3 shadow-[0_40px_100px_-40px_rgba(0,24,77,0.45)] sm:block">
       <video
-        class="block aspect-[1920/744] w-full rounded-xl"
-        src="/media/paskall-demo.mp4"
-        poster="/media/paskall-demo-poster.webp"
+        class="block aspect-video w-full rounded-xl"
+        src="/media/marien-demo.mp4"
+        poster="/media/marien-demo-poster.webp"
         :aria-label="m.demo.videoLabel"
         controls
         playsinline

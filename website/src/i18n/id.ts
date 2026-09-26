@@ -95,9 +95,9 @@ const id: Messages = {
   demo: {
     metaTitle: 'Marien. Demo',
     title: 'Menghubungkan Layar hingga Menayangkan Konten',
-    videoLabel: 'Demo: Marien CMS di laptop di samping TV yang berubah di setiap langkah',
+    videoLabel: 'Demo: Marien CMS di samping layar yang berubah di setiap langkah',
     left: 'Marien CMS',
-    right: 'Layar sungguhan',
+    right: 'Layarnya',
   },
   seeDemo: {
     title: 'Lihat Demo',

@@ -103,9 +103,9 @@ const en = {
   demo: {
     metaTitle: 'Marien. Demo',
     title: 'Connecting a Screen to Publishing Content',
-    videoLabel: 'Demo: the Marien CMS on a laptop beside a TV that changes as each step is done',
+    videoLabel: 'Demo: the Marien CMS beside a screen that changes as each step is done',
     left: 'Marien CMS',
-    right: 'The real screen',
+    right: 'The screen',
   },
   seeDemo: {
     title: 'See the Demo',
