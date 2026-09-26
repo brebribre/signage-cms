@@ -5,12 +5,12 @@
  *   resetting the account, or the main user making a sub account). Nothing else in the CMS
  *   works until this is done — the server refuses it — so whoever handed the password over
  *   never knows the one actually in use.
- * - `settings`: Settings → General, whenever someone wants a new one.
+ * - `settings`: Settings → General, whenever someone wants a new one. There the form sits behind
+ *   a Reset password button; on success it says `changed`, and the page closes it and says so.
  * The current password is always asked for. Every other session ends on success.
  */
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import IconCheck from '~icons/material-symbols/check'
 
 import { useAuth } from '@/hooks/useAuth'
 import AppAlert from '@/reusables/AppAlert.vue'
@@ -18,6 +18,7 @@ import AppButton from '@/reusables/AppButton.vue'
 import AppInput from '@/reusables/AppInput.vue'
 
 const props = defineProps<{ mode: 'first' | 'settings' }>()
+const emit = defineEmits<{ changed: [] }>()
 
 const router = useRouter()
 const route = useRoute()
@@ -26,7 +27,6 @@ const { user, changePassword, logout, isLoading, error } = useAuth()
 const current = ref('')
 const next = ref('')
 const confirm = ref('')
-const done = ref(false)
 
 /** Said before the server has to: the same rules it enforces. */
 const problem = computed(() => {
@@ -45,8 +45,7 @@ async function onSubmit() {
     return
   }
   current.value = next.value = confirm.value = ''
-  done.value = true
-  setTimeout(() => { done.value = false }, 4000)
+  emit('changed')
 }
 
 async function onLogout() {
@@ -86,10 +85,6 @@ async function onLogout() {
                  :loading="isLoading" :disabled="!ready">
         {{ mode === 'first' ? 'Save and continue' : 'Change password' }}
       </AppButton>
-      <span v-if="done" class="inline-flex items-center gap-1 text-[13px] text-ink-muted" role="status">
-        <IconCheck class="size-4 text-brand" aria-hidden="true" />
-        Password changed. Other devices are signed out.
-      </span>
       <button v-if="mode === 'first'" type="button" class="text-center text-[13px] text-ink-muted hover:text-ink" @click="onLogout">
         Log out instead
       </button>

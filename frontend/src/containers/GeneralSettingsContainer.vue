@@ -5,10 +5,11 @@
  * are the owner's; your own password and Log out, at the bottom, are everyone's — on a phone
  * they have no other home.
  */
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import IconLogout from '~icons/material-symbols/logout'
 import IconCheck from '~icons/material-symbols/check'
+import IconKey from '~icons/material-symbols/key-outline'
 
 import { useAccountSettings } from '@/hooks/useAccountSettings'
 import { useAuth } from '@/hooks/useAuth'
@@ -49,6 +50,29 @@ async function onLogout() {
     router.push({ name: 'login' })
   }
 }
+
+// --- Your own password: a button that opens the form, which closes itself once it's done ---
+
+const changingPassword = ref(false)
+const passwordChanged = ref(false)
+let changedTimer: ReturnType<typeof setTimeout> | undefined
+
+async function togglePassword() {
+  changingPassword.value = !changingPassword.value
+  passwordChanged.value = false
+  if (changingPassword.value) {
+    // Straight into the first field: opening the form is asking to type in it.
+    await nextTick()
+    document.getElementById('current-password')?.focus()
+  }
+}
+
+function onPasswordChanged() {
+  changingPassword.value = false
+  passwordChanged.value = true
+  clearTimeout(changedTimer)
+  changedTimer = setTimeout(() => (passwordChanged.value = false), 6000)
+}
 </script>
 
 <template>
@@ -68,12 +92,36 @@ async function onLogout() {
       </div>
     </div>
 
-    <!-- Everyone's: their own password, whatever their role. -->
-    <div class="flex flex-col gap-3 rounded-2xl bg-canvas px-4 py-4">
-      <p class="text-sm text-ink">Password</p>
-      <div class="max-w-sm">
-        <ChangePasswordContainer mode="settings" />
+    <!-- Everyone's: their own password, whatever their role. Closed until asked for — a form
+         that is always open reads as something to fill in. -->
+    <div class="rounded-2xl bg-canvas px-4 py-4">
+      <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <p class="text-sm text-ink sm:w-40 sm:shrink-0">Password</p>
+        <AppButton
+          :variant="changingPassword ? 'ghost' : 'secondary'"
+          size="sm"
+          :aria-expanded="changingPassword"
+          aria-controls="password-form"
+          @click="togglePassword"
+        >
+          <IconKey v-if="!changingPassword" class="size-4" aria-hidden="true" />
+          {{ changingPassword ? 'Cancel' : 'Reset password' }}
+        </AppButton>
+        <span v-if="passwordChanged" class="inline-flex items-center gap-1 text-[13px] text-ink-muted" role="status">
+          <IconCheck class="size-4 text-brand" aria-hidden="true" />
+          Password changed. Other devices are signed out.
+        </span>
       </div>
+      <Transition
+        enter-active-class="transition duration-200 ease-out motion-reduce:transition-none"
+        enter-from-class="opacity-0 -translate-y-1"
+        leave-active-class="transition duration-150 ease-in motion-reduce:transition-none"
+        leave-to-class="opacity-0 -translate-y-1"
+      >
+        <div v-if="changingPassword" id="password-form" class="mt-4 max-w-sm border-t border-line pt-4">
+          <ChangePasswordContainer mode="settings" @changed="onPasswordChanged" />
+        </div>
+      </Transition>
     </div>
 
     <AppButton variant="secondary" size="sm" class="mt-3 self-start" :loading="loggingOut" @click="onLogout">
