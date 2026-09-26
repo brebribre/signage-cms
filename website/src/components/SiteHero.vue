@@ -14,12 +14,12 @@ const { m } = useI18n()
 
     <div class="relative mx-auto max-w-7xl px-5 sm:px-8">
       <div class="max-w-5xl text-left">
-        <!-- One statement: the claim in ink, what it covers in brand blue, at the same size,
-             rather than a headline over small print. Blue rather than grey, which reads muddy
-             against the white and the wave. Flush left at every width, with the buttons under
-             it: full width and stacked on a phone, side by side from there up. -->
+        <!-- One statement: the claim in ink, what it covers in grey, at the same size, rather
+             than a headline over small print, the way every section below states itself.
+             Flush left at every width, with the buttons under it: full width and stacked on a
+             phone, side by side from there up. -->
         <h1 class="reveal text-[2.125rem] leading-[1.1] text-ink sm:text-5xl lg:text-6xl lg:leading-[1.05]">
-          {{ m.hero.title }} <span class="text-brand">{{ m.hero.subtitle }}</span>
+          {{ m.hero.title }} <span class="text-ink-muted">{{ m.hero.subtitle }}</span>
         </h1>
         <div class="reveal mt-9 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
           <a href="#contact" class="rounded-lg bg-action px-6 py-4 text-center text-base font-medium sm:py-3.5 sm:text-sm text-white transition-colors hover:bg-action-hover">
