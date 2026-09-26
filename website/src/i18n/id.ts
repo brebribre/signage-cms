@@ -45,8 +45,8 @@ const id: Messages = {
   },
   software: {
     metaTitle: 'Marien. Software',
-    lead: 'Software.',
-    rest: 'CMS untuk mengendalikan semuanya, dan player di setiap layar.',
+    cms: { lead: 'Marien CMS.', rest: 'Pusat kendali untuk semua layar Anda.' },
+    player: { lead: 'Marien Player.', rest: 'Terpasang di perangkat signage Anda.' },
     items: [
       { name: 'Marien CMS', text: 'Pusat kendali. Kelola setiap layar yang terhubung dan publikasikan konten ke sana, dari HP, tablet, atau laptop.', link: 'Buka Marien CMS', alt: 'Marien CMS di laptop, menampilkan ringkasan semua layar' },
       { name: 'Marien Android Player', text: 'Aplikasi untuk perangkat Android: TV box, stik TV, dan layar signage. Menghubungkan layar ke CMS dan menayangkan konten yang Anda publikasikan.', link: 'Unduh untuk Android', alt: 'Layar dengan Marien Android Player, menampilkan menu kafetaria' },

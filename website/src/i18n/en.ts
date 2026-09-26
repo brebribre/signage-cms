@@ -56,8 +56,8 @@ const en = {
   /** The /software page: the three pieces of Marien, each with what it is for. */
   software: {
     metaTitle: 'Marien. Software',
-    lead: 'Software.',
-    rest: 'The CMS you run everything from, and a player on every screen.',
+    cms: { lead: 'Marien CMS.', rest: 'The control room for all your screens.' },
+    player: { lead: 'Marien Player.', rest: 'Installed on your signage devices.' },
     items: [
       { name: 'Marien CMS', text: 'The control room. Manage every connected screen and publish content to it, from your phone, tablet or laptop.', link: 'Open Marien CMS', alt: 'Marien CMS on a laptop, showing the overview of every screen' },
       { name: 'Marien Android Player', text: 'An app for Android devices: TV boxes, sticks and signage displays. It connects the screen to the CMS and plays what you publish.', link: 'Download for Android', alt: 'A screen running Marien Android Player, showing a cafeteria menu' },
