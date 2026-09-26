@@ -137,3 +137,20 @@ input, textarea, select, button {
     touch-action: manipulation;
   }
 }
+
+/* The sign-in hero: the brand sweep and the hairline grain the marketing site puts behind its
+   blue card, so the first screen of the product looks like the page that sold it. Same values as
+   website/src/style.css's `.brand-sweep` and the grain on `.hero-wave`, deliberately copied
+   rather than shared — the two apps ship separately and a "fix" in one must not silently
+   restyle the other. Needs `relative` on the element: the grain is an overlay. */
+.auth-hero {
+  background: linear-gradient(to bottom right, #002f96, #0076dd);
+}
+.auth-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(112deg, rgba(255, 255, 255, 0.16) 0 1px, transparent 1px 7px);
+  mix-blend-mode: soft-light;
+  pointer-events: none;
+}

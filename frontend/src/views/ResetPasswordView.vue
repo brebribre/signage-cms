@@ -1,13 +1,10 @@
 <script setup lang="ts">
 import ResetPasswordContainer from '@/containers/ResetPasswordContainer.vue'
-import AppLogo from '@/reusables/AppLogo.vue'
+import AuthLayout from '@/reusables/AuthLayout.vue'
 </script>
 
 <template>
-  <div class="flex min-h-full items-center justify-center bg-canvas px-4 py-12">
-    <div class="w-full max-w-sm">
-      <AppLogo class="mb-8 block" />
-      <ResetPasswordContainer />
-    </div>
-  </div>
+  <AuthLayout>
+    <ResetPasswordContainer />
+  </AuthLayout>
 </template>
