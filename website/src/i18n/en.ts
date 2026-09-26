@@ -107,6 +107,10 @@ const en = {
     left: 'Paskall CMS',
     right: 'The real screen',
   },
+  seeDemo: {
+    title: 'See the Demo',
+    videoLabel: 'Demo: pairing a screen in the Paskall CMS and deploying to it, beside the screen itself',
+  },
   faq: {
     title: 'Frequently Asked Questions',
     more: 'Something else?',

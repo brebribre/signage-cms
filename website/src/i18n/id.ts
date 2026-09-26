@@ -99,6 +99,10 @@ const id: Messages = {
     left: 'Paskall CMS',
     right: 'Layar sungguhan',
   },
+  seeDemo: {
+    title: 'Lihat Demo',
+    videoLabel: 'Demo: menghubungkan layar di Paskall CMS lalu menayangkan konten, di samping layarnya',
+  },
   faq: {
     title: 'Pertanyaan yang Sering Diajukan',
     more: 'Ada pertanyaan lain?',
