@@ -35,6 +35,9 @@ class ReviewRead(BaseModel):
     # The change as sent — the Reviews page shows the parts worth reading (scene count,
     # rules) without a second request.
     payload: dict[str, Any]
+    # What the change replaces, as it was when sent — same shape as `payload`. None when there
+    # was nothing before it, or on reviews sent before this was kept.
+    before: dict[str, Any] | None = None
     note: str | None
     reviewed_by: uuid.UUID | None
     reviewed_at: datetime | None

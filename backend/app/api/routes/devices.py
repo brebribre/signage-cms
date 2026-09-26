@@ -176,6 +176,8 @@ def update_device(
         playlist = session.get(Playlist, body.playlist_id) if body.playlist_id else None
         if body.playlist_id and (playlist is None or playlist.account_id != user.account_id):
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Playlist not found")
+        # What it plays now, kept on the review as Before.
+        previous = session.get(Playlist, device.playlist_id) if device.playlist_id else None
         summary = (
             f"Screen “{device.name}”: play “{playlist.name}”" if playlist
             else f"Screen “{device.name}”: play nothing"
@@ -183,6 +185,10 @@ def update_device(
         return park(
             session, user=user, kind=ReviewKind.DEVICE_PLAYLIST, target_id=device.id,
             target_name=device.name, summary=summary, screens=[device.name], screen_ids=[device.id],
+            before={
+                "playlist_id": str(previous.id) if previous else None,
+                "playlist_name": previous.name if previous else None,
+            },
             playlists=[playlist.name] if playlist else [],
             payload={"playlist_id": str(body.playlist_id) if body.playlist_id else None,
                      "clear_playlist": body.clear_playlist},

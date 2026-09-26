@@ -516,6 +516,9 @@ export interface ReviewRead {
   playlists: string[]
   /** The change as sent — read for detail, never edited here. */
   payload: Record<string, unknown>
+  /** What the change replaces, as it was when sent — same shape as `payload`. Null when nothing
+   *  came before it (a new campaign), and on reviews sent before this was kept. */
+  before?: Record<string, unknown> | null
   /** The owner's reason on a rejection. */
   note: string | null
   reviewed_by: string | null

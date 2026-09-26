@@ -441,6 +441,31 @@ def screens_reached(session: Session, playlist_id: uuid.UUID) -> list[str]:
     return names
 
 
+def items_as_written(rows: SceneRows) -> list[dict]:
+    """A playlist's scenes in the shape a save sends them (schemas/playlists.py::ItemWrite, as
+    JSON) — so a review can keep the scenes a change replaces beside the ones it proposes."""
+    return [
+        {
+            "duration_seconds": item.duration_seconds,
+            "is_enabled": item.is_enabled,
+            "background": item.background.value if hasattr(item.background, "value") else item.background,
+            "background_color": item.background_color,
+            "elements": [
+                {
+                    "media_id": str(el.media_id) if el.media_id else None,
+                    "web_url": el.web_url, "text": el.text, "text_style": el.text_style,
+                    "z_index": el.z_index, "x": el.x, "y": el.y, "width": el.width, "height": el.height,
+                    "fit": el.fit.value if hasattr(el.fit, "value") else el.fit,
+                    "crop_x": el.crop_x, "crop_y": el.crop_y, "crop_zoom": el.crop_zoom,
+                    "has_audio": el.has_audio, "rotation_degrees": el.rotation_degrees,
+                }
+                for el, _media in elements
+            ],
+        }
+        for item, elements in rows
+    ]
+
+
 def device_ids_reached(session: Session, playlist_id: uuid.UUID) -> list[uuid.UUID]:
     """The same screens as `screens_reached`, by id — for a review to save what they look like."""
     from app.models import Schedule

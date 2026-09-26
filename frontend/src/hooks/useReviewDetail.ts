@@ -37,7 +37,8 @@ export function useReviewDetail(id: string, library: () => MediaRead[]) {
   const { refreshCount } = useReviewBadge()
 
   const review = ref<ReviewRead | null>(null)
-  const current = ref<DraftItem[] | null>(null)
+  /** The playlist as saved now — only fetched for a review that didn't keep its own Before. */
+  const liveCurrent = ref<DraftItem[] | null>(null)
   const currentName = ref<string | null>(null)
   /** A campaign change: the campaign as saved now. Null for a new one, or one deleted since. */
   const campaignBefore = ref<CampaignSide | null>(null)
@@ -53,15 +54,15 @@ export function useReviewDetail(id: string, library: () => MediaRead[]) {
     error.value = null
     try {
       review.value = await api.get(id)
-      if (review.value.kind === 'playlist_items' && review.value.target_id) {
-        // The saved playlist, for the Current side of the preview. Its absence (deleted since)
-        // is a fact the page shows, not a failure.
+      if (review.value.kind === 'playlist_items' && review.value.target_id && !review.value.before) {
+        // An older review kept no Before of its own: the saved playlist stands in. Its absence
+        // (deleted since) is a fact the page shows, not a failure.
         try {
           const saved = await playlists.get(review.value.target_id)
-          current.value = saved.items.map(readToDraft)
+          liveCurrent.value = saved.items.map(readToDraft)
           currentName.value = saved.name
         } catch {
-          current.value = null
+          liveCurrent.value = null
         }
       }
       if (CAMPAIGN_KINDS.has(review.value.kind)) await loadCampaign(review.value)
@@ -84,7 +85,11 @@ export function useReviewDetail(id: string, library: () => MediaRead[]) {
    *  the preview can switch rules without a wait. A playlist that fails to load is kept as a
    *  gap the page names, not a failure of the whole review. */
   async function loadCampaign(r: ReviewRead) {
-    if (r.kind !== 'campaign_create' && r.target_id) {
+    if (r.before) {
+      // The campaign as it was when the change was sent — still right after it is approved.
+      const b = r.before as Partial<CampaignSide>
+      campaignBefore.value = { name: b.name ?? r.target_name, device_ids: b.device_ids ?? [], rules: b.rules ?? [] }
+    } else if (r.kind !== 'campaign_create' && r.target_id) {
       try {
         const saved = await campaigns.get(r.target_id)
         campaignBefore.value = { name: saved.name, device_ids: saved.device_ids, rules: saved.rules }
@@ -115,17 +120,28 @@ export function useReviewDetail(id: string, library: () => MediaRead[]) {
   const proposed = computed<DraftItem[]>(() => {
     const r = review.value
     if (!r || r.kind !== 'playlist_items') return []
-    const items = (r.payload.items as ItemWrite[] | undefined) ?? []
+    return fromWritten((r.payload.items as ItemWrite[] | undefined) ?? [], 'proposed')
+  })
+
+  /** Before: the scenes the review kept when it was sent, or — for an older review that kept
+   *  none — the playlist as saved now. Null when neither exists. */
+  const current = computed<DraftItem[] | null>(() => {
+    const kept = review.value?.before?.items as ItemWrite[] | undefined
+    return kept ? fromWritten(kept, 'before') : liveCurrent.value
+  })
+
+  /** Scenes as a save sends them, turned into DraftItems against the media library. */
+  function fromWritten(items: ItemWrite[], prefix: string): DraftItem[] {
     const byId = new Map(library().map((m) => [m.id, m]))
     return items.map((item, i) => ({
-      key: `proposed-${i}`,
+      key: `${prefix}-${i}`,
       durationSeconds: item.duration_seconds ?? 10,
       isEnabled: item.is_enabled ?? true,
       background: item.background ?? 'black',
       backgroundColor: item.background_color ?? null,
-      elements: item.elements.map((el, j) => toDraft(el, byId, `proposed-${i}-${j}`)),
+      elements: item.elements.map((el, j) => toDraft(el, byId, `${prefix}-${i}-${j}`)),
     }))
-  })
+  }
 
   function toDraft(el: ElementWrite, byId: Map<string, MediaRead>, key: string) {
     const placement = {

@@ -149,6 +149,7 @@ def update_playlist(
                 summary=f"Shuffle {'on' if body.shuffle else 'off'} for playlist “{playlist.name}”",
                 screens=screens, playlists=[playlist.name], payload={"shuffle": body.shuffle},
                 screen_ids=playlist_service.device_ids_reached(session, playlist_id),
+                before={"shuffle": playlist.shuffle},
             )
     try:
         playlist_service.update(
@@ -210,7 +211,7 @@ def replace_items(
     """
     if needs_review(user):
         try:
-            playlist, _ = playlist_service.get_with_items(session, user=user, playlist_id=playlist_id)
+            playlist, rows = playlist_service.get_with_items(session, user=user, playlist_id=playlist_id)
         except PlaylistNotFound:
             raise NOT_FOUND from None
         screens = playlist_service.screens_reached(session, playlist_id)
@@ -222,6 +223,7 @@ def replace_items(
                 summary=f"{n} scene{'' if n == 1 else 's'} in playlist “{playlist.name}”",
                 screens=screens, playlists=[playlist.name], payload=body.model_dump(mode="json"),
                 screen_ids=playlist_service.device_ids_reached(session, playlist_id),
+                before={"items": playlist_service.items_as_written(rows)},
             )
     try:
         playlist, rows = playlist_service.replace_items(

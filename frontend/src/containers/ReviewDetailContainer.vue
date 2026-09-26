@@ -197,11 +197,13 @@ async function confirmReject() {
       />
 
       <div v-else-if="review.kind === 'playlist_shuffle'" class="rounded-xl bg-surface p-3 text-sm text-ink">
-        Shuffle {{ review.payload.shuffle ? 'on' : 'off' }} for “{{ review.target_name }}”. The scenes stay the same; only their order on screen changes.
+        Shuffle {{ review.payload.shuffle ? 'on' : 'off' }} for “{{ review.target_name }}”<template v-if="review.before"> (it was {{ review.before.shuffle ? 'on' : 'off' }})</template>.
+        The scenes stay the same; only their order on screen changes.
       </div>
 
       <div v-else-if="review.kind === 'device_playlist'" class="rounded-xl bg-surface p-3 text-sm text-ink">
-        Screen “{{ review.target_name }}” will {{ devicePayload.clear_playlist || !devicePayload.playlist_id ? 'play nothing by default' : `play “${playlistName(devicePayload.playlist_id)}” by default` }}.
+        Screen “{{ review.target_name }}” will {{ devicePayload.clear_playlist || !devicePayload.playlist_id ? 'play nothing by default' : `play “${playlistName(devicePayload.playlist_id)}” by default` }}<template v-if="review.before">,
+          instead of {{ review.before.playlist_name ? `“${review.before.playlist_name}”` : 'nothing' }}</template>.
       </div>
 
       <div v-else class="rounded-xl bg-surface p-3 text-sm text-ink">

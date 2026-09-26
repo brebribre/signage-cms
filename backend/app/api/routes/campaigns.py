@@ -69,6 +69,16 @@ def list_campaigns(user: CurrentUser, session: DbSession) -> list[CampaignSummar
     return [_summarize(session, c) for c in campaign_service.list_campaigns(session, user=user)]
 
 
+def _as_written(session: DbSession, campaign) -> dict:
+    """The campaign as saved now, in the shape a save sends it — what a review keeps as Before."""
+    read = _read(session, campaign)
+    return {
+        "name": read.name,
+        "device_ids": [str(i) for i in read.device_ids],
+        "rules": [r.model_dump(mode="json") for r in read.rules],
+    }
+
+
 def _campaign_summary(body: CampaignWrite, session: DbSession, user) -> tuple[str, list[str]]:
     screens = device_names(
         session, account_id=user.account_id,
@@ -136,6 +146,7 @@ def update_campaign(
                 session, user=user, kind=ReviewKind.CAMPAIGN_UPDATE, target_id=campaign_id,
                 target_name=campaign.name, summary=summary,
                 screens=list(dict.fromkeys(screens + leaving)),
+                before=_as_written(session, campaign),
                 screen_ids=[
                     *campaign_service.reachable_device_ids(session, user=user, device_ids=body.device_ids),
                     *campaign_service.device_ids_for(session, campaign_id=campaign_id),
@@ -174,6 +185,7 @@ def delete_campaign(campaign_id: uuid.UUID, user: CurrentUser, session: DbSessio
             target_name=campaign.name, summary=f"Delete campaign “{campaign.name}”",
             screens=screens,
             screen_ids=campaign_service.device_ids_for(session, campaign_id=campaign_id),
+            before=_as_written(session, campaign),
             playlists=playlist_names(
                 session, account_id=user.account_id,
                 playlist_ids=[r.playlist_id for r in campaign_service.rules_for(session, campaign_id=campaign_id)],

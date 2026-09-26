@@ -69,6 +69,13 @@ class ContentReview(SQLModel, table=True):
     screen_specs: list[dict[str, Any]] = Field(
         default_factory=list, sa_column=Column(JSON, nullable=False, server_default="[]")
     )
+    # What the change replaces, as it was when the review was sent, in the same shape as
+    # `payload` — so Before still shows the old version after the change is approved, or after
+    # the playlist or campaign is edited again. {"items": [...]} for a playlist change, the
+    # campaign's {"name", "device_ids", "rules"} for a campaign change or removal, {"shuffle"}
+    # for shuffle, {"playlist_id", "playlist_name"} for a screen's default playlist. None for a
+    # new campaign or schedule change, and on reviews sent before this was kept.
+    before: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON, nullable=True))
     # Playlist names the change touches — the one being edited, or the ones a campaign or
     # schedule puts on screens — as they were when it was sent. The list page shows both.
     playlists: list[str] = Field(default_factory=list, sa_column=Column(JSON, nullable=False, server_default="[]"))

@@ -6,7 +6,7 @@
  * went. One page for both, because the question is the same from either side — "what is
  * waiting, and what happened to it".
  *
- * Tabs by status, with counts, and the list under them grouped by the day each change was sent,
+ * Filter chips by status, with counts, and the list under them grouped by the day each change was sent,
  * newest first — an approvals inbox. It opens on Waiting whenever anything is waiting, since that
  * is the part asking for someone. A line is a way in, not a place to decide: Approve, Reject and
  * Withdraw live on the review's own page, after the change has been seen (ReviewRow).
@@ -16,8 +16,8 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useAuth } from '@/hooks/useAuth'
 import { useReviews } from '@/hooks/useReviews'
 import AppAlert from '@/reusables/AppAlert.vue'
-import AppTabs from '@/reusables/AppTabs.vue'
 import EmptyState from '@/reusables/EmptyState.vue'
+import FilterChip from '@/reusables/FilterChip.vue'
 import ListRowSkeleton from '@/reusables/ListRowSkeleton.vue'
 import PageTitle from '@/reusables/PageTitle.vue'
 import ReviewRow from '@/reusables/ReviewRow.vue'
@@ -32,13 +32,18 @@ const { items, pending, isLoading, error, refresh } = useReviews()
 type Filter = ReviewStatus | 'all'
 const filter = ref<Filter>('pending')
 const count = (s: ReviewStatus) => items.value.filter((r) => r.status === s).length
-const tabs = computed(() => [
-  { value: 'pending', label: 'Waiting', badge: pending.value.length },
-  { value: 'approved', label: 'Approved', badge: count('approved') },
-  { value: 'rejected', label: 'Rejected', badge: count('rejected') },
-  { value: 'withdrawn', label: 'Withdrawn', badge: count('withdrawn') },
-  { value: 'all', label: 'All', badge: items.value.length },
-])
+/** Chips, not tabs: five tabs with counts don't fit a phone, and the rest of the CMS filters its
+ *  lists (Media, Screens) with these. A status nothing is in isn't offered — except Waiting,
+ *  which is always there to say "nothing is waiting", and the one already chosen. */
+const chips = computed(() =>
+  [
+    { value: 'all' as Filter, label: 'All', count: items.value.length },
+    { value: 'pending' as Filter, label: 'Waiting', count: pending.value.length },
+    { value: 'approved' as Filter, label: 'Approved', count: count('approved') },
+    { value: 'rejected' as Filter, label: 'Rejected', count: count('rejected') },
+    { value: 'withdrawn' as Filter, label: 'Withdrawn', count: count('withdrawn') },
+  ].filter((c) => c.count > 0 || c.value === 'pending' || c.value === 'all' || c.value === filter.value),
+)
 
 /** Once, after the first load: nothing waiting means there is nothing to land on under Waiting,
  *  so the page opens on everything instead. */
@@ -121,7 +126,18 @@ onMounted(refresh)
     />
 
     <template v-else>
-      <AppTabs :items="tabs" :model-value="filter" @update:model-value="filter = $event as Filter" />
+      <!-- One line that scrolls sideways on a narrow phone rather than wrapping. -->
+      <div class="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden" role="group" aria-label="Filter reviews">
+        <FilterChip
+          v-for="c in chips"
+          :key="c.value"
+          class="shrink-0 whitespace-nowrap"
+          :active="filter === c.value"
+          :count="c.count"
+          :aria-pressed="filter === c.value"
+          @click="filter = c.value"
+        >{{ c.label }}</FilterChip>
+      </div>
 
       <p v-if="!groups.length" class="rounded-2xl bg-canvas px-4 py-10 text-center text-sm text-ink-muted">
         {{ emptyText }}

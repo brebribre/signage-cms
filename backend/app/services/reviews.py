@@ -45,6 +45,7 @@ def submit(
     payload: dict[str, Any],
     playlists: list[str] | None = None,
     screen_specs: list[dict[str, Any]] | None = None,
+    before: dict[str, Any] | None = None,
 ) -> ContentReview:
     review = ContentReview(
         account_id=user.account_id,
@@ -56,6 +57,7 @@ def submit(
         summary=summary,
         screens=screens,
         screen_specs=screen_specs or [],
+        before=before,
         playlists=playlists or [],
         payload=payload,
     )

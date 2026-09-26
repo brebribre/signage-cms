@@ -37,13 +37,16 @@ def park(
     payload: dict[str, Any],
     playlists: list[str] | None = None,
     screen_ids: Iterable[uuid.UUID] = (),
+    before: dict[str, Any] | None = None,
 ) -> JSONResponse:
     """`screen_ids` are the screens the change reaches — the same ones `screens` names — saved
-    with their size and orientation so the review can preview them later (screen_specs)."""
+    with their size and orientation so the review can preview them later (screen_specs).
+    `before` is what the change replaces, as it is now, in the same shape as `payload`."""
     review = review_service.submit(
         session, user=user, kind=kind, target_id=target_id, target_name=target_name,
         summary=summary, screens=screens, payload=payload, playlists=playlists,
         screen_specs=screen_specs(session, account_id=user.account_id, device_ids=screen_ids),
+        before=before,
     )
     body = PendingReview(pending_review=read(review))
     return JSONResponse(status_code=202, content=body.model_dump(mode="json"))
